@@ -1,8 +1,10 @@
-# Work Recipes - Dynamic Scaffolding Implementation
+# Work Recipes - Integrated Architecture Implementation
 
 **Date**: 2025-11-23
-**Status**: Phase 1 Foundation Complete (Backend Core Ready)
-**Next**: ReportingAgentSDK Integration + Frontend Discussion
+**Status**: ✅ BACKEND COMPLETE - Frontend Implementation Starting
+**Commit**: 69070103 (pushed to main)
+
+**Architecture**: Recipes-Only, Fully Integrated into Work Requests
 
 ---
 
@@ -42,239 +44,127 @@ context = loader.generate_execution_context(recipe, validated)
 recipes = await loader.list_active_recipes(agent_type="reporting")
 ```
 
-### 3. Work Recipes API
+### 3. Recipe Discovery API
 **File**: `work-platform/api/src/app/routes/work_recipes.py`
 
-**Endpoints**:
+**Endpoints** (Discovery Only):
 1. `GET /api/work/recipes` - List active recipes (with filters)
 2. `GET /api/work/recipes/{slug}` - Get recipe details
-3. `POST /api/work/recipes/{slug}/execute` - Execute recipe-driven work request
 
-**Execution Flow**:
-1. Load recipe + validate parameters
-2. Create work_request with recipe linkage
-3. Load WorkBundle (substrate_blocks + reference_assets)
-4. Generate execution context from recipe template
-5. Execute agent (ReportingAgentSDK)
+**Purpose**: Frontend recipe gallery and parameter form generation
+
+### 4. Integrated Workflow Endpoint
+**File**: `work-platform/api/src/app/routes/workflow_reporting.py`
+
+**Endpoint**: `POST /api/work/reporting/execute`
+
+**Execution Flow** (Recipe-Driven):
+1. Load recipe by ID/slug + validate parameters (RecipeLoader)
+2. Generate execution context from recipe template
+3. Create work_request with recipe linkage
+4. Load WorkBundle (substrate_blocks + reference_assets)
+5. Execute ReportingAgentSDK.execute_recipe() with context
 6. Return structured outputs
 
----
-
-## ⏳ REMAINING WORK
-
-### 1. ReportingAgentSDK Integration
-**File to Modify**: `work-platform/api/src/agents_sdk/reporting_agent_sdk.py`
-
-**Required**: Add `execute_recipe()` method
-
-```python
-async def execute_recipe(
-    self,
-    recipe_context: Dict[str, Any],
-    claude_session_id: Optional[str] = None
-) -> Dict[str, Any]:
-    """
-    Execute recipe-driven report generation.
-
-    Args:
-        recipe_context: Execution context from RecipeLoader
-          - system_prompt_additions
-          - task_breakdown
-          - validation_instructions
-          - output_specification
-          - deliverable_intent
-        claude_session_id: Resume session if available
-
-    Returns:
-        {
-            "output_count": int,
-            "work_outputs": List[dict],
-            "validation_results": dict
-        }
-    """
-    # 1. Build system prompt (base + recipe additions)
-    system_prompt = REPORTING_AGENT_SYSTEM_PROMPT + "\n\n" + \
-                    recipe_context["system_prompt_additions"]
-
-    # 2. Build user prompt from task_breakdown
-    task_instructions = "\n".join([
-        f"{i+1}. {task}"
-        for i, task in enumerate(recipe_context["task_breakdown"])
-    ])
-
-    user_prompt = f"""
-{recipe_context["deliverable_intent"]["purpose"]}
-
-Task Breakdown:
-{task_instructions}
-
-Validation Requirements:
-{recipe_context["validation_instructions"]}
-
-Expected Output:
-- Format: {recipe_context["output_specification"]["format"]}
-- Required Sections: {recipe_context["output_specification"]["required_sections"]}
-
-Execute this recipe and emit work_output with validation metadata.
-"""
-
-    # 3. Execute via ClaudeSDKClient (same pattern as deep_dive)
-    async with ClaudeSDKClient(options=self._options) as client:
-        result = await client.create_session(
-            system_prompt=system_prompt,
-            initial_message=user_prompt,
-            session_id=claude_session_id,  # Resume if available
-        )
-
-    # 4. Collect work_outputs emitted by agent
-    outputs = []  # Extract from result.tool_uses (emit_work_output calls)
-
-    # 5. Validate outputs against recipe output_specification
-    validation_results = self._validate_recipe_outputs(
-        outputs, recipe_context["output_specification"]
-    )
-
-    return {
-        "output_count": len(outputs),
-        "work_outputs": outputs,
-        "validation_results": validation_results
-    }
+**Request Format**:
+```json
+{
+  "basket_id": "uuid",
+  "task_description": "Brief description",
+  "recipe_id": "executive-summary-deck",
+  "recipe_parameters": {
+    "slide_count": 5,
+    "focus_area": "Q4 highlights"
+  },
+  "reference_asset_ids": []
+}
 ```
 
-**Validation Helper**:
-```python
-def _validate_recipe_outputs(
-    self,
-    outputs: List[dict],
-    output_spec: Dict[str, Any]
-) -> Dict[str, Any]:
-    """Validate outputs against recipe specification."""
-    validation = {"passed": True, "errors": []}
+### 5. ReportingAgentSDK Integration ✅
+**File**: `work-platform/api/src/agents_sdk/reporting_agent_sdk.py`
 
-    # Check format
-    expected_format = output_spec.get("format")
-    # Check required sections
-    # Check slide count (for PPTX)
-    # etc.
+**Implemented**: `execute_recipe()` method
 
-    return validation
-```
-
-### 2. Register Router in agent_server.py
-**File**: `work-platform/api/src/app/agent_server.py`
-
-**Add**:
-```python
-from .routes.work_recipes import router as work_recipes_router
-
-routers = (
-    # ... existing routers ...
-    work_recipes_router,  # ADD THIS
-)
-```
-
-### 3. Test E2E (Backend)
-Create test similar to `test_workflows.py`:
-
-```bash
-curl -X POST 'http://localhost:10000/api/work/recipes/executive-summary-deck/execute' \
-  -H "Authorization: Bearer $JWT" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "basket_id": "uuid",
-    "recipe_parameters": {
-      "slide_count": 5,
-      "focus_area": "Q4 performance highlights"
-    },
-    "reference_asset_ids": []
-  }'
-```
-
-### 4. Update TERMINOLOGY_GLOSSARY.md
-Add work_recipes definition:
-
-```markdown
-## Work Recipes (Phase 1 - 2025-11-23)
-
-**Problem**: Need deterministic, cost-efficient work execution with bounded flexibility.
-
-| Term | Implementation | Purpose |
-|------|----------------|---------|
-| **Work Recipes** | `work_recipes` table (JSONB) | Predefined executable patterns with parameterized configuration |
-| **Configurable Parameters** | JSONB schema (range, text, multi-select) | User customization within bounds |
-| **Execution Template** | JSONB (system_prompt_additions, task_breakdown) | Agent instructions with parameter interpolation |
-| **Output Specification** | JSONB (format, required_sections, validation_rules) | Deterministic output validation |
-
-**Key Insight**: Recipes define WHAT can be customized, users provide values within bounds, agents execute with complete instructions.
-```
-
-### 5. Frontend Integration (Separate Discussion)
-**Requirements Doc to Create**: `FRONTEND_WORK_RECIPES_INTEGRATION.md`
-
-**UI Flows**:
-1. Recipe Selection Page
-   - List recipes (GET /api/work/recipes)
-   - Display: name, description, estimates
-   - Filter by category/agent_type
-
-2. Recipe Configuration Page
-   - Show configurable_parameters
-   - Render input controls based on parameter type:
-     - range → slider
-     - text → text input
-     - multi-select → checkboxes
-   - Optional: reference asset upload
-
-3. Execution & Results
-   - Submit to /api/work/recipes/{slug}/execute
-   - Show progress (work_ticket status)
-   - Display outputs when complete
+**Purpose**: Executes recipe-driven report generation with parameter-interpolated instructions
 
 ---
 
-## 📦 FILES CREATED
+## 🎯 NEXT: FRONTEND IMPLEMENTATION
 
-1. **Migration**: `supabase/migrations/20251123_work_recipes_dynamic_scaffolding.sql` ✅ Applied
-2. **Service**: `work-platform/api/src/services/recipe_loader.py` ✅ Complete
-3. **API**: `work-platform/api/src/app/routes/work_recipes.py` ✅ Complete
-4. **Status Doc**: `WORK_RECIPES_IMPLEMENTATION_STATUS.md` (this file)
+**Architecture Decision**: Recipes-Only, No Free-Form Path
+
+### Frontend Implementation Plan
+
+**1. Overview Page Redesign**
+- Remove individual action buttons from agent cards
+- Add single top-right "+ New Work" button
+- Purpose: Simplify entry point, direct users to recipe gallery
+
+**2. Recipe Gallery Page**
+- **Route**: `/work/new` (opened by "+ New Work" button)
+- **API**: `GET /api/work/recipes`
+- **Display**: Recipe cards with:
+  - Recipe name, description, category
+  - Estimated duration & cost
+  - Agent type icon
+  - "Configure" button
+- **Filters**: By agent_type, category
+
+**3. Recipe Configuration Page**
+- **Route**: `/work/new/recipe/:slug`
+- **API**: `GET /api/work/recipes/:slug` (fetch recipe details)
+- **Dynamic Parameter Form**: Render inputs based on `configurable_parameters`:
+  - `type: "range"` → Slider with min/max labels
+  - `type: "text"` → Text input with character counter
+  - `type: "multi-select"` → Checkbox group
+- **Optional**: Reference asset upload (drag-drop)
+- **Submit**: `POST /api/work/reporting/execute` with recipe_id + parameters
+
+**4. Execution & Results**
+- Show real-time work_ticket status
+- Display work_outputs when complete
+- Link to work request history
 
 ---
 
-## 🎯 NEXT IMMEDIATE STEPS
+## 📦 FILES CREATED/MODIFIED
 
-1. Add `execute_recipe()` to ReportingAgentSDK (15 min)
-2. Register work_recipes_router in agent_server.py (2 min)
-3. Test E2E execution (10 min)
-4. Commit + push (5 min)
-5. Frontend integration discussion (separate session)
+**Backend Complete**:
+1. `supabase/migrations/20251123_work_recipes_dynamic_scaffolding.sql` - Database schema ✅
+2. `work-platform/api/src/services/recipe_loader.py` - Recipe validation & context generation ✅
+3. `work-platform/api/src/app/routes/work_recipes.py` - Discovery API (streamlined to 132 lines) ✅
+4. `work-platform/api/src/app/routes/workflow_reporting.py` - Integrated execution endpoint ✅
+5. `work-platform/api/src/agents_sdk/reporting_agent_sdk.py` - execute_recipe() method ✅
+6. `work-platform/api/src/app/agent_server.py` - Router registration ✅
 
----
-
-## 🚀 DEPLOYMENT NOTES
-
-**Pre-Users**: Can deploy directly to main with flexibility
-**Migration Applied**: Database ready in production
-**No Breaking Changes**: Additive only (recipe_id optional in work_requests)
-**Backward Compatible**: Existing workflows unaffected
+**Frontend TODO**:
+1. Recipe gallery component
+2. Dynamic parameter form component
+3. Overview page redesign (single "+ New Work" button)
+4. Recipe execution flow integration
 
 ---
 
 ## 💡 ARCHITECTURE DECISIONS
 
-**Why Parameterized Recipes (Not Fully Dynamic)**:
-- ✅ Bounded flexibility = predictable costs/time
-- ✅ Validation against schema = quality floor
-- ✅ Parameter interpolation = execution clarity
-- ✅ Room to grow = can add more recipes over time
+**Why Integrated (Not Separate Domain)**:
+- ✅ Single execution path = simpler mental model
+- ✅ Recipes enhance workflows, don't replace them
+- ✅ Less code to maintain (no duplicate logic)
+- ✅ Recipe-only commitment = clear user experience
+
+**Why Recipes-Only (No Free-Form Path)**:
+- ✅ Bounded costs & time = predictable user experience
+- ✅ Quality floor via validation
+- ✅ Easier to scale (template approach)
+- ✅ Room to grow = add more recipes over time
 
 **Why JSONB Over Separate Tables**:
 - ✅ Faster iteration (no migration per recipe tweak)
 - ✅ Flexible schema evolution
 - ✅ Single source of truth per recipe
-- ❌ Trade-off: No relational constraints on parameters
 
-**Why Recipe-First (Not Agent-First)**:
+**Why Recipe-First UX (Not Agent-First)**:
 - ✅ User selects WHAT they want (outcome-focused)
 - ✅ System determines HOW to execute (agent abstracted)
 - ✅ Future: Multi-agent recipes (research → reporting flow)
