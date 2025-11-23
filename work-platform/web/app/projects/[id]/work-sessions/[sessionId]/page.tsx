@@ -1,10 +1,13 @@
 /**
- * Page: /projects/[id]/work-sessions/[sessionId] - Work Session Detail
+ * Page: /projects/[id]/work-sessions/[sessionId] - Work Ticket Detail
  *
- * Shows detailed information about a specific work session including:
- * - Status and metadata
- * - Task description
- * - Results/artifacts (when completed)
+ * Phase 2e: Displays work_tickets (execution tracking) and work_outputs (results)
+ *
+ * Shows detailed information including:
+ * - Work ticket status and metadata
+ * - Work request details (intent, recipe if used)
+ * - Agent session information
+ * - Work outputs (when completed)
  * - Error messages (if failed)
  */
 import { cookies } from "next/headers";
@@ -25,7 +28,7 @@ import {
   AlertCircle,
 } from 'lucide-react';
 import WorkSessionExecutor from './WorkSessionExecutor';
-import ArtifactList from './ArtifactList';
+import ArtifactList from './ArtifactList';  // TODO: Rename to WorkOutputList
 
 interface PageProps {
   params: Promise<{ id: string; sessionId: string }>;
@@ -37,10 +40,10 @@ export default async function WorkSessionDetailPage({ params }: PageProps) {
   const supabase = createServerComponentClient({ cookies });
   const { userId } = await getAuthenticatedUser(supabase);
 
-  // Fetch session details via BFF
+  // Fetch work ticket details via BFF (Phase 2e: work_tickets + work_outputs)
   let session: any = null;
   let error: string | null = null;
-  let artifacts: any[] = [];
+  let workOutputs: any[] = [];  // Phase 2e: work_outputs not artifacts
 
   try {
     const response = await fetch(
@@ -56,11 +59,11 @@ export default async function WorkSessionDetailPage({ params }: PageProps) {
     if (response.ok) {
       session = await response.json();
 
-      // Fetch artifacts if session is completed
+      // Fetch work outputs if session is completed (Phase 2e terminology)
       if (session.status === 'completed') {
         try {
-          const artifactsResponse = await fetch(
-            `${process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'}/api/projects/${projectId}/work-sessions/${sessionId}/artifacts`,
+          const outputsResponse = await fetch(
+            `${process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'}/api/projects/${projectId}/work-sessions/${sessionId}/artifacts`,  // TODO: Rename endpoint to /outputs
             {
               headers: {
                 Cookie: (await cookies()).toString(),
@@ -69,22 +72,22 @@ export default async function WorkSessionDetailPage({ params }: PageProps) {
             }
           );
 
-          if (artifactsResponse.ok) {
-            artifacts = await artifactsResponse.json();
+          if (outputsResponse.ok) {
+            workOutputs = await outputsResponse.json();
           }
-        } catch (artifactErr) {
-          console.error(`[Work Session Artifacts] Error:`, artifactErr);
-          // Don't fail the whole page if artifacts fail
+        } catch (outputErr) {
+          console.error(`[Work Outputs] Error:`, outputErr);
+          // Don't fail the whole page if outputs fail
         }
       }
     } else if (response.status === 404) {
-      error = 'Work session not found';
+      error = 'Work ticket not found';
     } else {
-      error = 'Failed to load work session';
+      error = 'Failed to load work ticket';
     }
   } catch (err) {
-    console.error(`[Work Session Detail] Error:`, err);
-    error = 'Failed to load work session';
+    console.error(`[Work Ticket Detail] Error:`, err);
+    error = 'Failed to load work ticket';
   }
 
   if (error || !session) {
@@ -126,9 +129,9 @@ export default async function WorkSessionDetailPage({ params }: PageProps) {
         </div>
       </div>
 
-      {/* Session Metadata */}
+      {/* Work Ticket Metadata (Phase 2e Schema) */}
       <Card className="p-6">
-        <h2 className="text-lg font-semibold text-foreground mb-4">Session Information</h2>
+        <h2 className="text-lg font-semibold text-foreground mb-4">Work Ticket Information</h2>
         <div className="grid gap-4 md:grid-cols-2">
           <InfoItem label="Agent" value={session.agent_display_name} icon={<Zap className="h-4 w-4" />} />
           <InfoItem label="Agent Type" value={session.agent_type} />
@@ -137,7 +140,9 @@ export default async function WorkSessionDetailPage({ params }: PageProps) {
             <InfoItem label="Completed" value={new Date(session.completed_at).toLocaleString()} icon={<CheckCircle className="h-4 w-4" />} />
           )}
           <InfoItem label="Priority" value={session.priority} />
-          <InfoItem label="Task Type" value={session.task_type} />
+          {session.work_request_id && (
+            <InfoItem label="Work Request ID" value={session.work_request_id.substring(0, 8)} />
+          )}
         </div>
       </Card>
 
@@ -162,17 +167,17 @@ export default async function WorkSessionDetailPage({ params }: PageProps) {
         projectId={projectId}
         sessionId={sessionId}
         initialStatus={session.status}
-        initialArtifactsCount={session.artifacts_count || 0}
+        initialArtifactsCount={session.outputs_count || 0}  {/* Phase 2e: outputs_count */}
       />
 
-      {/* Artifacts Viewer */}
+      {/* Work Outputs Viewer (Phase 2e: work_outputs table) */}
       {session.status === 'completed' && (
         <div className="space-y-4">
           <h2 className="text-lg font-semibold text-foreground flex items-center gap-2">
             <FileText className="h-5 w-5" />
-            Artifacts & Results
+            Work Outputs & Results
           </h2>
-          <ArtifactList artifacts={artifacts} />
+          <ArtifactList artifacts={workOutputs} />  {/* TODO: Rename component to WorkOutputList */}
         </div>
       )}
     </div>
