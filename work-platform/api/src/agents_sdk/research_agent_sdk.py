@@ -183,6 +183,7 @@ class ResearchAgentSDK:
         # Build Claude SDK options with MCP server
         # NOTE: Official SDK v0.1.8+ does NOT have 'tools' parameter
         # Must use mcp_servers + allowed_tools pattern
+        # Note: max_tokens is controlled at ClaudeSDKClient.chat() level, not here
         self._options = ClaudeAgentOptions(
             model=self.model,
             system_prompt=self._build_system_prompt(),
@@ -191,7 +192,6 @@ class ResearchAgentSDK:
                 "mcp__shared_tools__emit_work_output",  # Custom tool for structured outputs
                 "web_search"  # Built-in web search
             ],
-            max_tokens=8000,  # Longer for research deep dives
         )
 
         logger.info(

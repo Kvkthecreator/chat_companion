@@ -228,7 +228,7 @@ class ReportingAgentSDK:
                 "code_execution"  # For data processing and charts
             ],
             setting_sources=["user", "project"],  # Required for Skills to work
-            max_tokens=8000,  # Reports can be longer
+            # Note: max_tokens is controlled at ClaudeSDKClient.chat() level, not here
         )
 
         logger.info(

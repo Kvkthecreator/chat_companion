@@ -347,13 +347,13 @@ class ContentAgentSDK:
         # Build Claude SDK options with subagents and MCP server
         # NOTE: Official SDK v0.1.8+ does NOT have 'tools' parameter
         # Must use mcp_servers + allowed_tools pattern
+        # Note: max_tokens is controlled at ClaudeSDKClient.chat() level, not here
         self._options = ClaudeAgentOptions(
             model=self.model,
             system_prompt=self._build_system_prompt(),
             agents=subagents,  # Native subagents!
             mcp_servers={"shared_tools": shared_tools},
             allowed_tools=["mcp__shared_tools__emit_work_output"],
-            max_tokens=4096,  # Text content only
         )
 
         logger.info(
