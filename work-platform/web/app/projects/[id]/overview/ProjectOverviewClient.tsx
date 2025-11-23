@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
-import { Plus, Zap, CheckCircle2 } from 'lucide-react';
+import { Plus, Zap, CheckCircle2, BookOpen } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import CreateWorkRequestModal from '@/components/CreateWorkRequestModal';
 import { formatDistanceToNow } from 'date-fns';
@@ -153,22 +153,35 @@ export function ProjectOverviewClient({ project }: ProjectOverviewClientProps) {
                       </p>
                     ) : null}
                   </div>
-                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                    <span className="text-xs text-muted-foreground">{getAgentQuickActionHint(agent.agent_type)}</span>
+                  <div className="flex flex-col gap-2">
+                    {/* Browse Recipes Button */}
+                    {agent.is_active && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="w-full gap-2"
+                        onClick={() => router.push(`/projects/${project.id}/agents/${agent.agent_type}/recipes`)}
+                      >
+                        <BookOpen className="h-4 w-4" />
+                        Browse Recipes
+                      </Button>
+                    )}
+
+                    {/* Legacy Actions */}
                     <div className="flex gap-2 flex-wrap">
                       <Button
                         size="sm"
                         variant="ghost"
                         disabled={!agent.is_active}
                         onClick={() => router.push(`/projects/${project.id}/agents/${agent.agent_type}`)}
-                        className="text-xs"
+                        className="text-xs flex-1"
                       >
                         Manage
                       </Button>
                       <Button
                         size="sm"
                         variant="secondary"
-                        className="gap-2"
+                        className="gap-2 flex-1"
                         disabled={!agent.is_active}
                         onClick={() => handleAgentClick(agent.id)}
                       >
