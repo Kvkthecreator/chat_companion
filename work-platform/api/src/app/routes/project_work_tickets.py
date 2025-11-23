@@ -270,6 +270,11 @@ async def create_project_work_ticket(
         # ================================================================
         # Note: Using new work_requests table (not legacy agent_work_requests)
         # Matches workflow_reporting.py pattern for consistency
+        # Priority mapping: int (1-10) -> string enum
+        priority_map = {1: "low", 2: "low", 3: "low", 4: "normal", 5: "normal",
+                       6: "normal", 7: "high", 8: "high", 9: "urgent", 10: "urgent"}
+        priority_str = priority_map.get(request.priority, "normal")
+
         work_request_data = {
             "workspace_id": workspace_id,
             "basket_id": basket_id,
@@ -279,10 +284,10 @@ async def create_project_work_ticket(
             "task_intent": request.task_description,
             "parameters": {
                 "task_configuration": request.get_task_configuration(),
-                "priority": request.priority,
+                "priority_int": request.priority,  # Store original int in parameters
                 "approval_strategy": request.approval_strategy.strategy,
             },
-            "priority": request.priority,
+            "priority": priority_str,  # Must be: 'low', 'normal', 'high', 'urgent'
         }
 
         try:
