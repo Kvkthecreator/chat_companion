@@ -96,12 +96,12 @@ export default function WorkSessionExecutor({
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({
-          detail: "Failed to execute work session",
+          detail: "Failed to execute work ticket",
         }));
         throw new Error(
           typeof errorData.detail === "string"
             ? errorData.detail
-            : "Failed to execute work session"
+            : "Failed to execute work ticket"
         );
       }
 
@@ -125,7 +125,7 @@ export default function WorkSessionExecutor({
       }
       // If status is in_progress, polling will handle updates
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Failed to execute work session";
+      const message = err instanceof Error ? err.message : "Failed to execute work ticket";
       setError(message);
       setExecuting(false);
       setPolling(false);
@@ -143,7 +143,7 @@ export default function WorkSessionExecutor({
             <div>
               <h3 className="font-semibold text-foreground">Ready to Execute</h3>
               <p className="text-sm text-muted-foreground mt-1">
-                This work session is ready. Click Execute to start the agent.
+                This work ticket is ready. Click Execute to start the agent.
               </p>
               {error && (
                 <div className="mt-3 flex items-start gap-2 rounded border border-surface-danger-border bg-surface-danger p-3 text-sm text-destructive-foreground">
@@ -167,7 +167,7 @@ export default function WorkSessionExecutor({
             ) : (
               <>
                 <Play className="h-4 w-4" />
-                Execute Work Session
+                Execute Work Ticket
               </>
             )}
           </Button>
