@@ -121,6 +121,15 @@ When to use:
             # Convert body dict to JSON string (work_outputs.body is TEXT column)
             body_text = json.dumps(body) if isinstance(body, dict) else str(body)
 
+            # Ensure source_context_ids is a list (agent might send string "[]")
+            if isinstance(source_block_ids, str):
+                try:
+                    source_block_ids = json.loads(source_block_ids)
+                except:
+                    source_block_ids = []
+            elif not isinstance(source_block_ids, list):
+                source_block_ids = []
+
             payload = {
                 "basket_id": basket_id,
                 "work_ticket_id": work_ticket_id,
@@ -129,7 +138,7 @@ When to use:
                 "title": title,
                 "body": body_text,  # TEXT column (JSON string)
                 "confidence": confidence,
-                "source_context_ids": source_block_ids,  # Provenance
+                "source_context_ids": source_block_ids,  # Must be list, not string
                 "metadata": {}
             }
 
