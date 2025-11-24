@@ -122,6 +122,7 @@ class WorkTicketExecutor:
                 agent_type=session["task_type"],
                 basket_id=session["basket_id"],
                 workspace_id=session["workspace_id"],
+                work_ticket_id=ticket_id,
                 user_id=session["initiated_by_user_id"]
             )
 

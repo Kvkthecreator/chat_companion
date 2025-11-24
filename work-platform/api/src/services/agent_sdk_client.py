@@ -54,6 +54,7 @@ class AgentSDKClient:
         agent_type: str,
         basket_id: str | UUID,
         workspace_id: str,
+        work_ticket_id: str,
         user_id: str,
     ):
         """
@@ -63,6 +64,7 @@ class AgentSDKClient:
             agent_type: Type of agent (research, content, reporting)
             basket_id: Basket ID for agent context
             workspace_id: Workspace ID for authorization
+            work_ticket_id: Work ticket ID for execution tracking
             user_id: User ID for governance operations
 
         Returns:
@@ -73,25 +75,28 @@ class AgentSDKClient:
             ImportError: If SDK not available
         """
         logger.info(
-            f"[AGENT SDK CLIENT] Creating {agent_type} agent for basket {basket_id}"
+            f"[AGENT SDK CLIENT] Creating {agent_type} agent for basket {basket_id}, work_ticket {work_ticket_id}"
         )
 
         if agent_type == "research":
             return create_research_agent_sdk(
                 basket_id=str(basket_id),
                 workspace_id=workspace_id,
+                work_ticket_id=work_ticket_id,
                 user_id=user_id
             )
         elif agent_type == "content":
             return create_content_agent_sdk(
                 basket_id=str(basket_id),
                 workspace_id=workspace_id,
+                work_ticket_id=work_ticket_id,
                 user_id=user_id
             )
         elif agent_type == "reporting":
             return create_reporting_agent_sdk(
                 basket_id=str(basket_id),
                 workspace_id=workspace_id,
+                work_ticket_id=work_ticket_id,
                 user_id=user_id
             )
         else:
