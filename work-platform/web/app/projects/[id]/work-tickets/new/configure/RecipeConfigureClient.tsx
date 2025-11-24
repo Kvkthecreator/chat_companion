@@ -111,9 +111,9 @@ export default function RecipeConfigureClient({
 
       const result = await response.json();
 
-      // Redirect to work ticket detail page
+      // Redirect to work tickets list page
       if (result.work_ticket_id) {
-        router.push(`/projects/${projectId}/work-tickets/${result.work_ticket_id}`);
+        router.push(`/projects/${projectId}/work-tickets-view`);
       } else {
         throw new Error("No work_ticket_id in response");
       }
