@@ -17,10 +17,10 @@ import logging
 from typing import Any, Dict, List, Optional, Tuple
 from uuid import UUID
 
-from agents.factory import (
-    create_research_agent,
-    create_content_agent,
-    create_reporting_agent,
+from agents_sdk import (
+    create_research_agent_sdk,
+    create_content_agent_sdk,
+    create_reporting_agent_sdk,
 )
 from clients.substrate_client import SubstrateClient
 
@@ -77,20 +77,20 @@ class AgentSDKClient:
         )
 
         if agent_type == "research":
-            return create_research_agent(
-                basket_id=basket_id,
+            return create_research_agent_sdk(
+                basket_id=str(basket_id),
                 workspace_id=workspace_id,
                 user_id=user_id
             )
         elif agent_type == "content":
-            return create_content_agent(
-                basket_id=basket_id,
+            return create_content_agent_sdk(
+                basket_id=str(basket_id),
                 workspace_id=workspace_id,
                 user_id=user_id
             )
         elif agent_type == "reporting":
-            return create_reporting_agent(
-                basket_id=basket_id,
+            return create_reporting_agent_sdk(
+                basket_id=str(basket_id),
                 workspace_id=workspace_id,
                 user_id=user_id
             )
