@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useRef } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { LayoutDashboard, Inbox, LogOut, Settings2, FileText, Clock, Brain, Network, Layers, BookOpen, Shield, CloudUpload, ArrowLeft, PenSquare, BarChart3 } from "lucide-react";
+import { LayoutDashboard, Inbox, LogOut, Settings2, FileText, Clock, Brain, Network, Layers, BookOpen, Shield, CloudUpload, ArrowLeft, PenSquare, BarChart3, MessageSquare, Briefcase } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { createBrowserClient } from "@/lib/supabase/clients";
 import { getAllProjects } from "@/lib/projects/getAllProjects";
@@ -165,9 +165,11 @@ export default function Sidebar({ className }: SidebarProps) {
 
   // Map section keys to icons
   const sectionIcons: Record<string, React.ElementType> = {
+    chat: MessageSquare,
     overview: LayoutDashboard,
     context: Layers,
-    "work-sessions": Clock,
+    "work-tickets": Briefcase,
+    settings: Settings2,
     reports: FileText,
   };
 
