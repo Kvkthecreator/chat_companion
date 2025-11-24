@@ -99,20 +99,21 @@ class WorkTicketExecutor:
 
         try:
             # ================================================================
-            # Step 1: Fetch and validate work session
+            # Step 1: Fetch and validate work ticket
             # ================================================================
             session = await self._fetch_work_ticket(ticket_id)
 
-            if session["status"] not in ["initialized", "paused"]:
+            # Phase 2e: DB uses "pending", not "initialized"
+            if session["status"] not in ["pending", "initialized", "paused"]:
                 raise WorkTicketExecutionError(
-                    f"Work session {ticket_id} is not in executable state. "
+                    f"Work ticket {ticket_id} is not in executable state. "
                     f"Current status: {session['status']}"
                 )
 
             # ================================================================
-            # Step 2: Transition to in_progress
+            # Step 2: Transition to running (Phase 2e: DB uses "running", not "in_progress")
             # ================================================================
-            await self._update_session_status(ticket_id, "in_progress")
+            await self._update_session_status(ticket_id, "running")
 
             # ================================================================
             # Step 3: Create agent instance
@@ -218,17 +219,37 @@ class WorkTicketExecutor:
             raise WorkTicketExecutionError(f"Execution failed: {str(e)}") from e
 
     async def _fetch_work_ticket(self, ticket_id: str) -> Dict[str, Any]:
-        """Fetch work session from database."""
+        """Fetch work ticket from database (Phase 2e schema)."""
         response = self.supabase.table("work_tickets").select(
-            "id, project_id, basket_id, workspace_id, initiated_by_user_id, "
-            "task_type, task_intent, task_configuration, task_document_id, "
-            "approval_strategy, status, metadata"
+            "id, work_request_id, agent_session_id, basket_id, workspace_id, "
+            "agent_type, status, metadata"
         ).eq("id", ticket_id).single().execute()
 
         if not response.data:
-            raise WorkTicketExecutionError(f"Work session {ticket_id} not found")
+            raise WorkTicketExecutionError(f"Work ticket {ticket_id} not found")
 
-        return response.data
+        ticket = response.data
+
+        # Extract legacy fields from metadata JSONB
+        metadata = ticket.get("metadata", {})
+
+        # Map Phase 2e fields to executor's expected format
+        return {
+            "id": ticket["id"],
+            "work_request_id": ticket["work_request_id"],
+            "agent_session_id": ticket["agent_session_id"],
+            "basket_id": ticket["basket_id"],
+            "workspace_id": ticket["workspace_id"],
+            "status": ticket["status"],
+            # Legacy fields from metadata
+            "task_type": ticket["agent_type"],  # Phase 2e: agent_type replaces task_type
+            "task_intent": metadata.get("task_intent", ""),
+            "task_configuration": metadata.get("task_configuration", {}),
+            "task_document_id": metadata.get("task_document_id"),
+            "approval_strategy": metadata.get("approval_strategy", "final_only"),
+            "initiated_by_user_id": metadata.get("initiated_by_user_id"),
+            "metadata": metadata
+        }
 
     async def _update_session_status(
         self,

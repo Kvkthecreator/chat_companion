@@ -512,18 +512,35 @@ async def get_work_ticket_status(
             os.getenv("SUPABASE_SERVICE_ROLE_KEY")
         )
 
-        # Fetch session with outputs and checkpoints
-        session_response = supabase.table("work_tickets").select(
-            "id, status, task_type, task_intent, metadata, created_at"
-        ).eq("id", ticket_id).eq("project_id", project_id).single().execute()
+        # Validate user has access to project
+        project_response = supabase.table("projects").select(
+            "id, basket_id, user_id"
+        ).eq("id", project_id).single().execute()
 
-        if not session_response.data:
+        if not project_response.data:
+            raise HTTPException(status_code=404, detail="Project not found")
+
+        project = project_response.data
+
+        if project["user_id"] != user_id:
+            raise HTTPException(status_code=403, detail="Access denied")
+
+        # Fetch work ticket (Phase 2e schema)
+        ticket_response = supabase.table("work_tickets").select(
+            "id, status, agent_type, basket_id, metadata, created_at"
+        ).eq("id", ticket_id).single().execute()
+
+        if not ticket_response.data:
+            raise HTTPException(status_code=404, detail="Work ticket not found")
+
+        ticket = ticket_response.data
+
+        # Verify ticket belongs to project's basket
+        if ticket["basket_id"] != project["basket_id"]:
             raise HTTPException(
                 status_code=404,
-                detail="Work session not found"
+                detail="Work ticket not found in this project"
             )
-
-        session = session_response.data
 
         # Get outputs count
         outputs_response = supabase.table("work_outputs").select(
@@ -539,15 +556,15 @@ async def get_work_ticket_status(
 
         checkpoints = checkpoints_response.data or []
 
+        # Extract legacy fields from metadata
+        metadata = ticket.get("metadata", {})
+
         return {
-            "ticket_id": session["id"],
-            "status": session["status"],
-            "task_type": session["task_type"],
-            "task_intent": session["task_intent"],
-            "outputs_count": outputs_count,
+            "session_id": ticket["id"],  # Frontend expects session_id
+            "status": ticket["status"],
+            "artifacts_count": outputs_count,  # Frontend expects artifacts_count
             "checkpoints": checkpoints,
-            "metadata": session.get("metadata", {}),
-            "created_at": session["created_at"]
+            "metadata": metadata
         }
 
     except HTTPException:
@@ -764,18 +781,36 @@ async def get_work_ticket_outputs(
             os.getenv("SUPABASE_SERVICE_ROLE_KEY")
         )
 
-        # Verify session belongs to user's project
-        session_response = supabase.table("work_tickets").select(
-            "id, project_id"
-        ).eq("id", ticket_id).eq("project_id", project_id).single().execute()
+        # Validate user has access to project
+        project_response = supabase.table("projects").select(
+            "id, basket_id, user_id"
+        ).eq("id", project_id).single().execute()
 
-        if not session_response.data:
+        if not project_response.data:
+            raise HTTPException(status_code=404, detail="Project not found")
+
+        project = project_response.data
+
+        if project["user_id"] != user_id:
+            raise HTTPException(status_code=403, detail="Access denied")
+
+        # Verify work ticket belongs to project (via basket_id)
+        ticket_response = supabase.table("work_tickets").select(
+            "id, basket_id"
+        ).eq("id", ticket_id).single().execute()
+
+        if not ticket_response.data:
+            raise HTTPException(status_code=404, detail="Work ticket not found")
+
+        ticket = ticket_response.data
+
+        if ticket["basket_id"] != project["basket_id"]:
             raise HTTPException(
                 status_code=404,
-                detail="Work session not found or does not belong to this project"
+                detail="Work ticket not found in this project"
             )
 
-        # Fetch all outputs for this session
+        # Fetch all outputs for this work ticket
         outputs_response = supabase.table("work_outputs").select(
             "id, output_type, content, agent_confidence, agent_reasoning, status, created_at"
         ).eq("work_ticket_id", ticket_id).order("created_at").execute()
@@ -783,7 +818,7 @@ async def get_work_ticket_outputs(
         outputs = outputs_response.data or []
 
         logger.info(
-            f"[GET ARTIFACTS] Found {len(outputs)} outputs for session {ticket_id}"
+            f"[GET OUTPUTS] Found {len(outputs)} outputs for work ticket {ticket_id}"
         )
 
         return outputs
