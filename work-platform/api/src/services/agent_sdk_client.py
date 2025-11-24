@@ -105,7 +105,6 @@ class AgentSDKClient:
                 workspace_id=workspace_id,
                 work_ticket_id=work_ticket_id,
                 session=agent_session,  # Pass session for conversation continuity
-                user_id=user_id
             )
         elif agent_type == "content":
             return create_content_agent_sdk(
@@ -113,7 +112,6 @@ class AgentSDKClient:
                 workspace_id=workspace_id,
                 work_ticket_id=work_ticket_id,
                 session=agent_session,  # Pass session for conversation continuity
-                user_id=user_id
             )
         elif agent_type == "reporting":
             return create_reporting_agent_sdk(
@@ -121,7 +119,6 @@ class AgentSDKClient:
                 workspace_id=workspace_id,
                 work_ticket_id=work_ticket_id,
                 session=agent_session,  # Pass session for conversation continuity
-                user_id=user_id
             )
         else:
             raise ValueError(
