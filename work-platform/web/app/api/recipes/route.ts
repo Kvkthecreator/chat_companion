@@ -34,9 +34,9 @@ export async function GET(request: NextRequest) {
         agent_type,
         version,
         configurable_parameters,
-        is_active
+        status
       `)
-      .eq('is_active', true)
+      .eq('status', 'active')
       .order('agent_type', { ascending: true })
       .order('name', { ascending: true });
 

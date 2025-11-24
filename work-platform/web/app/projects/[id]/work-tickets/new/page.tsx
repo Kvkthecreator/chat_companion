@@ -76,7 +76,7 @@ export default async function WorkRecipeGalleryPage({ params }: PageProps) {
   const { data: recipesData, error: recipesError } = await supabase
     .from('work_recipes')
     .select('id, name, slug, description, agent_type, configurable_parameters')
-    .eq('is_active', true)
+    .eq('status', 'active')
     .order('agent_type', { ascending: true })
     .order('name', { ascending: true });
 
@@ -141,12 +141,11 @@ export default async function WorkRecipeGalleryPage({ params }: PageProps) {
           <p className="text-sm text-muted-foreground mb-4">
             Work recipes are being configured. Please check back soon.
           </p>
-          <Button
-            variant="outline"
-            onClick={() => window.location.href = `/projects/${projectId}/overview`}
-          >
-            Back to Project
-          </Button>
+          <Link href={`/projects/${projectId}/overview`}>
+            <Button variant="outline">
+              Back to Project
+            </Button>
+          </Link>
         </Card>
       )}
 

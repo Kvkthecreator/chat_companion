@@ -53,7 +53,7 @@ export default async function RecipeConfigurePage({ params, searchParams }: Page
     .from('work_recipes')
     .select('id, name, slug, description, agent_type, configurable_parameters')
     .eq('slug', recipeSlug)
-    .eq('is_active', true)
+    .eq('status', 'active')
     .maybeSingle();
 
   if (recipeError || !recipeData) {
