@@ -9,7 +9,7 @@ import { cookies } from "next/headers";
 import { NextRequest, NextResponse } from "next/server";
 import { createRouteHandlerClient } from "@/lib/supabase/clients";
 
-const BACKEND_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+const BACKEND_URL = process.env.NEXT_PUBLIC_API_URL || process.env.API_URL || "https://yarnnn-app-fullstack.onrender.com";
 
 export async function POST(request: NextRequest) {
   try {
