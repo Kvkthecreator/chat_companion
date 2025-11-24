@@ -60,12 +60,11 @@ export default async function WorkSessionDetailPage({ params }: PageProps) {
     if (response.ok) {
       session = await response.json();
 
-      // Fetch work outputs if session is completed (Phase 2e terminology)
-      // TODO: Rename endpoint from /artifacts to /outputs for Phase 2e
+      // Fetch work outputs if session is completed (Phase 2e)
       if (session.status === 'completed') {
         try {
           const outputsResponse = await fetch(
-            `${process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'}/api/projects/${projectId}/work-sessions/${sessionId}/artifacts`,
+            `${process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'}/api/projects/${projectId}/work-sessions/${sessionId}/outputs`,
             {
               headers: {
                 Cookie: (await cookies()).toString(),

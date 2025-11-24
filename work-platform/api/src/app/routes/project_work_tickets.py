@@ -810,9 +810,23 @@ async def get_work_ticket_outputs(
                 detail="Work ticket not found in this project"
             )
 
-        # Fetch all outputs for this work ticket
+        # Fetch all outputs for this work ticket (Phase 2e schema)
         outputs_response = supabase.table("work_outputs").select(
-            "id, output_type, content, agent_confidence, agent_reasoning, status, created_at"
+            """
+            id,
+            output_type,
+            agent_type,
+            title,
+            body,
+            confidence,
+            file_id,
+            file_format,
+            file_size_bytes,
+            mime_type,
+            generation_method,
+            supervision_status,
+            created_at
+            """
         ).eq("work_ticket_id", ticket_id).order("created_at").execute()
 
         outputs = outputs_response.data or []

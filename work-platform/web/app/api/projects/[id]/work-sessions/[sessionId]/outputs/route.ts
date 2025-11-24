@@ -28,9 +28,9 @@ export async function GET(
 
     const token = session.access_token;
 
-    // Forward to work-platform backend
+    // Forward to work-platform backend (Phase 2e: /outputs endpoint)
     const backendResponse = await fetch(
-      `${WORK_PLATFORM_API_URL}/api/projects/${projectId}/work-sessions/${sessionId}/artifacts`,
+      `${WORK_PLATFORM_API_URL}/api/projects/${projectId}/work-sessions/${sessionId}/outputs`,
       {
         method: 'GET',
         headers: {
@@ -41,7 +41,7 @@ export async function GET(
     );
 
     if (!backendResponse.ok) {
-      const errorData = await backendResponse.json().catch(() => ({ detail: 'Failed to fetch artifacts' }));
+      const errorData = await backendResponse.json().catch(() => ({ detail: 'Failed to fetch work outputs' }));
       return NextResponse.json(
         errorData,
         { status: backendResponse.status }
@@ -52,7 +52,7 @@ export async function GET(
 
     return NextResponse.json(result);
   } catch (error) {
-    console.error('[ARTIFACTS API] Error:', error);
+    console.error('[WORK OUTPUTS API] Error:', error);
     return NextResponse.json(
       { detail: error instanceof Error ? error.message : 'Internal server error' },
       { status: 500 }
