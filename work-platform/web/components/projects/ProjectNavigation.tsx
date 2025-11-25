@@ -27,7 +27,7 @@ const tabs = [
   },
   {
     name: 'Work Tickets',
-    href: '/work-tickets',
+    href: '/work-tickets-view',
     icon: Briefcase,
   },
   {
