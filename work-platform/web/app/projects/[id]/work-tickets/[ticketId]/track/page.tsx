@@ -23,20 +23,18 @@ export default async function TicketTrackingPage({ params }: PageProps) {
   const { id: projectId, ticketId } = await params;
 
   const supabase = createServerComponentClient({ cookies });
-  const { userId } = await getAuthenticatedUser(supabase);
 
-  // Fetch project
-  const { data: project } = await supabase
-    .from('projects')
-    .select('id, name, basket_id')
-    .eq('id', projectId)
-    .maybeSingle();
-
-  if (!project) {
-    notFound();
+  // Try to get authenticated user, but don't block if it fails
+  let userId: string | null = null;
+  try {
+    const auth = await getAuthenticatedUser(supabase);
+    userId = auth.userId;
+  } catch (error) {
+    console.error('[Track Page] Auth failed:', error);
+    // Continue without auth - ticket will be fetched without user check
   }
 
-  // Fetch work ticket with outputs
+  // Fetch work ticket with outputs (don't require project for simpler query)
   const { data: ticket } = await supabase
     .from('work_tickets')
     .select(`
@@ -49,6 +47,7 @@ export default async function TicketTrackingPage({ params }: PageProps) {
       error_message,
       metadata,
       basket_id,
+      workspace_id,
       work_outputs (
         id,
         title,
@@ -62,10 +61,20 @@ export default async function TicketTrackingPage({ params }: PageProps) {
       )
     `)
     .eq('id', ticketId)
-    .eq('basket_id', project.basket_id)
     .maybeSingle();
 
   if (!ticket) {
+    notFound();
+  }
+
+  // Fetch project from ticket's basket
+  const { data: project } = await supabase
+    .from('projects')
+    .select('id, name, basket_id')
+    .eq('basket_id', ticket.basket_id)
+    .maybeSingle();
+
+  if (!project) {
     notFound();
   }
 
