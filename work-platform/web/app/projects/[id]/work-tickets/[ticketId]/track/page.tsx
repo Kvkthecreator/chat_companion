@@ -9,9 +9,7 @@
  * - Actions (view output, retry, download)
  */
 
-import { cookies } from "next/headers";
-import { createServerComponentClient } from "@/lib/supabase/clients";
-import { getAuthenticatedUser } from "@/lib/auth/getAuthenticatedUser";
+import { createClient } from "@supabase/supabase-js";
 import { notFound } from "next/navigation";
 import TicketTrackingClient from "./TicketTrackingClient";
 
@@ -22,19 +20,13 @@ interface PageProps {
 export default async function TicketTrackingPage({ params }: PageProps) {
   const { id: projectId, ticketId } = await params;
 
-  const supabase = createServerComponentClient({ cookies });
+  // Use anon client for public ticket viewing (RLS handles security)
+  const supabase = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  );
 
-  // Try to get authenticated user, but don't block if it fails
-  let userId: string | null = null;
-  try {
-    const auth = await getAuthenticatedUser(supabase);
-    userId = auth.userId;
-  } catch (error) {
-    console.error('[Track Page] Auth failed:', error);
-    // Continue without auth - ticket will be fetched without user check
-  }
-
-  // Fetch work ticket with outputs (don't require project for simpler query)
+  // Fetch work ticket with outputs
   const { data: ticket } = await supabase
     .from('work_tickets')
     .select(`
