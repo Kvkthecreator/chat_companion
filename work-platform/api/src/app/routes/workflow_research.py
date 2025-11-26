@@ -258,12 +258,13 @@ async def execute_research_workflow(
                     from agents_sdk.research_agent_sdk import ResearchAgentSDK
                     from agents_sdk.work_bundle import WorkBundle
                     from adapters.substrate_adapter import SubstrateQueryAdapter
+                    from datetime import datetime, timezone
                     import time
 
-                    # Update status to running
+                    # Update status to running (use proper datetime, not "now()" string)
                     bg_supabase.table("work_tickets").update({
                         "status": "running",
-                        "started_at": "now()",
+                        "started_at": datetime.now(timezone.utc).isoformat(),
                     }).eq("id", _work_ticket_id).execute()
 
                     # Load prior work outputs
@@ -352,17 +353,23 @@ async def execute_research_workflow(
                     ))
                     execution_time_ms = int((time.time() - start_time) * 1000)
 
-                    # Update to completed
+                    # Update to completed (merge metadata to preserve original fields)
+                    # First fetch existing metadata
+                    existing_ticket = bg_supabase.table("work_tickets").select("metadata").eq("id", _work_ticket_id).single().execute()
+                    existing_metadata = existing_ticket.data.get("metadata", {}) if existing_ticket.data else {}
+
+                    # Merge with completion data
+                    updated_metadata = {
+                        **existing_metadata,  # Preserve original: task_description, research_scope, etc.
+                        "execution_time_ms": execution_time_ms,
+                        "output_count": result.get("output_count", 0),
+                        "final_todos": result.get("final_todos", []),
+                    }
+
                     bg_supabase.table("work_tickets").update({
                         "status": "completed",
-                        "completed_at": "now()",
-                        "metadata": {
-                            "workflow": "recipe_research" if _recipe else "deterministic_research",
-                            "execution_time_ms": execution_time_ms,
-                            "output_count": result.get("output_count", 0),
-                            "recipe_slug": _recipe.slug if _recipe else None,
-                            "final_todos": result.get("final_todos", []),
-                        },
+                        "completed_at": datetime.now(timezone.utc).isoformat(),
+                        "metadata": updated_metadata,
                     }).eq("id", _work_ticket_id).execute()
 
                     logger.info(f"[RESEARCH WORKFLOW] Background execution complete: {result.get('output_count', 0)} outputs")
@@ -370,14 +377,15 @@ async def execute_research_workflow(
                 except Exception as e:
                     logger.exception(f"[RESEARCH WORKFLOW] Background execution failed: {e}")
                     try:
-                        from app.utils.supabase_client import supabase_admin_client as bg_supabase
-                        bg_supabase.table("work_tickets").update({
+                        from app.utils.supabase_client import supabase_admin_client as err_supabase
+                        from datetime import datetime, timezone
+                        err_supabase.table("work_tickets").update({
                             "status": "failed",
-                            "completed_at": "now()",
+                            "completed_at": datetime.now(timezone.utc).isoformat(),
                             "error_message": str(e),
                         }).eq("id", _work_ticket_id).execute()
-                    except:
-                        pass
+                    except Exception as update_err:
+                        logger.error(f"[RESEARCH WORKFLOW] Failed to update ticket status: {update_err}")
 
             thread = threading.Thread(target=execute_in_background, daemon=True)
             thread.start()
