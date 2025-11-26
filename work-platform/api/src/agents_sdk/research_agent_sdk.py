@@ -337,6 +337,19 @@ Please conduct thorough research and synthesis, emitting structured outputs for 
         # Execute with Claude SDK using shared stream processor
         new_session_id = None
 
+        # ============================================================================
+        # TOKEN DIAGNOSTICS: Log what we're sending to Claude
+        # ============================================================================
+        system_prompt = self._build_static_system_prompt()
+        logger.info(f"[TOKEN DIAG] System prompt: {len(system_prompt):,} chars (~{len(system_prompt)//4:,} tokens)")
+        logger.info(f"[TOKEN DIAG] Research prompt: {len(research_prompt):,} chars (~{len(research_prompt)//4:,} tokens)")
+        logger.info(f"[TOKEN DIAG] Context summary: {len(context_summary):,} chars (~{len(context_summary)//4:,} tokens)")
+        logger.info(f"[TOKEN DIAG] Session resume: {claude_session_id is not None} (id={claude_session_id[:20] if claude_session_id else 'None'}...)")
+
+        # Estimate baseline (before any session history)
+        baseline_tokens = (len(system_prompt) + len(research_prompt)) // 4
+        logger.info(f"[TOKEN DIAG] Baseline (no history): ~{baseline_tokens:,} tokens")
+
         try:
             # NOTE: api_key comes from ANTHROPIC_API_KEY env var (SDK reads it automatically)
             async with ClaudeSDKClient(
@@ -344,10 +357,16 @@ Please conduct thorough research and synthesis, emitting structured outputs for 
             ) as client:
                 # Connect (resume existing session or start new)
                 if claude_session_id:
-                    logger.info(f"Resuming Claude session: {claude_session_id}")
+                    logger.info(f"[TOKEN DIAG] Resuming Claude session: {claude_session_id}")
                     await client.connect(session_id=claude_session_id)
+                    # Log session state after connect
+                    if hasattr(client, 'messages') and client.messages:
+                        history_chars = sum(len(str(m.content)) for m in client.messages if hasattr(m, 'content'))
+                        logger.info(f"[TOKEN DIAG] Session history loaded: {len(client.messages)} messages, ~{history_chars:,} chars (~{history_chars//4:,} tokens)")
+                    else:
+                        logger.info(f"[TOKEN DIAG] Session resumed but no message history accessible")
                 else:
-                    logger.info("Starting new Claude session")
+                    logger.info("[TOKEN DIAG] Starting FRESH Claude session (no history)")
                     await client.connect()
 
                 # Send query
@@ -363,6 +382,10 @@ Please conduct thorough research and synthesis, emitting structured outputs for 
                 # Get session ID from client
                 new_session_id = getattr(client, 'session_id', None)
                 logger.debug(f"Session ID retrieved: {new_session_id}")
+
+                # Log final message count
+                if hasattr(client, 'messages'):
+                    logger.info(f"[TOKEN DIAG] Final message count: {len(client.messages) if client.messages else 0}")
 
         except Exception as e:
             logger.error(f"Research deep_dive failed: {e}")

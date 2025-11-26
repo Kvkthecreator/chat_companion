@@ -49,6 +49,9 @@ class ResearchWorkflowRequest(BaseModel):
     # Async execution mode
     async_execution: Optional[bool] = False  # If True, return ticket_id immediately
 
+    # Token optimization testing
+    fresh_session: Optional[bool] = False  # If True, don't resume session (for token comparison)
+
 
 class ResearchWorkflowResponse(BaseModel):
     """Research workflow execution result."""
@@ -250,6 +253,7 @@ async def execute_research_workflow(
             _execution_context = execution_context
             _validated_params = validated_params
             _research_session = research_session
+            _fresh_session = request.fresh_session  # Token optimization flag
 
             def execute_in_background():
                 try:
@@ -346,10 +350,14 @@ async def execute_research_workflow(
                             enhanced_task += f"- {output['title']} ({output['output_type']})\n"
 
                     # Execute research
+                    # Token optimization: optionally skip session resume for comparison
+                    session_id_to_use = None if _fresh_session else _research_session.claude_session_id
+                    logger.info(f"[RESEARCH WORKFLOW] fresh_session={_fresh_session}, session_id={'None' if session_id_to_use is None else session_id_to_use[:20] + '...'}")
+
                     start_time = time.time()
                     result = bg_asyncio.run(research_sdk.deep_dive(
                         topic=enhanced_task,
-                        claude_session_id=_research_session.claude_session_id,
+                        claude_session_id=session_id_to_use,
                     ))
                     execution_time_ms = int((time.time() - start_time) * 1000)
 
@@ -364,6 +372,8 @@ async def execute_research_workflow(
                         "execution_time_ms": execution_time_ms,
                         "output_count": result.get("output_count", 0),
                         "final_todos": result.get("final_todos", []),
+                        "fresh_session": _fresh_session,  # Token optimization tracking
+                        "session_resumed": session_id_to_use is not None,
                     }
 
                     bg_supabase.table("work_tickets").update({
