@@ -6,7 +6,7 @@ import { createBrowserClient } from "@/lib/supabase/clients";
 import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
-import { ArrowLeft, Download, RefreshCw, CheckCircle2, XCircle, Loader2, Clock } from "lucide-react";
+import { ArrowLeft, Download, RefreshCw, CheckCircle2, XCircle, Loader2, Clock, AlertTriangle, FileText, Package } from "lucide-react";
 import Link from "next/link";
 import { TaskProgressList } from "@/components/TaskProgressList";
 import { cn } from "@/lib/utils";
@@ -133,6 +133,17 @@ export default function TicketTrackingClient({
     return `${minutes}m ${seconds}s`;
   };
 
+  // Check if execution produced expected results
+  const hasOutputs = ticket.work_outputs && ticket.work_outputs.length > 0;
+  const hasExecutionSteps = ticket.metadata?.final_todos && ticket.metadata.final_todos.length > 0;
+  const executionTimeMs = ticket.metadata?.execution_time_ms;
+  const isCompleted = ticket.status === 'completed';
+  const isFailed = ticket.status === 'failed';
+  const isRunning = ticket.status === 'running' || ticket.status === 'pending';
+
+  // Determine if this is a problematic execution
+  const isProblematicExecution = isCompleted && !hasOutputs && !isFailed;
+
   return (
     <div className="mx-auto max-w-5xl space-y-6 p-6">
       {/* Header */}
@@ -156,13 +167,35 @@ export default function TicketTrackingClient({
         </div>
       </div>
 
+      {/* Warning Banner for problematic executions */}
+      {isProblematicExecution && (
+        <Card className="p-4 border-amber-500/30 bg-amber-50/50">
+          <div className="flex items-start gap-3">
+            <AlertTriangle className="h-5 w-5 text-amber-600 flex-shrink-0 mt-0.5" />
+            <div className="flex-1">
+              <h3 className="font-semibold text-amber-900">Execution Completed Without Outputs</h3>
+              <p className="text-sm text-amber-700 mt-1">
+                The agent executed for {executionTimeMs ? `${(executionTimeMs / 1000).toFixed(1)}s` : 'an unknown duration'} but did not produce any work outputs or detailed execution steps.
+                This may indicate the agent did not follow the recipe requirements properly.
+              </p>
+              <p className="text-xs text-amber-600 mt-2">
+                Expected: {recipeParams.output_format ? recipeParams.output_format.toUpperCase() : 'file'} output via Skill tool • Actual: No outputs
+              </p>
+            </div>
+          </div>
+        </Card>
+      )}
+
       {/* Main Content Grid */}
       <div className="grid gap-6 lg:grid-cols-3">
         {/* Left Column: Metadata & Progress */}
         <div className="lg:col-span-2 space-y-6">
-          {/* Recipe Parameters */}
+          {/* Recipe Configuration */}
           <Card className="p-6">
-            <h2 className="text-lg font-semibold mb-4">Configuration</h2>
+            <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
+              <Package className="h-5 w-5" />
+              Configuration
+            </h2>
             <div className="space-y-3">
               <div className="flex items-center gap-3">
                 <Badge variant="outline" className="capitalize">
@@ -171,6 +204,11 @@ export default function TicketTrackingClient({
                 {ticket.metadata?.output_format && (
                   <Badge variant="outline" className="uppercase">
                     {ticket.metadata.output_format}
+                  </Badge>
+                )}
+                {recipeParams.output_format && (
+                  <Badge variant="secondary" className="text-xs">
+                    Expected: {recipeParams.output_format.toUpperCase()}
                   </Badge>
                 )}
               </div>
@@ -202,42 +240,78 @@ export default function TicketTrackingClient({
             </div>
           </Card>
 
-          {/* Task Progress */}
-          {(ticket.status === 'running' || ticket.status === 'pending') && (
+          {/* Real-time Task Progress (for running/pending) */}
+          {isRunning && (
             <Card className="p-6">
-              <h2 className="text-lg font-semibold mb-4">Execution Progress</h2>
+              <h2 className="text-lg font-semibold mb-4">Live Execution Progress</h2>
               <TaskProgressList workTicketId={ticket.id} enabled={true} />
             </Card>
           )}
 
-          {/* Historical TodoWrite (for completed tickets) */}
-          {ticket.status === 'completed' && ticket.metadata?.final_todos && (
+          {/* Execution Trace (for completed/failed) */}
+          {!isRunning && (
             <Card className="p-6">
-              <h2 className="text-lg font-semibold mb-4">Execution Summary</h2>
-              <div className="space-y-2">
-                {ticket.metadata.final_todos.map((todo: any, index: number) => (
-                  <div key={index} className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <CheckCircle2 className="h-4 w-4 text-green-600" />
-                    <span>{todo.content}</span>
+              <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                <FileText className="h-5 w-5" />
+                Execution Trace
+              </h2>
+
+              {hasExecutionSteps ? (
+                <div className="space-y-2">
+                  {ticket.metadata.final_todos.map((todo: any, index: number) => (
+                    <div key={index} className="flex items-center gap-2 text-sm">
+                      <CheckCircle2 className="h-4 w-4 text-green-600 flex-shrink-0" />
+                      <span className="text-muted-foreground">
+                        {todo.content || todo.activeForm || `Step ${index + 1}`}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  <div className="text-sm text-amber-600 bg-amber-50 border border-amber-200 rounded-lg p-3">
+                    <p className="font-medium mb-1">⚠️ No execution steps recorded</p>
+                    <p className="text-xs text-amber-700">
+                      The agent {isFailed ? 'failed' : 'completed'} but did not log detailed steps via TodoWrite.
+                      {executionTimeMs && ` Execution took ${(executionTimeMs / 1000).toFixed(1)}s.`}
+                    </p>
                   </div>
-                ))}
-              </div>
+
+                  {/* Basic execution metadata */}
+                  {ticket.metadata && (
+                    <div className="text-xs text-muted-foreground space-y-1 bg-gray-50 rounded-lg p-3">
+                      <p className="font-medium text-gray-700 mb-2">Execution Metadata:</p>
+                      {ticket.metadata.workflow && <p>• Workflow: {ticket.metadata.workflow}</p>}
+                      {ticket.metadata.recipe_slug && <p>• Recipe: {ticket.metadata.recipe_slug}</p>}
+                      {executionTimeMs && <p>• Execution time: {(executionTimeMs / 1000).toFixed(1)}s</p>}
+                      {ticket.metadata.output_count !== undefined && (
+                        <p>• Outputs generated: {ticket.metadata.output_count}</p>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
             </Card>
           )}
 
           {/* Error Message */}
-          {ticket.status === 'failed' && ticket.error_message && (
+          {isFailed && ticket.error_message && (
             <Card className="p-6 border-red-500/20 bg-red-500/5">
-              <h2 className="text-lg font-semibold mb-2 text-red-600">Execution Failed</h2>
-              <p className="text-sm text-red-600/80">{ticket.error_message}</p>
+              <h2 className="text-lg font-semibold mb-2 text-red-600 flex items-center gap-2">
+                <XCircle className="h-5 w-5" />
+                Execution Failed
+              </h2>
+              <p className="text-sm text-red-600/80 font-mono bg-red-50 p-3 rounded">
+                {ticket.error_message}
+              </p>
             </Card>
           )}
 
-          {/* Output Preview */}
-          {ticket.work_outputs && ticket.work_outputs.length > 0 && (
+          {/* Work Outputs */}
+          {hasOutputs ? (
             <Card className="p-6">
               <div className="flex items-center justify-between mb-4">
-                <h2 className="text-lg font-semibold">Outputs ({ticket.work_outputs.length})</h2>
+                <h2 className="text-lg font-semibold">Work Outputs ({ticket.work_outputs.length})</h2>
                 <Button
                   variant="ghost"
                   size="sm"
@@ -251,6 +325,30 @@ export default function TicketTrackingClient({
                 {ticket.work_outputs.map((output) => (
                   <OutputCard key={output.id} output={output} />
                 ))}
+              </div>
+            </Card>
+          ) : isCompleted && (
+            <Card className="p-6 border-amber-500/20 bg-amber-50/30">
+              <h2 className="text-lg font-semibold mb-3 text-amber-900">No Work Outputs</h2>
+              <div className="space-y-3 text-sm text-amber-800">
+                <p>
+                  The agent completed execution but did not generate any work outputs.
+                  This is unexpected for a {ticket.agent_type} agent working on a {recipeName} task.
+                </p>
+                <div className="bg-amber-100/50 border border-amber-200 rounded p-3">
+                  <p className="font-medium mb-2">Expected Output:</p>
+                  <ul className="list-disc list-inside space-y-1 text-xs">
+                    {recipeParams.output_format && (
+                      <li>Format: {recipeParams.output_format.toUpperCase()} file</li>
+                    )}
+                    <li>Generation method: Skill tool (professional file generation)</li>
+                    <li>Output type: report_draft or final_report</li>
+                  </ul>
+                </div>
+                <p className="text-xs text-amber-600">
+                  This may indicate a bug in the agent execution or a missing emit_work_output call.
+                  Check the agent logs for more details.
+                </p>
               </div>
             </Card>
           )}
@@ -287,6 +385,45 @@ export default function TicketTrackingClient({
             </div>
           </Card>
 
+          {/* Diagnostics (for completed tickets) */}
+          {!isRunning && (
+            <Card className="p-6 bg-gray-50/50">
+              <h2 className="text-lg font-semibold mb-4">Diagnostics</h2>
+              <div className="space-y-3 text-xs text-muted-foreground">
+                <div className="flex justify-between">
+                  <span>Ticket ID:</span>
+                  <code className="text-xs bg-gray-200 px-1 rounded">{ticket.id.slice(0, 8)}...</code>
+                </div>
+                <div className="flex justify-between">
+                  <span>Agent Type:</span>
+                  <span className="font-medium">{ticket.agent_type}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Status:</span>
+                  <span className="font-medium capitalize">{ticket.status}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Outputs:</span>
+                  <span className={cn("font-medium", hasOutputs ? "text-green-600" : "text-amber-600")}>
+                    {ticket.work_outputs?.length || 0}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Execution Steps:</span>
+                  <span className={cn("font-medium", hasExecutionSteps ? "text-green-600" : "text-amber-600")}>
+                    {ticket.metadata?.final_todos?.length || 0}
+                  </span>
+                </div>
+                {executionTimeMs && (
+                  <div className="flex justify-between">
+                    <span>Execution Time:</span>
+                    <span className="font-medium font-mono">{(executionTimeMs / 1000).toFixed(1)}s</span>
+                  </div>
+                )}
+              </div>
+            </Card>
+          )}
+
           {/* Actions */}
           <Card className="p-6">
             <h2 className="text-lg font-semibold mb-4">Actions</h2>
@@ -321,7 +458,7 @@ function OutputCard({ output }: { output: WorkOutput }) {
       <div className="flex items-start justify-between">
         <div className="flex-1">
           <h3 className="font-medium text-foreground">{output.title}</h3>
-          <div className="flex items-center gap-2 mt-1">
+          <div className="flex items-center gap-2 mt-1 flex-wrap">
             <Badge variant="outline" className="text-xs">
               {output.output_type}
             </Badge>
@@ -333,6 +470,11 @@ function OutputCard({ output }: { output: WorkOutput }) {
             <span className="text-xs text-muted-foreground">
               {output.generation_method}
             </span>
+            {!isFileOutput && output.body && (
+              <span className="text-xs text-gray-400">
+                ({output.body.length} chars)
+              </span>
+            )}
           </div>
         </div>
         {isFileOutput && (
@@ -344,15 +486,15 @@ function OutputCard({ output }: { output: WorkOutput }) {
 
       {/* Preview body for text outputs */}
       {!isFileOutput && output.body && (
-        <div className="text-sm text-muted-foreground max-h-32 overflow-auto">
-          <pre className="whitespace-pre-wrap font-sans">{output.body.slice(0, 300)}...</pre>
+        <div className="text-sm text-muted-foreground max-h-32 overflow-auto bg-gray-50 rounded p-3">
+          <pre className="whitespace-pre-wrap font-sans text-xs">{output.body.slice(0, 500)}{output.body.length > 500 ? '...' : ''}</pre>
         </div>
       )}
 
       {/* File download info */}
       {isFileOutput && (
-        <div className="text-sm text-muted-foreground">
-          File ready for download
+        <div className="text-sm text-green-700 bg-green-50 border border-green-200 rounded p-2">
+          ✓ File ready for download
         </div>
       )}
     </div>
