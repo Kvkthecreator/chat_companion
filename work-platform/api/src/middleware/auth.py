@@ -37,9 +37,14 @@ class AuthMiddleware(BaseHTTPMiddleware):
         if any(path.startswith(p) for p in self.exempt_prefixes):
             return await call_next(request)
 
-        # Extract token
+        # Extract token from Authorization header or query param (for SSE)
         auth = request.headers.get("authorization") or ""
         token = auth.split(" ", 1)[1] if auth.lower().startswith("bearer ") else None
+
+        # Fallback: check query param for SSE (EventSource can't send headers)
+        if not token:
+            token = request.query_params.get("token")
+
         if not token:
             if not dbg:
                 log.debug("AuthMiddleware: missing bearer token for %s", path)

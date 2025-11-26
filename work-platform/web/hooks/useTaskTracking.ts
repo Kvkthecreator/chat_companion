@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback, useRef } from "react";
+import { createBrowserClient } from "@/lib/supabase/clients";
 
 /**
  * Task progress update from TodoWrite tool
@@ -85,44 +86,63 @@ export function useTaskTracking(
       return;
     }
 
-    // Create SSE connection
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL || "https://yarnnn-app-fullstack.onrender.com";
-    const eventSource = new EventSource(`${apiUrl}/api/work/tickets/${workTicketId}/stream`, {
-      withCredentials: true,
-    });
-
-    eventSourceRef.current = eventSource;
-
-    // Handle incoming messages
-    eventSource.onmessage = (event) => {
+    // Get token and create SSE connection
+    const connectWithToken = async () => {
       try {
-        const data: TaskStreamEvent = JSON.parse(event.data);
+        // Get JWT token from Supabase session
+        const supabase = createBrowserClient();
+        const { data: { session } } = await supabase.auth.getSession();
 
-        if (data.type === "connected") {
-          setIsConnected(true);
-          setError(null);
-        } else if (data.type === "todo_update" && data.todos) {
-          setTasks(data.todos);
-        } else if (data.type === "completed") {
-          setCompletionStatus(data.status || "completed");
-          disconnect();
-        } else if (data.type === "timeout") {
-          setError("Stream timeout - task may still be running");
-          disconnect();
+        if (!session?.access_token) {
+          setError("No authentication token available");
+          return;
         }
+
+        // Create SSE connection with token as query param (EventSource can't send headers)
+        const apiUrl = process.env.NEXT_PUBLIC_API_URL || "https://yarnnn-app-fullstack.onrender.com";
+        const eventSource = new EventSource(
+          `${apiUrl}/api/work/tickets/${workTicketId}/stream?token=${encodeURIComponent(session.access_token)}`
+        );
+
+        eventSourceRef.current = eventSource;
+
+        // Handle incoming messages
+        eventSource.onmessage = (event) => {
+          try {
+            const data: TaskStreamEvent = JSON.parse(event.data);
+
+            if (data.type === "connected") {
+              setIsConnected(true);
+              setError(null);
+            } else if (data.type === "todo_update" && data.todos) {
+              setTasks(data.todos);
+            } else if (data.type === "completed") {
+              setCompletionStatus(data.status || "completed");
+              disconnect();
+            } else if (data.type === "timeout") {
+              setError("Stream timeout - task may still be running");
+              disconnect();
+            }
+          } catch (err) {
+            console.error("[useTaskTracking] Failed to parse SSE event:", err);
+            setError("Failed to parse task update");
+          }
+        };
+
+        // Handle errors
+        eventSource.onerror = (err) => {
+          console.error("[useTaskTracking] SSE error:", err);
+          setError("Connection error - retrying...");
+          setIsConnected(false);
+          // EventSource will automatically retry connection
+        };
       } catch (err) {
-        console.error("[useTaskTracking] Failed to parse SSE event:", err);
-        setError("Failed to parse task update");
+        console.error("[useTaskTracking] Failed to connect:", err);
+        setError("Failed to establish connection");
       }
     };
 
-    // Handle errors
-    eventSource.onerror = (err) => {
-      console.error("[useTaskTracking] SSE error:", err);
-      setError("Connection error - retrying...");
-      setIsConnected(false);
-      // EventSource will automatically retry connection
-    };
+    connectWithToken();
 
     // Cleanup on unmount
     return () => {
