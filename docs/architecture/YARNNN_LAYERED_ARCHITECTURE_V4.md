@@ -286,6 +286,84 @@ Notify work-platform of result
 
 **Key Point**: No shared Layer 4 presentation. Each layer has independent frontend.
 
+### Frontend Auth Patterns
+
+**work-platform Frontend** uses consistent auth patterns for different operations:
+
+#### Pattern 1: Server Component (Direct DB Access)
+```typescript
+import { createServerComponentClient } from '@/lib/supabase/clients';
+import { cookies } from 'next/headers';
+
+export default async function ProjectPage({ params }) {
+  const supabase = createServerComponentClient({ cookies });
+  const { data: { session } } = await supabase.auth.getSession();
+
+  // Query work-platform or substrate tables directly
+  const { data } = await supabase.from('projects').select('*');
+}
+```
+
+**Use When**: Fetching data for server components (projects, work tickets, blocks)
+
+#### Pattern 2: API Route - Direct DB Query
+```typescript
+import { createRouteHandlerClient } from '@/lib/supabase/clients';
+
+export async function GET(request: NextRequest) {
+  const supabase = createRouteHandlerClient({ cookies });
+  const { data: { session } } = await supabase.auth.getSession();
+
+  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
+  // Query shared Supabase database
+  const { data } = await supabase.from('work_tickets').select('*');
+  return NextResponse.json(data);
+}
+```
+
+**Use When**: API route needs work-platform or substrate data (same DB, RLS enforced)
+
+#### Pattern 3: API Route - Backend Proxy
+```typescript
+const WORK_PLATFORM_API_URL = process.env.NEXT_PUBLIC_WORK_PLATFORM_API_URL;
+
+export async function POST(request: NextRequest) {
+  const supabase = createRouteHandlerClient({ cookies });
+  const { data: { session } } = await supabase.auth.getSession();
+
+  // Forward JWT to work-platform backend
+  const response = await fetch(`${WORK_PLATFORM_API_URL}/api/work/execute`, {
+    headers: { 'Authorization': `Bearer ${session.access_token}` }
+  });
+}
+```
+
+**Use When**: Agent execution, complex backend operations requiring FastAPI services
+
+#### Pattern 4: Client Component
+```typescript
+'use client';
+
+export function MyComponent() {
+  async function handleAction() {
+    // Call Next.js API route (auth handled server-side)
+    const response = await fetch('/api/work/research/execute', {
+      method: 'POST',
+      body: JSON.stringify({ task: 'research' })
+    });
+  }
+}
+```
+
+**Use When**: Client component triggering backend operation
+
+**Environment Variables**:
+- `NEXT_PUBLIC_SUPABASE_URL` - Supabase project URL
+- `NEXT_PUBLIC_SUPABASE_ANON_KEY` - Supabase anon key (RLS enforced)
+- `NEXT_PUBLIC_WORK_PLATFORM_API_URL` - work-platform backend URL
+- `NEXT_PUBLIC_SUBSTRATE_API_URL` - substrate-API backend URL (legacy, prefer direct DB)
+
 ---
 
 ## 📊 Data Flow Example
