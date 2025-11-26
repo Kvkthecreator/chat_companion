@@ -444,26 +444,44 @@ Please generate a comprehensive {report_type} report in {format} format about {t
                 await client.query(report_prompt)
 
                 # Collect responses and parse tool results
+                logger.info("[REPORTING-GENERATE] Starting SDK response iteration...")
+                message_count = 0
+
                 async for message in client.receive_response():
-                    logger.debug(f"SDK message type: {type(message).__name__}")
+                    message_count += 1
+                    message_type = type(message).__name__
+                    logger.info(f"[REPORTING-GENERATE] Message #{message_count}: type={message_type}")
 
                     # Process content blocks
                     if hasattr(message, 'content') and isinstance(message.content, list):
-                        for block in message.content:
+                        content_blocks = message.content
+                        logger.info(f"[REPORTING-GENERATE] Processing {len(content_blocks)} content blocks")
+
+                        for idx, block in enumerate(content_blocks):
                             if not hasattr(block, 'type'):
+                                logger.warning(f"[REPORTING-GENERATE] Block #{idx} missing 'type' attribute")
                                 continue
 
                             block_type = block.type
-                            logger.debug(f"SDK block type: {block_type}")
+                            logger.info(f"[REPORTING-GENERATE] Block #{idx}: type={block_type}")
 
                             # Text blocks
                             if block_type == 'text' and hasattr(block, 'text'):
+                                text_length = len(block.text)
+                                text_preview = block.text[:100] if block.text else ""
+                                logger.info(f"[REPORTING-GENERATE] 📝 Text block: {text_length} chars - Preview: {text_preview}...")
                                 response_text += block.text
+
+                            # Tool use blocks
+                            elif block_type == 'tool_use':
+                                tool_name = getattr(block, 'name', 'unknown')
+                                tool_input = getattr(block, 'input', {})
+                                logger.info(f"[REPORTING-GENERATE] ⚙️ Tool use detected: {tool_name} with input keys: {list(tool_input.keys()) if isinstance(tool_input, dict) else 'N/A'}")
 
                             # Tool result blocks (extract work outputs + todo updates)
                             elif block_type == 'tool_result':
                                 tool_name = getattr(block, 'tool_name', '')
-                                logger.debug(f"Tool result from: {tool_name}")
+                                logger.info(f"[REPORTING-GENERATE] ✅ Tool result from: {tool_name}")
 
                                 if tool_name == 'emit_work_output':
                                     try:
@@ -508,9 +526,12 @@ Please generate a comprehensive {report_type} report in {format} format about {t
                                     except Exception as e:
                                         logger.error(f"Failed to parse todo update: {e}", exc_info=True)
 
+                # Log iteration completion summary
+                logger.info(f"[REPORTING-RECIPE] Iteration complete: {message_count} messages, {len(work_outputs)} outputs, {len(response_text)} chars response text")
+
                 # Get session ID from client
                 new_session_id = getattr(client, 'session_id', None)
-                logger.debug(f"Session ID retrieved: {new_session_id}")
+                logger.info(f"Session ID retrieved: {new_session_id}")
 
         except Exception as e:
             logger.error(f"Report generation failed: {e}")
@@ -708,26 +729,44 @@ Execute this recipe and emit work_output with validation metadata using the emit
                 await client.query(user_prompt)
 
                 # Collect responses and parse tool results
+                logger.info("[REPORTING-RECIPE] Starting SDK response iteration...")
+                message_count = 0
+
                 async for message in client.receive_response():
-                    logger.debug(f"SDK message type: {type(message).__name__}")
+                    message_count += 1
+                    message_type = type(message).__name__
+                    logger.info(f"[REPORTING-RECIPE] Message #{message_count}: type={message_type}")
 
                     # Process content blocks
                     if hasattr(message, 'content') and isinstance(message.content, list):
-                        for block in message.content:
+                        content_blocks = message.content
+                        logger.info(f"[REPORTING-RECIPE] Processing {len(content_blocks)} content blocks")
+
+                        for idx, block in enumerate(content_blocks):
                             if not hasattr(block, 'type'):
+                                logger.warning(f"[REPORTING-RECIPE] Block #{idx} missing 'type' attribute")
                                 continue
 
                             block_type = block.type
-                            logger.debug(f"SDK block type: {block_type}")
+                            logger.info(f"[REPORTING-RECIPE] Block #{idx}: type={block_type}")
 
                             # Text blocks
                             if block_type == 'text' and hasattr(block, 'text'):
+                                text_length = len(block.text)
+                                text_preview = block.text[:100] if block.text else ""
+                                logger.info(f"[REPORTING-RECIPE] 📝 Text block: {text_length} chars - Preview: {text_preview}...")
                                 response_text += block.text
+
+                            # Tool use blocks
+                            elif block_type == 'tool_use':
+                                tool_name = getattr(block, 'name', 'unknown')
+                                tool_input = getattr(block, 'input', {})
+                                logger.info(f"[REPORTING-RECIPE] ⚙️ Tool use detected: {tool_name} with input keys: {list(tool_input.keys()) if isinstance(tool_input, dict) else 'N/A'}")
 
                             # Tool result blocks (extract work outputs + todo updates)
                             elif block_type == 'tool_result':
                                 tool_name = getattr(block, 'tool_name', '')
-                                logger.debug(f"Tool result from: {tool_name}")
+                                logger.info(f"[REPORTING-RECIPE] ✅ Tool result from: {tool_name}")
 
                                 if tool_name == 'emit_work_output':
                                     try:
@@ -772,9 +811,12 @@ Execute this recipe and emit work_output with validation metadata using the emit
                                     except Exception as e:
                                         logger.error(f"Failed to parse todo update: {e}", exc_info=True)
 
+                # Log iteration completion summary
+                logger.info(f"[REPORTING-RECIPE] Iteration complete: {message_count} messages, {len(work_outputs)} outputs, {len(response_text)} chars response text")
+
                 # Get session ID from client
                 new_session_id = getattr(client, 'session_id', None)
-                logger.debug(f"Session ID retrieved: {new_session_id}")
+                logger.info(f"Session ID retrieved: {new_session_id}")
 
         except Exception as e:
             logger.error(f"Recipe execution failed: {e}")
