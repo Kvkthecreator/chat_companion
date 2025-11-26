@@ -77,14 +77,22 @@ async def check_agent_configuration():
 
     Returns info about how agents are configured.
     """
-    from agents_sdk.reporting_agent_sdk import ReportingAgentSDK
+    from agents_sdk.reporting_agent_sdk import ReportingAgentSDK, REPORTING_AGENT_SYSTEM_PROMPT
+    from shared.session import AgentSession
 
     # Create a test instance to inspect configuration
     try:
+        # Create a mock session to avoid database dependency
+        from unittest.mock import MagicMock
+        mock_session = MagicMock(spec=AgentSession)
+        mock_session.id = "test-session-123"
+        mock_session.claude_session_id = None
+
         agent = ReportingAgentSDK(
             basket_id="test-basket",
             workspace_id="test-workspace",
-            work_ticket_id="test-ticket"
+            work_ticket_id="test-ticket",
+            session=mock_session
         )
 
         config = {
@@ -96,8 +104,10 @@ async def check_agent_configuration():
                 "setting_sources": agent._options.setting_sources,
                 "mcp_servers_count": len(agent._options.mcp_servers) if agent._options.mcp_servers else 0,
             },
-            "system_prompt_length": len(agent._build_system_prompt()),
-            "system_prompt_preview": agent._build_system_prompt()[:500] + "...",
+            "system_prompt_length": len(REPORTING_AGENT_SYSTEM_PROMPT),
+            "system_prompt_preview": REPORTING_AGENT_SYSTEM_PROMPT[:500] + "...",
+            "system_prompt_has_skill_instructions": "Use Skill tool" in REPORTING_AGENT_SYSTEM_PROMPT,
+            "system_prompt_has_pptx_instructions": 'skill_id: "pptx"' in REPORTING_AGENT_SYSTEM_PROMPT,
         }
 
         return {
@@ -106,7 +116,9 @@ async def check_agent_configuration():
         }
     except Exception as e:
         logger.error(f"Failed to create test agent: {e}", exc_info=True)
+        import traceback
         return {
             "status": "error",
-            "error": str(e)
+            "error": str(e),
+            "traceback": traceback.format_exc()
         }
