@@ -867,28 +867,31 @@ async def test_inter_agent_flow():
         from claude_agent_sdk import ClaudeSDKClient
         from app.utils.supabase_client import supabase_admin_client as supabase
 
-        # Step 1: Query database for research outputs from previous test
+        # Step 1: Query database for research outputs from production
         print("[STEP 1] Querying database for research work_outputs...", flush=True)
 
-        # Query work_outputs from test-basket-research (created by research workflow test)
+        # Use production basket_id with actual work_outputs (from reporting agent tests)
+        production_basket_id = "4eccb9a0-9fe4-4660-861e-b80a75a20824"
+
         result = supabase.table("work_outputs") \
             .select("id, title, output_type, body, confidence, created_at, work_ticket_id") \
-            .eq("basket_id", "test-basket-research") \
+            .eq("basket_id", production_basket_id) \
             .order("created_at", desc=True) \
             .limit(5) \
             .execute()
 
         work_outputs = result.data
 
-        print(f"[STEP 1] ✅ Found {len(work_outputs)} research outputs", flush=True)
+        print(f"[STEP 1] ✅ Found {len(work_outputs)} work outputs from production", flush=True)
+        print(f"  Basket ID: {production_basket_id}", flush=True)
         for idx, output in enumerate(work_outputs):
             print(f"  [{idx+1}] {output['title'][:60]}... (type={output['output_type']})", flush=True)
 
         if not work_outputs:
             return {
                 "status": "error",
-                "error": "No research outputs found. Run /api/diagnostics/test-research-workflow first.",
-                "basket_id": "test-basket-research"
+                "error": "No work outputs found in production basket.",
+                "basket_id": production_basket_id
             }
 
         # Step 2: Create WorkBundle with research findings as substrate blocks
