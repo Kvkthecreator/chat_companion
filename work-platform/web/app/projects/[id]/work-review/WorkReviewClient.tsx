@@ -39,7 +39,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/AlertDialog";
-import { Textarea } from "@/components/ui/textarea";
+import { Textarea } from "@/components/ui/Textarea";
 import { fetchWithToken } from "@/lib/api/http";
 
 interface WorkOutput {

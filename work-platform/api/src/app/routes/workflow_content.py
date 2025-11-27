@@ -1,17 +1,17 @@
 """
-Deterministic Reporting Workflow Endpoint
+Deterministic Content Workflow Endpoint
 
 Part of Workflow-First Architecture:
 - Explicit parameters (no TP orchestration)
-- Direct specialist invocation via ReportingAgent
-- Full context loading (research findings, data)
+- Direct specialist invocation via ContentAgent
+- Full context loading (brand voice, prior content)
 - Auditable execution tracking
 - Optional recipe-driven execution (parameterized templates)
 
 Architecture (Post-SDK Removal):
-- Uses ReportingAgent (Skills API for PPTX, XLSX, DOCX, PDF)
-- First-principled context: research-oriented, document generation
-- Tool execution via Skills API code_execution
+- Uses ContentAgent (direct Anthropic API, no Claude Agent SDK)
+- Work-oriented context: brand voice, prior content, target audience
+- Tool execution via emit_work_output for supervision workflow
 """
 
 from typing import Optional, Dict, Any, List
@@ -22,23 +22,26 @@ from datetime import datetime, timezone
 
 from app.utils.jwt import verify_jwt
 from app.utils.supabase_client import supabase_admin_client as supabase
-from agents.reporting_agent import ReportingAgent, create_reporting_agent
+from agents.content_agent import ContentAgent, create_content_agent
 from services.recipe_loader import RecipeLoader, RecipeValidationError
 import logging
 import time
 
-router = APIRouter(prefix="/work/reporting", tags=["workflows"])
+router = APIRouter(prefix="/work/content", tags=["workflows"])
 logger = logging.getLogger(__name__)
 
 
-class ReportingWorkflowRequest(BaseModel):
-    """Deterministic reporting workflow parameters."""
+class ContentWorkflowRequest(BaseModel):
+    """Deterministic content workflow parameters."""
     basket_id: str
     task_description: str
-    output_format: Optional[str] = "pptx"  # pptx, xlsx, docx, pdf
-    document_title: Optional[str] = None
-    template_style: Optional[str] = "professional"  # professional, minimal, branded
-    include_data: Optional[Dict[str, Any]] = None  # Structured data for charts/tables
+    content_type: Optional[str] = "linkedin_post"  # linkedin_post, twitter_thread, twitter_post, instagram_caption, blog_article
+    tone: Optional[str] = "professional"  # professional, casual, authoritative, friendly, inspiring
+    target_audience: Optional[str] = None
+    brand_voice: Optional[str] = None
+    create_variants: Optional[bool] = False
+    variant_count: Optional[int] = 2
+    enable_web_search: Optional[bool] = False
     priority: Optional[int] = 5
 
     # Recipe integration (optional)
@@ -50,8 +53,8 @@ class ReportingWorkflowRequest(BaseModel):
     async_execution: Optional[bool] = False  # If True, return ticket_id immediately
 
 
-class ReportingWorkflowResponse(BaseModel):
-    """Reporting workflow execution result."""
+class ContentWorkflowResponse(BaseModel):
+    """Content workflow execution result."""
     work_request_id: str
     work_ticket_id: str
     status: str  # pending, running, completed, failed
@@ -62,35 +65,32 @@ class ReportingWorkflowResponse(BaseModel):
     token_usage: Optional[Dict[str, int]] = None  # Token usage stats
 
 
-@router.post("/execute", response_model=ReportingWorkflowResponse)
-async def execute_reporting_workflow(
-    request: ReportingWorkflowRequest,
+@router.post("/execute", response_model=ContentWorkflowResponse)
+async def execute_content_workflow(
+    request: ContentWorkflowRequest,
     user: dict = Depends(verify_jwt)
 ):
     """
-    Execute deterministic reporting workflow.
-
-    Uses ReportingAgent with Claude Skills API for document generation.
-    Supports PPTX, XLSX, DOCX, PDF output formats.
+    Execute deterministic content workflow.
 
     Flow:
     1. Validate permissions (workspace, basket)
     2. Create work_request + work_ticket (tracking)
-    3. Execute ReportingAgent with Skills API
+    3. Execute ContentAgent with context
     4. Return structured outputs
 
     Args:
-        request: Reporting workflow parameters
+        request: Content workflow parameters
         user: Authenticated user from JWT
 
     Returns:
-        Reporting workflow execution result with outputs
+        Content workflow execution result with outputs
 
     Raises:
         401: Authentication failed
         403: Permission denied
         404: Basket or recipe not found
-        400: Invalid recipe parameters or unsupported format
+        400: Invalid recipe parameters
         500: Execution error
     """
     user_id = user.get("sub") or user.get("user_id")
@@ -98,17 +98,9 @@ async def execute_reporting_workflow(
     if not user_id:
         raise HTTPException(status_code=401, detail="Invalid user token")
 
-    # Validate output format
-    supported_formats = ["pptx", "xlsx", "docx", "pdf"]
-    if request.output_format and request.output_format.lower() not in supported_formats:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Unsupported output format: {request.output_format}. Supported: {supported_formats}"
-        )
-
     logger.info(
-        f"[REPORTING WORKFLOW] Starting: user={user_id}, basket={request.basket_id}, "
-        f"format={request.output_format}, recipe={request.recipe_id}"
+        f"[CONTENT WORKFLOW] Starting: user={user_id}, basket={request.basket_id}, "
+        f"type={request.content_type}, recipe={request.recipe_id}"
     )
 
     try:
@@ -129,7 +121,7 @@ async def execute_reporting_workflow(
         validated_params = None
 
         if request.recipe_id:
-            logger.info(f"[REPORTING WORKFLOW] Loading recipe: {request.recipe_id}")
+            logger.info(f"[CONTENT WORKFLOW] Loading recipe: {request.recipe_id}")
 
             loader = RecipeLoader()
 
@@ -139,7 +131,7 @@ async def execute_reporting_workflow(
             except Exception:
                 recipe = await loader.load_recipe(slug=request.recipe_id)
 
-            logger.info(f"[REPORTING WORKFLOW] Loaded recipe: {recipe.name} (v{recipe.version})")
+            logger.info(f"[CONTENT WORKFLOW] Loaded recipe: {recipe.name} (v{recipe.version})")
 
             # Validate parameters
             try:
@@ -147,7 +139,7 @@ async def execute_reporting_workflow(
                     recipe=recipe,
                     user_parameters=request.recipe_parameters or {}
                 )
-                logger.info(f"[REPORTING WORKFLOW] Validated parameters: {validated_params}")
+                logger.info(f"[CONTENT WORKFLOW] Validated parameters: {validated_params}")
             except RecipeValidationError as e:
                 raise HTTPException(
                     status_code=400,
@@ -165,12 +157,14 @@ async def execute_reporting_workflow(
             "workspace_id": workspace_id,
             "basket_id": request.basket_id,
             "requested_by_user_id": user_id,
-            "request_type": f"recipe_{recipe.slug}" if recipe else "reporting_workflow",
+            "request_type": f"recipe_{recipe.slug}" if recipe else "content_workflow",
             "task_intent": recipe.name if recipe else request.task_description,
             "parameters": {
-                "output_format": request.output_format,
-                "document_title": request.document_title,
-                "template_style": request.template_style,
+                "content_type": request.content_type,
+                "tone": request.tone,
+                "target_audience": request.target_audience,
+                "create_variants": request.create_variants,
+                "variant_count": request.variant_count,
                 "recipe_used": recipe.slug if recipe else None,
                 "recipe_parameters": validated_params if recipe else None,
             },
@@ -192,16 +186,16 @@ async def execute_reporting_workflow(
             "work_request_id": work_request_id,
             "workspace_id": workspace_id,
             "basket_id": request.basket_id,
-            "agent_type": "reporting",
+            "agent_type": "content",
             "status": "pending",
             "metadata": {
-                "workflow": "recipe_reporting" if recipe else "deterministic_reporting",
+                "workflow": "recipe_content" if recipe else "deterministic_content",
                 "task_description": request.task_description,
-                "output_format": request.output_format,
-                "template_style": request.template_style,
+                "content_type": request.content_type,
+                "tone": request.tone,
                 "recipe_slug": recipe.slug if recipe else None,
                 "recipe_id": recipe.id if recipe else None,
-                "execution_mode": "skills_api",  # Mark as using Skills API
+                "execution_mode": "direct_api",  # Mark as using new executor
             },
         }
         work_ticket_response = supabase.table("work_tickets").insert(
@@ -210,13 +204,13 @@ async def execute_reporting_workflow(
         work_ticket_id = work_ticket_response.data[0]["id"]
 
         logger.info(
-            f"[REPORTING WORKFLOW] Created: work_request={work_request_id}, "
+            f"[CONTENT WORKFLOW] Created: work_request={work_request_id}, "
             f"work_ticket={work_ticket_id}"
         )
 
         # ASYNC MODE: Return immediately, execute in background
         if request.async_execution:
-            logger.info(f"[REPORTING WORKFLOW] Async mode: returning ticket_id immediately")
+            logger.info(f"[CONTENT WORKFLOW] Async mode: returning ticket_id immediately")
 
             import threading
             import asyncio as bg_asyncio
@@ -229,10 +223,13 @@ async def execute_reporting_workflow(
             _work_request_id = work_request_id
             _work_ticket_id = work_ticket_id
             _task_description = request.task_description
-            _output_format = request.output_format
-            _document_title = request.document_title
-            _template_style = request.template_style
-            _include_data = request.include_data
+            _content_type = request.content_type
+            _tone = request.tone
+            _target_audience = request.target_audience
+            _brand_voice = request.brand_voice
+            _create_variants = request.create_variants
+            _variant_count = request.variant_count
+            _enable_web_search = request.enable_web_search
             _recipe = recipe
             _execution_context = execution_context
             _validated_params = validated_params
@@ -240,7 +237,7 @@ async def execute_reporting_workflow(
             def execute_in_background():
                 try:
                     from app.utils.supabase_client import supabase_admin_client as bg_supabase
-                    from agents.reporting_agent import ReportingAgent
+                    from agents.content_agent import ContentAgent
 
                     # Update status to running
                     bg_supabase.table("work_tickets").update({
@@ -256,9 +253,9 @@ async def execute_reporting_workflow(
                         enhanced_task = f"""**Recipe: {_recipe.name}**
 
 **Deliverable Intent:**
-- Purpose: {deliverable_intent.get('purpose', 'Create document')}
-- Audience: {deliverable_intent.get('audience', 'Stakeholders')}
-- Outcome: {deliverable_intent.get('outcome', 'Professional document')}
+- Purpose: {deliverable_intent.get('purpose', 'Create content')}
+- Audience: {deliverable_intent.get('audience', 'Target audience')}
+- Outcome: {deliverable_intent.get('outcome', 'Quality content')}
 
 **Task:** {_task_description}
 
@@ -266,15 +263,15 @@ async def execute_reporting_workflow(
 {chr(10).join([f"- {step}" for step in task_breakdown])}
 
 **Parameters:**
-- Format: {_output_format}
-- Slide Count: {_validated_params.get('slide_count', 5) if _validated_params else 5}
-- Focus Area: {_validated_params.get('focus_area', 'None specified') if _validated_params else 'None specified'}
+- Platform: {_validated_params.get('platform', _content_type) if _validated_params else _content_type}
+- Tone: {_validated_params.get('tone', _tone) if _validated_params else _tone}
+- Topic: {_validated_params.get('topic_focus', _task_description) if _validated_params else _task_description}
 
 {_execution_context.get('system_prompt_additions', '')}
 """
 
                     # Create executor and run
-                    executor = ReportingAgent(
+                    executor = ContentAgent(
                         basket_id=_basket_id,
                         workspace_id=_workspace_id,
                         work_ticket_id=_work_ticket_id,
@@ -285,10 +282,13 @@ async def execute_reporting_workflow(
                     start_time = time.time()
                     result = bg_asyncio.run(executor.execute(
                         task=enhanced_task,
-                        output_format=_output_format,
-                        document_title=_document_title,
-                        include_data=_include_data,
-                        template_style=_template_style,
+                        content_type=_content_type,
+                        tone=_tone,
+                        target_audience=_target_audience,
+                        brand_voice=_brand_voice,
+                        create_variants=_create_variants,
+                        variant_count=_variant_count,
+                        enable_web_search=_enable_web_search,
                     ))
                     execution_time_ms = int((time.time() - start_time) * 1000)
 
@@ -313,10 +313,10 @@ async def execute_reporting_workflow(
                         "metadata": updated_metadata,
                     }).eq("id", _work_ticket_id).execute()
 
-                    logger.info(f"[REPORTING WORKFLOW] Background complete: {len(result.work_outputs)} outputs")
+                    logger.info(f"[CONTENT WORKFLOW] Background complete: {len(result.work_outputs)} outputs")
 
                 except Exception as e:
-                    logger.exception(f"[REPORTING WORKFLOW] Background failed: {e}")
+                    logger.exception(f"[CONTENT WORKFLOW] Background failed: {e}")
                     try:
                         from app.utils.supabase_client import supabase_admin_client as err_supabase
                         err_supabase.table("work_tickets").update({
@@ -325,23 +325,23 @@ async def execute_reporting_workflow(
                             "error_message": str(e),
                         }).eq("id", _work_ticket_id).execute()
                     except Exception as update_err:
-                        logger.error(f"[REPORTING WORKFLOW] Failed to update ticket: {update_err}")
+                        logger.error(f"[CONTENT WORKFLOW] Failed to update ticket: {update_err}")
 
             thread = threading.Thread(target=execute_in_background, daemon=True)
             thread.start()
 
-            return ReportingWorkflowResponse(
+            return ContentWorkflowResponse(
                 work_request_id=work_request_id,
                 work_ticket_id=work_ticket_id,
                 status="running",
                 outputs=[],
                 execution_time_ms=None,
-                message="Document generation started in background - track progress via work_ticket status",
+                message="Content generation started in background - track progress via work_ticket status",
                 recipe_used=recipe.slug if recipe else None,
             )
 
         # SYNC MODE: Execute and wait for result
-        logger.info(f"[REPORTING WORKFLOW] Sync mode: executing document generation")
+        logger.info(f"[CONTENT WORKFLOW] Sync mode: executing content generation")
 
         # Update status to running
         supabase.table("work_tickets").update({
@@ -357,9 +357,9 @@ async def execute_reporting_workflow(
             enhanced_task = f"""**Recipe: {recipe.name}**
 
 **Deliverable Intent:**
-- Purpose: {deliverable_intent.get('purpose', 'Create document')}
-- Audience: {deliverable_intent.get('audience', 'Stakeholders')}
-- Outcome: {deliverable_intent.get('outcome', 'Professional document')}
+- Purpose: {deliverable_intent.get('purpose', 'Create content')}
+- Audience: {deliverable_intent.get('audience', 'Target audience')}
+- Outcome: {deliverable_intent.get('outcome', 'Quality content')}
 
 **Task:** {request.task_description}
 
@@ -367,15 +367,15 @@ async def execute_reporting_workflow(
 {chr(10).join([f"- {step}" for step in task_breakdown])}
 
 **Parameters:**
-- Format: {request.output_format}
-- Slide Count: {validated_params.get('slide_count', 5)}
-- Focus Area: {validated_params.get('focus_area', 'None specified')}
+- Platform: {validated_params.get('platform', request.content_type)}
+- Tone: {validated_params.get('tone', request.tone)}
+- Topic: {validated_params.get('topic_focus', request.task_description)}
 
 {execution_context.get('system_prompt_additions', '')}
 """
 
         # Create executor and run
-        executor = create_reporting_agent(
+        executor = create_content_agent(
             basket_id=request.basket_id,
             workspace_id=workspace_id,
             work_ticket_id=work_ticket_id,
@@ -386,10 +386,13 @@ async def execute_reporting_workflow(
         start_time = time.time()
         result = await executor.execute(
             task=enhanced_task,
-            output_format=request.output_format,
-            document_title=request.document_title,
-            include_data=request.include_data,
-            template_style=request.template_style,
+            content_type=request.content_type,
+            tone=request.tone,
+            target_audience=request.target_audience,
+            brand_voice=request.brand_voice,
+            create_variants=request.create_variants,
+            variant_count=request.variant_count,
+            enable_web_search=request.enable_web_search,
         )
         execution_time_ms = int((time.time() - start_time) * 1000)
 
@@ -398,7 +401,7 @@ async def execute_reporting_workflow(
             "status": "completed",
             "completed_at": datetime.now(timezone.utc).isoformat(),
             "metadata": {
-                "workflow": "recipe_reporting" if recipe else "deterministic_reporting",
+                "workflow": "recipe_content" if recipe else "deterministic_content",
                 "execution_time_ms": execution_time_ms,
                 "output_count": len(result.work_outputs),
                 "recipe_slug": recipe.slug if recipe else None,
@@ -411,17 +414,17 @@ async def execute_reporting_workflow(
         }).eq("id", work_ticket_id).execute()
 
         logger.info(
-            f"[REPORTING WORKFLOW] Complete: {len(result.work_outputs)} outputs "
+            f"[CONTENT WORKFLOW] Complete: {len(result.work_outputs)} outputs "
             f"in {execution_time_ms}ms, tokens={result.input_tokens}+{result.output_tokens}"
         )
 
-        return ReportingWorkflowResponse(
+        return ContentWorkflowResponse(
             work_request_id=work_request_id,
             work_ticket_id=work_ticket_id,
             status="completed",
             outputs=result.work_outputs,
             execution_time_ms=execution_time_ms,
-            message=f"Document complete: {len(result.work_outputs)} outputs generated",
+            message=f"Content complete: {len(result.work_outputs)} outputs generated",
             recipe_used=recipe.slug if recipe else None,
             token_usage={
                 "input_tokens": result.input_tokens,
@@ -433,7 +436,7 @@ async def execute_reporting_workflow(
     except HTTPException:
         raise
     except Exception as e:
-        logger.exception(f"[REPORTING WORKFLOW] Failed: {e}")
+        logger.exception(f"[CONTENT WORKFLOW] Failed: {e}")
 
         if 'work_ticket_id' in locals():
             try:
@@ -451,28 +454,5 @@ async def execute_reporting_workflow(
 
         raise HTTPException(
             status_code=500,
-            detail=f"Reporting workflow execution failed: {str(e)}"
+            detail=f"Content workflow execution failed: {str(e)}"
         )
-
-
-@router.get("/status")
-async def reporting_workflow_status():
-    """
-    Get reporting workflow status.
-
-    Returns:
-        Workflow status information
-    """
-    return {
-        "status": "active",
-        "message": "Reporting workflow is available with Skills API support",
-        "supported_formats": ["pptx", "xlsx", "docx", "pdf"],
-        "features": {
-            "skills_api": True,
-            "recipe_driven": True,
-            "async_execution": True,
-        },
-        "recipes": [
-            "executive-summary-deck",
-        ],
-    }

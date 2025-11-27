@@ -76,6 +76,7 @@ from .work.review_routes import router as work_review_router
 from .work.task_streaming import router as task_streaming_router
 from .routes.thinking_partner import router as thinking_partner_router
 from .routes.workflow_research import router as workflow_research_router
+from .routes.workflow_content import router as workflow_content_router
 from .routes.workflow_reporting import router as workflow_reporting_router
 from .routes.test_workflows import router as test_workflows_router
 from .routes.work_recipes import router as work_recipes_router
@@ -170,6 +171,7 @@ routers = (
     task_streaming_router,
     thinking_partner_router,
     workflow_research_router,
+    workflow_content_router,
     workflow_reporting_router,
     test_workflows_router,
     work_recipes_router,
