@@ -1,7 +1,7 @@
 """
 Diagnostic endpoints for troubleshooting agent execution.
 
-Helps debug Skills availability, working directory, and agent configuration.
+Post-SDK removal: Tests updated to use direct Anthropic API.
 """
 
 import os
@@ -23,7 +23,6 @@ async def check_skills_availability():
         - claude_dir_exists: Whether .claude directory exists
         - skills_dir_exists: Whether .claude/skills exists
         - available_skills: List of installed Skills
-        - skill_details: Details about each Skill (SKILL.md exists, etc.)
     """
     cwd = os.getcwd()
     claude_dir = Path(cwd) / ".claude"
@@ -40,11 +39,9 @@ async def check_skills_availability():
     }
 
     if skills_dir.exists():
-        # List all skill directories
         skill_dirs = [d for d in skills_dir.iterdir() if d.is_dir() and not d.name.startswith('.')]
         result["available_skills"] = [d.name for d in skill_dirs]
 
-        # Check each skill for SKILL.md
         for skill_dir in skill_dirs:
             skill_name = skill_dir.name
             skill_md = skill_dir / "SKILL.md"
@@ -54,38 +51,21 @@ async def check_skills_availability():
                 "skill_md_exists": skill_md.exists(),
                 "skill_md_path": str(skill_md),
                 "skill_md_size": skill_md.stat().st_size if skill_md.exists() else 0,
-                "files": [f.name for f in skill_dir.iterdir() if f.is_file()][:10]  # First 10 files
+                "files": [f.name for f in skill_dir.iterdir() if f.is_file()][:10]
             }
 
-    # Check environment variables that might affect Skills
     result["environment"] = {
         "PYTHONPATH": os.getenv("PYTHONPATH"),
-        "PATH": os.getenv("PATH", "")[:200] + "...",  # Truncate PATH
+        "PATH": os.getenv("PATH", "")[:200] + "...",
         "HOME": os.getenv("HOME"),
         "USER": os.getenv("USER"),
         "ANTHROPIC_API_KEY": "***" + os.getenv("ANTHROPIC_API_KEY", "NOT_SET")[-4:] if os.getenv("ANTHROPIC_API_KEY") else "NOT_SET",
     }
 
-    # Check if Claude CLI is installed/accessible (binary name is 'claude')
-    import subprocess
-    try:
-        claude_cli_check = subprocess.run(
-            ["which", "claude"],
-            capture_output=True,
-            text=True,
-            timeout=5
-        )
-        result["claude_cli"] = {
-            "found": claude_cli_check.returncode == 0,
-            "path": claude_cli_check.stdout.strip() if claude_cli_check.returncode == 0 else None,
-            "binary_name": "claude"
-        }
-    except Exception as e:
-        result["claude_cli"] = {
-            "found": False,
-            "error": str(e),
-            "binary_name": "claude"
-        }
+    result["sdk_status"] = {
+        "status": "removed",
+        "note": "Claude Agent SDK removed in favor of direct Anthropic API"
+    }
 
     logger.info(f"Skills diagnostic: {len(result['available_skills'])} skills found")
 
@@ -95,487 +75,81 @@ async def check_skills_availability():
 @router.get("/agent-config")
 async def check_agent_configuration():
     """
-    Check agent SDK configuration.
+    Check agent configuration.
 
-    Returns info about how agents are configured.
+    Returns info about how agents are configured (post-SDK removal).
     """
-    from agents_sdk.reporting_agent_sdk import ReportingAgentSDK, REPORTING_AGENT_SYSTEM_PROMPT
-    from shared.session import AgentSession
-
-    # Create a test instance to inspect configuration
-    try:
-        # Create a mock session to avoid database dependency
-        from unittest.mock import MagicMock
-        mock_session = MagicMock(spec=AgentSession)
-        mock_session.id = "test-session-123"
-        mock_session.claude_session_id = None
-        mock_session.parent_session_id = None
-
-        agent = ReportingAgentSDK(
-            basket_id="test-basket",
-            workspace_id="test-workspace",
-            work_ticket_id="test-ticket",
-            session=mock_session
-        )
-
-        config = {
-            "model": agent.model,
-            "default_format": agent.default_format,
-            "options": {
-                "model": agent._options.model,
-                "allowed_tools": agent._options.allowed_tools,
-                "setting_sources": agent._options.setting_sources,
-                "mcp_servers_count": len(agent._options.mcp_servers) if agent._options.mcp_servers else 0,
+    return {
+        "status": "migrated",
+        "architecture": "direct_anthropic_api",
+        "note": "Claude Agent SDK removed. Agents now use AnthropicDirectClient.",
+        "available_executors": [
+            {
+                "name": "ResearchExecutor",
+                "path": "agents/research_executor.py",
+                "status": "active"
             },
-            "system_prompt_length": len(REPORTING_AGENT_SYSTEM_PROMPT),
-            "system_prompt_preview": REPORTING_AGENT_SYSTEM_PROMPT[:500] + "...",
-            "system_prompt_has_skill_instructions": "Use Skill tool" in REPORTING_AGENT_SYSTEM_PROMPT,
-            "system_prompt_has_pptx_instructions": 'skill_id: "pptx"' in REPORTING_AGENT_SYSTEM_PROMPT,
-        }
-
-        return {
-            "status": "success",
-            "config": config
-        }
-    except Exception as e:
-        logger.error(f"Failed to create test agent: {e}", exc_info=True)
-        import traceback
-        return {
-            "status": "error",
-            "error": str(e),
-            "traceback": traceback.format_exc()
-        }
+            {
+                "name": "ContentExecutor",
+                "path": "agents/content_executor.py",
+                "status": "pending_migration"
+            },
+            {
+                "name": "ReportingExecutor",
+                "path": "agents/reporting_executor.py",
+                "status": "pending_migration"
+            }
+        ],
+        "tools": [
+            "emit_work_output (via substrate-API HTTP)",
+            "web_search (planned)"
+        ]
+    }
 
 
-@router.post("/test-basic-sdk")
-async def test_basic_sdk():
+@router.post("/test-direct-api")
+async def test_direct_api():
     """
-    Test basic SDK functionality WITHOUT Skills.
+    Test direct Anthropic API functionality.
 
-    This will confirm:
-    1. SDK can connect
-    2. SDK can receive text responses
-    3. SDK iterator works properly
+    This validates:
+    1. Anthropic API key is configured
+    2. Direct API calls work
+    3. Basic message completion succeeds
 
     Returns basic response info.
     """
-    from claude_agent_sdk import ClaudeSDKClient, ClaudeAgentOptions
-
-    print("[BASIC SDK TEST] Starting...", flush=True)
+    print("[DIRECT API TEST] Starting...", flush=True)
 
     try:
-        options = ClaudeAgentOptions(
-            model="claude-sonnet-4-5",
+        from clients.anthropic_client import AnthropicDirectClient
+
+        client = AnthropicDirectClient()
+
+        print("[DIRECT API TEST] Sending simple prompt...", flush=True)
+        result = await client.execute(
             system_prompt="You are a helpful assistant. Respond concisely.",
-            allowed_tools=[],  # NO tools, just basic chat
-            setting_sources=["user", "project"],
+            user_message="Say hello and count to 3.",
+            tools=[],  # No tools, just basic chat
         )
 
-        response_text = ""
-        message_count = 0
-
-        async with ClaudeSDKClient(options=options) as client:
-            print("[BASIC SDK TEST] Connecting...", flush=True)
-            await client.connect()
-
-            print("[BASIC SDK TEST] Sending simple prompt...", flush=True)
-            await client.query("Say hello and count to 3.")
-
-            print("[BASIC SDK TEST] Iterating responses...", flush=True)
-            async for message in client.receive_response():
-                message_count += 1
-                print(f"[BASIC SDK TEST] Message #{message_count}", flush=True)
-
-                if hasattr(message, 'content') and isinstance(message.content, list):
-                    for block in message.content:
-                        if hasattr(block, 'text'):
-                            response_text += block.text
-                            print(f"[BASIC SDK TEST] Got text: {block.text[:50]}...", flush=True)
-
-            print(f"[BASIC SDK TEST] Complete: {message_count} messages, {len(response_text)} chars", flush=True)
+        print(f"[DIRECT API TEST] Complete: {len(result.response_text)} chars", flush=True)
 
         return {
             "status": "success",
-            "message_count": message_count,
-            "response_text": response_text,
-            "response_length": len(response_text)
+            "response_text": result.response_text,
+            "response_length": len(result.response_text),
+            "token_usage": {
+                "input_tokens": result.input_tokens,
+                "output_tokens": result.output_tokens,
+                "cache_read_tokens": result.cache_read_tokens,
+            },
+            "model": result.model,
+            "stop_reason": result.stop_reason
         }
 
     except Exception as e:
-        print(f"[BASIC SDK TEST] FAILED: {e}", flush=True)
-        import traceback
-        return {
-            "status": "error",
-            "error": str(e),
-            "traceback": traceback.format_exc()
-        }
-
-
-@router.post("/test-skill-invocation")
-async def test_skill_invocation():
-    """
-    Test if Skill tool can actually be invoked by the Claude SDK.
-
-    Creates a minimal agent and asks it to generate a simple PPTX file.
-    This will tell us if Skills work at all or if there's a deeper issue.
-
-    Returns:
-        - status: success/error
-        - tool_calls: List of tools the agent actually called
-        - response_text: Agent's response
-        - skill_invoked: Whether Skill tool was used
-        - error: Error message if failed
-    """
-    from claude_agent_sdk import ClaudeSDKClient, ClaudeAgentOptions
-    import asyncio
-
-    # Use print for visibility (logger.info may be filtered)
-    print("[SKILL TEST] Starting minimal Skill tool test", flush=True)
-
-    try:
-        # Create minimal options with ONLY Skill tool
-        options = ClaudeAgentOptions(
-            model="claude-sonnet-4-5",
-            system_prompt="""You are a presentation creator.
-
-**CRITICAL INSTRUCTION**: When asked to create a PPTX presentation, you MUST use the Skill tool.
-
-To create a PowerPoint presentation:
-1. Use the Skill tool with skill_id="pptx"
-2. Provide clear slide content
-3. The Skill will return a file_id
-
-Example:
-User: "Create a 2-slide presentation about AI"
-You: [Use Skill tool with skill_id="pptx" to generate the presentation]
-
-DO NOT just describe what you would create - actually USE the Skill tool to create it.""",
-            allowed_tools=["Skill"],
-            setting_sources=["user", "project"],
-        )
-
-        tool_calls = []
-        response_text = ""
-        skill_invoked = False
-        message_count = 0
-
-        # Create SDK client and test
-        print("[SKILL TEST] Creating SDK client...", flush=True)
-        async with ClaudeSDKClient(options=options) as client:
-            print("[SKILL TEST] Connecting to SDK...", flush=True)
-            await client.connect()
-
-            # Simple test prompt
-            test_prompt = "Create a simple 2-slide PowerPoint presentation about testing. Slide 1: Title 'Test Presentation'. Slide 2: Content 'This is a test'."
-
-            print(f"[SKILL TEST] Sending prompt: {test_prompt[:100]}...", flush=True)
-            await client.query(test_prompt)
-
-            # Collect responses
-            print("[SKILL TEST] Starting to iterate over responses...", flush=True)
-            async for message in client.receive_response():
-                message_count += 1
-                print(f"[SKILL TEST] Message #{message_count}: type={type(message).__name__}", flush=True)
-
-                if hasattr(message, 'content') and isinstance(message.content, list):
-                    print(f"[SKILL TEST] Processing {len(message.content)} content blocks", flush=True)
-                    for idx, block in enumerate(message.content):
-                        if not hasattr(block, 'type'):
-                            print(f"[SKILL TEST] Block #{idx} missing type", flush=True)
-                            continue
-
-                        block_type = block.type
-                        print(f"[SKILL TEST] Block #{idx}: type={block_type}", flush=True)
-
-                        # Track text
-                        if block_type == 'text' and hasattr(block, 'text'):
-                            text_preview = block.text[:100] if block.text else ""
-                            response_text += block.text
-                            print(f"[SKILL TEST] Text block: {text_preview}...", flush=True)
-
-                        # Track tool uses
-                        elif block_type == 'tool_use':
-                            tool_name = getattr(block, 'name', 'unknown')
-                            tool_input = getattr(block, 'input', {})
-                            tool_calls.append({
-                                "tool": tool_name,
-                                "input": str(tool_input)[:200]  # Truncate for safety
-                            })
-                            print(f"[SKILL TEST] Tool use: {tool_name}", flush=True)
-
-                            if tool_name == "Skill":
-                                skill_invoked = True
-                                print(f"[SKILL TEST] ✅ Skill tool was invoked!", flush=True)
-
-                        # Track tool results
-                        elif block_type == 'tool_result':
-                            tool_name = getattr(block, 'tool_name', 'unknown')
-                            print(f"[SKILL TEST] Tool result from: {tool_name}", flush=True)
-                else:
-                    print(f"[SKILL TEST] Message has no content or content is not a list", flush=True)
-
-            print(f"[SKILL TEST] Iteration complete: {message_count} messages received", flush=True)
-
-        result = {
-            "status": "success",
-            "test_prompt": test_prompt,
-            "tool_calls": tool_calls,
-            "tool_count": len(tool_calls),
-            "skill_invoked": skill_invoked,
-            "response_text": response_text[:500] if response_text else "(no text response)",
-            "response_length": len(response_text),
-        }
-
-        if skill_invoked:
-            print("[SKILL TEST] ✅ SUCCESS: Skill tool was invoked", flush=True)
-        else:
-            print(f"[SKILL TEST] ⚠️ WARNING: Skill tool was NOT invoked. Agent called: {tool_calls}", flush=True)
-
-        return result
-
-    except Exception as e:
-        print(f"[SKILL TEST] ❌ FAILED with exception: {e}", flush=True)
-        import traceback
-        return {
-            "status": "error",
-            "error": str(e),
-            "traceback": traceback.format_exc()
-        }
-
-
-@router.post("/test-basic-sdk")
-async def test_basic_sdk():
-    """
-    Test basic SDK functionality WITHOUT Skills.
-
-    This will confirm:
-    1. SDK can connect
-    2. SDK can receive text responses
-    3. SDK iterator works properly
-
-    Returns basic response info.
-    """
-    from claude_agent_sdk import ClaudeSDKClient, ClaudeAgentOptions
-
-    print("[BASIC SDK TEST] Starting...", flush=True)
-
-    try:
-        options = ClaudeAgentOptions(
-            model="claude-sonnet-4-5",
-            system_prompt="You are a helpful assistant. Respond concisely.",
-            allowed_tools=[],  # NO tools, just basic chat
-            setting_sources=["user", "project"],
-        )
-
-        response_text = ""
-        message_count = 0
-
-        async with ClaudeSDKClient(options=options) as client:
-            print("[BASIC SDK TEST] Connecting...", flush=True)
-            await client.connect()
-
-            print("[BASIC SDK TEST] Sending simple prompt...", flush=True)
-            await client.query("Say hello and count to 3.")
-
-            print("[BASIC SDK TEST] Iterating responses...", flush=True)
-            async for message in client.receive_response():
-                message_count += 1
-                print(f"[BASIC SDK TEST] Message #{message_count}", flush=True)
-
-                if hasattr(message, 'content') and isinstance(message.content, list):
-                    for block in message.content:
-                        if hasattr(block, 'text'):
-                            response_text += block.text
-                            print(f"[BASIC SDK TEST] Got text: {block.text[:50]}...", flush=True)
-
-            print(f"[BASIC SDK TEST] Complete: {message_count} messages, {len(response_text)} chars", flush=True)
-
-        return {
-            "status": "success",
-            "message_count": message_count,
-            "response_text": response_text,
-            "response_length": len(response_text)
-        }
-
-    except Exception as e:
-        print(f"[BASIC SDK TEST] FAILED: {e}", flush=True)
-        import traceback
-        return {
-            "status": "error",
-            "error": str(e),
-            "traceback": traceback.format_exc()
-        }
-
-
-@router.post("/test-minimal-sdk")
-async def test_minimal_sdk():
-    """
-    ABSOLUTE MINIMAL SDK TEST (Phase 1 - Core Hardening)
-
-    Goal: Understand exact message structure from SDK
-    - No tools
-    - No MCP servers
-    - No setting_sources
-    - Just: query → receive_response → inspect structure
-
-    This is the foundation for all other SDK functionality.
-    """
-    from claude_agent_sdk import ClaudeSDKClient, ClaudeAgentOptions
-
-    print("[MINIMAL SDK] Starting...", flush=True)
-
-    try:
-        options = ClaudeAgentOptions(
-            model="claude-sonnet-4-5",
-            system_prompt="You are a helpful assistant.",
-        )
-
-        messages_received = []
-
-        async with ClaudeSDKClient(options=options) as client:
-            await client.connect()
-            await client.query("Say hello and count to 3.")
-
-            async for message in client.receive_response():
-                msg_index = len(messages_received)
-                msg_info = {
-                    "index": msg_index,
-                    "type": type(message).__name__,
-                    "has_content": hasattr(message, 'content'),
-                    "content_type": type(message.content).__name__ if hasattr(message, 'content') else None,
-                }
-
-                if hasattr(message, 'content'):
-                    content = message.content
-                    if isinstance(content, list):
-                        msg_info["blocks"] = []
-                        for idx, block in enumerate(content):
-                            block_info = {
-                                "type": type(block).__name__,
-                                "has_type": hasattr(block, 'type'),
-                                "has_text": hasattr(block, 'text'),
-                            }
-                            if hasattr(block, 'type'):
-                                block_info["block_type"] = block.type
-                            if hasattr(block, 'text'):
-                                block_info["text"] = block.text
-                            msg_info["blocks"].append(block_info)
-
-                messages_received.append(msg_info)
-
-        return {
-            "status": "success",
-            "message_count": len(messages_received),
-            "messages": messages_received
-        }
-
-    except Exception as e:
-        import traceback
-        return {
-            "status": "error",
-            "error": str(e),
-            "traceback": traceback.format_exc()
-        }
-
-
-@router.post("/test-todowrite")
-async def test_todowrite():
-    """
-    Phase 2: TodoWrite Tool Validation
-
-    Tests if the TodoWrite tool can be invoked by the Claude SDK.
-
-    This will confirm:
-    1. SDK accepts TodoWrite in allowed_tools
-    2. Agent attempts to use TodoWrite
-    3. Tool is invoked with correct structure
-
-    Returns:
-        - tool_calls: List of tools invoked (should include TodoWrite)
-        - todowrite_invoked: Whether TodoWrite was called
-        - tool_inputs: The actual data passed to TodoWrite
-        - response_text: Agent's text response
-    """
-    from claude_agent_sdk import ClaudeSDKClient, ClaudeAgentOptions
-
-    print("[TODOWRITE TEST] Starting...", flush=True)
-
-    try:
-        options = ClaudeAgentOptions(
-            model="claude-sonnet-4-5",
-            system_prompt="""You are a task planner. When given a task, you MUST use the TodoWrite tool to create a task list.
-
-**CRITICAL**: You MUST use TodoWrite to track tasks. Each todo needs:
-- content: imperative form (e.g., "Run tests")
-- activeForm: present continuous form (e.g., "Running tests")
-- status: "pending", "in_progress", or "completed"
-
-Example:
-User: "Build a login feature"
-You: [Use TodoWrite tool with todos=[
-    {"content": "Create login form", "status": "pending", "activeForm": "Creating login form"},
-    {"content": "Add authentication", "status": "pending", "activeForm": "Adding authentication"}
-]]""",
-            allowed_tools=["TodoWrite"],
-        )
-
-        tool_calls = []
-        todowrite_invoked = False
-        response_text = ""
-
-        async with ClaudeSDKClient(options=options) as client:
-            print("[TODOWRITE TEST] Connecting...", flush=True)
-            await client.connect()
-
-            test_prompt = "Create a task list for implementing user authentication with 3 steps."
-            print(f"[TODOWRITE TEST] Sending prompt: {test_prompt}", flush=True)
-            await client.query(test_prompt)
-
-            print("[TODOWRITE TEST] Iterating responses...", flush=True)
-            async for message in client.receive_response():
-                print(f"[TODOWRITE TEST] Message type: {type(message).__name__}", flush=True)
-
-                if hasattr(message, 'content') and isinstance(message.content, list):
-                    for block in message.content:
-                        # Extract text
-                        if hasattr(block, 'text'):
-                            response_text += block.text
-                            print(f"[TODOWRITE TEST] Text: {block.text[:100]}...", flush=True)
-
-                        # Track tool use
-                        if hasattr(block, 'name'):  # ToolUseBlock
-                            tool_name = block.name
-                            tool_input = block.input if hasattr(block, 'input') else {}
-
-                            tool_calls.append({
-                                "tool": tool_name,
-                                "input": tool_input
-                            })
-
-                            print(f"[TODOWRITE TEST] Tool invoked: {tool_name}", flush=True)
-
-                            if tool_name == "TodoWrite":
-                                todowrite_invoked = True
-                                print(f"[TODOWRITE TEST] ✅ TodoWrite invoked with {len(tool_input.get('todos', []))} todos", flush=True)
-
-        result = {
-            "status": "success",
-            "test_prompt": test_prompt,
-            "tool_calls": tool_calls,
-            "todowrite_invoked": todowrite_invoked,
-            "response_text": response_text[:500] if response_text else "(no text)",
-            "response_length": len(response_text),
-        }
-
-        if todowrite_invoked:
-            print("[TODOWRITE TEST] ✅ SUCCESS: TodoWrite tool was invoked", flush=True)
-        else:
-            print(f"[TODOWRITE TEST] ⚠️ WARNING: TodoWrite NOT invoked. Tools called: {[tc['tool'] for tc in tool_calls]}", flush=True)
-
-        return result
-
-    except Exception as e:
-        print(f"[TODOWRITE TEST] ❌ FAILED: {e}", flush=True)
+        print(f"[DIRECT API TEST] FAILED: {e}", flush=True)
         import traceback
         return {
             "status": "error",
@@ -587,34 +161,25 @@ You: [Use TodoWrite tool with todos=[
 @router.post("/test-emit-work-output")
 async def test_emit_work_output():
     """
-    Phase 3: emit_work_output Tool Validation
+    Test emit_work_output tool via direct API.
 
-    Tests if the emit_work_output MCP tool can be invoked by the Claude SDK.
+    This validates:
+    1. Direct API accepts tool definitions
+    2. Agent invokes emit_work_output
+    3. Tool execution via substrate-API HTTP works
 
-    This will confirm:
-    1. SDK accepts emit_work_output in allowed_tools
-    2. Agent successfully invokes the tool
-    3. MCP server is properly configured
-
-    Returns:
-        - tool_calls: List of tools invoked (should include emit_work_output)
-        - emit_invoked: Whether emit_work_output was called
-        - response_text: Agent's text response
+    Returns tool invocation details.
     """
-    from claude_agent_sdk import ClaudeSDKClient, ClaudeAgentOptions
-    from agents_sdk.shared_tools_mcp import create_shared_tools_server
     from app.utils.supabase_client import supabase_admin_client as supabase
 
     print("[EMIT TEST] Starting...", flush=True)
 
     try:
-        # Step 1: Get real basket_id and work_ticket_id from production
-        # (required for emit_work_output to succeed with database FK constraints)
-        print("[EMIT TEST] Fetching production basket and work_ticket...", flush=True)
+        from clients.anthropic_client import AnthropicDirectClient
 
+        # Get a valid basket and work_ticket
         production_basket_id = "4eccb9a0-9fe4-4660-861e-b80a75a20824"
 
-        # Get existing work_ticket_id to satisfy FK constraint
         work_ticket_result = supabase.table("work_tickets") \
             .select("id") \
             .eq("basket_id", production_basket_id) \
@@ -631,97 +196,50 @@ async def test_emit_work_output():
         work_ticket_id = work_ticket_result.data[0]["id"]
         print(f"[EMIT TEST] Using basket={production_basket_id}, work_ticket={work_ticket_id}", flush=True)
 
-        # Create MCP server with real production context
-        print("[EMIT TEST] Creating MCP server...", flush=True)
-        shared_tools_server = create_shared_tools_server(
-            basket_id=production_basket_id,
-            work_ticket_id=work_ticket_id,
-            agent_type="reporting",
-            user_jwt=None
-        )
+        client = AnthropicDirectClient()
 
-        options = ClaudeAgentOptions(
-            model="claude-sonnet-4-5",
-            system_prompt="""You are a report writer. When you finish writing content, you MUST use the emit_work_output tool to save it.
-
-**CRITICAL**: After writing content, use emit_work_output to save your work.
-
-Required parameters:
-- output_type: "finding", "recommendation", "insight", "draft_content", or "analysis"
-- title: Clear title for the output
-- body: Dictionary with at least "summary" key
-- confidence: Number between 0 and 1
-- source_block_ids: List of source IDs (can be empty list)
-
-Example:
-User: "Write a brief summary about AI"
-You: [Write the summary, then use emit_work_output tool to save it]
-
-DO NOT just write content - you MUST also save it using emit_work_output.""",
-            mcp_servers={"shared_tools": shared_tools_server},
-            allowed_tools=["mcp__shared_tools__emit_work_output"],
-        )
-
-        tool_calls = []
-        emit_invoked = False
-        response_text = ""
-
-        async with ClaudeSDKClient(options=options) as client:
-            print("[EMIT TEST] Connecting...", flush=True)
-            await client.connect()
-
-            test_prompt = "Write a 2-sentence summary about cloud computing and save it as a report draft."
-            print(f"[EMIT TEST] Sending prompt: {test_prompt}", flush=True)
-            await client.query(test_prompt)
-
-            print("[EMIT TEST] Iterating responses...", flush=True)
-            async for message in client.receive_response():
-                print(f"[EMIT TEST] Message type: {type(message).__name__}", flush=True)
-
-                if hasattr(message, 'content') and isinstance(message.content, list):
-                    for block in message.content:
-                        # Extract text
-                        if hasattr(block, 'text'):
-                            response_text += block.text
-                            print(f"[EMIT TEST] Text: {block.text[:100]}...", flush=True)
-
-                        # Track tool use
-                        if hasattr(block, 'name'):  # ToolUseBlock
-                            tool_name = block.name
-                            tool_input = block.input if hasattr(block, 'input') else {}
-
-                            tool_calls.append({
-                                "tool": tool_name,
-                                "input": str(tool_input)[:300]  # Truncate for display
-                            })
-
-                            print(f"[EMIT TEST] Tool invoked: {tool_name}", flush=True)
-
-                            # Check for both prefixed and unprefixed names
-                            if tool_name in ["emit_work_output", "mcp__shared_tools__emit_work_output"]:
-                                emit_invoked = True
-                                print(f"[EMIT TEST] ✅ emit_work_output invoked", flush=True)
-                                print(f"[EMIT TEST] Output type: {tool_input.get('output_type')}", flush=True)
-                                print(f"[EMIT TEST] Title: {tool_input.get('title')}", flush=True)
-
-        result = {
-            "status": "success",
-            "test_prompt": test_prompt,
-            "tool_calls": tool_calls,
-            "emit_invoked": emit_invoked,
-            "response_text": response_text[:500] if response_text else "(no text)",
-            "response_length": len(response_text),
+        tool_context = {
+            "basket_id": production_basket_id,
+            "work_ticket_id": work_ticket_id,
+            "agent_type": "research",
         }
 
-        if emit_invoked:
-            print("[EMIT TEST] ✅ SUCCESS: emit_work_output was invoked", flush=True)
-        else:
-            print(f"[EMIT TEST] ⚠️ WARNING: emit_work_output NOT invoked. Tools called: {[tc['tool'] for tc in tool_calls]}", flush=True)
+        print("[EMIT TEST] Sending prompt with emit_work_output tool...", flush=True)
+        result = await client.execute(
+            system_prompt="""You are a research assistant. When you have a finding, you MUST use the emit_work_output tool to save it.
 
-        return result
+CRITICAL: After writing any content, use emit_work_output to save your work.
+
+Required parameters:
+- output_type: "finding" or "insight"
+- title: Clear title
+- body: Dictionary with at least "summary" key
+- confidence: Number between 0 and 1
+- source_block_ids: List of source IDs (can be empty list [])""",
+            user_message="Write a brief 1-sentence summary about AI assistants and save it using the emit_work_output tool.",
+            tools=["emit_work_output"],
+            tool_context=tool_context,
+        )
+
+        emit_invoked = any(tc.name == "emit_work_output" for tc in result.tool_calls)
+
+        return {
+            "status": "success",
+            "emit_invoked": emit_invoked,
+            "tool_calls": [
+                {"tool": tc.name, "input": str(tc.input)[:200]}
+                for tc in result.tool_calls
+            ],
+            "work_outputs": result.work_outputs,
+            "response_text": result.response_text[:500] if result.response_text else "(no text)",
+            "token_usage": {
+                "input_tokens": result.input_tokens,
+                "output_tokens": result.output_tokens,
+            }
+        }
 
     except Exception as e:
-        print(f"[EMIT TEST] ❌ FAILED: {e}", flush=True)
+        print(f"[EMIT TEST] FAILED: {e}", flush=True)
         import traceback
         return {
             "status": "error",
@@ -733,28 +251,26 @@ DO NOT just write content - you MUST also save it using emit_work_output.""",
 @router.post("/test-research-workflow")
 async def test_research_workflow():
     """
-    Phase 4: Multi-Step Research Agent Workflow
+    Test research workflow with direct API.
 
-    Tests the research agent's ability to:
-    1. Use web_search tool for information gathering
-    2. Generate text-based analysis
-    3. Use emit_work_output to save findings
+    This validates:
+    1. ResearchExecutor initialization
+    2. Task execution
+    3. emit_work_output invocation
+    4. Token tracking
 
-    This validates end-to-end autonomous workflow without Skills dependency.
+    Returns workflow execution details.
     """
-    from agents_sdk.research_agent_sdk import ResearchAgentSDK
     from app.utils.supabase_client import supabase_admin_client as supabase
 
-    print("[RESEARCH TEST] Starting multi-step workflow test...", flush=True)
+    print("[RESEARCH TEST] Starting...", flush=True)
 
     try:
-        # Step 1: Get real basket_id and work_ticket_id from production
-        # (required for emit_work_output to succeed with database FK constraints)
-        print("[RESEARCH TEST] Fetching production basket and work_ticket...", flush=True)
+        from agents.research_executor import ResearchExecutor
 
+        # Get a valid basket and work_ticket
         production_basket_id = "4eccb9a0-9fe4-4660-861e-b80a75a20824"
 
-        # Get existing work_ticket_id to satisfy FK constraint
         work_ticket_result = supabase.table("work_tickets") \
             .select("id") \
             .eq("basket_id", production_basket_id) \
@@ -764,363 +280,108 @@ async def test_research_workflow():
         if not work_ticket_result.data:
             return {
                 "status": "error",
-                "error": "No work_tickets found in production basket",
+                "error": "No work_tickets found",
                 "basket_id": production_basket_id
             }
 
         work_ticket_id = work_ticket_result.data[0]["id"]
         print(f"[RESEARCH TEST] Using basket={production_basket_id}, work_ticket={work_ticket_id}", flush=True)
 
-        # Create research agent with real production IDs
-        agent = ResearchAgentSDK(
+        # Create executor
+        executor = ResearchExecutor(
             basket_id=production_basket_id,
             workspace_id="test-workspace",
             work_ticket_id=work_ticket_id,
-            monitoring_domains=["anthropic.com", "openai.com"]
-        )
-
-        print("[RESEARCH TEST] Agent initialized", flush=True)
-
-        # Simple research task that should trigger:
-        # 1. Web search
-        # 2. Analysis/synthesis
-        # 3. emit_work_output
-        query = "What are the latest Claude AI model capabilities as of 2025?"
-
-        print(f"[RESEARCH TEST] Executing query: {query}", flush=True)
-
-        # Track what happens
-        tool_calls = []
-        web_search_used = False
-        emit_used = False
-        response_text = ""
-
-        # Execute research (this will use deep_dive method internally)
-        from claude_agent_sdk import ClaudeSDKClient
-
-        async with ClaudeSDKClient(options=agent._options) as client:
-            await client.connect()
-            print("[RESEARCH TEST] SDK client connected", flush=True)
-
-            await client.query(f"""Research and analyze: {query}
-
-WORKFLOW:
-1. Use web_search to find recent information
-2. Synthesize your findings
-3. Use emit_work_output to save a research finding
-
-Output structure:
-- output_type: "finding"
-- title: Brief title of your finding
-- body: {{"summary": "...", "details": "...", "sources": [...]}}
-- confidence: 0.0-1.0
-- source_block_ids: []""")
-
-            print("[RESEARCH TEST] Query sent, iterating responses...", flush=True)
-
-            async for message in client.receive_response():
-                print(f"[RESEARCH TEST] Message type: {type(message).__name__}", flush=True)
-
-                if hasattr(message, 'content') and isinstance(message.content, list):
-                    print(f"[RESEARCH TEST] Processing {len(message.content)} blocks", flush=True)
-
-                    for idx, block in enumerate(message.content):
-                        # Text blocks
-                        if hasattr(block, 'text'):
-                            text_preview = block.text[:100] if len(block.text) > 100 else block.text
-                            response_text += block.text
-                            print(f"[RESEARCH TEST] Block {idx}: Text ({len(block.text)} chars) - {text_preview}...", flush=True)
-
-                        # Tool invocations
-                        if hasattr(block, 'name'):
-                            tool_name = block.name
-                            tool_input = block.input if hasattr(block, 'input') else {}
-
-                            tool_calls.append({
-                                "tool": tool_name,
-                                "input": str(tool_input)[:200]
-                            })
-
-                            print(f"[RESEARCH TEST] Block {idx}: Tool call - {tool_name}", flush=True)
-
-                            if tool_name == "web_search":
-                                web_search_used = True
-                                print(f"[RESEARCH TEST] ✅ web_search invoked", flush=True)
-                            elif tool_name == "mcp__shared_tools__emit_work_output":
-                                emit_used = True
-                                print(f"[RESEARCH TEST] ✅ emit_work_output invoked", flush=True)
-
-        print("[RESEARCH TEST] Response iteration complete", flush=True)
-
-        result = {
-            "status": "success",
-            "query": query,
-            "tool_calls": tool_calls,
-            "web_search_used": web_search_used,
-            "emit_work_output_used": emit_used,
-            "response_text": response_text[:500] if response_text else "(no text)",
-            "response_length": len(response_text),
-            "tool_count": len(tool_calls)
-        }
-
-        # Summary
-        if web_search_used and emit_used:
-            print("[RESEARCH TEST] ✅ SUCCESS: Complete workflow validated", flush=True)
-        elif web_search_used:
-            print("[RESEARCH TEST] ⚠️ PARTIAL: web_search worked but emit_work_output not invoked", flush=True)
-        elif emit_used:
-            print("[RESEARCH TEST] ⚠️ PARTIAL: emit_work_output worked but web_search not invoked", flush=True)
-        else:
-            print(f"[RESEARCH TEST] ❌ FAILED: Neither tool invoked. Tools called: {[tc['tool'] for tc in tool_calls]}", flush=True)
-
-        return result
-
-    except Exception as e:
-        print(f"[RESEARCH TEST] ❌ FAILED: {e}", flush=True)
-        import traceback
-        return {
-            "status": "error",
-            "error": str(e),
-            "traceback": traceback.format_exc()
-        }
-
-
-@router.post("/test-inter-agent-flow")
-async def test_inter_agent_flow():
-    """
-    Phase 5: Inter-Agent Data Flow via Substrate
-
-    Tests the complete agent orchestration pattern:
-    1. Research Agent → work_outputs saved to substrate
-    2. Load work_outputs from database
-    3. Content Agent receives them via WorkBundle
-    4. Content Agent delegates to sub-agents (Twitter, LinkedIn)
-    5. Sub-agents generate platform-specific content
-    6. Content Agent emits structured outputs
-
-    Validates:
-    - Work outputs persist correctly to database
-    - WorkBundle successfully loads substrate context
-    - Content agent receives and processes research findings
-    - Sub-agent delegation works (Twitter/LinkedIn specialists)
-    - emit_work_output from content agent
-    """
-    print("\n" + "=" * 80, flush=True)
-    print("[INTER-AGENT TEST] Starting Phase 5: Inter-Agent Data Flow", flush=True)
-    print("=" * 80 + "\n", flush=True)
-
-    try:
-        from agents_sdk.content_agent_sdk import ContentAgentSDK
-        from agents_sdk.work_bundle import WorkBundle
-        from claude_agent_sdk import ClaudeSDKClient
-        from app.utils.supabase_client import supabase_admin_client as supabase
-
-        # Step 1: Query database for research outputs from production
-        print("[STEP 1] Querying database for research work_outputs...", flush=True)
-
-        # Use production basket_id with actual work_outputs (from reporting agent tests)
-        production_basket_id = "4eccb9a0-9fe4-4660-861e-b80a75a20824"
-
-        result = supabase.table("work_outputs") \
-            .select("id, title, output_type, body, confidence, created_at, work_ticket_id") \
-            .eq("basket_id", production_basket_id) \
-            .order("created_at", desc=True) \
-            .limit(5) \
-            .execute()
-
-        work_outputs = result.data
-
-        print(f"[STEP 1] ✅ Found {len(work_outputs)} work outputs from production", flush=True)
-        print(f"  Basket ID: {production_basket_id}", flush=True)
-        for idx, output in enumerate(work_outputs):
-            print(f"  [{idx+1}] {output['title'][:60]}... (type={output['output_type']})", flush=True)
-
-        if not work_outputs:
-            return {
-                "status": "error",
-                "error": "No work outputs found in production basket.",
-                "basket_id": production_basket_id
-            }
-
-        # Step 2: Create WorkBundle (metadata only) + SubstrateQueryAdapter (on-demand)
-        print("\n[STEP 2] Creating WorkBundle + SubstrateQueryAdapter...", flush=True)
-
-        # Use an existing work_ticket_id from production to avoid foreign key constraint
-        # (emit_work_output requires work_ticket_id to exist in work_tickets table)
-        existing_work_ticket_id = work_outputs[0]["work_ticket_id"] if work_outputs else None
-
-        if not existing_work_ticket_id:
-            return {
-                "status": "error",
-                "message": "No work_outputs found with valid work_ticket_id"
-            }
-
-        # WorkBundle (metadata only - NO substrate_blocks)
-        bundle = WorkBundle(
-            work_request_id="test-request-inter-agent",
-            work_ticket_id=existing_work_ticket_id,  # Use existing work_ticket_id to avoid FK constraint
-            basket_id=production_basket_id,  # Use production basket so emit_work_output succeeds
-            workspace_id="test-workspace",
             user_id="test-user",
-            task="Create Twitter and LinkedIn posts from research findings on Claude Agent SDK and AI development trends",
-            agent_type="content",
-            priority="medium",
-            reference_assets=[],
-            agent_config={},
-            user_requirements={}
         )
 
-        # SubstrateQueryAdapter for on-demand substrate access
-        from adapters.substrate_adapter import SubstrateQueryAdapter
-        substrate_adapter = SubstrateQueryAdapter(
-            basket_id=production_basket_id,
-            workspace_id="test-workspace",
-            agent_type="content",
-            work_ticket_id=existing_work_ticket_id,
+        print("[RESEARCH TEST] Executing research task...", flush=True)
+        result = await executor.execute(
+            task="What are the key benefits of AI assistants? Provide 2-3 findings.",
+            research_scope="general",
+            depth="quick",
         )
-
-        print(f"[STEP 2] ✅ Context created:", flush=True)
-        print(f"  - Work ticket ID (existing): {existing_work_ticket_id}", flush=True)
-        print(f"  - SubstrateQueryAdapter for on-demand queries", flush=True)
-        print(f"  - Task: {bundle.task[:60]}...", flush=True)
-
-        # Step 3: Initialize Content Agent with WorkBundle
-        print("\n[STEP 3] Initializing Content Agent with WorkBundle...", flush=True)
-
-        agent = ContentAgentSDK(
-            basket_id=bundle.basket_id,
-            workspace_id=bundle.workspace_id,
-            work_ticket_id=bundle.work_ticket_id,
-            enabled_platforms=["twitter", "linkedin"],  # Enable Twitter and LinkedIn specialists
-            substrate=substrate_adapter,  # On-demand substrate queries
-            bundle=bundle  # WorkBundle (metadata only)
-        )
-
-        print(f"[STEP 3] ✅ ContentAgentSDK initialized with substrate adapter + bundle", flush=True)
-
-        # Step 4: Execute content creation workflow
-        print("\n[STEP 4] Executing content creation workflow...", flush=True)
-
-        query = f"""Based on the research findings provided in the substrate context, create engaging social media content for two platforms:
-
-1. TWITTER POST: Create a concise, engaging Twitter thread (3-4 tweets) about Claude Agent SDK and AI development trends
-   - Use the Task tool to delegate to twitter_specialist
-   - Follow platform best practices (280 chars per tweet, hooks, engagement)
-   - Use emit_work_output with output_type="content_draft" and metadata.platform="twitter"
-
-2. LINKEDIN POST: Create a professional LinkedIn post about the same topic
-   - Use the Task tool to delegate to linkedin_specialist
-   - Professional thought leadership tone
-   - Include insights from the research findings
-   - Use emit_work_output with output_type="content_draft" and metadata.platform="linkedin"
-
-CRITICAL INSTRUCTIONS:
-- Use the Task tool to delegate to platform specialists (twitter_specialist, linkedin_specialist)
-- Each specialist will create platform-optimized content with shared substrate context
-- Call emit_work_output for EACH piece of content with appropriate platform metadata
-- You MUST emit at least 2 work outputs (one for Twitter, one for LinkedIn)
-
-Review the substrate context first to understand the research findings, then delegate to the appropriate specialists."""
-
-        # Track execution
-        tool_calls = []
-        response_text = ""
-        twitter_content_created = False
-        linkedin_content_created = False
-        subagent_used = False
-        emit_count = 0
-
-        async with ClaudeSDKClient(options=agent._options) as client:
-            await client.connect()
-            print(f"[STEP 4] Query sent to Content Agent...", flush=True)
-            await client.query(query)
-
-            print(f"[STEP 4] Receiving response from Content Agent...", flush=True)
-            async for message in client.receive_response():
-                if hasattr(message, 'content') and isinstance(message.content, list):
-                    for block in message.content:
-                        # Extract text
-                        if hasattr(block, 'text'):
-                            response_text += block.text
-
-                        # Detect tool calls
-                        if hasattr(block, 'name'):
-                            tool_name = block.name
-                            tool_input = block.input if hasattr(block, 'input') else {}
-
-                            tool_calls.append({
-                                "tool": tool_name,
-                                "input": str(tool_input)[:300]
-                            })
-
-                            print(f"[STEP 4] 🔧 Tool invoked: {tool_name}", flush=True)
-
-                            # Track specific patterns
-                            if "specialist" in tool_name.lower() or "subagent" in tool_name.lower() or tool_name == "Task":
-                                subagent_used = True
-                                print(f"[STEP 4]   → Sub-agent delegation detected!", flush=True)
-
-                            if tool_name == "mcp__shared_tools__emit_work_output":
-                                emit_count += 1
-                                # Check output metadata
-                                if isinstance(tool_input, dict):
-                                    metadata = tool_input.get("metadata", {})
-                                    platform = metadata.get("platform", "unknown")
-                                    if platform == "twitter":
-                                        twitter_content_created = True
-                                    elif platform == "linkedin":
-                                        linkedin_content_created = True
-                                    print(f"[STEP 4]   → Content emitted for platform: {platform}", flush=True)
-
-        # Step 5: Validation
-        print("\n[STEP 5] Validation Results:", flush=True)
-        print(f"  ✅ Research outputs loaded: {len(work_outputs)}", flush=True)
-        print(f"  ✅ SubstrateQueryAdapter for on-demand queries", flush=True)
-        print(f"  ✅ Content Agent initialized with substrate adapter + bundle", flush=True)
-        print(f"  ✅ Tool calls made: {len(tool_calls)}", flush=True)
-        print(f"  {'✅' if emit_count > 0 else '❌'} emit_work_output called: {emit_count} times", flush=True)
-        print(f"  {'✅' if subagent_used else '⚠️'} Sub-agent delegation: {subagent_used}", flush=True)
-        print(f"  {'✅' if twitter_content_created else '⚠️'} Twitter content created: {twitter_content_created}", flush=True)
-        print(f"  {'✅' if linkedin_content_created else '⚠️'} LinkedIn content created: {linkedin_content_created}", flush=True)
-        print(f"  Response length: {len(response_text)} chars", flush=True)
-
-        success = (
-            len(work_outputs) > 0 and
-            emit_count > 0
-        )
-
-        print(f"\n[STEP 5] {'✅ INTER-AGENT TEST PASSED' if success else '⚠️ PARTIAL SUCCESS'}", flush=True)
-        print("=" * 80 + "\n", flush=True)
 
         return {
-            "status": "success" if success else "partial",
-            "validation": {
-                "research_outputs_loaded": len(work_outputs),
-                "substrate_adapter_created": True,
-                "tool_calls": len(tool_calls),
-                "emit_work_output_count": emit_count,
-                "subagent_delegation": subagent_used,
-                "twitter_content": twitter_content_created,
-                "linkedin_content": linkedin_content_created
+            "status": "success",
+            "work_outputs_count": len(result.work_outputs),
+            "work_outputs": result.work_outputs,
+            "tool_calls_count": len(result.tool_calls),
+            "response_length": len(result.response_text),
+            "response_preview": result.response_text[:500] if result.response_text else "(no text)",
+            "token_usage": {
+                "input_tokens": result.input_tokens,
+                "output_tokens": result.output_tokens,
+                "cache_read_tokens": result.cache_read_tokens,
             },
-            "research_outputs_sample": [
-                {
-                    "title": output["title"],
-                    "type": output["output_type"],
-                    "confidence": output["confidence"]
-                }
-                for output in work_outputs[:3]
-            ],
-            "tool_calls": tool_calls,
-            "response_length": len(response_text),
-            "response_preview": response_text[:500]
+            "model": result.model,
+            "stop_reason": result.stop_reason
         }
 
     except Exception as e:
-        print(f"[INTER-AGENT TEST] ❌ FAILED: {e}", flush=True)
+        print(f"[RESEARCH TEST] FAILED: {e}", flush=True)
         import traceback
         return {
             "status": "error",
             "error": str(e),
             "traceback": traceback.format_exc()
         }
+
+
+@router.get("/migration-status")
+async def get_migration_status():
+    """
+    Get SDK removal migration status.
+
+    Returns comprehensive status of the migration from Claude Agent SDK
+    to direct Anthropic API.
+    """
+    return {
+        "migration": "sdk_removal",
+        "recovery_tag": "pre-sdk-removal",
+        "status": "phase_1_complete",
+        "phases": {
+            "phase_1": {
+                "name": "Foundation",
+                "status": "complete",
+                "deliverables": [
+                    "AnthropicDirectClient created",
+                    "BaseAgentExecutor created",
+                    "ResearchExecutor implemented",
+                    "agents_sdk/ deleted",
+                    "Node.js removed from Dockerfile",
+                    "claude-agent-sdk removed from requirements"
+                ]
+            },
+            "phase_2": {
+                "name": "Agent Executors",
+                "status": "pending",
+                "deliverables": [
+                    "ContentExecutor",
+                    "ReportingExecutor",
+                    "ThinkingPartnerExecutor"
+                ]
+            },
+            "phase_3": {
+                "name": "Work Output Promotion",
+                "status": "pending",
+                "deliverables": [
+                    "PromotionService",
+                    "Archive/Asset/Substrate paths"
+                ]
+            },
+            "phase_4": {
+                "name": "P4 Context Snapshot",
+                "status": "pending",
+                "deliverables": [
+                    "BasketSnapshotService",
+                    "Mutation triggers"
+                ]
+            }
+        },
+        "active_endpoints": {
+            "/api/work/research/execute": "active",
+            "/api/work/reporting/execute": "pending_migration",
+            "/api/tp/chat": "limited_functionality"
+        }
+    }
