@@ -16,12 +16,17 @@ export interface TaskUpdate {
  * SSE event from task streaming endpoint
  */
 export interface TaskStreamEvent {
-  type: "connected" | "todo_update" | "completed" | "timeout";
+  type: "connected" | "todo_update" | "completed" | "timeout" | "task_started" | "task_update" | "task_completed" | "task_failed";
   ticket_id?: string;
   todos?: TaskUpdate[];
   status?: string;
   timestamp?: string;
   source?: string;
+  // New fields for task streaming
+  current_step?: string;
+  activeForm?: string;
+  output_count?: number;
+  error?: string;
 }
 
 /**
@@ -115,7 +120,35 @@ export function useTaskTracking(
               setIsConnected(true);
               setError(null);
             } else if (data.type === "todo_update" && data.todos) {
+              // Legacy format - array of todos
               setTasks(data.todos);
+            } else if (data.type === "task_started" || data.type === "task_update") {
+              // New format - individual task update
+              const taskUpdate: TaskUpdate = {
+                content: data.current_step || "",
+                status: data.status === "in_progress" ? "in_progress" : "pending",
+                activeForm: data.activeForm || data.current_step || "Working...",
+              };
+              // Append to tasks list (showing progress history)
+              setTasks(prev => {
+                // Replace last task if it's in_progress, otherwise append
+                const newTasks = [...prev];
+                const lastIndex = newTasks.findIndex(t => t.status === "in_progress");
+                if (lastIndex >= 0) {
+                  newTasks[lastIndex] = { ...newTasks[lastIndex], status: "completed" };
+                }
+                newTasks.push(taskUpdate);
+                return newTasks;
+              });
+            } else if (data.type === "task_completed") {
+              // Mark all tasks as completed
+              setTasks(prev => prev.map(t => ({ ...t, status: "completed" as const })));
+              setCompletionStatus("completed");
+              disconnect();
+            } else if (data.type === "task_failed") {
+              setError(data.error || "Task execution failed");
+              setCompletionStatus("failed");
+              disconnect();
             } else if (data.type === "completed") {
               setCompletionStatus(data.status || "completed");
               disconnect();

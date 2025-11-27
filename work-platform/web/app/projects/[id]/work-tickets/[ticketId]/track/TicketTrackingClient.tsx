@@ -72,16 +72,33 @@ export default function TicketTrackingClient({
           table: 'work_tickets',
           filter: `id=eq.${ticket.id}`,
         },
-        (payload) => {
+        async (payload) => {
           console.log('[Realtime] Ticket updated:', payload.new);
           setTicket((prev) => ({
             ...prev,
             ...(payload.new as any),
           }));
 
-          // Refresh outputs when completed
+          // Fetch work_outputs when completed
           if (payload.new.status === 'completed' || payload.new.status === 'failed') {
-            handleRefresh();
+            console.log('[Realtime] Ticket completed, fetching outputs...');
+            // Fetch work_outputs for this ticket
+            const { data: outputs } = await supabase
+              .from('work_outputs')
+              .select('id, title, body, output_type, agent_type, file_id, file_format, generation_method, created_at')
+              .eq('work_ticket_id', ticket.id)
+              .order('created_at', { ascending: false });
+
+            if (outputs && outputs.length > 0) {
+              console.log('[Realtime] Found outputs:', outputs.length);
+              setTicket((prev) => ({
+                ...prev,
+                work_outputs: outputs,
+              }));
+            } else {
+              console.log('[Realtime] No outputs found, triggering full refresh');
+              handleRefresh();
+            }
           }
         }
       )

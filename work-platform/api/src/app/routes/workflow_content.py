@@ -235,15 +235,28 @@ async def execute_content_workflow(
             _validated_params = validated_params
 
             def execute_in_background():
+                # Create a new event loop for this thread
+                loop = bg_asyncio.new_event_loop()
+                bg_asyncio.set_event_loop(loop)
+
                 try:
                     from app.utils.supabase_client import supabase_admin_client as bg_supabase
                     from agents.content_agent import ContentAgent
+                    from app.work.task_streaming import emit_task_update
 
                     # Update status to running
                     bg_supabase.table("work_tickets").update({
                         "status": "running",
                         "started_at": datetime.now(timezone.utc).isoformat(),
                     }).eq("id", _work_ticket_id).execute()
+
+                    # Emit initial task update
+                    emit_task_update(_work_ticket_id, {
+                        "type": "task_started",
+                        "status": "in_progress",
+                        "current_step": "Initializing content generation",
+                        "activeForm": "Setting up content agent",
+                    })
 
                     # Build enhanced task if recipe-driven
                     enhanced_task = _task_description
@@ -270,6 +283,14 @@ async def execute_content_workflow(
 {_execution_context.get('system_prompt_additions', '')}
 """
 
+                    # Emit context loading update
+                    emit_task_update(_work_ticket_id, {
+                        "type": "task_update",
+                        "status": "in_progress",
+                        "current_step": "Loading context",
+                        "activeForm": "Loading brand voice and prior content",
+                    })
+
                     # Create executor and run
                     executor = ContentAgent(
                         basket_id=_basket_id,
@@ -279,8 +300,16 @@ async def execute_content_workflow(
                         user_jwt=_user_token,
                     )
 
+                    # Emit generation update
+                    emit_task_update(_work_ticket_id, {
+                        "type": "task_update",
+                        "status": "in_progress",
+                        "current_step": "Generating content",
+                        "activeForm": f"Creating {_content_type} content",
+                    })
+
                     start_time = time.time()
-                    result = bg_asyncio.run(executor.execute(
+                    result = loop.run_until_complete(executor.execute(
                         task=enhanced_task,
                         content_type=_content_type,
                         tone=_tone,
@@ -291,6 +320,15 @@ async def execute_content_workflow(
                         enable_web_search=_enable_web_search,
                     ))
                     execution_time_ms = int((time.time() - start_time) * 1000)
+
+                    # Emit completion update
+                    emit_task_update(_work_ticket_id, {
+                        "type": "task_completed",
+                        "status": "completed",
+                        "current_step": "Content generation complete",
+                        "activeForm": f"Generated {len(result.work_outputs)} outputs",
+                        "output_count": len(result.work_outputs),
+                    })
 
                     # Update to completed
                     existing_ticket = bg_supabase.table("work_tickets").select("metadata").eq("id", _work_ticket_id).single().execute()
@@ -319,6 +357,17 @@ async def execute_content_workflow(
                     logger.exception(f"[CONTENT WORKFLOW] Background failed: {e}")
                     try:
                         from app.utils.supabase_client import supabase_admin_client as err_supabase
+                        from app.work.task_streaming import emit_task_update as emit_err
+
+                        # Emit error update
+                        emit_err(_work_ticket_id, {
+                            "type": "task_failed",
+                            "status": "failed",
+                            "current_step": "Execution failed",
+                            "activeForm": str(e)[:100],
+                            "error": str(e),
+                        })
+
                         err_supabase.table("work_tickets").update({
                             "status": "failed",
                             "completed_at": datetime.now(timezone.utc).isoformat(),
@@ -326,6 +375,12 @@ async def execute_content_workflow(
                         }).eq("id", _work_ticket_id).execute()
                     except Exception as update_err:
                         logger.error(f"[CONTENT WORKFLOW] Failed to update ticket: {update_err}")
+                finally:
+                    # Clean up the event loop
+                    try:
+                        loop.close()
+                    except Exception:
+                        pass
 
             thread = threading.Thread(target=execute_in_background, daemon=True)
             thread.start()
