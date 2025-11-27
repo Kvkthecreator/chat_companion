@@ -238,20 +238,25 @@ async def execute_reporting_workflow(
             _validated_params = validated_params
 
             def execute_in_background():
+                logger.info(f"[REPORTING WORKFLOW] Background thread started for ticket {_work_ticket_id}")
+
                 # Create a new event loop for this thread
                 loop = bg_asyncio.new_event_loop()
                 bg_asyncio.set_event_loop(loop)
+                logger.info(f"[REPORTING WORKFLOW] Event loop created")
 
                 try:
                     from app.utils.supabase_client import supabase_admin_client as bg_supabase
                     from agents.reporting_agent import ReportingAgent
                     from app.work.task_streaming import emit_task_update
+                    logger.info(f"[REPORTING WORKFLOW] Imports successful")
 
                     # Update status to running
                     bg_supabase.table("work_tickets").update({
                         "status": "running",
                         "started_at": datetime.now(timezone.utc).isoformat(),
                     }).eq("id", _work_ticket_id).execute()
+                    logger.info(f"[REPORTING WORKFLOW] Ticket status updated to running")
 
                     # Emit initial task update
                     emit_task_update(_work_ticket_id, {
@@ -260,6 +265,7 @@ async def execute_reporting_workflow(
                         "current_step": "Initializing document generation",
                         "activeForm": f"Setting up {_output_format.upper()} generation",
                     })
+                    logger.info(f"[REPORTING WORKFLOW] Emitted task_started")
 
                     # Build enhanced task if recipe-driven
                     enhanced_task = _task_description
@@ -354,7 +360,9 @@ async def execute_reporting_workflow(
                     logger.info(f"[REPORTING WORKFLOW] Background complete: {len(result.work_outputs)} outputs")
 
                 except Exception as e:
-                    logger.exception(f"[REPORTING WORKFLOW] Background failed: {e}")
+                    logger.exception(f"[REPORTING WORKFLOW] Background execution failed: {e}")
+                    import traceback
+                    logger.error(f"[REPORTING WORKFLOW] Traceback: {traceback.format_exc()}")
                     try:
                         from app.utils.supabase_client import supabase_admin_client as err_supabase
                         from app.work.task_streaming import emit_task_update as emit_err
@@ -373,14 +381,16 @@ async def execute_reporting_workflow(
                             "completed_at": datetime.now(timezone.utc).isoformat(),
                             "error_message": str(e),
                         }).eq("id", _work_ticket_id).execute()
+                        logger.info(f"[REPORTING WORKFLOW] Updated ticket to failed status")
                     except Exception as update_err:
                         logger.error(f"[REPORTING WORKFLOW] Failed to update ticket: {update_err}")
                 finally:
                     # Clean up the event loop
+                    logger.info(f"[REPORTING WORKFLOW] Closing event loop")
                     try:
                         loop.close()
-                    except Exception:
-                        pass
+                    except Exception as close_err:
+                        logger.warning(f"[REPORTING WORKFLOW] Error closing loop: {close_err}")
 
             thread = threading.Thread(target=execute_in_background, daemon=True)
             thread.start()
