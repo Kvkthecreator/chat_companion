@@ -1,4 +1,4 @@
-\restrict LoyQzQThWXDhkhf6ea6Xr1uOOfuSgltHtwBQovobJYJ6BdDjZ7oMzb2Yt9euUut
+\restrict efotIkPxShvBchqPcJpsRdhZs8n4vRi5cImUdA0mF13P6LyMZMBZZOKm7MO0eBZ
 CREATE SCHEMA public;
 CREATE TYPE public.alert_severity AS ENUM (
     'info',
@@ -1254,6 +1254,28 @@ BEGIN
     GROUP BY category;
 END;
 $$;
+CREATE FUNCTION public.get_basket_supervision_settings(p_basket_id uuid) RETURNS jsonb
+    LANGUAGE plpgsql SECURITY DEFINER
+    AS $$
+DECLARE
+  settings jsonb;
+BEGIN
+  SELECT
+    COALESCE(
+      p.metadata->'work_supervision',
+      '{"promotion_mode": "auto", "auto_promote_types": ["finding", "recommendation"], "require_review_before_promotion": false}'::jsonb
+    )
+  INTO settings
+  FROM projects p
+  WHERE p.basket_id = p_basket_id
+  LIMIT 1;
+  -- Default if no project found
+  IF settings IS NULL THEN
+    settings := '{"promotion_mode": "auto", "auto_promote_types": ["finding", "recommendation"], "require_review_before_promotion": false}'::jsonb;
+  END IF;
+  RETURN settings;
+END;
+$$;
 CREATE FUNCTION public.get_block_version_history(p_block_id uuid) RETURNS TABLE(id uuid, version integer, title text, content text, state public.block_state, created_at timestamp with time zone, updated_at timestamp with time zone)
     LANGUAGE plpgsql STABLE
     AS $$
@@ -1348,6 +1370,45 @@ BEGIN
   WHERE d.basket_id = p_basket_id
     AND d.doc_type = 'document_canon'
   LIMIT 1;
+END;
+$$;
+CREATE FUNCTION public.get_outputs_pending_promotion(p_basket_id uuid) RETURNS TABLE(id uuid, output_type text, title text, body jsonb, confidence double precision, source_context_ids uuid[], agent_type text, work_ticket_id uuid)
+    LANGUAGE plpgsql SECURITY DEFINER
+    AS $$
+BEGIN
+  RETURN QUERY
+  SELECT
+    wo.id,
+    wo.output_type,
+    wo.title,
+    wo.body,
+    wo.confidence,
+    wo.source_context_ids,
+    wo.agent_type,
+    wo.work_ticket_id
+  FROM work_outputs wo
+  WHERE wo.basket_id = p_basket_id
+    AND wo.supervision_status = 'approved'
+    AND wo.substrate_proposal_id IS NULL
+    AND wo.promotion_method IS NULL
+  ORDER BY wo.created_at ASC;
+END;
+$$;
+CREATE FUNCTION public.get_project_supervision_settings(p_project_id uuid) RETURNS jsonb
+    LANGUAGE plpgsql SECURITY DEFINER
+    AS $$
+DECLARE
+  settings jsonb;
+BEGIN
+  SELECT
+    COALESCE(
+      metadata->'work_supervision',
+      '{"promotion_mode": "auto", "auto_promote_types": ["finding", "recommendation"], "require_review_before_promotion": false}'::jsonb
+    )
+  INTO settings
+  FROM projects
+  WHERE id = p_project_id;
+  RETURN settings;
 END;
 $$;
 CREATE FUNCTION public.get_session_hierarchy(basket_id_param uuid) RETURNS TABLE(session_id uuid, agent_type text, parent_session_id uuid, sdk_session_id text, is_root boolean, depth integer)
@@ -1560,6 +1621,21 @@ BEGIN
     )
     AND status NOT IN ('archived', 'rejected');  -- Don't mark archived blocks
   RETURN NEW;
+END;
+$$;
+CREATE FUNCTION public.mark_work_output_promoted(p_output_id uuid, p_proposal_id uuid, p_block_id uuid, p_method text, p_user_id uuid) RETURNS void
+    LANGUAGE plpgsql SECURITY DEFINER
+    AS $$
+BEGIN
+  UPDATE work_outputs
+  SET
+    substrate_proposal_id = p_proposal_id,
+    promoted_to_block_id = p_block_id,
+    promotion_method = p_method,
+    promoted_at = now(),
+    promoted_by = p_user_id,
+    merged_to_substrate_at = now()
+  WHERE id = p_output_id;
 END;
 $$;
 CREATE FUNCTION public.normalize_label(p_label text) RETURNS text
@@ -1979,6 +2055,20 @@ BEGIN
     WHERE id = NEW.agent_session_id;
   END IF;
   RETURN NEW;
+END;
+$$;
+CREATE FUNCTION public.update_project_supervision_settings(p_project_id uuid, p_settings jsonb) RETURNS void
+    LANGUAGE plpgsql SECURITY DEFINER
+    AS $$
+BEGIN
+  UPDATE projects
+  SET metadata = jsonb_set(
+    COALESCE(metadata, '{}'::jsonb),
+    '{work_supervision}',
+    p_settings
+  ),
+  updated_at = now()
+  WHERE id = p_project_id;
 END;
 $$;
 CREATE FUNCTION public.update_project_timestamp() RETURNS trigger
@@ -3039,12 +3129,39 @@ CREATE TABLE public.work_outputs (
     storage_path text,
     generation_method text DEFAULT 'text'::text,
     skill_metadata jsonb,
+    promoted_to_block_id uuid,
+    promotion_method text,
+    promoted_at timestamp with time zone,
+    promoted_by uuid,
     CONSTRAINT title_not_empty CHECK ((length(TRIM(BOTH FROM title)) > 0)),
     CONSTRAINT work_outputs_confidence_check CHECK (((confidence IS NULL) OR ((confidence >= (0)::double precision) AND (confidence <= (1)::double precision)))),
     CONSTRAINT work_outputs_content_type CHECK ((((body IS NOT NULL) AND (file_id IS NULL)) OR ((body IS NULL) AND (file_id IS NOT NULL)))),
     CONSTRAINT work_outputs_generation_method_check CHECK ((generation_method = ANY (ARRAY['text'::text, 'code_execution'::text, 'skill'::text, 'manual'::text]))),
+    CONSTRAINT work_outputs_promotion_method_check CHECK ((promotion_method = ANY (ARRAY['auto'::text, 'manual'::text, 'skipped'::text, 'rejected'::text]))),
     CONSTRAINT work_outputs_storage_path_format CHECK (((storage_path IS NULL) OR (storage_path ~~ (('baskets/'::text || (basket_id)::text) || '/work_outputs/%'::text)))),
     CONSTRAINT work_outputs_supervision_status_check CHECK ((supervision_status = ANY (ARRAY['pending_review'::text, 'approved'::text, 'rejected'::text, 'revision_requested'::text, 'archived'::text])))
+);
+CREATE TABLE public.work_recipes (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    slug character varying(100) NOT NULL,
+    name character varying(255) NOT NULL,
+    description text,
+    category character varying(50),
+    agent_type character varying(50) NOT NULL,
+    deliverable_intent jsonb DEFAULT '{}'::jsonb NOT NULL,
+    configurable_parameters jsonb DEFAULT '{}'::jsonb NOT NULL,
+    output_specification jsonb NOT NULL,
+    context_requirements jsonb DEFAULT '{}'::jsonb,
+    execution_template jsonb NOT NULL,
+    estimated_duration_seconds_range integer[],
+    estimated_cost_cents_range integer[],
+    status character varying(20) DEFAULT 'active'::character varying,
+    version integer DEFAULT 1 NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    metadata jsonb DEFAULT '{}'::jsonb NOT NULL,
+    CONSTRAINT work_recipes_agent_type_check CHECK (((agent_type)::text = ANY ((ARRAY['research'::character varying, 'content'::character varying, 'reporting'::character varying])::text[]))),
+    CONSTRAINT work_recipes_status_check CHECK (((status)::text = ANY ((ARRAY['active'::character varying, 'beta'::character varying, 'deprecated'::character varying])::text[])))
 );
 CREATE TABLE public.work_requests (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
@@ -3058,6 +3175,9 @@ CREATE TABLE public.work_requests (
     priority text DEFAULT 'normal'::text,
     requested_at timestamp with time zone DEFAULT now() NOT NULL,
     metadata jsonb DEFAULT '{}'::jsonb NOT NULL,
+    recipe_id uuid,
+    recipe_parameters jsonb DEFAULT '{}'::jsonb,
+    reference_asset_ids uuid[] DEFAULT '{}'::uuid[],
     CONSTRAINT work_requests_priority_check CHECK ((priority = ANY (ARRAY['low'::text, 'normal'::text, 'high'::text, 'urgent'::text])))
 );
 CREATE TABLE public.work_tickets (
@@ -3260,6 +3380,10 @@ ALTER TABLE ONLY public.work_iterations
     ADD CONSTRAINT work_iterations_work_ticket_id_iteration_number_key UNIQUE (work_ticket_id, iteration_number);
 ALTER TABLE ONLY public.work_outputs
     ADD CONSTRAINT work_outputs_pkey PRIMARY KEY (id);
+ALTER TABLE ONLY public.work_recipes
+    ADD CONSTRAINT work_recipes_pkey PRIMARY KEY (id);
+ALTER TABLE ONLY public.work_recipes
+    ADD CONSTRAINT work_recipes_slug_key UNIQUE (slug);
 ALTER TABLE ONLY public.work_requests
     ADD CONSTRAINT work_requests_pkey PRIMARY KEY (id);
 ALTER TABLE ONLY public.work_tickets
@@ -3457,11 +3581,17 @@ CREATE INDEX idx_work_outputs_file_id ON public.work_outputs USING btree (file_i
 CREATE INDEX idx_work_outputs_generation_method ON public.work_outputs USING btree (generation_method);
 CREATE INDEX idx_work_outputs_metadata ON public.work_outputs USING gin (metadata);
 CREATE INDEX idx_work_outputs_pending ON public.work_outputs USING btree (supervision_status, created_at DESC) WHERE (supervision_status = 'pending_review'::text);
+CREATE INDEX idx_work_outputs_pending_promotion ON public.work_outputs USING btree (basket_id, supervision_status) WHERE ((supervision_status = 'approved'::text) AND (substrate_proposal_id IS NULL));
 CREATE INDEX idx_work_outputs_provenance ON public.work_outputs USING gin (source_context_ids);
 CREATE INDEX idx_work_outputs_session ON public.work_outputs USING btree (work_ticket_id, created_at DESC);
 CREATE INDEX idx_work_outputs_tool_call ON public.work_outputs USING btree (tool_call_id) WHERE (tool_call_id IS NOT NULL);
 CREATE INDEX idx_work_outputs_type ON public.work_outputs USING btree (output_type, basket_id);
+CREATE INDEX idx_work_recipes_agent_type ON public.work_recipes USING btree (agent_type);
+CREATE INDEX idx_work_recipes_category ON public.work_recipes USING btree (category);
+CREATE INDEX idx_work_recipes_slug ON public.work_recipes USING btree (slug);
+CREATE INDEX idx_work_recipes_status ON public.work_recipes USING btree (status) WHERE ((status)::text = 'active'::text);
 CREATE INDEX idx_work_requests_basket ON public.work_requests USING btree (basket_id);
+CREATE INDEX idx_work_requests_recipe ON public.work_requests USING btree (recipe_id) WHERE (recipe_id IS NOT NULL);
 CREATE INDEX idx_work_requests_requested_at ON public.work_requests USING btree (requested_at DESC);
 CREATE INDEX idx_work_requests_session ON public.work_requests USING btree (agent_session_id) WHERE (agent_session_id IS NOT NULL);
 CREATE INDEX idx_work_requests_status ON public.agent_work_requests USING btree (status, created_at);
@@ -3731,11 +3861,19 @@ ALTER TABLE ONLY public.work_iterations
 ALTER TABLE ONLY public.work_outputs
     ADD CONSTRAINT work_outputs_basket_id_fkey FOREIGN KEY (basket_id) REFERENCES public.baskets(id) ON DELETE CASCADE;
 ALTER TABLE ONLY public.work_outputs
+    ADD CONSTRAINT work_outputs_promoted_by_fkey FOREIGN KEY (promoted_by) REFERENCES auth.users(id);
+ALTER TABLE ONLY public.work_outputs
+    ADD CONSTRAINT work_outputs_promoted_to_block_id_fkey FOREIGN KEY (promoted_to_block_id) REFERENCES public.blocks(id);
+ALTER TABLE ONLY public.work_outputs
     ADD CONSTRAINT work_outputs_reviewed_by_fkey FOREIGN KEY (reviewed_by) REFERENCES auth.users(id);
+ALTER TABLE ONLY public.work_outputs
+    ADD CONSTRAINT work_outputs_work_ticket_id_fkey FOREIGN KEY (work_ticket_id) REFERENCES public.work_tickets(id) ON DELETE CASCADE;
 ALTER TABLE ONLY public.work_requests
     ADD CONSTRAINT work_requests_agent_session_id_fkey FOREIGN KEY (agent_session_id) REFERENCES public.agent_sessions(id) ON DELETE SET NULL;
 ALTER TABLE ONLY public.work_requests
     ADD CONSTRAINT work_requests_basket_id_fkey FOREIGN KEY (basket_id) REFERENCES public.baskets(id) ON DELETE CASCADE;
+ALTER TABLE ONLY public.work_requests
+    ADD CONSTRAINT work_requests_recipe_id_fkey FOREIGN KEY (recipe_id) REFERENCES public.work_recipes(id) ON DELETE SET NULL;
 ALTER TABLE ONLY public.work_requests
     ADD CONSTRAINT work_requests_requested_by_user_id_fkey FOREIGN KEY (requested_by_user_id) REFERENCES auth.users(id);
 ALTER TABLE ONLY public.work_requests
@@ -3759,6 +3897,9 @@ ALTER TABLE ONLY public.workspaces
 CREATE POLICY "Allow anon read events" ON public.events FOR SELECT USING (true);
 CREATE POLICY "Allow anon read raw_dumps" ON public.raw_dumps FOR SELECT USING (true);
 CREATE POLICY "Allow anon read revisions" ON public.revisions FOR SELECT USING (true);
+CREATE POLICY "Allow anonymous read access to projects" ON public.projects FOR SELECT TO anon USING (true);
+CREATE POLICY "Allow anonymous read access to work_outputs" ON public.work_outputs FOR SELECT TO anon USING (true);
+CREATE POLICY "Allow anonymous read access to work_tickets" ON public.work_tickets FOR SELECT TO anon USING (true);
 CREATE POLICY "Allow authenticated users to view basket events" ON public.basket_events FOR SELECT TO authenticated USING (true);
 CREATE POLICY "Allow baskets for workspace members" ON public.baskets FOR SELECT TO authenticated USING ((workspace_id IN ( SELECT workspace_memberships.workspace_id
    FROM public.workspace_memberships
@@ -3938,6 +4079,7 @@ CREATE POLICY "Users can upload assets to their workspace" ON public.reference_a
    FROM (public.baskets b
      JOIN public.workspace_memberships wm ON ((wm.workspace_id = b.workspace_id)))
   WHERE (wm.user_id = auth.uid()))));
+CREATE POLICY "Users can view active recipes" ON public.work_recipes FOR SELECT USING (((status)::text = 'active'::text));
 CREATE POLICY "Users can view agent sessions in their workspaces" ON public.agent_sessions FOR SELECT USING ((workspace_id IN ( SELECT workspace_memberships.workspace_id
    FROM public.workspace_memberships
   WHERE (workspace_memberships.user_id = auth.uid()))));
@@ -4343,6 +4485,7 @@ CREATE POLICY user_alerts_own_update ON public.user_alerts FOR UPDATE USING ((us
 ALTER TABLE public.work_checkpoints ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.work_iterations ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.work_outputs ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.work_recipes ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.work_requests ENABLE ROW LEVEL SECURITY;
 CREATE POLICY work_requests_service_write ON public.agent_work_requests USING (((auth.jwt() ->> 'role'::text) = 'service_role'::text));
 CREATE POLICY work_requests_user_read ON public.agent_work_requests FOR SELECT USING ((auth.uid() = user_id));
@@ -4369,4 +4512,4 @@ CREATE POLICY ws_owner_or_member_read ON public.workspaces FOR SELECT USING (((o
    FROM public.workspace_memberships
   WHERE (workspace_memberships.user_id = auth.uid())))));
 CREATE POLICY ws_owner_update ON public.workspaces FOR UPDATE USING ((owner_id = auth.uid()));
-\unrestrict LoyQzQThWXDhkhf6ea6Xr1uOOfuSgltHtwBQovobJYJ6BdDjZ7oMzb2Yt9euUut
+\unrestrict efotIkPxShvBchqPcJpsRdhZs8n4vRi5cImUdA0mF13P6LyMZMBZZOKm7MO0eBZ

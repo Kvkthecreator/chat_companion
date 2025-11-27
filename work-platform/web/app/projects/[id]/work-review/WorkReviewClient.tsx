@@ -40,7 +40,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/AlertDialog";
 import { Textarea } from "@/components/ui/Textarea";
-import { fetchWithToken } from "@/lib/api/http";
+import { apiClient, ApiError } from "@/lib/api/http";
 
 interface WorkOutput {
   id: string;
@@ -121,7 +121,7 @@ export function WorkReviewClient({
       try {
         const baseUrl = process.env.NEXT_PUBLIC_WORK_PLATFORM_API_URL || "";
         let endpoint = "";
-        let body: any = {};
+        let body: Record<string, unknown> = {};
 
         switch (action) {
           case "approve":
@@ -138,21 +138,18 @@ export function WorkReviewClient({
             break;
         }
 
-        const response = await fetchWithToken(endpoint, {
+        await apiClient({
+          url: endpoint,
           method: "POST",
-          body: JSON.stringify(body),
+          body,
         });
-
-        if (!response.ok) {
-          const errorData = await response.json();
-          throw new Error(errorData.detail || "Action failed");
-        }
 
         // Refresh data
         router.refresh();
       } catch (error) {
         console.error(`[WorkReview] Action ${action} failed:`, error);
-        alert(`Failed to ${action}: ${error instanceof Error ? error.message : "Unknown error"}`);
+        const message = error instanceof ApiError ? error.message : (error instanceof Error ? error.message : "Unknown error");
+        alert(`Failed to ${action}: ${message}`);
       } finally {
         setActionLoading(null);
       }
@@ -179,20 +176,17 @@ export function WorkReviewClient({
         body = { feedback: dialogNotes };
       }
 
-      const response = await fetchWithToken(endpoint, {
+      await apiClient({
+        url: endpoint,
         method: "POST",
-        body: JSON.stringify(body),
+        body,
       });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.detail || "Action failed");
-      }
 
       router.refresh();
     } catch (error) {
       console.error(`[WorkReview] ${dialogAction} failed:`, error);
-      alert(`Failed: ${error instanceof Error ? error.message : "Unknown error"}`);
+      const message = error instanceof ApiError ? error.message : (error instanceof Error ? error.message : "Unknown error");
+      alert(`Failed: ${message}`);
     } finally {
       setActionLoading(null);
       setDialogAction(null);
