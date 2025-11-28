@@ -30,22 +30,24 @@ class AuthMiddleware(BaseHTTPMiddleware):
         path = request.url.path or "/"
         dbg = request.headers.get("x-yarnnn-debug-auth") == "1"
 
-        # Exact first
-        if path in self.exempt_exact:
-            return await call_next(request)
-        # Then prefixes (no "/")
-        if any(path.startswith(p) for p in self.exempt_prefixes):
-            return await call_next(request)
+        # Check if path is exempt from auth requirement
+        is_exempt = path in self.exempt_exact or any(
+            path.startswith(p) for p in self.exempt_prefixes
+        )
 
         # Extract token
         auth = request.headers.get("authorization") or ""
         token = auth.split(" ", 1)[1] if auth.lower().startswith("bearer ") else None
+
+        # If no token and path is exempt, allow through without auth
         if not token:
+            if is_exempt:
+                return await call_next(request)
             if not dbg:
                 log.debug("AuthMiddleware: missing bearer token for %s", path)
             return JSONResponse(status_code=401, content={"error": "missing_token"})
 
-        # Verify (return rich detail in debug mode)
+        # Verify token (even for exempt paths, so endpoints can optionally use auth)
         try:
             claims = verify_jwt(token)
             request.state.user_id = claims.get("sub")
@@ -60,6 +62,14 @@ class AuthMiddleware(BaseHTTPMiddleware):
                 request.state.integration_token = True
                 return await call_next(request)
             except HTTPException as token_error:
+                # If exempt path, allow through even with invalid token
+                # (endpoint can decide if it needs auth)
+                if is_exempt:
+                    log.debug(
+                        "AuthMiddleware: exempt path %s with invalid token, allowing through",
+                        path,
+                    )
+                    return await call_next(request)
                 if not dbg:
                     log.debug(
                         "AuthMiddleware: token verification failed for %s (jwt=%s; integration=%s)",
