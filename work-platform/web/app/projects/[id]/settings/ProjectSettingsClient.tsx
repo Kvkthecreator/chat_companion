@@ -1,12 +1,12 @@
 'use client';
 
-import { Settings as SettingsIcon, Zap, Copy, Check } from 'lucide-react';
+import { Settings as SettingsIcon, Zap, Copy, Check, Database, Shield, Boxes, AlertTriangle } from 'lucide-react';
 import { Card } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import SettingsSection from '@/components/settings/SettingsSection';
 import DisplayBox from '@/components/settings/DisplayBox';
 import { BasketDangerZone } from '@/components/projects/BasketDangerZone';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 
 interface AgentSession {
   id: string;
@@ -74,150 +74,208 @@ function CopyButton({ text }: { text: string }) {
 }
 
 export function ProjectSettingsClient({ project, basketStats, agentSessions }: ProjectSettingsClientProps) {
+  const [tab, setTab] = useState<'general' | 'context' | 'agents' | 'danger'>('general');
   // Separate TP (parent) from specialists (children)
   const tpSession = agentSessions.find(s => s.agent_type === 'thinking_partner');
   const specialistSessions = agentSessions.filter(s => s.agent_type !== 'thinking_partner');
+  const tabs = useMemo(
+    () => [
+      { key: 'general' as const, label: 'General', icon: SettingsIcon },
+      { key: 'context' as const, label: 'Context', icon: Database },
+      { key: 'agents' as const, label: 'Agents', icon: Boxes },
+      { key: 'danger' as const, label: 'Danger', icon: AlertTriangle },
+    ],
+    [],
+  );
+
   return (
-    <div className="max-w-4xl mx-auto space-y-6 px-6 py-8">
-      {/* Header */}
+    <div className="mx-auto max-w-5xl space-y-6 px-6 py-8">
+      {/* Header + summary */}
       <Card className="p-6">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 bg-slate-100 rounded-lg flex items-center justify-center">
-            <SettingsIcon className="h-5 w-5 text-slate-600" />
+        <div className="flex items-start justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <div className="flex h-11 w-11 items-center justify-center rounded-lg bg-muted">
+              <SettingsIcon className="h-5 w-5 text-foreground" />
+            </div>
+            <div>
+              <h1 className="text-2xl font-semibold text-foreground">Project Settings</h1>
+              <p className="text-sm text-muted-foreground">
+                Streamlined controls for {project.name}
+              </p>
+            </div>
           </div>
-          <div>
-            <h1 className="text-xl font-semibold text-slate-900">Project Settings</h1>
-            <p className="text-slate-600 text-sm">Manage {project.name} configuration and data</p>
+          <Badge variant="secondary" className="capitalize">
+            {project.status || 'active'}
+          </Badge>
+        </div>
+        <div className="mt-4 grid gap-3 sm:grid-cols-2">
+          <div className="rounded-lg border border-border/60 bg-card px-4 py-3">
+            <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
+              <Database className="h-4 w-4" />
+              Context footprint
+            </div>
+            <div className="mt-2 text-sm text-foreground">
+              {basketStats.blocks} blocks · {basketStats.dumps} raw dumps
+            </div>
+          </div>
+          <div className="rounded-lg border border-border/60 bg-card px-4 py-3">
+            <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
+              <Shield className="h-4 w-4" />
+              Basket
+            </div>
+            <div className="mt-2 flex items-center gap-2 text-sm text-foreground">
+              <span className="truncate font-mono text-xs sm:text-sm">{project.basket_id}</span>
+              <CopyButton text={project.basket_id} />
+            </div>
           </div>
         </div>
       </Card>
 
-      {/* General Settings */}
-      <SettingsSection
-        title="General"
-        description="Project metadata and identifiers"
-      >
-        <DisplayBox label="Project ID" value={project.id} />
-        <DisplayBox label="Name" value={project.name} />
-        {project.description && (
-          <DisplayBox label="Description" value={project.description} />
-        )}
-        <DisplayBox label="Status" value={project.status} />
-        <DisplayBox
-          label="Created"
-          value={new Date(project.created_at).toLocaleString()}
-        />
-      </SettingsSection>
+      {/* Tabs */}
+      <div className="flex flex-wrap gap-2">
+        {tabs.map(({ key, label, icon: Icon }) => (
+          <button
+            key={key}
+            onClick={() => setTab(key)}
+            className={`inline-flex items-center gap-2 rounded-full border px-3 py-2 text-sm transition ${
+              tab === key
+                ? 'border-primary bg-primary/10 text-primary'
+                : 'border-border text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            <Icon className="h-4 w-4" />
+            {label}
+          </button>
+        ))}
+      </div>
 
-      {/* Context Storage */}
-      <SettingsSection
-        title="Context Storage"
-        description="Basket statistics and substrate data"
-      >
-        <DisplayBox label="Basket ID" value={project.basket_id} />
-        <DisplayBox
-          label="Context Blocks"
-          value={`${basketStats.blocks} block${basketStats.blocks !== 1 ? 's' : ''}`}
-        />
-        <DisplayBox
-          label="Raw Dumps"
-          value={`${basketStats.dumps} dump${basketStats.dumps !== 1 ? 's' : ''}`}
-        />
-        <div className="rounded-md bg-blue-50 p-4 border border-blue-200">
-          <p className="text-xs text-blue-900">
-            Context blocks are extracted knowledge and meaning from your project.
-            Raw dumps are the original source materials before processing.
-          </p>
-        </div>
-      </SettingsSection>
+      {tab === 'general' && (
+        <SettingsSection
+          title="General"
+          description="Project metadata and identifiers"
+        >
+          <div className="grid gap-4 md:grid-cols-2">
+            <DisplayBox label="Project ID" value={project.id} />
+            <DisplayBox label="Name" value={project.name} />
+            {project.description && (
+              <DisplayBox label="Description" value={project.description} />
+            )}
+            <DisplayBox
+              label="Created"
+              value={new Date(project.created_at).toLocaleString()}
+            />
+            <DisplayBox
+              label="Updated"
+              value={new Date(project.updated_at).toLocaleString()}
+            />
+          </div>
+        </SettingsSection>
+      )}
 
-      {/* Agent Sessions */}
-      <SettingsSection
-        title="Agent Infrastructure"
-        description="Pre-scaffolded agent sessions and hierarchical relationships"
-      >
-        <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <div className="text-sm text-slate-600">
+      {tab === 'context' && (
+        <SettingsSection
+          title="Context Storage"
+          description="Basket statistics and substrate data"
+        >
+          <div className="grid gap-4 md:grid-cols-2">
+            <DisplayBox label="Basket ID" value={project.basket_id} />
+            <DisplayBox
+              label="Context Blocks"
+              value={`${basketStats.blocks} block${basketStats.blocks !== 1 ? 's' : ''}`}
+            />
+            <DisplayBox
+              label="Raw Dumps"
+              value={`${basketStats.dumps} dump${basketStats.dumps !== 1 ? 's' : ''}`}
+            />
+          </div>
+          <div className="mt-3 rounded-md border border-border bg-muted/40 p-4 text-xs text-muted-foreground">
+            Context blocks are extracted knowledge and meaning from your project. Raw dumps are the original source materials before processing.
+          </div>
+        </SettingsSection>
+      )}
+
+      {tab === 'agents' && (
+        <SettingsSection
+          title="Agent Infrastructure"
+          description="Pre-scaffolded agent sessions and hierarchy"
+        >
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="text-sm text-muted-foreground">
               All agent sessions created during project setup
             </div>
-            <Badge variant="secondary" className="gap-2 bg-green-500/10 text-green-700 dark:text-green-400 border-green-500/20">
-              {agentSessions.length} Sessions Active
+            <Badge variant="secondary" className="gap-2 bg-green-500/10 text-green-700 border-green-500/20">
+              {agentSessions.length} session{agentSessions.length === 1 ? '' : 's'}
             </Badge>
           </div>
 
           {/* Thinking Partner (Root Session) */}
           {tpSession && (
-            <div className="rounded-lg border border-slate-200 bg-slate-50/50 p-4">
-              <div className="flex items-start gap-3 mb-3">
+            <div className="mt-4 rounded-lg border border-border bg-card p-4 shadow-sm">
+              <div className="flex items-start gap-3">
                 <div className="rounded-lg bg-primary/10 p-2">
                   <Zap className="h-5 w-5 text-primary" />
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
-                    <h4 className="font-medium text-slate-900">{getAgentDisplayName(tpSession.agent_type)}</h4>
-                    <Badge variant="outline" className="text-xs bg-purple-500/10 text-purple-700 border-purple-500/20">
+                    <h4 className="font-medium text-foreground">{getAgentDisplayName(tpSession.agent_type)}</h4>
+                    <Badge variant="outline" className="text-xs">
                       Root Session
                     </Badge>
                   </div>
-                  <p className="text-xs text-slate-500 mt-1">Orchestrates all specialist agents</p>
+                  <p className="text-xs text-muted-foreground mt-1">Orchestrates all specialist agents</p>
                 </div>
               </div>
-              <div className="space-y-2 text-xs">
-                <div className="flex items-center justify-between bg-white rounded px-3 py-2">
-                  <span className="text-slate-600 font-medium">Session ID</span>
-                  <div className="flex items-center font-mono text-slate-900">
-                    {tpSession.id}
+              <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                <div className="rounded border border-border/70 bg-muted/50 px-3 py-2 text-xs">
+                  <div className="text-muted-foreground">Session ID</div>
+                  <div className="mt-1 flex items-center gap-2 font-mono text-[11px] text-foreground">
+                    <span className="truncate">{tpSession.id}</span>
                     <CopyButton text={tpSession.id} />
                   </div>
                 </div>
-                <div className="flex items-center justify-between bg-white rounded px-3 py-2">
-                  <span className="text-slate-600 font-medium">Created</span>
-                  <span className="text-slate-900">{new Date(tpSession.created_at).toLocaleString()}</span>
+                <div className="rounded border border-border/70 bg-muted/50 px-3 py-2 text-xs">
+                  <div className="text-muted-foreground">Created</div>
+                  <div className="mt-1 text-foreground">{new Date(tpSession.created_at).toLocaleString()}</div>
                 </div>
                 {tpSession.last_active_at && (
-                  <div className="flex items-center justify-between bg-white rounded px-3 py-2">
-                    <span className="text-slate-600 font-medium">Last Active</span>
-                    <span className="text-slate-900">{new Date(tpSession.last_active_at).toLocaleString()}</span>
+                  <div className="rounded border border-border/70 bg-muted/50 px-3 py-2 text-xs">
+                    <div className="text-muted-foreground">Last Active</div>
+                    <div className="mt-1 text-foreground">{new Date(tpSession.last_active_at).toLocaleString()}</div>
                   </div>
                 )}
               </div>
             </div>
           )}
 
-          {/* Specialist Sessions (Children) */}
+          {/* Specialist Sessions */}
           {specialistSessions.length > 0 && (
-            <div className="space-y-3">
-              <h4 className="text-sm font-medium text-slate-700">Specialist Agents</h4>
+            <div className="mt-4 space-y-2">
+              <h4 className="text-sm font-medium text-foreground">Specialist Agents</h4>
               <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
                 {specialistSessions.map((session) => (
-                  <div key={session.id} className="rounded-lg border border-slate-200 bg-white p-3">
-                    <div className="flex items-center gap-2 mb-3">
-                      <div className="rounded bg-slate-100 p-1.5">
-                        <Zap className="h-4 w-4 text-slate-600" />
+                  <div key={session.id} className="rounded-lg border border-border bg-card p-3 shadow-sm">
+                    <div className="flex items-center gap-2">
+                      <div className="rounded bg-muted p-1.5">
+                        <Zap className="h-4 w-4 text-muted-foreground" />
                       </div>
                       <div className="flex-1 min-w-0">
-                        <h5 className="text-sm font-medium text-slate-900 truncate">
+                        <h5 className="text-sm font-medium text-foreground truncate">
                           {getAgentDisplayName(session.agent_type)}
                         </h5>
                       </div>
                     </div>
-                    <div className="space-y-2 text-xs">
-                      <div className="bg-slate-50 rounded px-2 py-1.5">
-                        <div className="text-slate-500 mb-0.5">Session ID</div>
-                        <div className="flex items-center justify-between">
-                          <code className="text-slate-900 text-[10px] truncate flex-1">
-                            {session.id.split('-')[0]}...
-                          </code>
+                    <div className="mt-2 space-y-2 text-[11px]">
+                      <div className="rounded border border-border/70 bg-muted/40 px-2 py-1.5">
+                        <div className="text-muted-foreground">Session ID</div>
+                        <div className="mt-1 flex items-center gap-2">
+                          <code className="truncate">{session.id.split('-')[0]}...</code>
                           <CopyButton text={session.id} />
                         </div>
                       </div>
                       {session.parent_session_id && (
-                        <div className="bg-slate-50 rounded px-2 py-1.5">
-                          <div className="text-slate-500 mb-0.5">Parent Session</div>
-                          <code className="text-slate-900 text-[10px] truncate block">
-                            {session.parent_session_id.split('-')[0]}...
-                          </code>
+                        <div className="rounded border border-border/70 bg-muted/40 px-2 py-1.5">
+                          <div className="text-muted-foreground">Parent Session</div>
+                          <code className="mt-1 block truncate">{session.parent_session_id.split('-')[0]}...</code>
                         </div>
                       )}
                     </div>
@@ -227,22 +285,27 @@ export function ProjectSettingsClient({ project, basketStats, agentSessions }: P
             </div>
           )}
 
-          <div className="rounded-md bg-blue-50 p-4 border border-blue-200">
-            <p className="text-xs text-blue-900">
-              These session IDs are useful for debugging and API integration. The hierarchical structure
-              ensures the Thinking Partner orchestrates all specialist agents during work execution.
-            </p>
+          <div className="mt-4 rounded-md border border-dashed border-border px-4 py-3 text-xs text-muted-foreground">
+            Session IDs are useful for debugging and API integration. Thinking Partner orchestrates all specialist agents during work execution.
           </div>
-        </div>
-      </SettingsSection>
+        </SettingsSection>
+      )}
 
-      {/* Danger Zone */}
-      <BasketDangerZone
-        projectId={project.id}
-        projectName={project.name}
-        basketId={project.basket_id}
-        basketStats={basketStats}
-      />
+      {tab === 'danger' && (
+        <div>
+          <SettingsSection
+            title="Danger Zone"
+            description="Purge context and reset this project"
+          >
+            <BasketDangerZone
+              projectId={project.id}
+              projectName={project.name}
+              basketId={project.basket_id}
+              basketStats={basketStats}
+            />
+          </SettingsSection>
+        </div>
+      )}
     </div>
   );
 }
