@@ -54,6 +54,12 @@ const AGENT_LINKS = [
   },
 ];
 
+const GOVERNANCE_LINK = {
+  href: '/governance/settings',
+  label: 'Review Settings',
+  icon: Shield,
+};
+
 export default function Sidebar({ className }: SidebarProps) {
   const { open, setOpen, toggle } = useNavState();
   const pathname = usePathname();
@@ -281,6 +287,24 @@ export default function Sidebar({ className }: SidebarProps) {
                   })}
                 </div>
               </section>
+              <section className="space-y-1">
+                <p className="px-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  Governance
+                </p>
+                <div className="flex flex-col gap-0.5">
+                  <SidebarItem
+                    href={GOVERNANCE_LINK.href}
+                    onClick={() => {
+                      if (isMobile) setOpen(false);
+                    }}
+                  >
+                    <span className="flex items-center gap-2">
+                      <GOVERNANCE_LINK.icon size={14} />
+                      {GOVERNANCE_LINK.label}
+                    </span>
+                  </SidebarItem>
+                </div>
+              </section>
             </nav>
           ) : (
             <nav className="flex flex-1 flex-col gap-6 overflow-y-auto px-4 py-6">
@@ -331,6 +355,25 @@ export default function Sidebar({ className }: SidebarProps) {
                   {/* No "see all" button: global nav entry already routes via Projects */}
                 </div>
               </section>
+              <section className="space-y-1">
+                <p className="px-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  Governance
+                </p>
+                <div className="flex flex-col gap-0.5">
+                  <SidebarItem
+                    href={GOVERNANCE_LINK.href}
+                    match="startsWith"
+                    onClick={() => {
+                      if (isMobile) setOpen(false);
+                    }}
+                  >
+                    <span className="flex items-center gap-2">
+                      <GOVERNANCE_LINK.icon size={14} />
+                      {GOVERNANCE_LINK.label}
+                    </span>
+                  </SidebarItem>
+                </div>
+              </section>
             </nav>
           )}
         </div>
@@ -362,17 +405,6 @@ export default function Sidebar({ className }: SidebarProps) {
                     onClick={(e) => {
                       e.preventDefault();
                       setOpenDropdown(false);
-                      router.push("/governance/settings");
-                      if (isMobile) setOpen(false);
-                    }}
-                    className="flex w-full items-center gap-2 px-4 py-2 hover:bg-muted text-muted-foreground hover:text-foreground"
-                  >
-                    <Shield size={14} />
-                    Review Settings
-                  </button>
-                  <button
-                    onClick={(e) => {
-                      e.preventDefault();
                       handleLogout();
                     }}
                     className="flex w-full items-center gap-2 px-4 py-2 text-destructive hover:bg-muted"
