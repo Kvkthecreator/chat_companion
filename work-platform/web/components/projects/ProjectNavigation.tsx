@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { LayoutDashboard, Layers, Briefcase, Settings, MessageSquare } from 'lucide-react';
+import { LayoutDashboard, Layers, Briefcase, Settings2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface ProjectNavigationProps {
@@ -14,11 +14,6 @@ const tabs = [
     name: 'Overview',
     href: '/overview',
     icon: LayoutDashboard,
-  },
-  {
-    name: 'Chat',
-    href: '',  // Root project page is TP chat
-    icon: MessageSquare,
   },
   {
     name: 'Context',
@@ -33,7 +28,7 @@ const tabs = [
   {
     name: 'Settings',
     href: '/settings',
-    icon: Settings,
+    icon: Settings2,
   },
 ];
 
@@ -46,10 +41,7 @@ export function ProjectNavigation({ projectId }: ProjectNavigationProps) {
         <nav className="flex space-x-8" aria-label="Project navigation">
           {tabs.map((tab) => {
             const href = `/projects/${projectId}${tab.href}`;
-            // Special handling for Chat tab (root): active only if exactly at project root
-            const isActive = tab.href === ''
-              ? pathname === `/projects/${projectId}`
-              : pathname === href || pathname.startsWith(href + '/');
+            const isActive = pathname === href || pathname.startsWith(href + '/');
             const Icon = tab.icon;
 
             return (
