@@ -1,4 +1,4 @@
-\restrict efotIkPxShvBchqPcJpsRdhZs8n4vRi5cImUdA0mF13P6LyMZMBZZOKm7MO0eBZ
+\restrict ZhchOleNZ0IFSotVrD0PxoiT2w6X0fysYsqsjVhZWNnuSDqgUo4ghiErgRsO1fa
 CREATE SCHEMA public;
 CREATE TYPE public.alert_severity AS ENUM (
     'info',
@@ -2851,9 +2851,14 @@ CREATE TABLE public.reference_assets (
     created_by_user_id uuid,
     last_accessed_at timestamp with time zone,
     access_count integer DEFAULT 0 NOT NULL,
+    classification_status text DEFAULT 'unclassified'::text,
+    classification_confidence double precision,
+    classified_at timestamp with time zone,
+    classification_metadata jsonb DEFAULT '{}'::jsonb,
     CONSTRAINT access_count_non_negative CHECK ((access_count >= 0)),
     CONSTRAINT expires_at_future CHECK (((expires_at IS NULL) OR (expires_at > created_at))),
     CONSTRAINT file_size_positive CHECK (((file_size_bytes IS NULL) OR (file_size_bytes > 0))),
+    CONSTRAINT reference_assets_classification_status_check CHECK ((classification_status = ANY (ARRAY['unclassified'::text, 'classifying'::text, 'classified'::text, 'failed'::text]))),
     CONSTRAINT reference_assets_permanence_check CHECK ((permanence = ANY (ARRAY['permanent'::text, 'temporary'::text]))),
     CONSTRAINT temporary_must_expire CHECK ((((permanence = 'temporary'::text) AND (expires_at IS NOT NULL)) OR (permanence = 'permanent'::text))),
     CONSTRAINT valid_storage_path CHECK (public.validate_asset_storage_path(basket_id, storage_path))
@@ -3550,6 +3555,7 @@ CREATE INDEX idx_ref_assets_scope ON public.reference_assets USING gin (agent_sc
 CREATE INDEX idx_ref_assets_tags ON public.reference_assets USING gin (tags);
 CREATE INDEX idx_ref_assets_type ON public.reference_assets USING btree (asset_type, permanence);
 CREATE INDEX idx_ref_assets_work_session ON public.reference_assets USING btree (work_session_id) WHERE (work_session_id IS NOT NULL);
+CREATE INDEX idx_reference_assets_classification_status ON public.reference_assets USING btree (classification_status) WHERE (classification_status = ANY (ARRAY['unclassified'::text, 'classifying'::text]));
 CREATE INDEX idx_reflection_cache_basket_computation ON public.reflections_artifact USING btree (basket_id, computation_timestamp DESC);
 CREATE INDEX idx_reflection_cache_computation_timestamp ON public.reflections_artifact USING btree (computation_timestamp DESC);
 CREATE INDEX idx_reflections_basket ON public.reflections_artifact USING btree (basket_id);
@@ -4512,4 +4518,4 @@ CREATE POLICY ws_owner_or_member_read ON public.workspaces FOR SELECT USING (((o
    FROM public.workspace_memberships
   WHERE (workspace_memberships.user_id = auth.uid())))));
 CREATE POLICY ws_owner_update ON public.workspaces FOR UPDATE USING ((owner_id = auth.uid()));
-\unrestrict efotIkPxShvBchqPcJpsRdhZs8n4vRi5cImUdA0mF13P6LyMZMBZZOKm7MO0eBZ
+\unrestrict ZhchOleNZ0IFSotVrD0PxoiT2w6X0fysYsqsjVhZWNnuSDqgUo4ghiErgRsO1fa
