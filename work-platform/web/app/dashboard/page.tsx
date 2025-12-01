@@ -181,7 +181,7 @@ export default async function DashboardPage() {
               return (
                 <Link
                   key={ticket.id}
-                  href={projectInfo ? `/projects/${projectInfo.id}/work-tickets/${ticket.id}` : '#'}
+                  href={projectInfo ? `/projects/${projectInfo.id}/work-tickets/${ticket.id}/track` : '#'}
                   className="block rounded-lg border border-border px-4 py-3 text-sm hover:border-ring transition-colors"
                 >
                   <div className="flex items-center justify-between gap-3">

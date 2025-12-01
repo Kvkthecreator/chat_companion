@@ -113,7 +113,7 @@ export default function AgentDashboardClient({ project, agentRow, tickets, agent
             {tickets.map((ticket) => (
               <Link
                 key={ticket.id}
-                href={`/projects/${project.id}/work-tickets/${ticket.id}`}
+                href={`/projects/${project.id}/work-tickets/${ticket.id}/track`}
                 className="block rounded-lg border border-border p-4 hover:border-ring transition-colors"
               >
                 <div className="flex items-center justify-between text-sm">
