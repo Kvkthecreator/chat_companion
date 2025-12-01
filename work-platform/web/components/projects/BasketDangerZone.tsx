@@ -14,6 +14,7 @@ interface BasketDangerZoneProps {
   basketStats: {
     blocks: number;
     dumps: number;
+    assets: number;
   };
 }
 
@@ -34,6 +35,7 @@ export function BasketDangerZone({
     totals?: {
       archivedBlocks: number;
       redactedDumps: number;
+      deletedAssets: number;
     };
   } | null>(null);
 
@@ -45,8 +47,8 @@ export function BasketDangerZone({
 
     if (!confirm(
       mode === 'archive_all'
-        ? 'This will archive all context blocks AND redact all raw dumps. This action cannot be undone. Continue?'
-        : 'This will redact all raw dumps while keeping extracted context blocks. Continue?'
+        ? 'This will archive all context blocks, redact all raw dumps, and delete all uploaded assets. This action cannot be undone. Continue?'
+        : 'This will redact all raw dumps and delete all uploaded assets while keeping extracted context blocks. Continue?'
     )) {
       return;
     }
@@ -96,7 +98,7 @@ export function BasketDangerZone({
   };
 
   const isConfirmed = confirmationText === projectName;
-  const hasData = basketStats.blocks > 0 || basketStats.dumps > 0;
+  const hasData = basketStats.blocks > 0 || basketStats.dumps > 0 || basketStats.assets > 0;
 
   return (
     <SettingsSection
@@ -124,6 +126,7 @@ export function BasketDangerZone({
               <ul className="text-sm text-muted-foreground space-y-1">
                 <li>• {basketStats.blocks} context block{basketStats.blocks !== 1 ? 's' : ''}</li>
                 <li>• {basketStats.dumps} raw dump{basketStats.dumps !== 1 ? 's' : ''}</li>
+                <li>• {basketStats.assets} uploaded asset{basketStats.assets !== 1 ? 's' : ''}</li>
               </ul>
             </div>
 
@@ -152,10 +155,10 @@ export function BasketDangerZone({
                   />
                   <div className="flex-1">
                     <p className="text-sm font-medium text-foreground">
-                      Redact Dumps Only
+                      Redact Source Data Only
                     </p>
                     <p className="text-xs text-muted-foreground mt-0.5">
-                      Delete raw dumps while keeping extracted context blocks (meaning preserved)
+                      Delete raw dumps and uploaded assets while keeping extracted context blocks (meaning preserved)
                     </p>
                   </div>
                 </label>
@@ -179,10 +182,10 @@ export function BasketDangerZone({
                   />
                   <div className="flex-1">
                     <p className="text-sm font-medium text-foreground">
-                      Archive All & Redact
+                      Full Purge
                     </p>
                     <p className="text-xs text-muted-foreground mt-0.5">
-                      Archive all context blocks AND redact all raw dumps (complete removal)
+                      Archive all context blocks, redact raw dumps, and delete uploaded assets (complete removal)
                     </p>
                   </div>
                 </label>
@@ -217,7 +220,7 @@ export function BasketDangerZone({
                   Purging...
                 </>
               ) : (
-                `Purge Basket (${mode === 'archive_all' ? 'Archive All' : 'Redact Dumps'})`
+                `Purge Basket (${mode === 'archive_all' ? 'Full Purge' : 'Redact Source Data'})`
               )}
             </Button>
 
@@ -247,6 +250,9 @@ export function BasketDangerZone({
                     )}
                     {result.totals.redactedDumps > 0 && (
                       <li>• Redacted {result.totals.redactedDumps} dumps</li>
+                    )}
+                    {result.totals.deletedAssets > 0 && (
+                      <li>• Deleted {result.totals.deletedAssets} assets</li>
                     )}
                   </ul>
                 )}

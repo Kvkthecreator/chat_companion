@@ -5,7 +5,7 @@ import { createRouteHandlerClient } from '@/lib/supabase/clients';
 /**
  * POST /api/projects/[id]/purge
  *
- * Execute basket purge operation (archive blocks and/or redact dumps).
+ * Execute basket purge operation (archive blocks, redact dumps, delete assets).
  * Implements purge directly using database operations (BFF pattern).
  *
  * Request Body:
@@ -15,7 +15,7 @@ import { createRouteHandlerClient } from '@/lib/supabase/clients';
  * Returns:
  * - success: boolean
  * - total_operations: number
- * - totals: { archivedBlocks, redactedDumps }
+ * - totals: { archivedBlocks, redactedDumps, deletedAssets }
  * - message: string
  */
 export async function POST(
@@ -112,6 +112,7 @@ export async function POST(
     // Execute purge operations directly (BFF pattern)
     let archivedBlocks = 0;
     let redactedDumps = 0;
+    let deletedAssets = 0;
 
     if (mode === 'archive_all') {
       // Mark all active blocks as SUPERSEDED (soft delete)
@@ -169,16 +170,52 @@ export async function POST(
 
       redactedDumps = dumpCount;
       console.log(`[PURGE API] Redacted ${redactedDumps} dumps`);
+
+      // Delete all reference assets
+      console.log('[PURGE API] Deleting assets...');
+
+      const { data: assetsToDelete, error: assetsCountError } = await supabase
+        .from('reference_assets')
+        .select('id')
+        .eq('basket_id', basketId);
+
+      if (assetsCountError) {
+        console.error('[PURGE API] Error counting assets:', assetsCountError);
+      }
+
+      const assetCount = assetsToDelete?.length || 0;
+
+      if (assetCount > 0) {
+        const { error: assetsDeleteError } = await supabase
+          .from('reference_assets')
+          .delete()
+          .eq('basket_id', basketId);
+
+        if (assetsDeleteError) {
+          console.error('[PURGE API] Error deleting assets:', assetsDeleteError);
+          return NextResponse.json(
+            { detail: 'Failed to delete assets', error: assetsDeleteError.message },
+            { status: 500 }
+          );
+        }
+      }
+
+      deletedAssets = assetCount;
+      console.log(`[PURGE API] Deleted ${deletedAssets} assets`);
     }
 
-    const totalOperations = archivedBlocks + redactedDumps;
+    const totalOperations = archivedBlocks + redactedDumps + deletedAssets;
     console.log(`[PURGE API] Success: ${totalOperations} total operations`);
 
     // User-friendly message
-    const message =
-      mode === 'archive_all'
-        ? `Successfully archived ${archivedBlocks} blocks and redacted ${redactedDumps} dumps`
-        : `Successfully redacted ${redactedDumps} dumps`;
+    const messageParts: string[] = [];
+    if (archivedBlocks > 0) messageParts.push(`archived ${archivedBlocks} blocks`);
+    if (redactedDumps > 0) messageParts.push(`redacted ${redactedDumps} dumps`);
+    if (deletedAssets > 0) messageParts.push(`deleted ${deletedAssets} assets`);
+
+    const message = messageParts.length > 0
+      ? `Successfully ${messageParts.join(', ')}`
+      : 'No data to purge';
 
     return NextResponse.json({
       success: true,
@@ -186,6 +223,7 @@ export async function POST(
       totals: {
         archivedBlocks,
         redactedDumps,
+        deletedAssets,
       },
       message,
     });

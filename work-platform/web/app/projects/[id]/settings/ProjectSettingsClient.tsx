@@ -30,6 +30,7 @@ interface ProjectSettingsClientProps {
   basketStats: {
     blocks: number;
     dumps: number;
+    assets: number;
   };
   agentSessions: AgentSession[];
 }
@@ -115,7 +116,7 @@ export function ProjectSettingsClient({ project, basketStats, agentSessions }: P
               Context footprint
             </div>
             <div className="mt-2 text-sm text-foreground">
-              {basketStats.blocks} blocks · {basketStats.dumps} raw dumps
+              {basketStats.blocks} blocks · {basketStats.dumps} dumps · {basketStats.assets} assets
             </div>
           </div>
           <div className="rounded-lg border border-border/60 bg-card px-4 py-3">
@@ -187,9 +188,13 @@ export function ProjectSettingsClient({ project, basketStats, agentSessions }: P
               label="Raw Dumps"
               value={`${basketStats.dumps} dump${basketStats.dumps !== 1 ? 's' : ''}`}
             />
+            <DisplayBox
+              label="Uploaded Assets"
+              value={`${basketStats.assets} asset${basketStats.assets !== 1 ? 's' : ''}`}
+            />
           </div>
           <div className="mt-3 rounded-md border border-border bg-muted/40 p-4 text-xs text-muted-foreground">
-            Context blocks are extracted knowledge and meaning from your project. Raw dumps are the original source materials before processing.
+            Context blocks are extracted knowledge. Raw dumps are source materials before processing. Assets are uploaded files (images, documents, etc.).
           </div>
         </SettingsSection>
       )}

@@ -6,11 +6,12 @@ import { createRouteHandlerClient } from '@/lib/supabase/clients';
  * GET /api/projects/[id]/purge/preview
  *
  * Preview basket purge counts before execution.
- * Queries database directly for blocks and raw_dumps counts.
+ * Queries database directly for blocks, raw_dumps, and assets counts.
  *
  * Returns:
  * - blocks: number (active blocks count, excluding REJECTED/SUPERSEDED)
  * - dumps: number (raw dumps count)
+ * - assets: number (reference assets count)
  */
 export async function GET(
   request: NextRequest,
@@ -103,9 +104,24 @@ export async function GET(
       );
     }
 
+    // Count reference assets
+    const { count: assetsCount, error: assetsError } = await supabase
+      .from('reference_assets')
+      .select('*', { count: 'exact', head: true })
+      .eq('basket_id', basketId);
+
+    if (assetsError) {
+      console.error('[PURGE PREVIEW API] Database error counting assets:', assetsError);
+      return NextResponse.json(
+        { detail: 'Failed to count assets', error: assetsError.message },
+        { status: 500 }
+      );
+    }
+
     const result = {
       blocks: blocksCount || 0,
       dumps: dumpsCount || 0,
+      assets: assetsCount || 0,
     };
 
     console.log(`[PURGE PREVIEW API] Preview result for basket ${basketId}:`, result);

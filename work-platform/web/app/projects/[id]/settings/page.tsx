@@ -60,6 +60,7 @@ export default async function ProjectSettingsPage({ params }: PageProps) {
   let basketStats = {
     blocks: 0,
     dumps: 0,
+    assets: 0,
   };
 
   try {
