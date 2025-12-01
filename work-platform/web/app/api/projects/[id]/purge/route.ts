@@ -152,8 +152,23 @@ export async function POST(
       }
 
       const dumpCount = dumpsToDelete?.length || 0;
+      const dumpIds = dumpsToDelete?.map(d => d.id) || [];
 
       if (dumpCount > 0) {
+        // First delete agent_processing_queue entries that reference these dumps
+        // (foreign key constraint: agent_processing_queue.dump_id -> raw_dumps.id)
+        console.log('[PURGE API] Clearing processing queue for dumps...');
+        const { error: queueDeleteError } = await supabase
+          .from('agent_processing_queue')
+          .delete()
+          .in('dump_id', dumpIds);
+
+        if (queueDeleteError) {
+          console.error('[PURGE API] Error clearing processing queue:', queueDeleteError);
+          // Continue anyway - queue entries may not exist
+        }
+
+        // Now delete the dumps
         const { error: deleteError } = await supabase
           .from('raw_dumps')
           .delete()
