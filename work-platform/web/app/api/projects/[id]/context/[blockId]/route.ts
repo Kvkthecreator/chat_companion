@@ -153,10 +153,11 @@ export async function PUT(
 
     // Parse request body
     const body = await request.json();
-    const { title, content, semantic_type, metadata } = body;
+    const { title, content, semantic_type, anchor_role, metadata } = body;
 
-    // At least one field must be provided
-    if (!title && !content && !semantic_type && !metadata) {
+    // At least one field must be provided (anchor_role can be empty string to remove)
+    const hasAnchorRoleChange = anchor_role !== undefined;
+    if (!title && !content && !semantic_type && !hasAnchorRoleChange && !metadata) {
       return NextResponse.json(
         { detail: 'At least one field must be provided to update' },
         { status: 400 }
@@ -172,6 +173,10 @@ export async function PUT(
     if (title !== undefined) updatePayload.title = title.trim();
     if (content !== undefined) updatePayload.content = content.trim();
     if (semantic_type !== undefined) updatePayload.semantic_type = semantic_type.trim();
+    if (hasAnchorRoleChange) {
+      // Pass anchor_role as-is (empty string = remove, value = set)
+      updatePayload.anchor_role = anchor_role === null ? '' : anchor_role;
+    }
     if (metadata !== undefined) updatePayload.metadata = metadata;
 
     const substrateResponse = await fetch(substrateUrl, {

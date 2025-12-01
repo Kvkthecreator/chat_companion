@@ -22,6 +22,18 @@ const SEMANTIC_TYPE_OPTIONS = [
   { value: 'objective', label: 'Objective', description: 'Specific target or goal' },
 ];
 
+// Anchor role options (foundational blocks that agents prioritize)
+const ANCHOR_ROLE_OPTIONS = [
+  { value: '', label: 'None', description: 'Regular block (not anchored)' },
+  { value: 'problem', label: 'Problem', description: 'Core pain point being solved' },
+  { value: 'customer', label: 'Customer', description: 'Target user or audience' },
+  { value: 'solution', label: 'Solution', description: 'How the problem is solved' },
+  { value: 'vision', label: 'Vision', description: 'Long-term direction' },
+  { value: 'feature', label: 'Feature', description: 'Key capability' },
+  { value: 'constraint', label: 'Constraint', description: 'Hard limitation' },
+  { value: 'metric', label: 'Metric', description: 'Success measure' },
+];
+
 interface Block {
   id: string;
   title: string;
@@ -54,6 +66,7 @@ export default function BlockFormModal({
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
   const [semanticType, setSemanticType] = useState('fact');
+  const [anchorRole, setAnchorRole] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -64,10 +77,12 @@ export default function BlockFormModal({
         setTitle(block.title);
         setContent(block.content);
         setSemanticType(block.semantic_type);
+        setAnchorRole(block.anchor_role || '');
       } else {
         setTitle('');
         setContent('');
         setSemanticType('fact');
+        setAnchorRole('');
       }
       setError(null);
     }
@@ -96,14 +111,25 @@ export default function BlockFormModal({
 
       const method = isEditMode ? 'PUT' : 'POST';
 
+      const payload: Record<string, any> = {
+        title: title.trim(),
+        content: content.trim(),
+        semantic_type: semanticType,
+      };
+
+      // Include anchor_role (empty string removes it in edit mode)
+      if (isEditMode) {
+        // For updates, always send anchor_role to allow removal
+        payload.anchor_role = anchorRole || null;
+      } else if (anchorRole) {
+        // For creates, only send if set
+        payload.anchor_role = anchorRole;
+      }
+
       const response = await fetch(url, {
         method,
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          title: title.trim(),
-          content: content.trim(),
-          semantic_type: semanticType,
-        }),
+        body: JSON.stringify(payload),
       });
 
       if (!response.ok) {
@@ -164,6 +190,27 @@ export default function BlockFormModal({
                 </option>
               ))}
             </select>
+          </div>
+
+          {/* Anchor Role */}
+          <div className="space-y-2">
+            <Label htmlFor="block-anchor">Anchor Role (Optional)</Label>
+            <select
+              id="block-anchor"
+              value={anchorRole}
+              onChange={(e) => setAnchorRole(e.target.value)}
+              disabled={saving}
+              className="w-full p-2.5 rounded-lg border border-input bg-input text-sm text-foreground shadow-sm focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50"
+            >
+              {ANCHOR_ROLE_OPTIONS.map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label} - {opt.description}
+                </option>
+              ))}
+            </select>
+            <p className="text-xs text-muted-foreground">
+              Anchor blocks are foundational context that agents prioritize.
+            </p>
           </div>
 
           {/* Content */}

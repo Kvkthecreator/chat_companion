@@ -355,10 +355,15 @@ export default function ContextBlocksClient({ projectId, basketId }: ContextBloc
                 <h3 className="font-medium text-foreground flex-1 line-clamp-2">
                   {block.title}
                 </h3>
-                <div className="flex gap-2 flex-shrink-0">
+                <div className="flex gap-2 flex-shrink-0 flex-wrap">
                   <Badge variant="outline">
                     {block.semantic_type}
                   </Badge>
+                  {block.anchor_role && (
+                    <Badge variant="outline" className="bg-primary/10 text-primary border-primary/30">
+                      {block.anchor_role}
+                    </Badge>
+                  )}
                   {block.state === 'PROPOSED' && (
                     <Badge variant="outline" className="bg-warning text-warning-foreground border-warning-foreground/50">
                       Pending Review

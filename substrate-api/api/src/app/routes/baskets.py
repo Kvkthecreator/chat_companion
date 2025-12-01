@@ -483,6 +483,7 @@ class UpdateBlockRequest(BaseModel):
     title: Optional[str] = Field(None, max_length=500, description="Updated title")
     content: Optional[str] = Field(None, max_length=50000, description="Updated content")
     semantic_type: Optional[str] = Field(None, description="Updated semantic type")
+    anchor_role: Optional[str] = Field(None, description="Anchor role (set to empty string to remove)")
     metadata: Optional[dict] = Field(None, description="Updated metadata")
 
 
@@ -746,6 +747,18 @@ async def update_block(
         if request.semantic_type is not None:
             update_fields.append("semantic_type = :semantic_type")
             update_values["semantic_type"] = request.semantic_type
+
+        if request.anchor_role is not None:
+            # Empty string means remove anchor role, otherwise set it
+            if request.anchor_role == "":
+                update_fields.append("anchor_role = NULL")
+                update_fields.append("anchor_status = NULL")
+                update_fields.append("anchor_confidence = NULL")
+            else:
+                update_fields.append("anchor_role = :anchor_role")
+                update_fields.append("anchor_status = 'accepted'")
+                update_fields.append("anchor_confidence = 1.0")
+                update_values["anchor_role"] = request.anchor_role
 
         if request.metadata is not None:
             update_fields.append("metadata = metadata || :metadata")
