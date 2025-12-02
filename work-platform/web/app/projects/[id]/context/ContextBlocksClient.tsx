@@ -15,6 +15,17 @@ import {
   Plus,
   RefreshCw,
   Anchor,
+  CheckCircle2,
+  AlertTriangle,
+  Users,
+  Eye,
+  TrendingUp,
+  Target,
+  MessageSquare,
+  Compass,
+  UserCheck,
+  Clock,
+  ArrowRight,
 } from "lucide-react";
 import { ProjectHealthCheck } from "@/components/projects/ProjectHealthCheck";
 import BlockDetailModal from "@/components/context/BlockDetailModal";
@@ -37,6 +48,79 @@ interface ContextBlocksClientProps {
   basketId: string;
   addRole?: string | null; // Pre-select anchor role and auto-open create modal
 }
+
+// Foundation roles that every project should ideally have
+const FOUNDATION_ROLES = ["problem", "customer", "vision"];
+
+// Insight roles that are agent-producible and refreshable
+const INSIGHT_ROLES = [
+  "trend_digest",
+  "competitor_snapshot",
+  "market_signal",
+  "brand_voice",
+  "strategic_direction",
+  "customer_insight",
+];
+
+// Display config for all anchor roles
+const ANCHOR_CONFIG: Record<string, { label: string; icon: React.ComponentType<{ className?: string }>; description: string; category: 'foundation' | 'insight' }> = {
+  // Foundation roles
+  problem: {
+    label: "Problem",
+    icon: AlertTriangle,
+    description: "What pain point are you solving?",
+    category: 'foundation',
+  },
+  customer: {
+    label: "Customer",
+    icon: Users,
+    description: "Who is this for?",
+    category: 'foundation',
+  },
+  vision: {
+    label: "Vision",
+    icon: Eye,
+    description: "Where is this going?",
+    category: 'foundation',
+  },
+  // Insight roles
+  trend_digest: {
+    label: "Trend Digest",
+    icon: TrendingUp,
+    description: "Industry trends and market movements",
+    category: 'insight',
+  },
+  competitor_snapshot: {
+    label: "Competitor Snapshot",
+    icon: Target,
+    description: "Competitive intelligence",
+    category: 'insight',
+  },
+  market_signal: {
+    label: "Market Signal",
+    icon: Brain,
+    description: "Research and market insights",
+    category: 'insight',
+  },
+  brand_voice: {
+    label: "Brand Voice",
+    icon: MessageSquare,
+    description: "Tone and style guidelines",
+    category: 'insight',
+  },
+  strategic_direction: {
+    label: "Strategic Direction",
+    icon: Compass,
+    description: "Strategic goals and priorities",
+    category: 'insight',
+  },
+  customer_insight: {
+    label: "Customer Insight",
+    icon: UserCheck,
+    description: "Deep customer understanding",
+    category: 'insight',
+  },
+};
 
 export default function ContextBlocksClient({ projectId, basketId, addRole }: ContextBlocksClientProps) {
   const [blocks, setBlocks] = useState<Block[]>([]);
@@ -193,6 +277,28 @@ export default function ContextBlocksClient({ projectId, basketId, addRole }: Co
     MEANING_TYPES.includes(b.semantic_type.toLowerCase())
   ).length;
 
+  // Anchor role analysis - show which core roles are present vs missing
+  const anchorBlocks = blocks.filter(b => b.anchor_role);
+  const presentAnchorRoles = new Set(anchorBlocks.map(b => b.anchor_role!));
+
+  // Foundation roles status
+  const foundationStatus = FOUNDATION_ROLES.map(role => ({
+    role,
+    present: presentAnchorRoles.has(role),
+    config: ANCHOR_CONFIG[role],
+    block: anchorBlocks.find(b => b.anchor_role === role),
+  }));
+  const missingFoundation = foundationStatus.filter(f => !f.present);
+  const foundationComplete = missingFoundation.length === 0;
+
+  // Insight roles status
+  const insightStatus = INSIGHT_ROLES.map(role => ({
+    role,
+    present: presentAnchorRoles.has(role),
+    config: ANCHOR_CONFIG[role],
+    block: anchorBlocks.find(b => b.anchor_role === role),
+  })).filter(i => i.present); // Only show present insights
+
   if (loading) {
     return (
       <Card className="p-12">
@@ -306,6 +412,119 @@ export default function ContextBlocksClient({ projectId, basketId, addRole }: Co
           </div>
         </Card>
       </div>
+
+      {/* Foundation Anchors Status */}
+      <Card className={cn(
+        "p-4 transition-colors",
+        foundationComplete
+          ? "border-green-500/30 bg-green-500/5"
+          : "border-yellow-500/30 bg-yellow-500/5"
+      )}>
+        <div className="flex items-center gap-3 mb-3">
+          <div className={cn(
+            "rounded-lg p-2",
+            foundationComplete
+              ? "bg-green-500/10 text-green-600"
+              : "bg-yellow-500/10 text-yellow-600"
+          )}>
+            {foundationComplete ? (
+              <CheckCircle2 className="h-5 w-5" />
+            ) : (
+              <Anchor className="h-5 w-5" />
+            )}
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <h3 className="font-semibold text-foreground text-sm">Core Anchors</h3>
+              <Badge
+                variant="outline"
+                className={cn(
+                  "text-xs",
+                  foundationComplete
+                    ? "bg-green-500/10 text-green-700 border-green-500/30"
+                    : "bg-yellow-500/10 text-yellow-700 border-yellow-500/30"
+                )}
+              >
+                {foundationComplete ? "Complete" : `${3 - missingFoundation.length}/3`}
+              </Badge>
+            </div>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              {foundationComplete
+                ? "All foundation anchors are defined"
+                : "Define these to help agents understand your project"}
+            </p>
+          </div>
+        </div>
+
+        {/* Foundation roles checklist */}
+        <div className="grid gap-2 sm:grid-cols-3">
+          {foundationStatus.map(({ role, present, config, block }) => {
+            if (!config) return null;
+            const IconComponent = config.icon;
+
+            return present ? (
+              <div
+                key={role}
+                className="flex items-center gap-3 p-3 rounded-lg border border-green-500/30 bg-green-500/5 cursor-pointer hover:bg-green-500/10 transition-colors"
+                onClick={() => block && setSelectedBlockId(block.id)}
+              >
+                <div className="rounded-md p-1.5 bg-green-500/10 text-green-600">
+                  <IconComponent className="h-4 w-4" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-foreground">{config.label}</p>
+                  <p className="text-xs text-muted-foreground truncate">{block?.title}</p>
+                </div>
+                <CheckCircle2 className="h-4 w-4 text-green-600 flex-shrink-0" />
+              </div>
+            ) : (
+              <button
+                key={role}
+                onClick={() => {
+                  setCreateAnchorRole(role);
+                  setShowCreateModal(true);
+                }}
+                className="flex items-center gap-3 p-3 rounded-lg border border-dashed border-yellow-500/30 bg-yellow-500/5 hover:bg-yellow-500/10 hover:border-yellow-500/50 transition-colors text-left"
+              >
+                <div className="rounded-md p-1.5 bg-yellow-500/10 text-yellow-600">
+                  <IconComponent className="h-4 w-4" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-foreground">{config.label}</p>
+                  <p className="text-xs text-muted-foreground">{config.description}</p>
+                </div>
+                <Plus className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Insight roles if any are present */}
+        {insightStatus.length > 0 && (
+          <div className="mt-4 pt-4 border-t border-border/50">
+            <p className="text-xs text-muted-foreground mb-2">
+              Active insight anchors ({insightStatus.length}):
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {insightStatus.map(({ role, config, block }) => {
+                if (!config) return null;
+                const IconComponent = config.icon;
+
+                return (
+                  <button
+                    key={role}
+                    onClick={() => block && setSelectedBlockId(block.id)}
+                    className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border border-primary/30 bg-primary/5 hover:bg-primary/10 transition-colors text-sm"
+                  >
+                    <IconComponent className="h-3.5 w-3.5 text-primary" />
+                    <span className="text-foreground">{config.label}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+      </Card>
 
       {/* Search & Filters */}
       <div className="flex gap-4">
