@@ -20,6 +20,7 @@ interface WorkOutput {
   file_id: string | null;
   file_format: string | null;
   generation_method: string;
+  supervision_status: string;
   created_at: string;
 }
 
@@ -157,6 +158,11 @@ export default function TicketTrackingClient({
   const isCompleted = ticket.status === 'completed';
   const isFailed = ticket.status === 'failed';
   const isRunning = ticket.status === 'running' || ticket.status === 'pending';
+
+  // Count outputs by supervision status
+  const pendingReviewOutputs = ticket.work_outputs?.filter(o => o.supervision_status === 'pending_review') || [];
+  const approvedOutputs = ticket.work_outputs?.filter(o => o.supervision_status === 'approved') || [];
+  const hasPendingReview = pendingReviewOutputs.length > 0;
 
   // Determine if this is a problematic execution
   const isProblematicExecution = isCompleted && !hasOutputs && !isFailed;
@@ -320,7 +326,7 @@ export default function TicketTrackingClient({
               </div>
               <div className="space-y-4">
                 {ticket.work_outputs.map((output) => (
-                  <OutputCard key={output.id} output={output} basketId={ticket.basket_id} />
+                  <OutputCard key={output.id} output={output} basketId={ticket.basket_id} projectId={projectId} />
                 ))}
               </div>
             </Card>
@@ -425,6 +431,22 @@ export default function TicketTrackingClient({
           <Card className="p-6">
             <h2 className="text-lg font-semibold mb-4">Actions</h2>
             <div className="space-y-2">
+              {hasPendingReview && (
+                <Link href={`/projects/${projectId}/work-review?status=pending_review`} className="block">
+                  <Button className="w-full gap-2 bg-yellow-600 hover:bg-yellow-700">
+                    <FileText className="h-4 w-4" />
+                    Review Outputs ({pendingReviewOutputs.length})
+                  </Button>
+                </Link>
+              )}
+              {hasOutputs && !hasPendingReview && approvedOutputs.length > 0 && (
+                <Link href={`/projects/${projectId}/work-review?status=approved`} className="block">
+                  <Button variant="outline" className="w-full gap-2">
+                    <CheckCircle2 className="h-4 w-4 text-green-600" />
+                    View Approved ({approvedOutputs.length})
+                  </Button>
+                </Link>
+              )}
               <Button
                 variant="outline"
                 className="w-full"
@@ -447,10 +469,14 @@ export default function TicketTrackingClient({
   );
 }
 
-function OutputCard({ output, basketId }: { output: WorkOutput; basketId: string }) {
+function OutputCard({ output, basketId, projectId }: { output: WorkOutput; basketId: string; projectId: string }) {
   const isFileOutput = output.file_id && output.file_format;
   const [isDownloading, setIsDownloading] = useState(false);
   const [downloadError, setDownloadError] = useState<string | null>(null);
+
+  const supervisionStatus = output.supervision_status || 'pending_review';
+  const isPending = supervisionStatus === 'pending_review';
+  const isApproved = supervisionStatus === 'approved';
 
   const handleDownload = async () => {
     if (!isFileOutput) return;
@@ -497,7 +523,10 @@ function OutputCard({ output, basketId }: { output: WorkOutput; basketId: string
   };
 
   return (
-    <div className="border border-border rounded-lg p-4 space-y-3">
+    <div className={cn(
+      "border rounded-lg p-4 space-y-3",
+      isPending ? "border-yellow-500/30 bg-yellow-500/5" : "border-border"
+    )}>
       <div className="flex items-start justify-between">
         <div className="flex-1">
           <h3 className="font-medium text-foreground">{output.title}</h3>
@@ -510,6 +539,18 @@ function OutputCard({ output, basketId }: { output: WorkOutput; basketId: string
                 {output.file_format}
               </Badge>
             )}
+            {/* Supervision Status Badge */}
+            <Badge
+              variant="outline"
+              className={cn(
+                "text-xs",
+                isPending && "bg-yellow-500/10 text-yellow-700 border-yellow-500/30",
+                isApproved && "bg-green-500/10 text-green-700 border-green-500/30",
+                supervisionStatus === 'rejected' && "bg-red-500/10 text-red-700 border-red-500/30"
+              )}
+            >
+              {isPending ? 'Pending Review' : isApproved ? 'Approved' : supervisionStatus.replace('_', ' ')}
+            </Badge>
             <span className="text-xs text-muted-foreground">
               {output.generation_method}
             </span>
@@ -520,20 +561,29 @@ function OutputCard({ output, basketId }: { output: WorkOutput; basketId: string
             )}
           </div>
         </div>
-        {isFileOutput && (
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={handleDownload}
-            disabled={isDownloading}
-          >
-            {isDownloading ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <Download className="h-4 w-4" />
-            )}
-          </Button>
-        )}
+        <div className="flex items-center gap-2">
+          {isPending && (
+            <Link href={`/projects/${projectId}/work-review?status=pending_review`}>
+              <Button variant="outline" size="sm" className="text-yellow-700 border-yellow-500/30 hover:bg-yellow-500/10">
+                Review
+              </Button>
+            </Link>
+          )}
+          {isFileOutput && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleDownload}
+              disabled={isDownloading}
+            >
+              {isDownloading ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Download className="h-4 w-4" />
+              )}
+            </Button>
+          )}
+        </div>
       </div>
 
       {/* Preview body for text outputs */}

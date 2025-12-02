@@ -241,8 +241,18 @@ export function WorkReviewClient({
               <div className="flex items-center gap-3">
                 <Badge variant={statusBadge.variant}>{statusBadge.label}</Badge>
                 {isPromoted && (
-                  <Badge variant="outline" className="text-xs">
-                    {output.promotion_method === "skipped" ? "Skipped" : "Promoted"}
+                  <Badge
+                    variant="outline"
+                    className={cn(
+                      "text-xs",
+                      output.promotion_method === "auto" && "bg-green-500/10 text-green-700 border-green-500/30"
+                    )}
+                  >
+                    {output.promotion_method === "skipped"
+                      ? "Skipped"
+                      : output.promotion_method === "auto"
+                        ? "Auto Promoted"
+                        : "Promoted"}
                   </Badge>
                 )}
                 {isExpanded ? (

@@ -22,10 +22,12 @@ import ContextInfoPopover from "./ContextInfoPopover";
 
 interface PageProps {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ add?: string }>;
 }
 
-export default async function ProjectContextPage({ params }: PageProps) {
+export default async function ProjectContextPage({ params, searchParams }: PageProps) {
   const { id: projectId } = await params;
+  const { add: addRole } = await searchParams;
 
   const supabase = createServerComponentClient({ cookies });
   const { userId } = await getAuthenticatedUser(supabase);
@@ -93,7 +95,7 @@ export default async function ProjectContextPage({ params }: PageProps) {
       </div>
 
       {/* Context Blocks Client Component */}
-      <ContextPageClient projectId={projectId} basketId={project.basket_id} />
+      <ContextPageClient projectId={projectId} basketId={project.basket_id} addRole={addRole} />
     </div>
   );
 }

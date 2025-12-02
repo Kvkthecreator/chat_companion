@@ -48,10 +48,10 @@ export default async function RecipeConfigurePage({ params, searchParams }: Page
     );
   }
 
-  // Fetch recipe from database by slug
+  // Fetch recipe from database by slug (include context fields)
   const { data: recipeData, error: recipeError } = await supabase
     .from('work_recipes')
-    .select('id, name, slug, description, agent_type, configurable_parameters')
+    .select('id, name, slug, description, agent_type, configurable_parameters, context_requirements, context_outputs')
     .eq('slug', recipeSlug)
     .eq('status', 'active')
     .maybeSingle();
@@ -60,6 +60,20 @@ export default async function RecipeConfigurePage({ params, searchParams }: Page
     console.error("Failed to fetch recipe:", recipeError);
     redirect(`/projects/${projectId}/work-tickets/new`);
   }
+
+  // Fetch context anchors for this basket
+  const { data: contextBlocks } = await supabase
+    .from('blocks')
+    .select('id, anchor_role, state, updated_at')
+    .eq('basket_id', project.basket_id)
+    .not('anchor_role', 'is', null)
+    .eq('state', 'active');
+
+  const contextAnchors = (contextBlocks || []).map(b => ({
+    anchor_key: b.anchor_role,
+    lifecycle: 'approved',
+    updated_at: b.updated_at,
+  }));
 
   // Transform database recipe to frontend format
   const recipeParams = recipeData.configurable_parameters || {};
@@ -90,6 +104,8 @@ export default async function RecipeConfigurePage({ params, searchParams }: Page
     agent_type: recipeData.agent_type,
     output_format: outputFormat,
     parameters: transformedParams,
+    context_requirements: recipeData.context_requirements,
+    context_outputs: recipeData.context_outputs,
   };
 
   return (
@@ -98,6 +114,7 @@ export default async function RecipeConfigurePage({ params, searchParams }: Page
       basketId={project.basket_id}
       workspaceId={project.workspace_id}
       recipe={recipe}
+      contextAnchors={contextAnchors}
     />
   );
 }

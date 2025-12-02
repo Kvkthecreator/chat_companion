@@ -136,6 +136,13 @@ export default async function ProjectOverviewPage({ params }: PageProps) {
     console.warn('[Project Overview] Failed to fetch context stats:', error);
   }
 
+  // Fetch pending review count (outputs awaiting supervision)
+  const { count: pendingReviewCount } = await supabase
+    .from('work_outputs')
+    .select('id', { count: 'exact', head: true })
+    .eq('basket_id', project.basket_id)
+    .eq('supervision_status', 'pending_review');
+
   // Build agent-level stats from work_tickets (Phase 2e schema)
   // Map: agent_session_id → stats
   const agentStats: Record<string, {
@@ -181,6 +188,7 @@ export default async function ProjectOverviewPage({ params }: PageProps) {
     created_at: project.created_at,
     updated_at: project.updated_at,
     agents: projectAgents || [],
+    pendingReviewCount: pendingReviewCount || 0,
     stats: {
       contextItems: blocksCount || 0,
       documents: documentsCount || 0,

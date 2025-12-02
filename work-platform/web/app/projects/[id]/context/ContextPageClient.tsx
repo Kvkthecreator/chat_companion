@@ -13,6 +13,7 @@ type TabValue = "blocks" | "entries" | "documents" | "images";
 interface ContextPageClientProps {
   projectId: string;
   basketId: string;
+  addRole?: string | null; // Pre-select anchor role and auto-open create modal
 }
 
 /**
@@ -21,8 +22,9 @@ interface ContextPageClientProps {
  * Modal management is centralized in AddContextButton (rendered in page header).
  * Tab components are display-only and do not manage their own modals.
  */
-export default function ContextPageClient({ projectId, basketId }: ContextPageClientProps) {
-  const [activeTab, setActiveTab] = useState<TabValue>("blocks");
+export default function ContextPageClient({ projectId, basketId, addRole }: ContextPageClientProps) {
+  // Default to blocks tab when addRole is provided (to show the create modal)
+  const [activeTab, setActiveTab] = useState<TabValue>(addRole ? "blocks" : "blocks");
 
   return (
     <Tabs
@@ -50,7 +52,7 @@ export default function ContextPageClient({ projectId, basketId }: ContextPageCl
       </TabsList>
 
       <TabsContent value="blocks" className="mt-6">
-        <ContextBlocksClient projectId={projectId} basketId={basketId} />
+        <ContextBlocksClient projectId={projectId} basketId={basketId} addRole={addRole} />
       </TabsContent>
 
       <TabsContent value="entries" className="mt-6">

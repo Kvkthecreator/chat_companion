@@ -29,6 +29,7 @@ interface ProjectData {
   created_at: string;
   updated_at: string;
   agents: ProjectAgent[];
+  pendingReviewCount: number;
   stats: {
     contextItems: number;
     documents: number;
@@ -166,15 +167,28 @@ export function ProjectOverviewClient({ project }: ProjectOverviewClientProps) {
       )}
 
       {/* Work Review Quick Access */}
-      <Card className="p-6">
+      <Card className={cn(
+        "p-6",
+        project.pendingReviewCount > 0 && "border-yellow-500/30 bg-yellow-500/5"
+      )}>
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div className="space-y-2">
             <div className="flex items-center gap-2">
-              <FileCheck className="h-5 w-5 text-primary" />
+              <FileCheck className={cn(
+                "h-5 w-5",
+                project.pendingReviewCount > 0 ? "text-yellow-600" : "text-primary"
+              )} />
               <h3 className="text-lg font-semibold text-foreground">Work Review</h3>
+              {project.pendingReviewCount > 0 && (
+                <Badge className="bg-yellow-500 text-white border-0 text-xs px-2">
+                  {project.pendingReviewCount} pending
+                </Badge>
+              )}
             </div>
             <p className="text-sm text-muted-foreground">
-              Review and approve agent outputs before they're promoted to your knowledge base.
+              {project.pendingReviewCount > 0
+                ? `You have ${project.pendingReviewCount} output${project.pendingReviewCount !== 1 ? 's' : ''} awaiting review before promotion to your knowledge base.`
+                : 'Review and approve agent outputs before they\'re promoted to your knowledge base.'}
             </p>
           </div>
           <div className="flex items-center gap-3">
@@ -188,6 +202,7 @@ export function ProjectOverviewClient({ project }: ProjectOverviewClientProps) {
             </Button>
             <Button
               size="sm"
+              variant={project.pendingReviewCount > 0 ? "default" : "outline"}
               onClick={() => router.push(`/projects/${project.id}/work-review`)}
             >
               <Clock className="h-4 w-4 mr-1" />

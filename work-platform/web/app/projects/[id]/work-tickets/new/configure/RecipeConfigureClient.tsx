@@ -8,8 +8,23 @@ import { Label } from "@/components/ui/Label";
 import { Input } from "@/components/ui/Input";
 import { Textarea } from "@/components/ui/Textarea";
 import { Badge } from "@/components/ui/Badge";
-import { ArrowLeft, Loader2, CheckCircle2, AlertCircle } from "lucide-react";
+import { ArrowLeft, Loader2, CheckCircle2, AlertCircle, AlertTriangle, Users, Eye, TrendingUp, Target, Brain, MessageSquare, Compass, UserCheck, FileOutput } from "lucide-react";
 import Link from "next/link";
+import { cn } from "@/lib/utils";
+
+// Role display configuration
+const ROLE_CONFIG: Record<string, { label: string; icon: React.ComponentType<{ className?: string }> }> = {
+  problem: { label: "Problem", icon: AlertTriangle },
+  customer: { label: "Customer", icon: Users },
+  vision: { label: "Vision", icon: Eye },
+  solution: { label: "Solution", icon: CheckCircle2 },
+  trend_digest: { label: "Trend Digest", icon: TrendingUp },
+  competitor_snapshot: { label: "Competitor Snapshot", icon: Target },
+  market_signal: { label: "Market Signal", icon: Brain },
+  brand_voice: { label: "Brand Voice", icon: MessageSquare },
+  strategic_direction: { label: "Strategic Direction", icon: Compass },
+  customer_insight: { label: "Customer Insight", icon: UserCheck },
+};
 
 interface RecipeParameter {
   type: string;
@@ -22,6 +37,16 @@ interface RecipeParameter {
   options?: readonly string[];
 }
 
+interface ContextRequirements {
+  roles?: string[];
+  roles_optional?: string[];
+}
+
+interface ContextOutputs {
+  role: string;
+  refresh_policy?: { ttl_hours: number; auto_promote?: boolean };
+}
+
 interface Recipe {
   id: string;
   name: string;
@@ -29,6 +54,14 @@ interface Recipe {
   agent_type: string;
   output_format: string;
   parameters: Record<string, RecipeParameter>;
+  context_requirements?: ContextRequirements;
+  context_outputs?: ContextOutputs;
+}
+
+interface ContextAnchor {
+  anchor_key: string;
+  lifecycle: string;
+  updated_at?: string;
 }
 
 interface RecipeConfigureClientProps {
@@ -36,6 +69,7 @@ interface RecipeConfigureClientProps {
   basketId: string;
   workspaceId: string;
   recipe: Recipe;
+  contextAnchors?: ContextAnchor[];
 }
 
 export default function RecipeConfigureClient({
@@ -43,8 +77,21 @@ export default function RecipeConfigureClient({
   basketId,
   workspaceId,
   recipe,
+  contextAnchors = [],
 }: RecipeConfigureClientProps) {
   const router = useRouter();
+
+  // Context validation
+  const approvedRoles = new Set(
+    contextAnchors
+      .filter(a => a.lifecycle === 'approved')
+      .map(a => a.anchor_key)
+  );
+  const requiredRoles = recipe.context_requirements?.roles || [];
+  const optionalRoles = recipe.context_requirements?.roles_optional || [];
+  const missingRoles = requiredRoles.filter(role => !approvedRoles.has(role));
+  const hasAllRequired = missingRoles.length === 0;
+
   const [formValues, setFormValues] = useState<Record<string, any>>(() => {
     // Initialize with defaults
     const initial: Record<string, any> = {};
@@ -160,6 +207,107 @@ export default function RecipeConfigureClient({
         </div>
       </div>
 
+      {/* Context Requirements Card */}
+      {(requiredRoles.length > 0 || optionalRoles.length > 0 || recipe.context_outputs) && (
+        <Card className={cn(
+          "p-4",
+          !hasAllRequired ? "border-yellow-500/30 bg-yellow-500/5" : "border-green-500/30 bg-green-500/5"
+        )}>
+          <div className="flex items-center gap-2 mb-3">
+            {hasAllRequired ? (
+              <CheckCircle2 className="h-5 w-5 text-green-600" />
+            ) : (
+              <AlertTriangle className="h-5 w-5 text-yellow-600" />
+            )}
+            <h3 className="font-semibold text-sm">
+              {hasAllRequired ? "Context Ready" : "Context Required"}
+            </h3>
+          </div>
+
+          {/* Required roles */}
+          {requiredRoles.length > 0 && (
+            <div className="mb-3">
+              <p className="text-xs text-muted-foreground mb-2">Required context:</p>
+              <div className="flex flex-wrap gap-2">
+                {requiredRoles.map(role => {
+                  const config = ROLE_CONFIG[role];
+                  const satisfied = approvedRoles.has(role);
+                  const IconComponent = config?.icon || AlertTriangle;
+                  return (
+                    <Badge
+                      key={role}
+                      variant="outline"
+                      className={cn(
+                        "text-xs gap-1",
+                        satisfied
+                          ? "bg-green-500/10 text-green-700 border-green-500/30"
+                          : "bg-yellow-500/10 text-yellow-700 border-yellow-500/30"
+                      )}
+                    >
+                      <IconComponent className="h-3 w-3" />
+                      {config?.label || role}
+                      {satisfied && <CheckCircle2 className="h-3 w-3 ml-0.5" />}
+                    </Badge>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Optional roles */}
+          {optionalRoles.length > 0 && (
+            <div className="mb-3">
+              <p className="text-xs text-muted-foreground mb-2">Optional (enhances output):</p>
+              <div className="flex flex-wrap gap-2">
+                {optionalRoles.map(role => {
+                  const config = ROLE_CONFIG[role];
+                  const satisfied = approvedRoles.has(role);
+                  const IconComponent = config?.icon || Brain;
+                  return (
+                    <Badge
+                      key={role}
+                      variant="outline"
+                      className={cn(
+                        "text-xs gap-1",
+                        satisfied
+                          ? "bg-blue-500/10 text-blue-700 border-blue-500/30"
+                          : "bg-muted text-muted-foreground border-muted-foreground/30"
+                      )}
+                    >
+                      <IconComponent className="h-3 w-3" />
+                      {config?.label || role}
+                      {satisfied && <CheckCircle2 className="h-3 w-3 ml-0.5" />}
+                    </Badge>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Context output */}
+          {recipe.context_outputs && (
+            <div className="pt-2 border-t border-border/50">
+              <p className="text-xs text-muted-foreground mb-2">Produces:</p>
+              <Badge variant="outline" className="text-xs gap-1 bg-purple-500/10 text-purple-700 border-purple-500/30">
+                <FileOutput className="h-3 w-3" />
+                {ROLE_CONFIG[recipe.context_outputs.role]?.label || recipe.context_outputs.role}
+              </Badge>
+            </div>
+          )}
+
+          {/* Missing context warning */}
+          {!hasAllRequired && (
+            <Link
+              href={`/projects/${projectId}/context`}
+              className="mt-3 flex items-center gap-1 text-xs text-yellow-700 hover:text-yellow-800"
+            >
+              <ArrowLeft className="h-3 w-3 rotate-180" />
+              Add missing context to enable this recipe
+            </Link>
+          )}
+        </Card>
+      )}
+
       {/* Configuration Form */}
       <form onSubmit={handleSubmit} className="space-y-6">
         <Card className="p-6">
@@ -250,13 +398,18 @@ export default function RecipeConfigureClient({
           </Button>
           <Button
             type="submit"
-            disabled={!canSubmit() || submitting}
+            disabled={!canSubmit() || submitting || !hasAllRequired}
             className="min-w-[140px]"
           >
             {submitting ? (
               <>
                 <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                 Executing...
+              </>
+            ) : !hasAllRequired ? (
+              <>
+                <AlertTriangle className="h-4 w-4 mr-2" />
+                Add Required Context First
               </>
             ) : (
               <>

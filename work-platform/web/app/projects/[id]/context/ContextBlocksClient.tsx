@@ -35,9 +35,10 @@ interface Block {
 interface ContextBlocksClientProps {
   projectId: string;
   basketId: string;
+  addRole?: string | null; // Pre-select anchor role and auto-open create modal
 }
 
-export default function ContextBlocksClient({ projectId, basketId }: ContextBlocksClientProps) {
+export default function ContextBlocksClient({ projectId, basketId, addRole }: ContextBlocksClientProps) {
   const [blocks, setBlocks] = useState<Block[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -47,8 +48,17 @@ export default function ContextBlocksClient({ projectId, basketId }: ContextBloc
   const [pollingMessage, setPollingMessage] = useState<string | null>(null);
   const [selectedBlockId, setSelectedBlockId] = useState<string | null>(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [createAnchorRole, setCreateAnchorRole] = useState<string | null>(null);
   const [editingBlock, setEditingBlock] = useState<Block | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
+
+  // Auto-open create modal with pre-selected anchor role when addRole is provided
+  useEffect(() => {
+    if (addRole && !loading) {
+      setCreateAnchorRole(addRole);
+      setShowCreateModal(true);
+    }
+  }, [addRole, loading]);
 
   // Fetch blocks from BFF
   const fetchBlocks = useCallback(async (showLoading = true) => {
@@ -406,8 +416,12 @@ export default function ContextBlocksClient({ projectId, basketId }: ContextBloc
       <BlockFormModal
         projectId={projectId}
         basketId={basketId}
+        defaultAnchorRole={createAnchorRole}
         open={showCreateModal}
-        onClose={() => setShowCreateModal(false)}
+        onClose={() => {
+          setShowCreateModal(false);
+          setCreateAnchorRole(null); // Reset anchor role when modal closes
+        }}
         onSuccess={handleBlockSaved}
       />
 

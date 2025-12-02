@@ -49,6 +49,7 @@ interface BlockFormModalProps {
   projectId: string;
   basketId: string;
   block?: Block | null; // If provided, we're in edit mode
+  defaultAnchorRole?: string | null; // Pre-select anchor role for new blocks
   open: boolean;
   onClose: () => void;
   onSuccess: () => void;
@@ -58,6 +59,7 @@ export default function BlockFormModal({
   projectId,
   basketId,
   block,
+  defaultAnchorRole,
   open,
   onClose,
   onSuccess,
@@ -83,11 +85,12 @@ export default function BlockFormModal({
         setTitle('');
         setContent('');
         setSemanticType('fact');
-        setAnchorRole('');
+        // Use defaultAnchorRole if provided (e.g., from ?add=problem query param)
+        setAnchorRole(defaultAnchorRole || '');
       }
       setError(null);
     }
-  }, [open, block]);
+  }, [open, block, defaultAnchorRole]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

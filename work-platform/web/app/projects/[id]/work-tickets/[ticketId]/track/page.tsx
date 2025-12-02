@@ -49,6 +49,7 @@ export default async function TicketTrackingPage({ params }: PageProps) {
         file_id,
         file_format,
         generation_method,
+        supervision_status,
         created_at
       )
     `)
