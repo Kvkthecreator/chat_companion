@@ -1,120 +1,141 @@
 # Substrate Data Types
 
-**Version**: 1.0
-**Date**: 2025-11-28
+**Version**: 2.0
+**Date**: 2025-12-03
 **Status**: Canonical
 **Purpose**: Define the foundational data taxonomy for YARNNN's substrate layer
+**Changelog**: v2.0 introduces Context Entries as primary context management system
 
 ---
 
 ## Overview
 
-YARNNN's substrate is a **source-agnostic knowledge layer** where both humans and AI agents contribute, access, and build upon shared context. This document defines the four core data types that comprise the substrate.
+YARNNN's substrate is a **source-agnostic knowledge layer** where both humans and AI agents contribute, access, and build upon shared context. This document defines the core data types that comprise the substrate.
 
 ### Design Principles
 
 1. **Source Agnostic**: All data types can be created and accessed by both users AND agents
-2. **Capture vs Substrate**: Backend tables are ingestion points; UI presents unified views
-3. **Processing Pipeline**: Raw inputs flow through extraction/classification into structured substrate
-4. **Interoperability Vision**: Substrate should be shareable with any AI system (Claude, ChatGPT, Gemini)
+2. **Structured Context**: Work recipe context uses schema-driven Context Entries (not freeform blocks)
+3. **Multi-Modal Unity**: Context Entries embed asset references directly, unifying text and media
+4. **Token Efficiency**: Field-level context selection enables minimal, focused agent prompts
+5. **Interoperability Vision**: Substrate should be shareable with any AI system (Claude, ChatGPT, Gemini)
 
 ---
 
-## The Four Substrate Types
+## Data Type Hierarchy
 
-| Type | Purpose | Storage | Examples |
-|------|---------|---------|----------|
-| **Blocks** | Semantic knowledge units | PostgreSQL + pgvector | Facts, decisions, constraints, relationships |
-| **Entries** | Raw text content | PostgreSQL (text) | Paste dumps, agent text outputs, notes |
-| **Documents** | File-based content | Supabase Storage (blob) | PDFs, spreadsheets, data files |
-| **Images** | Visual media | Supabase Storage (blob) | Screenshots, diagrams, brand samples |
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                     SUBSTRATE LAYER                              │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                  │
+│  ┌──────────────────────────────────────────────────────────┐   │
+│  │          CONTEXT ENTRIES (Primary for Work Recipes)       │   │
+│  │                                                           │   │
+│  │  Structured, schema-driven, multi-modal context per role  │   │
+│  │  Tables: context_entry_schemas, context_entries           │   │
+│  └──────────────────────────────────────────────────────────┘   │
+│                              │                                   │
+│                              │ embeds references to              │
+│                              ▼                                   │
+│  ┌──────────────────────────────────────────────────────────┐   │
+│  │              REFERENCE ASSETS (Storage Layer)             │   │
+│  │                                                           │   │
+│  │  Blob storage for files (images, PDFs, documents)         │   │
+│  │  Table: reference_assets                                  │   │
+│  └──────────────────────────────────────────────────────────┘   │
+│                                                                  │
+│  ┌──────────────────────────────────────────────────────────┐   │
+│  │           BLOCKS (Knowledge Extraction Layer)             │   │
+│  │                                                           │   │
+│  │  Semantic knowledge units for RAG, search, provenance     │   │
+│  │  Table: blocks                                            │   │
+│  └──────────────────────────────────────────────────────────┘   │
+│                                                                  │
+└─────────────────────────────────────────────────────────────────┘
+```
 
 ---
 
-## Type 1: Blocks
+## Type 1: Context Entries (NEW - Primary for Work Recipes)
 
-**Definition**: Propositional knowledge units with semantic types and vector embeddings.
+**Definition**: Schema-driven, multi-modal context organized by anchor role.
 
 **Characteristics**:
-- Smallest unit of extractable meaning
-- Has semantic type (fact, decision, constraint, assumption, etc.)
-- State-based lifecycle (proposed → approved → active)
-- Vector embeddings for semantic retrieval
-- Governance workflow for mutations
+- One entry per anchor role per basket (singleton) or multiple (arrays like competitors)
+- Structured JSONB data following role-specific field schemas
+- Embedded asset references via `asset://uuid` pattern
+- Completeness scoring for UX guidance
+- Field-level access for token-efficient agent prompting
 
-**Backend Table**: `blocks`
+**Backend Tables**:
+- `context_entry_schemas` - Defines available fields per anchor role
+- `context_entries` - Actual context data per basket
 
-**Key Fields**:
+**Schema**:
 ```sql
-id, basket_id, body, semantic_type, state,
-embedding, derived_from_asset_id, created_at
+-- Schema definitions
+CREATE TABLE context_entry_schemas (
+    anchor_role TEXT PRIMARY KEY,
+    display_name TEXT NOT NULL,
+    description TEXT,
+    icon TEXT,
+    category TEXT CHECK (category IN ('foundation', 'market', 'insight')),
+    is_singleton BOOLEAN DEFAULT true,
+    field_schema JSONB NOT NULL,
+    created_at TIMESTAMPTZ DEFAULT now()
+);
+
+-- Context data
+CREATE TABLE context_entries (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    basket_id UUID NOT NULL REFERENCES baskets(id) ON DELETE CASCADE,
+    anchor_role TEXT NOT NULL REFERENCES context_entry_schemas(anchor_role),
+    entry_key TEXT,
+    display_name TEXT,
+    data JSONB NOT NULL DEFAULT '{}',
+    completeness_score FLOAT,
+    state TEXT DEFAULT 'active',
+    created_at TIMESTAMPTZ DEFAULT now(),
+    updated_at TIMESTAMPTZ DEFAULT now(),
+    created_by UUID,
+    UNIQUE(basket_id, anchor_role, entry_key)
+);
 ```
 
-**Source**: Extracted from Entries, Documents, or created directly by users/agents.
+**Example Entry**:
+```json
+{
+  "anchor_role": "brand",
+  "data": {
+    "name": "Acme Corp",
+    "tagline": "Building tomorrow, today.",
+    "voice": "Professional yet approachable. Use active voice.",
+    "logo": "asset://550e8400-e29b-41d4-a716-446655440000",
+    "colors": ["#FF5733", "#3498DB", "#2ECC71"],
+    "guidelines_doc": "asset://6ba7b810-9dad-11d1-80b4-00c04fd430c8"
+  },
+  "completeness_score": 1.0
+}
+```
 
-**UI Behavior**: Full CRUD with governance (proposals for mutations).
+**Use Case**: Work recipe context injection. Recipes declare which roles and fields they need.
+
+**See**: [ADR_CONTEXT_ENTRIES.md](../architecture/ADR_CONTEXT_ENTRIES.md) for full architecture.
 
 ---
 
-## Type 2: Entries
+## Type 2: Reference Assets (Storage Layer)
 
-**Definition**: Raw text content awaiting processing or serving as reference material.
-
-**Characteristics**:
-- Unstructured or semi-structured text
-- Source-agnostic (user pastes OR agent text outputs)
-- May feed P0-P1 pipeline for block extraction
-- Supervision workflow for agent-generated content
-
-**Backend Tables** (Capture Layer):
-- `raw_dumps` - User-pasted text content
-- `work_outputs` (where output_type is text-like) - Agent-generated text
-
-**Unified View Logic**:
-```typescript
-// Entries = raw_dumps UNION work_outputs (text types)
-const entries = [
-  ...rawDumps.map(d => ({ ...d, source: 'user' })),
-  ...workOutputs
-    .filter(o => TEXT_OUTPUT_TYPES.includes(o.output_type))
-    .map(o => ({ ...o, source: 'agent' }))
-];
-```
-
-**Text Output Types**: `finding`, `recommendation`, `insight`, `draft_content`, `report_section`, `data_analysis`
-
-**UI Behavior**:
-- View all entries regardless of source
-- Source indicator badge (user vs agent)
-- Agent entries show supervision status
-- "Add Entry" creates `raw_dumps` row
-
----
-
-## Type 3: Documents
-
-**Definition**: File-based content (non-image) stored as blobs.
+**Definition**: Blob storage for file-based content with classification metadata.
 
 **Characteristics**:
-- Preserves original fidelity (PDFs, spreadsheets, data files)
+- Files stored in Supabase Storage
 - LLM-powered automatic classification
-- Can be processed for block extraction
+- Referenced from Context Entries via `asset://uuid` pattern
 - Permanence rules (permanent vs temporary)
 
-**Backend Table**: `reference_assets` WHERE mime_type matches document patterns
-
-**Document MIME Types**:
-```typescript
-const DOCUMENT_MIME_TYPES = [
-  'application/pdf',
-  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', // xlsx
-  'application/vnd.openxmlformats-officedocument.wordprocessingml.document', // docx
-  'application/vnd.openxmlformats-officedocument.presentationml.presentation', // pptx
-  'text/csv',
-  'application/json',
-  'text/plain', // .txt files (not paste dumps)
-];
-```
+**Backend Table**: `reference_assets`
 
 **Key Fields**:
 ```sql
@@ -123,46 +144,69 @@ asset_type, asset_category, classification_status,
 classification_confidence, work_session_id, created_by_user_id
 ```
 
+**MIME Type Categories**:
+
+| Category | MIME Types | Examples |
+|----------|------------|----------|
+| Images | `image/*` | PNG, JPEG, GIF, WebP, SVG |
+| Documents | `application/pdf`, `application/vnd.openxmlformats-*` | PDF, DOCX, XLSX, PPTX |
+| Data | `text/csv`, `application/json` | CSV, JSON |
+
 **Source Identification**:
 - `created_by_user_id` set → User upload
 - `work_session_id` set → Agent-generated file
 
-**UI Behavior**:
-- Upload documents (auto-classification)
-- Download/preview
-- Filter by asset_type, classification status
-- Source indicator badge
+**Relationship to Context Entries**:
+- Assets are **storage units** (blobs + metadata)
+- Context Entries **reference** assets via `asset://uuid`
+- Assets gain semantic meaning through their context entry field
 
 ---
 
-## Type 4: Images
+## Type 3: Blocks (Knowledge Extraction Layer)
 
-**Definition**: Visual media files stored as blobs.
+**Definition**: Propositional knowledge units with semantic types and vector embeddings.
 
 **Characteristics**:
-- Visual fidelity preservation (screenshots, diagrams, photos)
-- LLM-powered classification and description
-- Used as reference material for agents (brand voice, visual examples)
-- NOT reduced to text blocks (preserves visual context)
+- Smallest unit of extractable meaning
+- Has semantic type (fact, decision, constraint, assumption, etc.)
+- State-based lifecycle (PROPOSED → ACCEPTED → LOCKED)
+- Vector embeddings for semantic retrieval
+- Governance workflow for mutations
+- Optional anchor_role for legacy compatibility
 
-**Backend Table**: `reference_assets` WHERE mime_type LIKE 'image/%'
+**Backend Table**: `blocks`
 
-**Image MIME Types**:
-```typescript
-const IMAGE_MIME_TYPES = [
-  'image/png',
-  'image/jpeg',
-  'image/gif',
-  'image/webp',
-  'image/svg+xml',
-];
+**Key Fields**:
+```sql
+id, basket_id, title, content, semantic_type, state,
+embedding, anchor_role, anchor_status,
+derived_from_asset_id, origin_ref, created_at
 ```
 
-**UI Behavior**:
-- Upload images (auto-classification)
-- Thumbnail preview in grid
-- Full-size view/download
-- Source indicator badge
+**Use Cases**:
+- RAG (Retrieval Augmented Generation)
+- Semantic search across project knowledge
+- Knowledge extraction from documents
+- Audit trail of extracted/approved knowledge
+
+**NOT Used For** (as of v2.0):
+- Primary work recipe context (use Context Entries instead)
+- Asset organization (use Context Entries with embedded refs)
+
+---
+
+## Type 4: Entries (Legacy - Raw Content)
+
+**Definition**: Raw text content from various sources.
+
+**Status**: Legacy pattern. New projects should use Context Entries for structured content.
+
+**Backend Tables**:
+- `raw_dumps` - User-pasted text (capture layer)
+- `work_outputs` - Agent-generated text (supervision layer)
+
+**Future**: May be deprecated as Context Entries handle structured input.
 
 ---
 
@@ -174,7 +218,7 @@ All substrate types support source identification:
 |-------|---------|
 | `created_by_user_id` | UUID of user who created (user source) |
 | `work_session_id` | UUID of agent session that created (agent source) |
-| `agent_type` | Type of agent that created (for work_outputs) |
+| `created_by` | Generic creator reference (Context Entries) |
 
 **UI Source Badge Logic**:
 ```typescript
@@ -182,7 +226,7 @@ function getSourceBadge(item: SubstrateItem) {
   if (item.work_session_id || item.agent_type) {
     return { label: 'Agent', variant: 'secondary' };
   }
-  if (item.created_by_user_id) {
+  if (item.created_by_user_id || item.created_by) {
     return { label: 'User', variant: 'outline' };
   }
   return { label: 'System', variant: 'ghost' };
@@ -191,112 +235,140 @@ function getSourceBadge(item: SubstrateItem) {
 
 ---
 
-## Architectural Diagram
+## Architectural Diagram (v2.0)
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────┐
-│                           CAPTURE LAYER                                 │
-│                     (Ingestion / Source of Truth)                       │
+│                           USER INPUT LAYER                               │
 ├─────────────────────────────────────────────────────────────────────────┤
-│                                                                         │
-│   User Text ────────► raw_dumps                                         │
-│                           │                                             │
-│   Agent Text ───────► work_outputs ◄──── Agent Reviews (supervision)    │
-│                           │                                             │
-│   User Files ───────► reference_assets ◄──── Agent Files                │
-│   (upload)               (blob storage)      (via work_session_id)      │
-│                                                                         │
+│                                                                          │
+│   User fills Context Forms ──────────────► context_entries (structured)  │
+│           │                                      │                       │
+│           │ uploads files                        │ references            │
+│           ▼                                      ▼                       │
+│   reference_assets ◄──────────────────── asset://uuid patterns          │
+│   (blob storage)                                                         │
+│                                                                          │
+│   User pastes raw text ──────────────────► raw_dumps (legacy capture)   │
+│                                                                          │
 └─────────────────────────────────────────────────────────────────────────┘
                                     │
                                     ▼
 ┌─────────────────────────────────────────────────────────────────────────┐
-│                         PROCESSING LAYER                                │
-│                    (P0-P4 Pipeline / Classification)                    │
+│                         PROCESSING LAYER                                 │
 ├─────────────────────────────────────────────────────────────────────────┤
-│                                                                         │
-│   raw_dumps ──────► P0 Capture ──► P1 Extraction ──► blocks (proposed)  │
-│                                                                         │
+│                                                                          │
 │   reference_assets ──► LLM Classification ──► asset_type, description   │
-│                                                                         │
-│   work_outputs ──► Supervision ──► (future: substrate absorption)       │
-│                                                                         │
+│                                                                          │
+│   raw_dumps ──► P0 Capture ──► P1 Extraction ──► blocks (proposed)      │
+│                                                                          │
+│   Document Upload ──► Context Extraction ──► context_entries (fields)   │
+│                                                                          │
 └─────────────────────────────────────────────────────────────────────────┘
                                     │
                                     ▼
 ┌─────────────────────────────────────────────────────────────────────────┐
-│                         SUBSTRATE LAYER                                 │
-│                      (Unified Knowledge Base)                           │
+│                     WORK RECIPE CONTEXT ASSEMBLY                         │
 ├─────────────────────────────────────────────────────────────────────────┤
-│                                                                         │
-│   ┌─────────┐    ┌─────────┐    ┌───────────┐    ┌─────────┐           │
-│   │ Blocks  │    │ Entries │    │ Documents │    │ Images  │           │
-│   │         │    │         │    │           │    │         │           │
-│   │ blocks  │    │raw_dumps│    │ ref_assets│    │ref_assets│          │
-│   │  table  │    │   +     │    │ (docs)    │    │ (images) │          │
-│   │         │    │work_out │    │           │    │          │          │
-│   └─────────┘    └─────────┘    └───────────┘    └──────────┘          │
-│                                                                         │
+│                                                                          │
+│   Recipe declares:                                                       │
+│     context_requirements:                                                │
+│       entries:                                                           │
+│         - role: "brand"                                                  │
+│           fields: ["name", "voice"]  ◄─── Only these fields loaded      │
+│         - role: "customer"                                               │
+│           fields: ["description", "pain_points"]                         │
+│                                                                          │
+│   Context Assembly:                                                      │
+│     1. Query context_entries by role                                     │
+│     2. Project only required fields                                      │
+│     3. Resolve asset:// references                                       │
+│     4. Inject structured XML/JSON into prompt                            │
+│                                                                          │
+│   Result: 500-1,500 tokens (vs 3,000-15,000 with blocks)                │
+│                                                                          │
 └─────────────────────────────────────────────────────────────────────────┘
                                     │
                                     ▼
 ┌─────────────────────────────────────────────────────────────────────────┐
-│                            UI LAYER                                     │
-│                    (Context Page - Unified View)                        │
+│                            UI LAYER                                      │
 ├─────────────────────────────────────────────────────────────────────────┤
-│                                                                         │
+│                                                                          │
 │   ┌──────────────────────────────────────────────────────────────────┐  │
-│   │  [+ Add Context ▼]                                               │  │
+│   │  Context Page (Role-Based Cards)                                 │  │
 │   │                                                                  │  │
-│   │  [ Blocks ] [ Entries ] [ Documents ] [ Images ]                 │  │
-│   │      ↓          ↓            ↓            ↓                      │  │
-│   │   Semantic   Raw Text     PDFs/XLSX    Screenshots               │  │
-│   │   Knowledge  (any src)    Data Files   Diagrams                  │  │
+│   │  [🎯 Problem 100%] [👥 Customer 80%] [🔮 Vision 40%]            │  │
+│   │  [🏷️ Brand 100%] [📊 Competitors 3]                             │  │
+│   │                                                                  │  │
+│   │  Click card → Form-based editor per schema                       │  │
 │   └──────────────────────────────────────────────────────────────────┘  │
-│                                                                         │
+│                                                                          │
+│   Legacy Views (if needed):                                              │
+│   [ Blocks ] [ Raw Entries ] [ Assets ]                                  │
+│                                                                          │
 └─────────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## Future Considerations
+## Anchor Role Vocabulary
 
-### Processed Entries Table (Deferred)
+Context Entries are organized by **anchor role** - the semantic function the context serves:
 
-If we need structured entries with schema enforcement:
+### Foundation Roles (Human-Established, Stable)
 
-```sql
-CREATE TABLE entries (
-  id UUID PRIMARY KEY,
-  basket_id UUID NOT NULL,
-  title TEXT,
-  body TEXT NOT NULL,
-  entry_type TEXT, -- note, summary, transcript, etc.
-  source TEXT NOT NULL, -- 'user' | 'agent'
-  source_id UUID, -- FK to raw_dumps or work_outputs
-  processed_at TIMESTAMPTZ,
-  embedding vector(1536),
-  created_at TIMESTAMPTZ DEFAULT now()
-);
-```
+| Role | Description | Singleton |
+|------|-------------|-----------|
+| `problem` | The pain point being solved | Yes |
+| `customer` | Who this is for (persona) | Yes |
+| `vision` | Where this is going | Yes |
+| `brand` | Brand identity and voice | Yes |
 
-This would be a migration target for approved content from both capture tables.
+### Market Roles (Human or Agent, Multiple Allowed)
 
-### Work Output Absorption (Deferred)
+| Role | Description | Singleton |
+|------|-------------|-----------|
+| `competitor` | Competitive intelligence | No (array) |
+| `market_segment` | Market segment details | No (array) |
 
-When agent work_outputs are approved, they could be:
-1. Kept in work_outputs with `supervision_status='approved'` (current)
-2. Moved to appropriate substrate table (entries, reference_assets)
-3. Extracted into blocks via P1 pipeline
+### Insight Roles (Agent-Produced, Refreshable)
 
-Decision deferred until supervision workflows are mature.
+| Role | Description | Singleton |
+|------|-------------|-----------|
+| `trend_digest` | Synthesized market trends | Yes |
+| `competitor_snapshot` | Competitive analysis summary | Yes |
+| `content_calendar` | Generated content schedule | Yes |
+
+---
+
+## Migration from v1.0
+
+### What Changed
+
+| v1.0 | v2.0 |
+|------|------|
+| Blocks as primary context | Context Entries as primary context |
+| Assets disconnected from roles | Assets embedded in entries via `asset://` |
+| Full block content in prompts | Field-level projection |
+| Flat text, unstructured | Schema-driven, typed fields |
+
+### Coexistence Strategy
+
+- **Context Entries**: New context management (work recipes)
+- **Blocks**: Knowledge extraction, RAG, search (unchanged)
+- **Reference Assets**: Storage layer (now referenced from entries)
+- **raw_dumps**: Legacy capture (may be deprecated)
+
+No data migration required for existing blocks. New context goes to entries.
 
 ---
 
 ## Related Documents
 
+- [ADR_CONTEXT_ENTRIES.md](../architecture/ADR_CONTEXT_ENTRIES.md) - Architectural decision record
+- [CONTEXT_ROLES_ARCHITECTURE.md](CONTEXT_ROLES_ARCHITECTURE.md) - Legacy anchor role architecture
 - [TERMINOLOGY_GLOSSARY.md](TERMINOLOGY_GLOSSARY.md) - Terminology standards
 - [AGENT_SUBSTRATE_ARCHITECTURE.md](AGENT_SUBSTRATE_ARCHITECTURE.md) - Agent integration patterns
-- [YARNNN_SUBSTRATE_CANON_V3.md](YARNNN_SUBSTRATE_CANON_V3.md) - P0-P4 pipeline details
 
 ---
 

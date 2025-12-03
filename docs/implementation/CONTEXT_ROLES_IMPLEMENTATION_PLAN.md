@@ -1,13 +1,22 @@
 # Context Roles Implementation Plan
 
-**Version**: 1.0
-**Date**: 2025-12-02
-**Status**: Approved for Implementation
+**Version**: 1.1
+**Date**: 2025-12-03
+**Status**: Superseded
 **Canon Reference**: /docs/canon/CONTEXT_ROLES_ARCHITECTURE.md
+**Superseded By**: [CONTEXT_ENTRIES_IMPLEMENTATION_PLAN.md](CONTEXT_ENTRIES_IMPLEMENTATION_PLAN.md)
 
 ---
 
-## Overview
+> **Note**: This implementation plan has been superseded by the Context Entries architecture.
+> For the current implementation plan, see [CONTEXT_ENTRIES_IMPLEMENTATION_PLAN.md](CONTEXT_ENTRIES_IMPLEMENTATION_PLAN.md).
+>
+> The block-based anchor role system described here remains valid for knowledge extraction
+> and RAG use cases, but work recipe context now uses structured Context Entries.
+
+---
+
+## Overview (Historical)
 
 This document provides the detailed implementation plan for the Context Roles architecture. It covers schema migrations, code changes, and the sequencing of work.
 

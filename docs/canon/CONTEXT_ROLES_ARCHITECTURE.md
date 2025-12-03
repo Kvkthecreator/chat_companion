@@ -1,24 +1,31 @@
 # Context Roles Architecture
 
-**Version**: 1.0
-**Date**: 2025-12-02
-**Status**: Canonical
+**Version**: 2.0
+**Date**: 2025-12-03
+**Status**: Canonical (Partially Superseded)
 **Category**: Substrate Architecture
 **Related**: ANCHOR_SEEDING_ARCHITECTURE.md, TERMINOLOGY_GLOSSARY.md
+**Superseded By**: [ADR_CONTEXT_ENTRIES.md](../architecture/ADR_CONTEXT_ENTRIES.md) for work recipe context
+
+---
+
+> **Important**: This document describes the block-based anchor role system. For work recipe context,
+> see [ADR_CONTEXT_ENTRIES.md](../architecture/ADR_CONTEXT_ENTRIES.md) which introduces structured
+> Context Entries as the primary context management system (December 2025).
 
 ---
 
 ## Executive Summary
 
-This document establishes the canonical architecture for **Context Roles** - the system by which blocks are tagged with strategic significance and how work recipes interact with context. It represents a consolidation and clarification of the anchor system following production learnings.
+This document establishes the architecture for **Context Roles** - the system by which blocks are tagged with strategic significance. As of December 2025, this system is being superseded by **Context Entries** for work recipe context, while blocks continue to serve knowledge extraction and RAG use cases.
 
-### Key Decisions
+### Key Decisions (Updated December 2025)
 
 1. **`basket_anchors` table**: **DEPRECATED** - No production data, superseded by `blocks.anchor_role`
-2. **Context Roles live on blocks**: The `anchor_role` column on `blocks` is the source of truth
-3. **Work Outputs remain the intermediary**: Agent outputs go through `work_outputs` before promotion to blocks
-4. **Roles are advisory, not gates**: Agents work with available context; missing roles don't block execution
-5. **Refresh policies enable scheduling**: Blocks with context roles can have TTL-based refresh semantics
+2. **Context Roles on blocks**: The `anchor_role` column remains for knowledge categorization
+3. **Work recipe context**: Transitioning to structured `context_entries` table (see ADR)
+4. **Blocks remain for**: RAG, semantic search, knowledge extraction, audit trails
+5. **Refresh policies**: Moving to context entry level, not block level
 
 ---
 
@@ -377,6 +384,45 @@ GROUP BY anchor_role, anchor_status;
 
 ---
 
-**Document Status**: Canonical
-**Last Updated**: 2025-12-02
+## December 2025 Update: Transition to Context Entries
+
+### Why Context Entries Supersede This Architecture
+
+The block-based anchor role system has limitations for work recipe context:
+
+1. **Unstructured content**: Blocks contain freeform text; agents must parse to find relevant info
+2. **Assets disconnected**: No programmatic link between blocks and reference_assets
+3. **Token inefficiency**: Full block content loaded even when only specific fields needed
+4. **Non-deterministic**: Agent behavior varies based on how content is parsed
+
+### What Remains Valid
+
+This document still applies to:
+- Block lifecycle and governance (PROPOSED → ACCEPTED → LOCKED)
+- Semantic types on blocks (fact, decision, insight, etc.)
+- RAG and semantic search use cases
+- Knowledge extraction pipelines
+
+### What's Superseded
+
+For work recipe context, see [ADR_CONTEXT_ENTRIES.md](../architecture/ADR_CONTEXT_ENTRIES.md):
+- Context Entries replace blocks as primary context source for recipes
+- Structured, schema-driven fields instead of freeform text
+- Embedded asset references (`asset://uuid`)
+- Field-level context requirements in recipes
+
+### Migration Status
+
+| Component | Status |
+|-----------|--------|
+| `context_entry_schemas` table | Pending implementation |
+| `context_entries` table | Pending implementation |
+| Context page redesign | Pending implementation |
+| Recipe context requirements update | Pending implementation |
+| Block-based context UI | To be deprecated after migration |
+
+---
+
+**Document Status**: Canonical (Partially Superseded)
+**Last Updated**: 2025-12-03
 **Owner**: Architecture Team
