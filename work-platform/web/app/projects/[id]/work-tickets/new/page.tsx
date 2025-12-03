@@ -75,7 +75,7 @@ export default async function WorkRecipeGalleryPage({ params }: PageProps) {
   // Fetch recipes from database
   const { data: recipesData, error: recipesError } = await supabase
     .from('work_recipes')
-    .select('id, name, slug, description, agent_type, configurable_parameters')
+    .select('id, name, slug, description, agent_type, configurable_parameters, output_specification')
     .eq('status', 'active')
     .order('agent_type', { ascending: true })
     .order('name', { ascending: true });
@@ -84,10 +84,24 @@ export default async function WorkRecipeGalleryPage({ params }: PageProps) {
     console.error("Failed to fetch recipes:", recipesError);
   }
 
+  // Map format to display badge
+  const formatDisplayMap: Record<string, string> = {
+    'pptx': 'PPTX',
+    'markdown': 'MD',
+    'text': 'TXT',
+    'brand_guidelines': 'DOC',
+    'competitive_analysis': 'DOC',
+    'structured_analysis': 'DOC',
+  };
+
   // Transform database recipes to UI format
   const recipes = (recipesData || []).map((recipe: any) => {
     const params = recipe.configurable_parameters || {};
-    const outputFormat = params.output_format?.default || 'pptx';
+    const outputSpec = recipe.output_specification || {};
+
+    // Get format from output_specification.format (where it actually lives)
+    const rawFormat = outputSpec.format || params.output_format?.default || 'text';
+    const outputFormat = formatDisplayMap[rawFormat] || rawFormat.toUpperCase();
 
     return {
       id: recipe.slug,

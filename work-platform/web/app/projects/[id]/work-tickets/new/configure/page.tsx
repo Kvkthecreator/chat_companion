@@ -48,10 +48,10 @@ export default async function RecipeConfigurePage({ params, searchParams }: Page
     );
   }
 
-  // Fetch recipe from database by slug (include context fields)
+  // Fetch recipe from database by slug (include context fields and output_specification)
   const { data: recipeData, error: recipeError } = await supabase
     .from('work_recipes')
-    .select('id, name, slug, description, agent_type, configurable_parameters, context_requirements, context_outputs')
+    .select('id, name, slug, description, agent_type, configurable_parameters, context_requirements, context_outputs, output_specification')
     .eq('slug', recipeSlug)
     .eq('status', 'active')
     .maybeSingle();
@@ -78,7 +78,21 @@ export default async function RecipeConfigurePage({ params, searchParams }: Page
 
   // Transform database recipe to frontend format
   const recipeParams = recipeData.configurable_parameters || {};
-  const outputFormat = recipeParams.output_format?.default || 'pptx';
+  const outputSpec = recipeData.output_specification || {};
+
+  // Map format to display badge
+  const formatDisplayMap: Record<string, string> = {
+    'pptx': 'PPTX',
+    'markdown': 'MD',
+    'text': 'TXT',
+    'brand_guidelines': 'DOC',
+    'competitive_analysis': 'DOC',
+    'structured_analysis': 'DOC',
+  };
+
+  // Get format from output_specification.format (where it actually lives)
+  const rawFormat = outputSpec.format || recipeParams.output_format?.default || 'text';
+  const outputFormat = formatDisplayMap[rawFormat] || rawFormat.toUpperCase();
 
   // Transform parameters to add missing fields (label, required)
   const transformedParams: Record<string, any> = {};
