@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useRef } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { LayoutDashboard, Inbox, LogOut, Settings2, FileText, Clock, Brain, Network, Layers, BookOpen, Shield, CloudUpload, ArrowLeft, PenSquare, BarChart3, MessageSquare, Briefcase } from "lucide-react";
+import { LayoutDashboard, Inbox, LogOut, Settings2, FileText, Clock, Brain, Network, Layers, BookOpen, Shield, CloudUpload, ArrowLeft, PenSquare, BarChart3, MessageSquare, Briefcase, Calendar } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { createBrowserClient } from "@/lib/supabase/clients";
 import { getAllProjects } from "@/lib/projects/getAllProjects";
@@ -174,6 +174,7 @@ export default function Sidebar({ className }: SidebarProps) {
     overview: LayoutDashboard,
     context: Layers,
     "work-tickets": Briefcase,
+    schedules: Calendar,
     settings: Settings2,
     reports: FileText,
   };

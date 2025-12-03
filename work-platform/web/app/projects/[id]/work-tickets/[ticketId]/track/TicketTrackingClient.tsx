@@ -6,7 +6,7 @@ import { createBrowserClient } from "@/lib/supabase/clients";
 import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
-import { ArrowLeft, Download, RefreshCw, CheckCircle2, XCircle, Loader2, Clock, AlertTriangle, FileText, Package } from "lucide-react";
+import { ArrowLeft, Download, RefreshCw, CheckCircle2, XCircle, Loader2, Clock, AlertTriangle, FileText, Package, Calendar } from "lucide-react";
 import Link from "next/link";
 import { TaskProgressList } from "@/components/TaskProgressList";
 import { cn } from "@/lib/utils";
@@ -37,6 +37,13 @@ interface WorkTicket {
   work_outputs: WorkOutput[];
 }
 
+interface ScheduleInfo {
+  id: string;
+  frequency: string;
+  day_of_week: number;
+  time_of_day: string;
+}
+
 interface TicketTrackingClientProps {
   projectId: string;
   projectName: string;
@@ -44,7 +51,15 @@ interface TicketTrackingClientProps {
   recipeName: string;
   recipeParams: Record<string, any>;
   taskDescription: string;
+  scheduleInfo?: ScheduleInfo | null;
 }
+
+const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+const FREQUENCY_LABELS: Record<string, string> = {
+  weekly: 'Weekly',
+  biweekly: 'Every 2 weeks',
+  monthly: 'Monthly',
+};
 
 export default function TicketTrackingClient({
   projectId,
@@ -53,6 +68,7 @@ export default function TicketTrackingClient({
   recipeName,
   recipeParams,
   taskDescription,
+  scheduleInfo,
 }: TicketTrackingClientProps) {
   const router = useRouter();
   const [ticket, setTicket] = useState<WorkTicket>(initialTicket);
@@ -180,7 +196,15 @@ export default function TicketTrackingClient({
         </Link>
         <div className="flex items-start justify-between">
           <div className="flex-1">
-            <h1 className="text-3xl font-bold text-foreground">{recipeName}</h1>
+            <div className="flex items-center gap-3">
+              <h1 className="text-3xl font-bold text-foreground">{recipeName}</h1>
+              {scheduleInfo && (
+                <Badge variant="outline" className="text-primary border-primary/30 bg-primary/5">
+                  <Calendar className="h-3 w-3 mr-1" />
+                  Scheduled
+                </Badge>
+              )}
+            </div>
             <p className="text-muted-foreground mt-1">{projectName}</p>
           </div>
           <div className="flex items-center gap-2">
@@ -387,6 +411,36 @@ export default function TicketTrackingClient({
               )}
             </div>
           </Card>
+
+          {/* Schedule Info (if triggered by schedule) */}
+          {scheduleInfo && (
+            <Card className="p-6 border-primary/20 bg-primary/5">
+              <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                <Calendar className="h-5 w-5 text-primary" />
+                Scheduled Run
+              </h2>
+              <div className="space-y-3 text-sm">
+                <div>
+                  <span className="text-muted-foreground">Frequency:</span>
+                  <p className="text-foreground">{FREQUENCY_LABELS[scheduleInfo.frequency] || scheduleInfo.frequency}</p>
+                </div>
+                <div>
+                  <span className="text-muted-foreground">Day:</span>
+                  <p className="text-foreground">{DAY_NAMES[scheduleInfo.day_of_week]}</p>
+                </div>
+                <div>
+                  <span className="text-muted-foreground">Time (UTC):</span>
+                  <p className="text-foreground">{scheduleInfo.time_of_day?.slice(0, 5) || '09:00'}</p>
+                </div>
+                <Link href={`/projects/${projectId}/schedules`}>
+                  <Button variant="outline" size="sm" className="w-full mt-2">
+                    <Calendar className="h-4 w-4 mr-2" />
+                    View Schedules
+                  </Button>
+                </Link>
+              </div>
+            </Card>
+          )}
 
           {/* Diagnostics (for completed tickets) */}
           {!isRunning && (

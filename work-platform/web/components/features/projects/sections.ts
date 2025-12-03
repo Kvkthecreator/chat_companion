@@ -8,6 +8,8 @@ import {
   Clock,
   Settings,
   LayoutDashboard,
+  Calendar,
+  Briefcase,
   type LucideIcon,
 } from "lucide-react";
 
@@ -37,9 +39,16 @@ export const PROJECT_SECTIONS: ProjectSection[] = [
   {
     key: "work-tickets",
     label: "Work Tickets",
-    icon: Clock,
+    icon: Briefcase,
     href: (id) => `/projects/${id}/work-tickets-view`,
     description: "View and manage agent work tickets",
+  },
+  {
+    key: "schedules",
+    label: "Schedules",
+    icon: Calendar,
+    href: (id) => `/projects/${id}/schedules`,
+    description: "Manage recurring work schedules",
   },
   {
     key: "settings",

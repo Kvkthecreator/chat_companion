@@ -82,6 +82,27 @@ export default async function TicketTrackingPage({ params }: PageProps) {
   const recipeParams = ticket.metadata?.recipe_parameters || {};
   const taskDescription = ticket.metadata?.task_description || '';
 
+  // Check if triggered by a schedule
+  const scheduleId = ticket.metadata?.schedule_id;
+  let scheduleInfo = null;
+
+  if (scheduleId) {
+    const { data: schedule } = await supabase
+      .from('project_schedules')
+      .select('id, frequency, day_of_week, time_of_day')
+      .eq('id', scheduleId)
+      .maybeSingle();
+
+    if (schedule) {
+      scheduleInfo = {
+        id: schedule.id,
+        frequency: schedule.frequency,
+        day_of_week: schedule.day_of_week,
+        time_of_day: schedule.time_of_day,
+      };
+    }
+  }
+
   console.log('[TicketTrackingPage] Rendering TicketTrackingClient');
 
   return (
@@ -92,6 +113,7 @@ export default async function TicketTrackingPage({ params }: PageProps) {
       recipeName={recipeName}
       recipeParams={recipeParams}
       taskDescription={taskDescription}
+      scheduleInfo={scheduleInfo}
     />
   );
 }
