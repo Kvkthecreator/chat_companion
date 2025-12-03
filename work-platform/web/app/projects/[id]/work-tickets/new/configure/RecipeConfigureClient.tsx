@@ -294,14 +294,53 @@ export default function RecipeConfigureClient({
             </div>
           )}
 
-          {/* Context output */}
+          {/* Context output with scheduling info */}
           {recipe.context_outputs && (
             <div className="pt-2 border-t border-border/50">
               <p className="text-xs text-muted-foreground mb-2">Produces:</p>
-              <Badge variant="outline" className="text-xs gap-1 bg-purple-500/10 text-purple-700 border-purple-500/30">
-                <FileOutput className="h-3 w-3" />
-                {ROLE_CONFIG[recipe.context_outputs.role]?.label || recipe.context_outputs.role}
-              </Badge>
+              <div className="flex flex-wrap items-center gap-2">
+                <Badge variant="outline" className="text-xs gap-1 bg-purple-500/10 text-purple-700 border-purple-500/30">
+                  <FileOutput className="h-3 w-3" />
+                  {ROLE_CONFIG[recipe.context_outputs.role]?.label || recipe.context_outputs.role}
+                </Badge>
+                {/* Show existing anchor status */}
+                {(() => {
+                  const existingAnchor = contextAnchors.find(a => a.anchor_key === recipe.context_outputs?.role);
+                  if (existingAnchor) {
+                    const updatedAt = existingAnchor.updated_at ? new Date(existingAnchor.updated_at) : null;
+                    const ttlHours = recipe.context_outputs?.refresh_policy?.ttl_hours;
+                    const isStale = updatedAt && ttlHours
+                      ? (Date.now() - updatedAt.getTime()) > (ttlHours * 60 * 60 * 1000)
+                      : false;
+                    return (
+                      <Badge
+                        variant="outline"
+                        className={cn(
+                          "text-xs gap-1",
+                          isStale
+                            ? "bg-yellow-500/10 text-yellow-700 border-yellow-500/30"
+                            : "bg-blue-500/10 text-blue-700 border-blue-500/30"
+                        )}
+                      >
+                        {isStale ? "⏰ Stale - refresh recommended" : "✓ Already exists"}
+                        {updatedAt && (
+                          <span className="text-[10px] opacity-70 ml-1">
+                            (updated {updatedAt.toLocaleDateString()})
+                          </span>
+                        )}
+                      </Badge>
+                    );
+                  }
+                  return null;
+                })()}
+              </div>
+              {/* Refresh policy info */}
+              {recipe.context_outputs.refresh_policy && (
+                <p className="text-[10px] text-muted-foreground mt-2">
+                  📅 Refresh policy: Every {Math.round(recipe.context_outputs.refresh_policy.ttl_hours / 24)} days
+                  {recipe.context_outputs.refresh_policy.auto_promote === false && " • Manual promotion required"}
+                </p>
+              )}
             </div>
           )}
 

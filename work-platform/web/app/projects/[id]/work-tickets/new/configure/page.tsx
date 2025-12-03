@@ -62,16 +62,17 @@ export default async function RecipeConfigurePage({ params, searchParams }: Page
   }
 
   // Fetch context anchors for this basket
+  // Note: blocks use uppercase states (ACCEPTED, PROPOSED, SUPERSEDED)
   const { data: contextBlocks } = await supabase
     .from('blocks')
     .select('id, anchor_role, state, updated_at')
     .eq('basket_id', project.basket_id)
     .not('anchor_role', 'is', null)
-    .eq('state', 'active');
+    .eq('state', 'ACCEPTED');
 
   const contextAnchors = (contextBlocks || []).map(b => ({
     anchor_key: b.anchor_role,
-    lifecycle: 'approved',
+    lifecycle: 'approved', // Map ACCEPTED -> approved for frontend
     updated_at: b.updated_at,
   }));
 
