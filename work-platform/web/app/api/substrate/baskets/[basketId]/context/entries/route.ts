@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { createRouteHandlerClient } from '@/lib/supabase/clients';
 
-const SUBSTRATE_API_URL = process.env.SUBSTRATE_API_URL || 'https://substrate-api.onrender.com';
+const SUBSTRATE_API_URL = process.env.SUBSTRATE_API_URL || 'http://localhost:10000';
 
 /**
  * GET /api/substrate/baskets/[basketId]/context/entries

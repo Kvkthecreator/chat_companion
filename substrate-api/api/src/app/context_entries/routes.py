@@ -24,6 +24,7 @@ from .schemas import (
     ContextEntrySchemasListResponse,
     ContextEntryResolvedResponse,
     CompletenessResponse,
+    BulkContextRequest,
     BulkContextResponse,
 )
 
@@ -162,6 +163,7 @@ async def resolve_asset_references(
 async def list_context_schemas(
     basket_id: UUID,
     category: Optional[str] = None,
+    user: dict = Depends(verify_jwt),
 ):
     """List all available context entry schemas.
 
@@ -173,6 +175,9 @@ async def list_context_schemas(
         List of context entry schemas
     """
     try:
+        # Verify user has access to basket's workspace
+        await verify_workspace_access(basket_id, user)
+
         query = (
             supabase_admin_client.table("context_entry_schemas")
             .select("*")
@@ -186,6 +191,8 @@ async def list_context_schemas(
 
         return {"schemas": result.data or []}
 
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Failed to list context schemas: {e}")
         raise HTTPException(status_code=500, detail="Failed to list schemas")
@@ -195,6 +202,7 @@ async def list_context_schemas(
 async def get_context_schema(
     basket_id: UUID,
     anchor_role: str,
+    user: dict = Depends(verify_jwt),
 ):
     """Get a specific context entry schema by anchor role.
 
@@ -206,6 +214,9 @@ async def get_context_schema(
         Context entry schema
     """
     try:
+        # Verify user has access to basket's workspace
+        await verify_workspace_access(basket_id, user)
+
         result = (
             supabase_admin_client.table("context_entry_schemas")
             .select("*")
@@ -598,7 +609,7 @@ async def get_entry_completeness(
 @router.post("/{basket_id}/context/bulk", response_model=BulkContextResponse)
 async def get_bulk_context(
     basket_id: UUID,
-    roles: List[str],
+    body: BulkContextRequest,
     user: dict = Depends(verify_jwt),
 ):
     """Get multiple context entries at once.
@@ -607,13 +618,15 @@ async def get_bulk_context(
 
     Args:
         basket_id: Basket ID
-        roles: List of anchor roles to fetch
+        body: Request containing list of anchor roles to fetch
 
     Returns:
         Dictionary of entries keyed by anchor_role, plus list of missing roles
     """
     try:
         await verify_workspace_access(basket_id, user)
+
+        roles = body.anchor_roles
 
         result = (
             supabase_admin_client.table("context_entries")

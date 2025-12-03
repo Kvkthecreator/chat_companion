@@ -137,6 +137,14 @@ class CompletenessResponse(BaseModel):
 # ============================================================================
 
 
+class BulkContextRequest(BaseModel):
+    """Request model for bulk context fetch."""
+
+    anchor_roles: List[str]  # List of anchor roles to fetch
+    resolve_assets: bool = False  # Whether to resolve asset://uuid to URLs
+    include_completeness: bool = False  # Include completeness scores
+
+
 class BulkContextResponse(BaseModel):
     """Response for fetching multiple context entries at once."""
 
