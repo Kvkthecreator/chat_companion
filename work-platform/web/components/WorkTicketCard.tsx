@@ -3,8 +3,7 @@
 import Link from "next/link";
 import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
-import { TaskProgressList } from "@/components/TaskProgressList";
-import { Calendar, Zap } from "lucide-react";
+import { Calendar, Zap, Loader2 } from "lucide-react";
 
 interface WorkTicketCardProps {
   ticket: {
@@ -79,10 +78,13 @@ export function WorkTicketCard({ ticket, projectId }: WorkTicketCardProps) {
             </div>
             <p className="text-foreground font-medium mb-2">{taskDesc}</p>
 
-            {/* Real-time task progress (only for running tickets) */}
+            {/* Running indicator - click to see full progress on tracking page */}
             {isRunning && (
               <div className="mt-3 pt-3 border-t border-border">
-                <TaskProgressList workTicketId={ticket.id} enabled={isRunning} />
+                <div className="flex items-center gap-2 text-sm text-primary">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <span>Agent is working... Click to view progress</span>
+                </div>
               </div>
             )}
           </div>
