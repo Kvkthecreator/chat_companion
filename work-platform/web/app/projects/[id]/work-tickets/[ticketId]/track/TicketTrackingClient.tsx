@@ -6,7 +6,7 @@ import { createBrowserClient } from "@/lib/supabase/clients";
 import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
-import { ArrowLeft, Download, RefreshCw, CheckCircle2, XCircle, Loader2, Clock, AlertTriangle, FileText, Package, Calendar } from "lucide-react";
+import { ArrowLeft, Download, RefreshCw, CheckCircle2, XCircle, Loader2, Clock, AlertTriangle, FileText, Calendar } from "lucide-react";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 
@@ -232,59 +232,34 @@ export default function TicketTrackingClient({
         </Card>
       )}
 
+      {/* Pending Review Banner - Prominent CTA for completed tickets with pending outputs */}
+      {isCompleted && hasPendingReview && (
+        <Card className="p-4 border-yellow-500/30 bg-yellow-500/5">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <FileText className="h-5 w-5 text-yellow-600" />
+              <div>
+                <p className="font-semibold text-foreground">
+                  {pendingReviewOutputs.length} {pendingReviewOutputs.length === 1 ? 'output' : 'outputs'} ready for review
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  Review the agent's work before it can be used
+                </p>
+              </div>
+            </div>
+            <Link href={`/projects/${projectId}/work-review?status=pending_review`}>
+              <Button className="bg-yellow-600 hover:bg-yellow-700">
+                Review Now
+              </Button>
+            </Link>
+          </div>
+        </Card>
+      )}
+
       {/* Main Content Grid */}
       <div className="grid gap-6 lg:grid-cols-3">
-        {/* Left Column: Metadata & Progress */}
+        {/* Left Column: Outputs & Progress */}
         <div className="lg:col-span-2 space-y-6">
-          {/* Recipe Configuration */}
-          <Card className="p-6">
-            <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
-              <Package className="h-5 w-5" />
-              Configuration
-            </h2>
-            <div className="space-y-3">
-              <div className="flex items-center gap-3">
-                <Badge variant="outline" className="capitalize">
-                  {ticket.agent_type}
-                </Badge>
-                {ticket.metadata?.output_format && (
-                  <Badge variant="outline" className="uppercase">
-                    {ticket.metadata.output_format}
-                  </Badge>
-                )}
-                {recipeParams.output_format && (
-                  <Badge variant="secondary" className="text-xs">
-                    Expected: {recipeParams.output_format.toUpperCase()}
-                  </Badge>
-                )}
-              </div>
-
-              {taskDescription && (
-                <div>
-                  <span className="text-sm font-medium text-muted-foreground">Task:</span>
-                  <p className="text-sm text-foreground mt-1">{taskDescription}</p>
-                </div>
-              )}
-
-              {Object.keys(recipeParams).length > 0 && (
-                <div>
-                  <span className="text-sm font-medium text-muted-foreground">Parameters:</span>
-                  <dl className="mt-2 space-y-2">
-                    {Object.entries(recipeParams).map(([key, value]) => (
-                      <div key={key} className="flex gap-2 text-sm">
-                        <dt className="font-medium text-muted-foreground capitalize">
-                          {key.replace(/_/g, ' ')}:
-                        </dt>
-                        <dd className="text-foreground">
-                          {Array.isArray(value) ? value.join(', ') : String(value)}
-                        </dd>
-                      </div>
-                    ))}
-                  </dl>
-                </div>
-              )}
-            </div>
-          </Card>
 
           {/* Agent Activity - For running tickets: show live progress from Realtime */}
           {isRunning && (
@@ -380,34 +355,59 @@ export default function TicketTrackingClient({
           )}
         </div>
 
-        {/* Right Column: Metadata */}
+        {/* Right Column: Summary */}
         <div className="space-y-6">
-          {/* Timeline */}
+          {/* Execution Summary - Consolidated info */}
           <Card className="p-6">
-            <h2 className="text-lg font-semibold mb-4">Timeline</h2>
-            <div className="space-y-3 text-sm">
-              <div>
-                <span className="text-muted-foreground">Created:</span>
-                <p className="text-foreground">{new Date(ticket.created_at).toLocaleString()}</p>
+            <h2 className="text-lg font-semibold mb-4">Summary</h2>
+            <div className="space-y-4">
+              {/* Key metrics */}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="text-center p-3 bg-muted/50 rounded-lg">
+                  <p className={cn(
+                    "text-2xl font-bold",
+                    hasOutputs ? "text-success" : "text-muted-foreground"
+                  )}>
+                    {ticket.work_outputs?.length || 0}
+                  </p>
+                  <p className="text-xs text-muted-foreground">Outputs</p>
+                </div>
+                <div className="text-center p-3 bg-muted/50 rounded-lg">
+                  <p className="text-2xl font-bold text-foreground font-mono">
+                    {formatDuration() || '—'}
+                  </p>
+                  <p className="text-xs text-muted-foreground">Duration</p>
+                </div>
               </div>
-              {ticket.started_at && (
-                <div>
-                  <span className="text-muted-foreground">Started:</span>
-                  <p className="text-foreground">{new Date(ticket.started_at).toLocaleString()}</p>
+
+              {/* Task description */}
+              {taskDescription && (
+                <div className="pt-3 border-t border-border">
+                  <p className="text-xs text-muted-foreground mb-1">Task</p>
+                  <p className="text-sm text-foreground">{taskDescription}</p>
                 </div>
               )}
-              {ticket.completed_at && (
-                <div>
-                  <span className="text-muted-foreground">Completed:</span>
-                  <p className="text-foreground">{new Date(ticket.completed_at).toLocaleString()}</p>
+
+              {/* Timeline (compact) */}
+              <div className="pt-3 border-t border-border space-y-2 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Created</span>
+                  <span className="text-foreground">{new Date(ticket.created_at).toLocaleDateString()}</span>
                 </div>
-              )}
-              {formatDuration() && (
-                <div>
-                  <span className="text-muted-foreground">Duration:</span>
-                  <p className="text-foreground font-mono">{formatDuration()}</p>
-                </div>
-              )}
+                {ticket.completed_at && (
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Completed</span>
+                    <span className="text-foreground">{new Date(ticket.completed_at).toLocaleDateString()}</span>
+                  </div>
+                )}
+              </div>
+
+              {/* Agent type badge */}
+              <div className="pt-3 border-t border-border">
+                <Badge variant="outline" className="capitalize">
+                  {ticket.agent_type} agent
+                </Badge>
+              </div>
             </div>
           </Card>
 
@@ -418,104 +418,19 @@ export default function TicketTrackingClient({
                 <Calendar className="h-5 w-5 text-primary" />
                 Scheduled Run
               </h2>
-              <div className="space-y-3 text-sm">
-                <div>
-                  <span className="text-muted-foreground">Frequency:</span>
-                  <p className="text-foreground">{FREQUENCY_LABELS[scheduleInfo.frequency] || scheduleInfo.frequency}</p>
-                </div>
-                <div>
-                  <span className="text-muted-foreground">Day:</span>
-                  <p className="text-foreground">{DAY_NAMES[scheduleInfo.day_of_week]}</p>
-                </div>
-                <div>
-                  <span className="text-muted-foreground">Time (UTC):</span>
-                  <p className="text-foreground">{scheduleInfo.time_of_day?.slice(0, 5) || '09:00'}</p>
-                </div>
+              <div className="space-y-2 text-sm">
+                <p className="text-foreground">
+                  {FREQUENCY_LABELS[scheduleInfo.frequency] || scheduleInfo.frequency} on {DAY_NAMES[scheduleInfo.day_of_week]}s
+                </p>
                 <Link href={`/projects/${projectId}/schedules`}>
                   <Button variant="outline" size="sm" className="w-full mt-2">
                     <Calendar className="h-4 w-4 mr-2" />
-                    View Schedules
+                    View Schedule
                   </Button>
                 </Link>
               </div>
             </Card>
           )}
-
-          {/* Diagnostics (for completed tickets) */}
-          {!isRunning && (
-            <Card className="p-6 bg-muted/50">
-              <h2 className="text-lg font-semibold mb-4">Diagnostics</h2>
-              <div className="space-y-3 text-xs text-muted-foreground">
-                <div className="flex justify-between">
-                  <span>Ticket ID:</span>
-                  <code className="text-xs bg-secondary px-1 rounded">{ticket.id.slice(0, 8)}...</code>
-                </div>
-                <div className="flex justify-between">
-                  <span>Agent Type:</span>
-                  <span className="font-medium">{ticket.agent_type}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span>Status:</span>
-                  <span className="font-medium capitalize">{ticket.status}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span>Outputs:</span>
-                  <span className={cn("font-medium", hasOutputs ? "text-success" : "text-warning")}>
-                    {ticket.work_outputs?.length || 0}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span>Execution Steps:</span>
-                  <span className={cn("font-medium", hasExecutionSteps ? "text-success" : "text-warning")}>
-                    {ticket.metadata?.final_todos?.length || 0}
-                  </span>
-                </div>
-                {executionTimeMs && (
-                  <div className="flex justify-between">
-                    <span>Execution Time:</span>
-                    <span className="font-medium font-mono">{(executionTimeMs / 1000).toFixed(1)}s</span>
-                  </div>
-                )}
-              </div>
-            </Card>
-          )}
-
-          {/* Actions */}
-          <Card className="p-6">
-            <h2 className="text-lg font-semibold mb-4">Actions</h2>
-            <div className="space-y-2">
-              {hasPendingReview && (
-                <Link href={`/projects/${projectId}/work-review?status=pending_review`} className="block">
-                  <Button className="w-full gap-2 bg-yellow-600 hover:bg-yellow-700">
-                    <FileText className="h-4 w-4" />
-                    Review Outputs ({pendingReviewOutputs.length})
-                  </Button>
-                </Link>
-              )}
-              {hasOutputs && !hasPendingReview && approvedOutputs.length > 0 && (
-                <Link href={`/projects/${projectId}/work-review?status=approved`} className="block">
-                  <Button variant="outline" className="w-full gap-2">
-                    <CheckCircle2 className="h-4 w-4 text-green-600" />
-                    View Approved ({approvedOutputs.length})
-                  </Button>
-                </Link>
-              )}
-              <Button
-                variant="outline"
-                className="w-full"
-                onClick={handleRefresh}
-                disabled={isRefreshing}
-              >
-                <RefreshCw className={cn("h-4 w-4 mr-2", isRefreshing && "animate-spin")} />
-                Refresh
-              </Button>
-              <Link href={`/projects/${projectId}/work-tickets-view`} className="block">
-                <Button variant="outline" className="w-full">
-                  View All Tickets
-                </Button>
-              </Link>
-            </div>
-          </Card>
         </div>
       </div>
     </div>
@@ -641,9 +556,7 @@ function OutputCard({ output, basketId, projectId }: { output: WorkOutput; baske
 
       {/* Preview body for text outputs */}
       {!isFileOutput && output.body && (
-        <div className="text-sm text-muted-foreground max-h-32 overflow-auto bg-muted rounded p-3">
-          <pre className="whitespace-pre-wrap font-sans text-xs">{output.body.slice(0, 500)}{output.body.length > 500 ? '...' : ''}</pre>
-        </div>
+        <OutputBodyPreview body={output.body} />
       )}
 
       {/* File download info */}
@@ -711,6 +624,53 @@ function RealtimeProgressList({ currentTodos }: { currentTodos?: TodoItem[] }) {
           </div>
         );
       })}
+    </div>
+  );
+}
+
+/**
+ * Smart body preview - parses JSON and formats nicely, or shows plain text
+ */
+function OutputBodyPreview({ body }: { body: string }) {
+  // Try to parse as JSON for better formatting
+  let parsedContent: Record<string, any> | null = null;
+  try {
+    parsedContent = JSON.parse(body);
+  } catch {
+    // Not JSON, show as plain text
+  }
+
+  if (parsedContent && typeof parsedContent === 'object') {
+    // Render structured JSON content
+    return (
+      <div className="text-sm bg-muted rounded p-3 space-y-2 max-h-48 overflow-auto">
+        {Object.entries(parsedContent).slice(0, 5).map(([key, value]) => (
+          <div key={key}>
+            <p className="text-xs font-medium text-muted-foreground capitalize">
+              {key.replace(/_/g, ' ')}
+            </p>
+            <p className="text-foreground text-sm">
+              {typeof value === 'string'
+                ? value.slice(0, 200) + (value.length > 200 ? '...' : '')
+                : JSON.stringify(value).slice(0, 200)}
+            </p>
+          </div>
+        ))}
+        {Object.keys(parsedContent).length > 5 && (
+          <p className="text-xs text-muted-foreground">
+            +{Object.keys(parsedContent).length - 5} more fields
+          </p>
+        )}
+      </div>
+    );
+  }
+
+  // Plain text fallback
+  return (
+    <div className="text-sm text-muted-foreground max-h-32 overflow-auto bg-muted rounded p-3">
+      <p className="whitespace-pre-wrap text-xs">
+        {body.slice(0, 500)}{body.length > 500 ? '...' : ''}
+      </p>
     </div>
   );
 }
