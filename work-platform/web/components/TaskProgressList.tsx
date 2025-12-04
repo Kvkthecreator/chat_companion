@@ -10,15 +10,16 @@ interface TaskProgressListProps {
 }
 
 /**
- * Task Progress List Component
+ * @deprecated This component uses SSE which is being replaced by Supabase Realtime.
+ *
+ * MIGRATION NOTICE (2024-12):
+ * Use the RealtimeProgressList component in TicketTrackingClient.tsx instead.
+ * It reads from work_tickets.metadata.current_todos delivered via Supabase Realtime.
+ *
+ * Task Progress List Component (Legacy SSE)
  *
  * Displays real-time agent task progress using SSE streaming.
  * Shows TodoWrite updates from the agent execution (like Claude Code).
- *
- * Usage:
- * ```tsx
- * <TaskProgressList workTicketId={ticketId} />
- * ```
  */
 export function TaskProgressList({
   workTicketId,

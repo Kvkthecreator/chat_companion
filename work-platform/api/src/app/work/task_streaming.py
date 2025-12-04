@@ -1,8 +1,12 @@
 """
 Real-time Task Updates Streaming for Work Tickets
 
-Provides SSE (Server-Sent Events) endpoint for streaming agent task progress
-to the frontend. Compatible with TodoWrite tool from Claude Agent SDK.
+Provides two mechanisms for streaming agent task progress to the frontend:
+1. SSE (Server-Sent Events) - Legacy, works but limited by in-memory state
+2. Database persistence - Updates work_tickets.metadata.current_todos for
+   Supabase Realtime to deliver to frontend (preferred approach)
+
+Compatible with TodoWrite tool from Claude Agent SDK.
 """
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -21,19 +25,22 @@ router = APIRouter(prefix="/work/tickets", tags=["work-streaming"])
 logger = logging.getLogger(__name__)
 
 
-# In-memory store for task updates (replace with Redis for multi-instance)
+# In-memory store for task updates (legacy SSE support)
 TASK_UPDATES: dict[str, list[dict]] = {}
 
 
-def emit_task_update(ticket_id: str, update: dict):
+def emit_task_update(ticket_id: str, update: dict, persist_to_db: bool = True):
     """
     Emit a task update to be streamed to subscribed clients.
 
     Called by agent execution code to broadcast progress updates.
+    Updates are stored both in-memory (for SSE) and in the database
+    (for Supabase Realtime to deliver to frontend).
 
     Args:
         ticket_id: Work ticket UUID
         update: Update data (status, step, progress, etc.)
+        persist_to_db: Whether to persist to work_tickets.metadata.current_todos
     """
     if ticket_id not in TASK_UPDATES:
         TASK_UPDATES[ticket_id] = []
@@ -42,6 +49,65 @@ def emit_task_update(ticket_id: str, update: dict):
     TASK_UPDATES[ticket_id].append(update)
 
     logger.info(f"[Task Update] {ticket_id}: {update.get('current_step', 'N/A')}")
+
+    # Persist to database for Supabase Realtime
+    if persist_to_db:
+        _persist_current_todos(ticket_id)
+
+
+def _persist_current_todos(ticket_id: str):
+    """
+    Persist current task progress to work_tickets.metadata.current_todos.
+
+    This triggers Supabase Realtime updates for connected frontend clients.
+    The frontend subscribes to work_tickets table and receives updates
+    when metadata changes.
+    """
+    try:
+        updates = TASK_UPDATES.get(ticket_id, [])
+
+        # Convert to TodoWrite format for frontend
+        current_todos = []
+        for update in updates:
+            update_type = update.get("type", "")
+            status = update.get("status", "pending")
+
+            # Map to TodoWrite status
+            if update_type == "task_completed":
+                todo_status = "completed"
+            elif update_type == "task_failed":
+                todo_status = "failed"
+            elif status == "in_progress":
+                todo_status = "in_progress"
+            else:
+                todo_status = "pending"
+
+            todo = {
+                "content": update.get("current_step", "Task"),
+                "status": todo_status,
+                "activeForm": update.get("activeForm", update.get("current_step", "Working")),
+            }
+            current_todos.append(todo)
+
+        # Update metadata with current_todos
+        existing = supabase.table("work_tickets").select("metadata").eq("id", ticket_id).single().execute()
+        existing_metadata = existing.data.get("metadata", {}) if existing.data else {}
+
+        updated_metadata = {
+            **existing_metadata,
+            "current_todos": current_todos,
+            "last_progress_update": datetime.utcnow().isoformat(),
+        }
+
+        supabase.table("work_tickets").update({
+            "metadata": updated_metadata
+        }).eq("id", ticket_id).execute()
+
+        logger.debug(f"[Task Update] Persisted {len(current_todos)} todos to DB for {ticket_id}")
+
+    except Exception as e:
+        # Log but don't fail - SSE still works as fallback
+        logger.warning(f"[Task Update] Failed to persist to DB: {e}")
 
 
 def get_final_todos(ticket_id: str) -> list[dict]:

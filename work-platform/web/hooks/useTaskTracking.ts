@@ -4,6 +4,34 @@ import { useEffect, useState, useCallback, useRef } from "react";
 import { createBrowserClient } from "@/lib/supabase/clients";
 
 /**
+ * @deprecated This hook uses SSE which is being replaced by Supabase Realtime.
+ *
+ * MIGRATION NOTICE (2024-12):
+ * Task progress is now delivered via Supabase Realtime subscription on work_tickets table.
+ * The metadata.current_todos field is updated in real-time during agent execution.
+ *
+ * Instead of using this hook, subscribe to work_tickets updates:
+ *
+ * ```tsx
+ * const supabase = createBrowserClient();
+ * const channel = supabase
+ *   .channel(`work_ticket_${ticketId}`)
+ *   .on('postgres_changes', {
+ *     event: 'UPDATE',
+ *     schema: 'public',
+ *     table: 'work_tickets',
+ *     filter: `id=eq.${ticketId}`,
+ *   }, (payload) => {
+ *     const currentTodos = payload.new.metadata?.current_todos;
+ *     // Use currentTodos for progress display
+ *   })
+ *   .subscribe();
+ * ```
+ *
+ * See: TicketTrackingClient.tsx for the new implementation.
+ */
+
+/**
  * Task progress update from TodoWrite tool
  */
 export interface TaskUpdate {
@@ -14,6 +42,7 @@ export interface TaskUpdate {
 
 /**
  * SSE event from task streaming endpoint
+ * @deprecated Use Supabase Realtime instead
  */
 export interface TaskStreamEvent {
   type: "connected" | "todo_update" | "completed" | "timeout" | "task_started" | "task_update" | "task_completed" | "task_failed";
@@ -40,28 +69,13 @@ export interface UseTaskTrackingResult {
 }
 
 /**
- * Real-time Task Tracking Hook
+ * @deprecated This hook uses SSE which is being replaced by Supabase Realtime.
+ * See file header for migration instructions.
+ *
+ * Real-time Task Tracking Hook (Legacy SSE)
  *
  * Subscribes to SSE stream for agent task progress updates (TodoWrite tool).
  * Displays real-time visibility into what the agent is doing during execution.
- *
- * Usage:
- * ```tsx
- * const { tasks, isConnected, error } = useTaskTracking(workTicketId);
- *
- * return (
- *   <div>
- *     {tasks.map((task, i) => (
- *       <div key={i}>
- *         {task.status === "in_progress" && "🔄"}
- *         {task.status === "completed" && "✅"}
- *         {task.status === "pending" && "⏳"}
- *         {task.activeForm}
- *       </div>
- *     ))}
- *   </div>
- * );
- * ```
  *
  * @param workTicketId - Work ticket UUID to track
  * @param enabled - Whether to enable the SSE connection (default: true)

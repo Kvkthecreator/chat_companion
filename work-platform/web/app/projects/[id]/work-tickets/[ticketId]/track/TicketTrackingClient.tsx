@@ -8,7 +8,6 @@ import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { ArrowLeft, Download, RefreshCw, CheckCircle2, XCircle, Loader2, Clock, AlertTriangle, FileText, Package, Calendar } from "lucide-react";
 import Link from "next/link";
-import { TaskProgressList } from "@/components/TaskProgressList";
 import { cn } from "@/lib/utils";
 
 interface WorkOutput {
@@ -287,14 +286,14 @@ export default function TicketTrackingClient({
             </div>
           </Card>
 
-          {/* Agent Activity - For running tickets: show live progress */}
+          {/* Agent Activity - For running tickets: show live progress from Realtime */}
           {isRunning && (
             <Card className="p-6">
               <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
                 <Loader2 className="h-5 w-5 animate-spin text-primary" />
                 Agent Activity
               </h2>
-              <TaskProgressList workTicketId={ticket.id} enabled={true} />
+              <RealtimeProgressList currentTodos={ticket.metadata?.current_todos} />
             </Card>
           )}
 
@@ -660,6 +659,58 @@ function OutputCard({ output, basketId, projectId }: { output: WorkOutput; baske
           {downloadError}
         </div>
       )}
+    </div>
+  );
+}
+
+/**
+ * Real-time progress list component - displays current_todos from metadata
+ * Updated via Supabase Realtime subscription in parent component
+ */
+interface TodoItem {
+  content: string;
+  status: "pending" | "in_progress" | "completed" | "failed";
+  activeForm: string;
+}
+
+function RealtimeProgressList({ currentTodos }: { currentTodos?: TodoItem[] }) {
+  if (!currentTodos || currentTodos.length === 0) {
+    return (
+      <div className="text-sm text-muted-foreground italic flex items-center gap-2">
+        <Loader2 className="h-4 w-4 animate-spin" />
+        Agent is working...
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-2">
+      {currentTodos.map((todo, index) => {
+        const statusIcon = {
+          pending: <Clock className="h-4 w-4 text-muted-foreground" />,
+          in_progress: <Loader2 className="h-4 w-4 text-primary animate-spin" />,
+          completed: <CheckCircle2 className="h-4 w-4 text-success" />,
+          failed: <XCircle className="h-4 w-4 text-destructive" />,
+        }[todo.status] || <Clock className="h-4 w-4 text-muted-foreground" />;
+
+        const statusColor = {
+          pending: "text-muted-foreground",
+          in_progress: "text-primary",
+          completed: "text-success",
+          failed: "text-destructive",
+        }[todo.status] || "text-muted-foreground";
+
+        return (
+          <div key={index} className={cn("flex items-start gap-2 text-sm", statusColor)}>
+            <span className="flex-shrink-0 mt-0.5">{statusIcon}</span>
+            <div className="flex-1 min-w-0">
+              <p className="truncate" title={todo.activeForm}>
+                {todo.activeForm || todo.content}
+              </p>
+            </div>
+          </div>
+        );
+      })}
     </div>
   );
 }
