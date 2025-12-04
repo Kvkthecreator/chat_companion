@@ -8,8 +8,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { createRouteHandlerClient } from '@/lib/supabase/clients';
-
-const API_URL = process.env.API_BASE_URL || 'http://127.0.0.1:8000';
+import { apiUrl } from '@/lib/env';
 
 export async function POST(request: NextRequest) {
   try {
@@ -29,7 +28,7 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json();
 
-    const response = await fetch(`${API_URL}/api/tp/chat`, {
+    const response = await fetch(apiUrl('/api/tp/chat'), {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${session.access_token}`,

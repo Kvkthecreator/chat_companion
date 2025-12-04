@@ -8,8 +8,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { createRouteHandlerClient } from '@/lib/supabase/clients';
-
-const API_URL = process.env.API_BASE_URL || 'http://127.0.0.1:8000';
+import { apiUrl } from '@/lib/env';
 
 /**
  * GET /api/tp/sessions?basket_id=...&status=...&limit=...
@@ -33,7 +32,7 @@ export async function GET(request: NextRequest) {
     // Forward query params
     const searchParams = request.nextUrl.searchParams;
     const queryString = searchParams.toString();
-    const url = `${API_URL}/api/tp/sessions${queryString ? `?${queryString}` : ''}`;
+    const url = apiUrl(`/api/tp/sessions${queryString ? `?${queryString}` : ''}`);
 
     const response = await fetch(url, {
       method: 'GET',
@@ -80,7 +79,7 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json();
 
-    const response = await fetch(`${API_URL}/api/tp/sessions`, {
+    const response = await fetch(apiUrl('/api/tp/sessions'), {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${session.access_token}`,
