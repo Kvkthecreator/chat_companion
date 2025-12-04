@@ -3,10 +3,9 @@
 /**
  * WorkReviewClient - Client component for work output supervision
  *
- * Handles:
- * - Approve/reject/revision actions
- * - Manual promotion triggers
- * - Real-time status updates
+ * Simplified to focus on quality review only:
+ * - Approve: Mark output as usable
+ * - Reject: Discard output with reason
  */
 
 import { useState, useCallback } from "react";
@@ -17,9 +16,7 @@ import { Button } from "@/components/ui/Button";
 import {
   CheckCircle,
   XCircle,
-  RefreshCw,
-  Upload,
-  SkipForward,
+  Loader2,
   ChevronDown,
   ChevronUp,
   FileText,
@@ -50,8 +47,6 @@ interface WorkOutput {
   body: any;
   confidence: number;
   supervision_status: string;
-  substrate_proposal_id?: string;
-  promotion_method?: string;
   created_at: string;
   reviewed_at?: string;
   reviewer_notes?: string;
@@ -62,16 +57,10 @@ interface WorkOutput {
   };
 }
 
-interface SupervisionSettings {
-  promotion_mode: string;
-  auto_promote_types: string[];
-}
-
 interface Props {
   initialOutputs: WorkOutput[];
   basketId: string;
   projectId: string;
-  supervisionSettings: SupervisionSettings;
 }
 
 const OUTPUT_TYPE_ICONS: Record<string, React.ReactNode> = {
@@ -86,70 +75,40 @@ const STATUS_BADGES: Record<string, { variant: "default" | "success" | "destruct
   pending_review: { variant: "warning", label: "Pending Review" },
   approved: { variant: "success", label: "Approved" },
   rejected: { variant: "destructive", label: "Rejected" },
-  revision_requested: { variant: "secondary", label: "Revision Requested" },
 };
 
 export function WorkReviewClient({
   initialOutputs,
   basketId,
   projectId,
-  supervisionSettings,
 }: Props) {
   const router = useRouter();
   const [outputs, setOutputs] = useState<WorkOutput[]>(initialOutputs);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
 
-  // Dialog state
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [dialogAction, setDialogAction] = useState<"reject" | "revision" | null>(null);
-  const [dialogOutputId, setDialogOutputId] = useState<string | null>(null);
-  const [dialogNotes, setDialogNotes] = useState("");
+  // Reject dialog state
+  const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
+  const [rejectOutputId, setRejectOutputId] = useState<string | null>(null);
+  const [rejectNotes, setRejectNotes] = useState("");
 
-  const handleAction = useCallback(
-    async (outputId: string, action: "approve" | "reject" | "revision" | "promote" | "skip") => {
-      if (action === "reject" || action === "revision") {
-        setDialogAction(action);
-        setDialogOutputId(outputId);
-        setDialogNotes("");
-        setDialogOpen(true);
-        return;
-      }
-
+  const handleApprove = useCallback(
+    async (outputId: string) => {
       setActionLoading(outputId);
 
       try {
         const baseUrl = process.env.NEXT_PUBLIC_WORK_PLATFORM_API_URL || "";
-        let endpoint = "";
-        let body: Record<string, unknown> = {};
-
-        switch (action) {
-          case "approve":
-            endpoint = `${baseUrl}/api/supervision/baskets/${basketId}/outputs/${outputId}/approve`;
-            body = { notes: null };
-            break;
-          case "promote":
-            endpoint = `${baseUrl}/api/supervision/baskets/${basketId}/outputs/${outputId}/promote`;
-            body = {};
-            break;
-          case "skip":
-            endpoint = `${baseUrl}/api/supervision/baskets/${basketId}/outputs/${outputId}/skip-promotion`;
-            body = { reason: "User chose to skip promotion" };
-            break;
-        }
-
         await apiClient({
-          url: endpoint,
+          url: `${baseUrl}/api/supervision/baskets/${basketId}/outputs/${outputId}/approve`,
           method: "POST",
-          body,
+          body: { notes: null },
         });
 
-        // Refresh data
         router.refresh();
       } catch (error) {
-        console.error(`[WorkReview] Action ${action} failed:`, error);
+        console.error("[WorkReview] Approve failed:", error);
         const message = error instanceof ApiError ? error.message : (error instanceof Error ? error.message : "Unknown error");
-        alert(`Failed to ${action}: ${message}`);
+        alert(`Failed to approve: ${message}`);
       } finally {
         setActionLoading(null);
       }
@@ -157,43 +116,37 @@ export function WorkReviewClient({
     [basketId, router]
   );
 
-  const handleDialogConfirm = useCallback(async () => {
-    if (!dialogOutputId || !dialogAction) return;
+  const handleRejectClick = (outputId: string) => {
+    setRejectOutputId(outputId);
+    setRejectNotes("");
+    setRejectDialogOpen(true);
+  };
 
-    setActionLoading(dialogOutputId);
-    setDialogOpen(false);
+  const handleRejectConfirm = useCallback(async () => {
+    if (!rejectOutputId) return;
+
+    setActionLoading(rejectOutputId);
+    setRejectDialogOpen(false);
 
     try {
       const baseUrl = process.env.NEXT_PUBLIC_WORK_PLATFORM_API_URL || "";
-      let endpoint = "";
-      let body: any = {};
-
-      if (dialogAction === "reject") {
-        endpoint = `${baseUrl}/api/supervision/baskets/${basketId}/outputs/${dialogOutputId}/reject`;
-        body = { notes: dialogNotes };
-      } else if (dialogAction === "revision") {
-        endpoint = `${baseUrl}/api/supervision/baskets/${basketId}/outputs/${dialogOutputId}/request-revision`;
-        body = { feedback: dialogNotes };
-      }
-
       await apiClient({
-        url: endpoint,
+        url: `${baseUrl}/api/supervision/baskets/${basketId}/outputs/${rejectOutputId}/reject`,
         method: "POST",
-        body,
+        body: { notes: rejectNotes },
       });
 
       router.refresh();
     } catch (error) {
-      console.error(`[WorkReview] ${dialogAction} failed:`, error);
+      console.error("[WorkReview] Reject failed:", error);
       const message = error instanceof ApiError ? error.message : (error instanceof Error ? error.message : "Unknown error");
-      alert(`Failed: ${message}`);
+      alert(`Failed to reject: ${message}`);
     } finally {
       setActionLoading(null);
-      setDialogAction(null);
-      setDialogOutputId(null);
-      setDialogNotes("");
+      setRejectOutputId(null);
+      setRejectNotes("");
     }
-  }, [basketId, dialogAction, dialogOutputId, dialogNotes, router]);
+  }, [basketId, rejectOutputId, rejectNotes, router]);
 
   const toggleExpand = (id: string) => {
     setExpandedId(expandedId === id ? null : id);
@@ -201,12 +154,15 @@ export function WorkReviewClient({
 
   return (
     <div className="space-y-4">
+      {outputs.length === 0 && (
+        <Card className="p-8 text-center">
+          <p className="text-muted-foreground">No outputs to review</p>
+        </Card>
+      )}
+
       {outputs.map((output) => {
         const isExpanded = expandedId === output.id;
         const statusBadge = STATUS_BADGES[output.supervision_status] || STATUS_BADGES.pending_review;
-        const isPromoted = !!output.substrate_proposal_id || output.promotion_method === "skipped";
-        const canPromote = output.supervision_status === "approved" && !isPromoted;
-        const canSkip = output.supervision_status === "approved" && !isPromoted;
         const isPendingReview = output.supervision_status === "pending_review";
 
         return (
@@ -240,21 +196,6 @@ export function WorkReviewClient({
 
               <div className="flex items-center gap-3">
                 <Badge variant={statusBadge.variant}>{statusBadge.label}</Badge>
-                {isPromoted && (
-                  <Badge
-                    variant="outline"
-                    className={cn(
-                      "text-xs",
-                      output.promotion_method === "auto" && "bg-green-500/10 text-green-700 border-green-500/30"
-                    )}
-                  >
-                    {output.promotion_method === "skipped"
-                      ? "Skipped"
-                      : output.promotion_method === "auto"
-                        ? "Auto Promoted"
-                        : "Promoted"}
-                  </Badge>
-                )}
                 {isExpanded ? (
                   <ChevronUp className="h-4 w-4 text-muted-foreground" />
                 ) : (
@@ -276,10 +217,10 @@ export function WorkReviewClient({
                   </div>
                 </div>
 
-                {/* Reviewer Notes (if any) */}
-                {output.reviewer_notes && (
-                  <div className="bg-surface-warning/30 rounded-lg p-4">
-                    <h4 className="text-sm font-medium text-warning-foreground mb-2">Reviewer Notes</h4>
+                {/* Reviewer Notes (if rejected) */}
+                {output.reviewer_notes && output.supervision_status === "rejected" && (
+                  <div className="bg-destructive/10 rounded-lg p-4">
+                    <h4 className="text-sm font-medium text-destructive mb-2">Rejection Reason</h4>
                     <p className="text-sm text-foreground">{output.reviewer_notes}</p>
                   </div>
                 )}
@@ -299,22 +240,10 @@ export function WorkReviewClient({
                         <Button
                           size="sm"
                           variant="outline"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleAction(output.id, "revision");
-                          }}
-                          disabled={!!actionLoading}
-                        >
-                          <RefreshCw className="h-4 w-4 mr-1" />
-                          Request Revision
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
                           className="text-destructive border-destructive hover:bg-destructive/10"
                           onClick={(e) => {
                             e.stopPropagation();
-                            handleAction(output.id, "reject");
+                            handleRejectClick(output.id);
                           }}
                           disabled={!!actionLoading}
                         >
@@ -326,48 +255,16 @@ export function WorkReviewClient({
                           className="bg-success text-success-foreground hover:bg-success/90"
                           onClick={(e) => {
                             e.stopPropagation();
-                            handleAction(output.id, "approve");
+                            handleApprove(output.id);
                           }}
                           disabled={!!actionLoading}
                         >
                           {actionLoading === output.id ? (
-                            <RefreshCw className="h-4 w-4 mr-1 animate-spin" />
+                            <Loader2 className="h-4 w-4 mr-1 animate-spin" />
                           ) : (
                             <CheckCircle className="h-4 w-4 mr-1" />
                           )}
                           Approve
-                        </Button>
-                      </>
-                    )}
-
-                    {canPromote && supervisionSettings.promotion_mode === "manual" && (
-                      <>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleAction(output.id, "skip");
-                          }}
-                          disabled={!!actionLoading}
-                        >
-                          <SkipForward className="h-4 w-4 mr-1" />
-                          Skip Promotion
-                        </Button>
-                        <Button
-                          size="sm"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleAction(output.id, "promote");
-                          }}
-                          disabled={!!actionLoading}
-                        >
-                          {actionLoading === output.id ? (
-                            <RefreshCw className="h-4 w-4 mr-1 animate-spin" />
-                          ) : (
-                            <Upload className="h-4 w-4 mr-1" />
-                          )}
-                          Promote to Substrate
                         </Button>
                       </>
                     )}
@@ -379,39 +276,29 @@ export function WorkReviewClient({
         );
       })}
 
-      {/* Reject/Revision Dialog */}
-      <AlertDialog open={dialogOpen} onOpenChange={setDialogOpen}>
+      {/* Reject Dialog */}
+      <AlertDialog open={rejectDialogOpen} onOpenChange={setRejectDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>
-              {dialogAction === "reject" ? "Reject Output" : "Request Revision"}
-            </AlertDialogTitle>
+            <AlertDialogTitle>Reject Output</AlertDialogTitle>
             <AlertDialogDescription>
-              {dialogAction === "reject"
-                ? "Please provide a reason for rejecting this output."
-                : "Please provide feedback for the revision request."}
+              Please provide a reason for rejecting this output. This helps improve future agent work.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <Textarea
-            placeholder={
-              dialogAction === "reject"
-                ? "Reason for rejection..."
-                : "What should be revised..."
-            }
-            value={dialogNotes}
-            onChange={(e) => setDialogNotes(e.target.value)}
+            placeholder="Reason for rejection..."
+            value={rejectNotes}
+            onChange={(e) => setRejectNotes(e.target.value)}
             className="min-h-[100px]"
           />
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
-              onClick={handleDialogConfirm}
-              disabled={!dialogNotes.trim()}
-              className={cn(
-                dialogAction === "reject" && "bg-destructive text-destructive-foreground hover:bg-destructive/90"
-              )}
+              onClick={handleRejectConfirm}
+              disabled={!rejectNotes.trim()}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
-              {dialogAction === "reject" ? "Reject" : "Request Revision"}
+              Reject
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

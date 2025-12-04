@@ -2,7 +2,7 @@
  * Page: /projects/[id]/work-review - Work Output Supervision
  *
  * Shows all work outputs for a project pending user review.
- * Allows approve/reject/revision actions before promotion to substrate.
+ * Simplified to focus on quality review: Approve or Reject.
  */
 import { cookies } from "next/headers";
 import { createServerComponentClient } from "@/lib/supabase/clients";
@@ -10,9 +10,8 @@ import { getAuthenticatedUser } from "@/lib/auth/getAuthenticatedUser";
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { Card } from "@/components/ui/Card";
-import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
-import { ArrowLeft, Clock, CheckCircle, XCircle, Loader2, FileCheck, Upload } from 'lucide-react';
+import { ArrowLeft, Clock, CheckCircle, XCircle } from 'lucide-react';
 import { cn } from "@/lib/utils";
 import { WorkReviewClient } from "./WorkReviewClient";
 
@@ -48,19 +47,12 @@ export default async function WorkReviewPage({ params, searchParams }: PageProps
     );
   }
 
-  // Get supervision settings from project metadata
-  const supervisionSettings = project.metadata?.work_supervision || {
-    promotion_mode: 'auto',
-    auto_promote_types: ['finding', 'recommendation'],
-  };
-
   // Fetch work outputs with supervision status counts
   let outputs: any[] = [];
   let statusCounts: Record<string, number> = {
     pending_review: 0,
     approved: 0,
     rejected: 0,
-    revision_requested: 0
   };
   let totalCount = 0;
 
@@ -134,7 +126,7 @@ export default async function WorkReviewPage({ params, searchParams }: PageProps
           </Link>
           <h1 className="text-3xl font-bold text-foreground">Work Review</h1>
           <p className="text-muted-foreground mt-1">
-            {project.name} • {supervisionSettings.promotion_mode === 'auto' ? 'Auto-promotion enabled' : 'Manual promotion'}
+            {project.name} • Quality supervision
           </p>
         </div>
         <div className="flex gap-2">
@@ -145,7 +137,7 @@ export default async function WorkReviewPage({ params, searchParams }: PageProps
       </div>
 
       {/* Status Filter Cards */}
-      <div className="grid gap-4 md:grid-cols-5">
+      <div className="grid gap-4 md:grid-cols-4">
         <StatusFilterCard
           label="All"
           count={totalCount}
@@ -183,16 +175,6 @@ export default async function WorkReviewPage({ params, searchParams }: PageProps
           icon={<XCircle className="h-4 w-4" />}
           accent="danger"
         />
-        <StatusFilterCard
-          label="Revision Requested"
-          count={statusCounts.revision_requested || 0}
-          projectId={projectId}
-          statusFilter="revision_requested"
-          active={statusFilter === 'revision_requested'}
-          typeFilter={typeFilter}
-          icon={<Loader2 className="h-4 w-4" />}
-          accent="primary"
-        />
       </div>
 
       {/* Output Type Filter Pills */}
@@ -224,7 +206,6 @@ export default async function WorkReviewPage({ params, searchParams }: PageProps
           initialOutputs={outputs}
           basketId={project.basket_id || ''}
           projectId={projectId}
-          supervisionSettings={supervisionSettings}
         />
       )}
     </div>
