@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, type KeyboardEvent } from 'react'
+import { useState, useId, type KeyboardEvent } from 'react'
 import { Label } from '@/components/ui/Label'
 import { X } from 'lucide-react'
 import type { ParameterSchema } from '@/lib/types/recipes'
@@ -15,6 +15,7 @@ interface ParameterInputProps {
 
 export function ParameterInput({ name, schema, value, onChange, error }: ParameterInputProps) {
   const [tagInput, setTagInput] = useState('')
+  const inputId = useId()
 
   const handleTagKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter' || e.key === ',') {
@@ -39,6 +40,7 @@ export function ParameterInput({ name, schema, value, onChange, error }: Paramet
         return (
           <div className="space-y-2">
             <input
+              id={inputId}
               type="range"
               min={schema.min}
               max={schema.max}
@@ -58,6 +60,7 @@ export function ParameterInput({ name, schema, value, onChange, error }: Paramet
         return (
           <div className="space-y-1">
             <input
+              id={inputId}
               type="text"
               value={value ?? schema.default ?? ''}
               onChange={(e) => onChange(e.target.value)}
@@ -76,25 +79,29 @@ export function ParameterInput({ name, schema, value, onChange, error }: Paramet
       case 'multi-select':
       case 'multiselect':
         return (
-          <div className="space-y-2">
-            {schema.options?.map((option) => (
-              <label key={option} className="flex items-center space-x-2 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={value?.includes(option) ?? false}
-                  onChange={(e) => {
-                    const currentValues = value ?? []
-                    if (e.target.checked) {
-                      onChange([...currentValues, option])
-                    } else {
-                      onChange(currentValues.filter((v: string) => v !== option))
-                    }
-                  }}
-                  className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700"
-                />
-                <span className="text-sm text-gray-700 dark:text-gray-300">{option}</span>
-              </label>
-            ))}
+          <div role="group" aria-labelledby={inputId} className="space-y-2">
+            {schema.options?.map((option, idx) => {
+              const optionId = `${inputId}-option-${idx}`
+              return (
+                <label key={option} htmlFor={optionId} className="flex items-center space-x-2 cursor-pointer">
+                  <input
+                    id={optionId}
+                    type="checkbox"
+                    checked={value?.includes(option) ?? false}
+                    onChange={(e) => {
+                      const currentValues = value ?? []
+                      if (e.target.checked) {
+                        onChange([...currentValues, option])
+                      } else {
+                        onChange(currentValues.filter((v: string) => v !== option))
+                      }
+                    }}
+                    className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700"
+                  />
+                  <span className="text-sm text-gray-700 dark:text-gray-300">{option}</span>
+                </label>
+              )
+            })}
           </div>
         )
 
@@ -112,12 +119,14 @@ export function ParameterInput({ name, schema, value, onChange, error }: Paramet
                     type="button"
                     onClick={() => removeTag(tag)}
                     className="hover:text-blue-600 dark:hover:text-blue-300"
+                    aria-label={`Remove ${tag}`}
                   >
                     <X className="w-3 h-3" />
                   </button>
                 </span>
               ))}
               <input
+                id={inputId}
                 type="text"
                 value={tagInput}
                 onChange={(e) => setTagInput(e.target.value)}
@@ -141,9 +150,12 @@ export function ParameterInput({ name, schema, value, onChange, error }: Paramet
     }
   }
 
+  // For multiselect, the label is referenced by aria-labelledby so we need an id on it
+  const isMultiselect = schema.type === 'multi-select' || schema.type === 'multiselect'
+
   return (
     <div className="space-y-2">
-      <Label>
+      <Label htmlFor={isMultiselect ? undefined : inputId} id={isMultiselect ? inputId : undefined}>
         {schema.label}
         {!schema.optional && <span className="text-red-500 ml-1">*</span>}
       </Label>
