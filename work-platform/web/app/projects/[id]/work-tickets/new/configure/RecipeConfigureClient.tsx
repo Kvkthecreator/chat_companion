@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useId, type KeyboardEvent } from "react";
 import { useRouter } from "next/navigation";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/Label";
 import { Input } from "@/components/ui/Input";
 import { Textarea } from "@/components/ui/Textarea";
 import { Badge } from "@/components/ui/Badge";
-import { ArrowLeft, Loader2, CheckCircle2, AlertCircle, AlertTriangle, Users, Eye, TrendingUp, Target, Brain, MessageSquare, Compass, UserCheck, FileOutput, Calendar, Clock, RefreshCw, History, Zap, ExternalLink, Palette, BarChart3 } from "lucide-react";
+import { ArrowLeft, Loader2, CheckCircle2, AlertCircle, AlertTriangle, Users, Eye, TrendingUp, Target, Brain, MessageSquare, Compass, UserCheck, FileOutput, Calendar, Clock, RefreshCw, History, Zap, ExternalLink, Palette, BarChart3, X } from "lucide-react";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 
@@ -119,6 +119,72 @@ const FREQUENCY_OPTIONS = [
   { value: "biweekly", label: "Every 2 weeks", description: "Biweekly" },
   { value: "monthly", label: "Monthly", description: "Once per month" },
 ];
+
+// Tags input component for array string parameters
+function TagsInput({
+  value,
+  onChange,
+  placeholder,
+}: {
+  value: string[];
+  onChange: (value: string[]) => void;
+  placeholder?: string;
+}) {
+  const [tagInput, setTagInput] = useState("");
+  const inputId = useId();
+
+  const handleTagKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter" || e.key === ",") {
+      e.preventDefault();
+      const newTag = tagInput.trim();
+      if (newTag && !value.includes(newTag)) {
+        onChange([...value, newTag]);
+      }
+      setTagInput("");
+    } else if (e.key === "Backspace" && !tagInput && value.length > 0) {
+      onChange(value.slice(0, -1));
+    }
+  };
+
+  const removeTag = (tagToRemove: string) => {
+    onChange(value.filter((t) => t !== tagToRemove));
+  };
+
+  return (
+    <div className="space-y-2">
+      <div className="flex flex-wrap gap-2 p-2 border border-input rounded-md min-h-[42px] bg-background">
+        {value.map((tag) => (
+          <span
+            key={tag}
+            className="inline-flex items-center gap-1 px-2 py-1 text-sm bg-primary/10 text-primary rounded"
+          >
+            {tag}
+            <button
+              type="button"
+              onClick={() => removeTag(tag)}
+              className="hover:text-primary/70"
+              aria-label={`Remove ${tag}`}
+            >
+              <X className="w-3 h-3" />
+            </button>
+          </span>
+        ))}
+        <input
+          id={inputId}
+          type="text"
+          value={tagInput}
+          onChange={(e) => setTagInput(e.target.value)}
+          onKeyDown={handleTagKeyDown}
+          placeholder={value.length > 0 ? "" : placeholder}
+          className="flex-1 min-w-[120px] outline-none bg-transparent text-sm"
+        />
+      </div>
+      <p className="text-xs text-muted-foreground">
+        Press Enter or comma to add tags
+      </p>
+    </div>
+  );
+}
 
 export default function RecipeConfigureClient({
   projectId,
@@ -561,6 +627,38 @@ export default function RecipeConfigureClient({
                     placeholder="Enter one item per line"
                     rows={4}
                     required={param.required}
+                  />
+                )}
+
+                {(param.type === "multiselect" || param.type === "multi-select") && (
+                  <div role="group" aria-labelledby={`${key}-label`} className="space-y-2">
+                    {param.options?.map((option, idx) => (
+                      <label key={option} htmlFor={`${key}-option-${idx}`} className="flex items-center space-x-2 cursor-pointer">
+                        <input
+                          id={`${key}-option-${idx}`}
+                          type="checkbox"
+                          checked={(formValues[key] || []).includes(option)}
+                          onChange={(e) => {
+                            const currentValues = formValues[key] || [];
+                            if (e.target.checked) {
+                              handleInputChange(key, [...currentValues, option]);
+                            } else {
+                              handleInputChange(key, currentValues.filter((v: string) => v !== option));
+                            }
+                          }}
+                          className="w-4 h-4 text-primary border-input rounded focus:ring-primary"
+                        />
+                        <span className="text-sm text-foreground">{option}</span>
+                      </label>
+                    ))}
+                  </div>
+                )}
+
+                {param.type === "tags" && (
+                  <TagsInput
+                    value={formValues[key] || []}
+                    onChange={(value) => handleInputChange(key, value)}
+                    placeholder={param.placeholder || "Type and press Enter"}
                   />
                 )}
               </div>
