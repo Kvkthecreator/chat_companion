@@ -1,26 +1,30 @@
 "use client";
 
 /**
- * ContextItemDetailClient - Canvas-style detail view for a context item
+ * ContextItemDetailClient - Inline editing context item page
  *
- * Features:
- * - Bento-box layout for multimodal content display
- * - Field-type-specific renderers (text, longtext, array, asset, url)
- * - Tier and source indicators
- * - Version history rail
- * - Edit modal integration
+ * Architecture (Phase 2 Refactor):
+ * - NO modals - all editing happens inline on this page
+ * - Bento-box layout for viewing
+ * - Inline form fields for editing
+ * - Auto-save or explicit save button
+ * - Delete functionality here
  *
  * Design Philosophy:
+ * - Page IS the editor (no modal layer)
  * - Visual hierarchy through tile sizing
- * - Responsive masonry-like grid
- * - Rich previews for assets (images, PDFs)
+ * - Responsive grid layout
  * - Clear provenance tracking
  */
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useCallback, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
+import { Input } from '@/components/ui/Input';
+import { Textarea } from '@/components/ui/Textarea';
+import { Label } from '@/components/ui/Label';
 import {
   Pencil,
   User,
@@ -45,11 +49,20 @@ import {
   BarChart3,
   Lightbulb,
   CheckCircle,
+  X,
+  Save,
+  Loader2,
+  Trash2,
+  Plus,
+  Upload,
 } from 'lucide-react';
 import Link from 'next/link';
-import ContextEntryEditor from '@/components/context/ContextEntryEditor';
+import { toast } from 'sonner';
 
-// Types
+// =============================================================================
+// TYPES
+// =============================================================================
+
 interface ContextItem {
   id: string;
   basket_id: string;
@@ -66,30 +79,15 @@ interface ContextItem {
   updated_at: string;
 }
 
-// Extended field type for display (includes 'url' for rendering)
-type DisplayFieldType = 'text' | 'longtext' | 'array' | 'asset' | 'url';
-
-// Editor field type (what ContextEntryEditor accepts)
-type EditorFieldType = 'text' | 'longtext' | 'array' | 'asset';
+type FieldType = 'text' | 'longtext' | 'array' | 'asset' | 'url';
 
 interface FieldDefinition {
   key: string;
-  type: DisplayFieldType;
+  type: FieldType;
   label: string;
   required?: boolean;
   placeholder?: string;
   help?: string;
-}
-
-// Schema type for editor (with restricted field types)
-interface EditorFieldDefinition {
-  key: string;
-  type: EditorFieldType;
-  label: string;
-  required?: boolean;
-  placeholder?: string;
-  help?: string;
-  item_type?: string;
   accept?: string;
 }
 
@@ -107,7 +105,10 @@ interface Schema {
   };
 }
 
-// Icon mapping
+// =============================================================================
+// CONSTANTS
+// =============================================================================
+
 const ITEM_TYPE_ICONS: Record<string, React.ElementType> = {
   problem: AlertTriangle,
   customer: Users,
@@ -119,7 +120,6 @@ const ITEM_TYPE_ICONS: Record<string, React.ElementType> = {
   competitor_snapshot: BarChart3,
 };
 
-// Tier config
 const TIER_CONFIG: Record<string, { label: string; color: string; bgColor: string; description: string }> = {
   foundation: {
     label: 'Foundation',
@@ -141,7 +141,6 @@ const TIER_CONFIG: Record<string, { label: string; color: string; bgColor: strin
   },
 };
 
-// Field type icons
 const FIELD_TYPE_ICONS: Record<string, React.ElementType> = {
   text: Type,
   longtext: AlignLeft,
@@ -150,11 +149,17 @@ const FIELD_TYPE_ICONS: Record<string, React.ElementType> = {
   url: LinkIcon,
 };
 
+// =============================================================================
+// MAIN COMPONENT
+// =============================================================================
+
 interface ContextItemDetailClientProps {
   projectId: string;
   basketId: string;
-  item: ContextItem;
+  item: ContextItem | null;  // null for new items
   schema: Schema | null;
+  isNew?: boolean;
+  schemaRole?: string;  // For new items, which schema to use
 }
 
 export default function ContextItemDetailClient({
@@ -162,39 +167,67 @@ export default function ContextItemDetailClient({
   basketId,
   item,
   schema,
+  isNew = false,
+  schemaRole,
 }: ContextItemDetailClientProps) {
-  const [editorOpen, setEditorOpen] = useState(false);
-  const [currentItem, setCurrentItem] = useState(item);
+  const router = useRouter();
 
-  const Icon = ITEM_TYPE_ICONS[currentItem.item_type] || FileText;
-  const tierConfig = TIER_CONFIG[currentItem.tier || 'foundation'];
+  // Edit mode state
+  const [isEditing, setIsEditing] = useState(isNew);
+  const [formData, setFormData] = useState<Record<string, unknown>>(item?.content || {});
+  const [displayName, setDisplayName] = useState(item?.title || '');
+  const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [hasChanges, setHasChanges] = useState(false);
+
+  // Initialize form data for new items
+  useEffect(() => {
+    if (isNew && schema) {
+      const initialData: Record<string, unknown> = {};
+      schema.field_schema.fields.forEach((field) => {
+        if (field.type === 'array') {
+          initialData[field.key] = [];
+        } else if (field.type === 'asset') {
+          initialData[field.key] = null;
+        } else {
+          initialData[field.key] = '';
+        }
+      });
+      setFormData(initialData);
+    }
+  }, [isNew, schema]);
+
+  const Icon = ITEM_TYPE_ICONS[item?.item_type || schemaRole || ''] || FileText;
+  const tierConfig = TIER_CONFIG[item?.tier || 'foundation'];
 
   // Parse source info
-  const isAgentGenerated = currentItem.source_type === 'agent';
-  const sourceRef = currentItem.source_ref as { work_ticket_id?: string; agent_type?: string } | null;
+  const isAgentGenerated = item?.source_type === 'agent';
+  const sourceRef = item?.source_ref as { work_ticket_id?: string; agent_type?: string } | null;
 
   // Get fields from schema or infer from content
   const fields = useMemo(() => {
     if (schema?.field_schema?.fields) {
       return schema.field_schema.fields;
     }
-    // Infer fields from content keys
-    return Object.keys(currentItem.content || {}).map((key) => ({
-      key,
-      type: inferFieldType(currentItem.content[key]),
-      label: formatLabel(key),
-    }));
-  }, [schema, currentItem.content]);
+    if (item?.content) {
+      return Object.keys(item.content).map((key): FieldDefinition => ({
+        key,
+        type: inferFieldType(item.content[key]),
+        label: formatLabel(key),
+        required: false,
+      }));
+    }
+    return [];
+  }, [schema, item?.content]);
 
   // Categorize fields by size for bento layout
   const { largeFields, mediumFields, smallFields } = useMemo(() => {
-    const large: typeof fields = [];
-    const medium: typeof fields = [];
-    const small: typeof fields = [];
+    const large: FieldDefinition[] = [];
+    const medium: FieldDefinition[] = [];
+    const small: FieldDefinition[] = [];
 
     fields.forEach((field) => {
-      const value = currentItem.content[field.key];
-      if (!value) return;
+      const value = isEditing ? formData[field.key] : item?.content[field.key];
 
       if (field.type === 'longtext' || (typeof value === 'string' && value.length > 200)) {
         large.push(field);
@@ -206,12 +239,144 @@ export default function ContextItemDetailClient({
     });
 
     return { largeFields: large, mediumFields: medium, smallFields: small };
-  }, [fields, currentItem.content]);
+  }, [fields, item?.content, formData, isEditing]);
 
-  const handleEditorSuccess = () => {
-    // Refresh the page to get updated data
-    window.location.reload();
+  // Track changes
+  const updateField = useCallback((key: string, value: unknown) => {
+    setFormData((prev) => ({ ...prev, [key]: value }));
+    setHasChanges(true);
+  }, []);
+
+  // Calculate completeness
+  const completeness = useMemo(() => {
+    const requiredFields = fields.filter((f) => f.required);
+    if (requiredFields.length === 0) return 1;
+
+    const data = isEditing ? formData : (item?.content || {});
+    let filled = 0;
+    requiredFields.forEach((field) => {
+      const value = data[field.key];
+      if (field.type === 'array') {
+        if (Array.isArray(value) && value.length > 0) filled++;
+      } else if (value && String(value).trim()) {
+        filled++;
+      }
+    });
+
+    return filled / requiredFields.length;
+  }, [fields, formData, item?.content, isEditing]);
+
+  // Save handler
+  const handleSave = async () => {
+    if (!schema) return;
+
+    // Validate required fields
+    for (const field of fields) {
+      if (field.required) {
+        const value = formData[field.key];
+        const isEmpty = field.type === 'array'
+          ? !Array.isArray(value) || value.length === 0
+          : !value || !String(value).trim();
+        if (isEmpty) {
+          toast.error(`${field.label} is required`);
+          return;
+        }
+      }
+    }
+
+    setSaving(true);
+    try {
+      const url = `/api/substrate/baskets/${basketId}/context/entries/${schema.anchor_role}`;
+      const payload: Record<string, unknown> = { data: formData };
+
+      if (!schema.is_singleton && displayName.trim()) {
+        payload.display_name = displayName.trim();
+      }
+
+      const response = await fetch(url, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({ detail: 'Failed to save' }));
+        throw new Error(data.detail || 'Failed to save');
+      }
+
+      const result = await response.json();
+
+      toast.success(isNew ? 'Context created' : 'Changes saved');
+      setHasChanges(false);
+      setIsEditing(false);
+
+      // If new, redirect to the created item
+      if (isNew && result.id) {
+        router.replace(`/projects/${projectId}/context/${result.id}`);
+      } else {
+        // Refresh to get updated data
+        router.refresh();
+      }
+    } catch (err) {
+      console.error('[ContextItemDetail] Save error:', err);
+      toast.error(err instanceof Error ? err.message : 'Failed to save');
+    } finally {
+      setSaving(false);
+    }
   };
+
+  // Delete handler
+  const handleDelete = async () => {
+    if (!item || !confirm('Are you sure you want to delete this context item?')) return;
+
+    setDeleting(true);
+    try {
+      const response = await fetch(
+        `/api/substrate/baskets/${basketId}/context/entries/${item.item_type}/${item.id}`,
+        { method: 'DELETE' }
+      );
+
+      if (!response.ok) {
+        throw new Error('Failed to delete');
+      }
+
+      toast.success('Context deleted');
+      router.push(`/projects/${projectId}/context`);
+    } catch (err) {
+      console.error('[ContextItemDetail] Delete error:', err);
+      toast.error('Failed to delete');
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  // Cancel editing
+  const handleCancel = () => {
+    if (isNew) {
+      router.push(`/projects/${projectId}/context`);
+    } else {
+      setFormData(item?.content || {});
+      setDisplayName(item?.title || '');
+      setHasChanges(false);
+      setIsEditing(false);
+    }
+  };
+
+  // For new items without schema, show error
+  if (isNew && !schema) {
+    return (
+      <div className="mx-auto max-w-7xl px-6 py-12 text-center">
+        <AlertTriangle className="h-12 w-12 text-destructive mx-auto mb-4" />
+        <h2 className="text-xl font-semibold">Schema not found</h2>
+        <p className="text-muted-foreground mt-2">
+          Unable to create new context item. Schema &quot;{schemaRole}&quot; not found.
+        </p>
+        <Button variant="outline" className="mt-4" onClick={() => router.push(`/projects/${projectId}/context`)}>
+          Back to Context
+        </Button>
+      </div>
+    );
+  }
 
   return (
     <div className="mx-auto max-w-7xl px-6 py-8">
@@ -225,188 +390,200 @@ export default function ContextItemDetailClient({
             </div>
 
             {/* Title and Meta */}
-            <div>
-              <h1 className="text-3xl font-bold text-foreground">
-                {currentItem.title || schema?.display_name || formatLabel(currentItem.item_type)}
-              </h1>
+            <div className="flex-1">
+              {isEditing && schema && !schema.is_singleton ? (
+                <Input
+                  value={displayName}
+                  onChange={(e) => {
+                    setDisplayName(e.target.value);
+                    setHasChanges(true);
+                  }}
+                  placeholder={`Enter ${schema.display_name.toLowerCase()} name...`}
+                  className="text-2xl font-bold h-auto py-1 px-2 -ml-2"
+                />
+              ) : (
+                <h1 className="text-3xl font-bold text-foreground">
+                  {item?.title || schema?.display_name || formatLabel(item?.item_type || schemaRole || '')}
+                </h1>
+              )}
               <p className="text-muted-foreground mt-1">
                 {schema?.description || tierConfig.description}
               </p>
 
               {/* Badges Row */}
               <div className="flex items-center gap-2 mt-3 flex-wrap">
-                {/* Tier Badge */}
                 <Badge variant="outline" className={`${tierConfig.bgColor} ${tierConfig.color}`}>
                   {tierConfig.label}
                 </Badge>
-
-                {/* Category Badge */}
                 {schema?.category && (
                   <Badge variant="secondary" className="capitalize">
                     {schema.category}
                   </Badge>
                 )}
-
-                {/* Source Badge */}
-                <Badge variant="outline" className="gap-1">
-                  {isAgentGenerated ? (
-                    <>
-                      <Bot className="h-3 w-3" />
-                      {sourceRef?.agent_type || 'Agent'}
-                    </>
-                  ) : (
-                    <>
-                      <User className="h-3 w-3" />
-                      You
-                    </>
-                  )}
-                </Badge>
-
-                {/* Completeness */}
-                {schema && (
-                  <CompletenessIndicator
-                    fields={schema.field_schema.fields}
-                    content={currentItem.content}
-                  />
+                {!isNew && (
+                  <Badge variant="outline" className="gap-1">
+                    {isAgentGenerated ? (
+                      <>
+                        <Bot className="h-3 w-3" />
+                        {sourceRef?.agent_type || 'Agent'}
+                      </>
+                    ) : (
+                      <>
+                        <User className="h-3 w-3" />
+                        You
+                      </>
+                    )}
+                  </Badge>
                 )}
+                <CompletenessIndicator score={completeness} />
               </div>
             </div>
           </div>
 
           {/* Actions */}
-          <Button onClick={() => setEditorOpen(true)}>
-            <Pencil className="h-4 w-4 mr-2" />
-            Edit
-          </Button>
+          <div className="flex items-center gap-2">
+            {isEditing ? (
+              <>
+                <Button variant="outline" onClick={handleCancel} disabled={saving}>
+                  <X className="h-4 w-4 mr-2" />
+                  Cancel
+                </Button>
+                <Button onClick={handleSave} disabled={saving || (!hasChanges && !isNew)}>
+                  {saving ? (
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  ) : (
+                    <Save className="h-4 w-4 mr-2" />
+                  )}
+                  {isNew ? 'Create' : 'Save'}
+                </Button>
+              </>
+            ) : (
+              <>
+                {item && (
+                  <Button variant="outline" onClick={handleDelete} disabled={deleting}>
+                    {deleting ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Trash2 className="h-4 w-4" />
+                    )}
+                  </Button>
+                )}
+                <Button onClick={() => setIsEditing(true)}>
+                  <Pencil className="h-4 w-4 mr-2" />
+                  Edit
+                </Button>
+              </>
+            )}
+          </div>
         </div>
       </div>
 
       {/* Bento Grid */}
       <div className="grid grid-cols-12 gap-4 auto-rows-min">
-        {/* Large fields - full width or 2/3 width */}
+        {/* Large fields */}
         {largeFields.map((field) => (
           <div key={field.key} className="col-span-12 lg:col-span-8">
             <FieldTile
               field={field}
-              value={currentItem.content[field.key]}
+              value={isEditing ? formData[field.key] : item?.content[field.key]}
+              isEditing={isEditing}
+              onChange={(value) => updateField(field.key, value)}
+              basketId={basketId}
               size="large"
             />
           </div>
         ))}
 
-        {/* Medium fields - half width */}
+        {/* Medium fields */}
         {mediumFields.map((field) => (
           <div key={field.key} className="col-span-12 sm:col-span-6 lg:col-span-4">
             <FieldTile
               field={field}
-              value={currentItem.content[field.key]}
+              value={isEditing ? formData[field.key] : item?.content[field.key]}
+              isEditing={isEditing}
+              onChange={(value) => updateField(field.key, value)}
+              basketId={basketId}
               size="medium"
             />
           </div>
         ))}
 
-        {/* Small fields - third width or quarter */}
+        {/* Small fields */}
         {smallFields.map((field) => (
           <div key={field.key} className="col-span-12 sm:col-span-6 lg:col-span-3">
             <FieldTile
               field={field}
-              value={currentItem.content[field.key]}
+              value={isEditing ? formData[field.key] : item?.content[field.key]}
+              isEditing={isEditing}
+              onChange={(value) => updateField(field.key, value)}
+              basketId={basketId}
               size="small"
             />
           </div>
         ))}
       </div>
 
-      {/* Provenance Footer */}
-      <div className="mt-8 pt-6 border-t border-border">
-        <div className="flex items-center justify-between text-sm text-muted-foreground">
-          <div className="flex items-center gap-6">
-            <div className="flex items-center gap-2">
-              <Calendar className="h-4 w-4" />
-              <span>Created {formatDate(currentItem.created_at)}</span>
+      {/* Provenance Footer - only show for existing items */}
+      {!isNew && item && (
+        <div className="mt-8 pt-6 border-t border-border">
+          <div className="flex items-center justify-between text-sm text-muted-foreground">
+            <div className="flex items-center gap-6">
+              <div className="flex items-center gap-2">
+                <Calendar className="h-4 w-4" />
+                <span>Created {formatDate(item.created_at)}</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <Clock className="h-4 w-4" />
+                <span>Updated {formatDate(item.updated_at)}</span>
+              </div>
             </div>
-            <div className="flex items-center gap-2">
-              <Clock className="h-4 w-4" />
-              <span>Updated {formatDate(currentItem.updated_at)}</span>
-            </div>
+
+            {isAgentGenerated && sourceRef?.work_ticket_id && (
+              <Link
+                href={`/projects/${projectId}/work-tickets/${sourceRef.work_ticket_id}/track`}
+                className="text-primary hover:underline flex items-center gap-1"
+              >
+                View Source Work Ticket
+                <ExternalLink className="h-3 w-3" />
+              </Link>
+            )}
           </div>
 
-          {/* Link to work ticket if agent-generated */}
-          {isAgentGenerated && sourceRef?.work_ticket_id && (
-            <Link
-              href={`/projects/${projectId}/work-tickets/${sourceRef.work_ticket_id}/track`}
-              className="text-primary hover:underline flex items-center gap-1"
-            >
-              View Source Work Ticket
-              <ExternalLink className="h-3 w-3" />
-            </Link>
-          )}
-        </div>
-
-        {/* Version History Placeholder */}
-        <div className="mt-4 p-4 bg-muted/50 rounded-lg">
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <History className="h-4 w-4" />
-            <span>Version history coming soon</span>
+          <div className="mt-4 p-4 bg-muted/50 rounded-lg">
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <History className="h-4 w-4" />
+              <span>Version history coming soon</span>
+            </div>
           </div>
         </div>
-      </div>
-
-      {/* Editor Modal */}
-      {schema && (
-        <ContextEntryEditor
-          projectId={projectId}
-          basketId={basketId}
-          anchorRole={currentItem.item_type}
-          schema={{
-            anchor_role: schema.anchor_role,
-            display_name: schema.display_name,
-            description: schema.description,
-            icon: schema.icon,
-            category: schema.category,
-            is_singleton: schema.is_singleton,
-            field_schema: {
-              // Convert 'url' type to 'text' for editor compatibility
-              fields: schema.field_schema.fields.map((field): EditorFieldDefinition => ({
-                ...field,
-                type: field.type === 'url' ? 'text' : field.type as EditorFieldType,
-              })),
-              agent_produced: schema.field_schema.agent_produced,
-            },
-          }}
-          entry={{
-            id: currentItem.id,
-            basket_id: currentItem.basket_id,
-            anchor_role: currentItem.item_type,
-            data: currentItem.content,
-            state: 'active',
-            created_at: currentItem.created_at,
-            updated_at: currentItem.updated_at,
-          }}
-          open={editorOpen}
-          onClose={() => setEditorOpen(false)}
-          onSuccess={handleEditorSuccess}
-        />
       )}
     </div>
   );
 }
 
-/**
- * Field Tile - Renders a single field in the bento grid
- */
+// =============================================================================
+// FIELD TILE COMPONENT
+// =============================================================================
+
 function FieldTile({
   field,
   value,
+  isEditing,
+  onChange,
+  basketId,
   size,
 }: {
   field: FieldDefinition;
   value: unknown;
+  isEditing: boolean;
+  onChange: (value: unknown) => void;
+  basketId: string;
   size: 'small' | 'medium' | 'large';
 }) {
   const FieldIcon = FIELD_TYPE_ICONS[field.type] || Type;
 
-  if (!value && value !== 0) {
+  // In view mode, hide empty fields
+  if (!isEditing && !value && value !== 0) {
     return null;
   }
 
@@ -416,28 +593,108 @@ function FieldTile({
       <div className="px-4 py-3 border-b border-border bg-muted/30">
         <div className="flex items-center gap-2">
           <FieldIcon className="h-4 w-4 text-muted-foreground" />
-          <span className="text-sm font-medium text-foreground">{field.label}</span>
+          <span className="text-sm font-medium text-foreground">
+            {field.label}
+            {field.required && <span className="text-destructive ml-1">*</span>}
+          </span>
         </div>
       </div>
 
       {/* Field Content */}
       <div className={`p-4 ${size === 'large' ? 'min-h-[200px]' : size === 'medium' ? 'min-h-[120px]' : ''}`}>
-        <FieldRenderer field={field} value={value} />
+        {isEditing ? (
+          <FieldEditor field={field} value={value} onChange={onChange} basketId={basketId} />
+        ) : (
+          <FieldRenderer field={field} value={value} />
+        )}
       </div>
+
+      {/* Help text */}
+      {isEditing && field.help && (
+        <div className="px-4 pb-3">
+          <p className="text-xs text-muted-foreground">{field.help}</p>
+        </div>
+      )}
     </Card>
   );
 }
 
-/**
- * Field Renderer - Type-specific rendering
- */
+// =============================================================================
+// FIELD EDITOR COMPONENT
+// =============================================================================
+
+function FieldEditor({
+  field,
+  value,
+  onChange,
+  basketId,
+}: {
+  field: FieldDefinition;
+  value: unknown;
+  onChange: (value: unknown) => void;
+  basketId: string;
+}) {
+  switch (field.type) {
+    case 'text':
+    case 'url':
+      return (
+        <Input
+          value={(value as string) || ''}
+          onChange={(e) => onChange(e.target.value)}
+          placeholder={field.placeholder || `Enter ${field.label.toLowerCase()}...`}
+        />
+      );
+
+    case 'longtext':
+      return (
+        <Textarea
+          value={(value as string) || ''}
+          onChange={(e) => onChange(e.target.value)}
+          placeholder={field.placeholder}
+          rows={6}
+          className="resize-y min-h-[150px]"
+        />
+      );
+
+    case 'array':
+      return (
+        <ArrayFieldEditor
+          values={(value as string[]) || []}
+          onChange={onChange}
+          placeholder={field.placeholder || `Add ${field.label.toLowerCase()}...`}
+        />
+      );
+
+    case 'asset':
+      return (
+        <AssetFieldEditor
+          value={(value as string) || null}
+          onChange={onChange}
+          basketId={basketId}
+          accept={field.accept}
+          label={field.label}
+        />
+      );
+
+    default:
+      return (
+        <Input
+          value={String(value || '')}
+          onChange={(e) => onChange(e.target.value)}
+        />
+      );
+  }
+}
+
+// =============================================================================
+// FIELD RENDERER COMPONENT (View Mode)
+// =============================================================================
+
 function FieldRenderer({ field, value }: { field: FieldDefinition; value: unknown }) {
-  // Text
   if (field.type === 'text') {
     return <p className="text-foreground">{String(value)}</p>;
   }
 
-  // Long Text
   if (field.type === 'longtext') {
     return (
       <div className="prose prose-sm max-w-none">
@@ -448,7 +705,6 @@ function FieldRenderer({ field, value }: { field: FieldDefinition; value: unknow
     );
   }
 
-  // Array
   if (field.type === 'array' && Array.isArray(value)) {
     return (
       <div className="flex flex-wrap gap-2">
@@ -461,7 +717,6 @@ function FieldRenderer({ field, value }: { field: FieldDefinition; value: unknow
     );
   }
 
-  // Asset
   if (field.type === 'asset' && typeof value === 'string') {
     if (value.startsWith('asset://')) {
       const assetId = value.replace('asset://', '');
@@ -472,21 +727,15 @@ function FieldRenderer({ field, value }: { field: FieldDefinition; value: unknow
         </div>
       );
     }
-    // Direct URL (image)
     if (value.match(/\.(jpg|jpeg|png|gif|webp)/i)) {
       return (
         <div className="relative rounded-lg overflow-hidden bg-muted">
-          <img
-            src={value}
-            alt={field.label}
-            className="w-full h-auto max-h-64 object-contain"
-          />
+          <img src={value} alt={field.label} className="w-full h-auto max-h-64 object-contain" />
         </div>
       );
     }
   }
 
-  // URL
   if (field.type === 'url' && typeof value === 'string') {
     return (
       <a
@@ -502,7 +751,6 @@ function FieldRenderer({ field, value }: { field: FieldDefinition; value: unknow
     );
   }
 
-  // Fallback for arrays (if not detected as array type)
   if (Array.isArray(value)) {
     return (
       <ul className="list-disc list-inside space-y-1">
@@ -518,7 +766,6 @@ function FieldRenderer({ field, value }: { field: FieldDefinition; value: unknow
     );
   }
 
-  // Fallback for objects
   if (typeof value === 'object' && value !== null) {
     return (
       <pre className="text-xs bg-muted p-3 rounded-lg overflow-auto max-h-48">
@@ -527,54 +774,205 @@ function FieldRenderer({ field, value }: { field: FieldDefinition; value: unknow
     );
   }
 
-  // Default text
   return <p className="text-foreground">{String(value)}</p>;
 }
 
-/**
- * Completeness Indicator
- */
-function CompletenessIndicator({
-  fields,
-  content,
-}: {
-  fields: FieldDefinition[];
-  content: Record<string, unknown>;
-}) {
-  const requiredFields = fields.filter((f) => f.required);
-  const filledRequired = requiredFields.filter((f) => {
-    const value = content[f.key];
-    return value !== undefined && value !== null && value !== '' &&
-      !(Array.isArray(value) && value.length === 0);
-  });
+// =============================================================================
+// ARRAY FIELD EDITOR
+// =============================================================================
 
-  const score = requiredFields.length > 0
-    ? Math.round((filledRequired.length / requiredFields.length) * 100)
-    : 100;
+function ArrayFieldEditor({
+  values,
+  onChange,
+  placeholder,
+}: {
+  values: string[];
+  onChange: (values: unknown) => void;
+  placeholder?: string;
+}) {
+  const [newItem, setNewItem] = useState('');
+
+  const addItem = () => {
+    if (newItem.trim()) {
+      onChange([...values, newItem.trim()]);
+      setNewItem('');
+    }
+  };
+
+  const removeItem = (index: number) => {
+    onChange(values.filter((_, i) => i !== index));
+  };
+
+  return (
+    <div className="space-y-3">
+      {values.length > 0 && (
+        <div className="flex flex-wrap gap-2">
+          {values.map((item, index) => (
+            <Badge key={index} variant="secondary" className="flex items-center gap-1 px-2 py-1">
+              <span className="text-sm">{item}</span>
+              <button type="button" onClick={() => removeItem(index)} className="ml-1 hover:text-destructive">
+                <X className="h-3 w-3" />
+              </button>
+            </Badge>
+          ))}
+        </div>
+      )}
+      <div className="flex gap-2">
+        <Input
+          value={newItem}
+          onChange={(e) => setNewItem(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              e.preventDefault();
+              addItem();
+            }
+          }}
+          placeholder={placeholder}
+          className="flex-1"
+        />
+        <Button type="button" variant="outline" size="sm" onClick={addItem} disabled={!newItem.trim()}>
+          <Plus className="h-4 w-4" />
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+// =============================================================================
+// ASSET FIELD EDITOR
+// =============================================================================
+
+function AssetFieldEditor({
+  value,
+  onChange,
+  basketId,
+  accept,
+  label,
+}: {
+  value: string | null;
+  onChange: (value: unknown) => void;
+  basketId: string;
+  accept?: string;
+  label: string;
+}) {
+  const [uploading, setUploading] = useState(false);
+  const [assetInfo, setAssetInfo] = useState<{ filename: string } | null>(null);
+
+  useEffect(() => {
+    if (value && value.startsWith('asset://')) {
+      const assetId = value.replace('asset://', '');
+      setAssetInfo({ filename: `Asset: ${assetId.slice(0, 8)}...` });
+    } else {
+      setAssetInfo(null);
+    }
+  }, [value]);
+
+  const handleUpload = async (file: File) => {
+    setUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const response = await fetch(`/api/baskets/${basketId}/assets/upload`, {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!response.ok) {
+        throw new Error('Upload failed');
+      }
+
+      const data = await response.json();
+      onChange(`asset://${data.id}`);
+      setAssetInfo({ filename: data.filename || file.name });
+      toast.success('Asset uploaded');
+    } catch (err) {
+      toast.error('Upload failed');
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handleRemove = () => {
+    onChange(null);
+    setAssetInfo(null);
+  };
+
+  const isImage = accept?.includes('image');
+
+  return (
+    <div className="space-y-2">
+      {assetInfo ? (
+        <div className="flex items-center gap-2 p-3 bg-muted rounded-lg">
+          {isImage ? (
+            <ImageIcon className="h-5 w-5 text-muted-foreground" />
+          ) : (
+            <FileText className="h-5 w-5 text-muted-foreground" />
+          )}
+          <span className="flex-1 text-sm truncate">{assetInfo.filename}</span>
+          <Button type="button" variant="ghost" size="sm" onClick={handleRemove} className="h-8 w-8 p-0">
+            <X className="h-4 w-4" />
+          </Button>
+        </div>
+      ) : (
+        <label className="flex flex-col items-center justify-center w-full h-24 border-2 border-dashed rounded-lg cursor-pointer hover:bg-muted/50 transition-colors">
+          {uploading ? (
+            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+          ) : (
+            <>
+              <Upload className="h-6 w-6 text-muted-foreground mb-1" />
+              <span className="text-sm text-muted-foreground">Click to upload {label.toLowerCase()}</span>
+            </>
+          )}
+          <input
+            type="file"
+            accept={accept}
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (file) handleUpload(file);
+            }}
+            disabled={uploading}
+            className="hidden"
+          />
+        </label>
+      )}
+    </div>
+  );
+}
+
+// =============================================================================
+// COMPLETENESS INDICATOR
+// =============================================================================
+
+function CompletenessIndicator({ score }: { score: number }) {
+  const percentage = Math.round(score * 100);
 
   return (
     <Badge
       variant="outline"
       className={`gap-1 ${
-        score === 100
+        percentage === 100
           ? 'bg-green-500/10 text-green-700 border-green-500/30'
-          : score >= 50
+          : percentage >= 50
           ? 'bg-yellow-500/10 text-yellow-700 border-yellow-500/30'
           : 'bg-red-500/10 text-red-700 border-red-500/30'
       }`}
     >
-      {score === 100 ? (
+      {percentage === 100 ? (
         <CheckCircle className="h-3 w-3" />
       ) : (
-        <span className="text-xs">{score}%</span>
+        <span className="text-xs">{percentage}%</span>
       )}
-      {score === 100 ? 'Complete' : 'Complete'}
+      Complete
     </Badge>
   );
 }
 
-// Utility functions
-function inferFieldType(value: unknown): FieldDefinition['type'] {
+// =============================================================================
+// UTILITIES
+// =============================================================================
+
+function inferFieldType(value: unknown): FieldType {
   if (Array.isArray(value)) return 'array';
   if (typeof value === 'string') {
     if (value.startsWith('asset://')) return 'asset';
@@ -585,9 +983,7 @@ function inferFieldType(value: unknown): FieldDefinition['type'] {
 }
 
 function formatLabel(key: string): string {
-  return key
-    .replace(/_/g, ' ')
-    .replace(/\b\w/g, (c) => c.toUpperCase());
+  return key.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
 function formatDate(dateString: string): string {
@@ -602,7 +998,6 @@ function formatDate(dateString: string): string {
     return 'yesterday';
   } else if (diffDays < 7) {
     return `${diffDays} days ago`;
-  } else {
-    return date.toLocaleDateString();
   }
+  return date.toLocaleDateString();
 }

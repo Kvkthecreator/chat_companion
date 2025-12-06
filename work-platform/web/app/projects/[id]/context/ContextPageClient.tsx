@@ -41,6 +41,3 @@ export default function ContextPageClient({
     </div>
   );
 }
-
-// Export separate component for Add Context button to be used in header
-export { default as AddContextButton } from "./AddContextButton";

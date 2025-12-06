@@ -17,7 +17,6 @@ import Link from "next/link";
 import { Button } from "@/components/ui/Button";
 import { ArrowLeft } from "lucide-react";
 import ContextPageClient from "./ContextPageClient";
-import AddContextButton from "./AddContextButton";
 import ContextInfoPopover from "./ContextInfoPopover";
 
 interface PageProps {
@@ -91,7 +90,6 @@ export default async function ProjectContextPage({ params, searchParams }: PageP
           </div>
           <p className="text-muted-foreground mt-1">{project.name}</p>
         </div>
-        <AddContextButton projectId={projectId} basketId={project.basket_id} />
       </div>
 
       {/* Context Blocks Client Component */}

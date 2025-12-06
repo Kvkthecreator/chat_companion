@@ -3,10 +3,10 @@
 /**
  * ContextEntriesPanel - Windows Explorer-style context management
  *
- * Architecture (Refactored Dec 2025):
- * - Two view modes: List (compact) and Grid (detailed preview)
- * - Click navigates to detail page (bento layout)
- * - No inline expansion - detail page handles full content
+ * Architecture (Phase 2 Refactor):
+ * - Two view modes: List (table-style, data-dense) and Grid (card previews)
+ * - Click ANY row navigates to detail page (including empty = create)
+ * - No modals - all editing happens on detail page
  * - Realtime updates via Supabase
  *
  * See: /docs/architecture/ADR_CONTEXT_ITEMS_UNIFIED.md
@@ -19,7 +19,6 @@ import { Card } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import {
   Plus,
-  Pencil,
   CheckCircle,
   AlertCircle,
   AlertTriangle,
@@ -38,8 +37,8 @@ import {
   List,
   LayoutGrid,
   ChevronRight,
+  FileText,
 } from 'lucide-react';
-// Link removed - using router.push for navigation
 import {
   useContextSchemas,
   useContextEntries,
@@ -47,7 +46,6 @@ import {
   type ContextEntry,
 } from '@/hooks/useContextEntries';
 import { useContextItemsRealtime } from '@/hooks/useTPRealtime';
-import ContextEntryEditor from './ContextEntryEditor';
 
 // =============================================================================
 // CONSTANTS & CONFIG
@@ -153,50 +151,14 @@ export default function ContextEntriesPanel({
     refetchEntries();
   });
 
-  // Editor modal state
-  const [editorOpen, setEditorOpen] = useState(false);
-  const [editingSchema, setEditingSchema] = useState<ContextEntrySchema | null>(null);
-  const [editingEntry, setEditingEntry] = useState<ContextEntry | null>(null);
-  const [editingEntryKey, setEditingEntryKey] = useState<string | undefined>();
-  const [initialRoleHandled, setInitialRoleHandled] = useState(false);
-
-  // Open editor for a schema
-  const openEditor = (schema: ContextEntrySchema, entry?: ContextEntry, entryKey?: string) => {
-    setEditingSchema(schema);
-    setEditingEntry(entry || null);
-    setEditingEntryKey(entryKey);
-    setEditorOpen(true);
-  };
-
-  // Auto-open editor for initialAnchorRole when data is loaded
-  useEffect(() => {
-    if (initialAnchorRole && !initialRoleHandled && schemas.length > 0 && !schemasLoading) {
-      const schema = schemas.find((s) => s.anchor_role === initialAnchorRole);
-      if (schema) {
-        const entry = getEntryByRole(initialAnchorRole);
-        openEditor(schema, entry || undefined);
-        setInitialRoleHandled(true);
-      }
-    }
-  }, [initialAnchorRole, schemas, schemasLoading, initialRoleHandled, getEntryByRole]);
-
-  // Close editor
-  const closeEditor = () => {
-    setEditorOpen(false);
-    setEditingSchema(null);
-    setEditingEntry(null);
-    setEditingEntryKey(undefined);
-  };
-
-  // Handle successful save
-  const handleEditorSuccess = () => {
-    refetchEntries();
-    closeEditor();
-  };
-
-  // Navigate to detail page
+  // Navigate to detail page (existing item)
   const navigateToDetail = (entryId: string) => {
     router.push(`/projects/${projectId}/context/${entryId}`);
+  };
+
+  // Navigate to create page (new item)
+  const navigateToCreate = (schemaRole: string) => {
+    router.push(`/projects/${projectId}/context/new/${schemaRole}`);
   };
 
   // Calculate overall completeness
@@ -321,7 +283,7 @@ export default function ContextEntriesPanel({
         if (categorySchemas.length === 0) return null;
 
         return (
-          <div key={category} className="space-y-4">
+          <div key={category} className="space-y-3">
             {/* Category header */}
             <div className="flex items-center gap-3">
               <div className={`w-1 h-6 rounded-full ${config.color}`} />
@@ -331,20 +293,14 @@ export default function ContextEntriesPanel({
               </div>
             </div>
 
-            {/* Items - List or Grid view */}
+            {/* Items - List (table) or Grid view */}
             {viewMode === 'list' ? (
-              <div className="space-y-2">
-                {categorySchemas.map((schema) => (
-                  <ContextItemRow
-                    key={schema.anchor_role}
-                    schema={schema}
-                    entry={getEntryByRole(schema.anchor_role) ?? null}
-                    onNavigate={navigateToDetail}
-                    onEdit={(entry) => openEditor(schema, entry)}
-                    onAdd={() => openEditor(schema)}
-                  />
-                ))}
-              </div>
+              <ContextTable
+                schemas={categorySchemas}
+                getEntryByRole={getEntryByRole}
+                onNavigate={navigateToDetail}
+                onCreate={navigateToCreate}
+              />
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                 {categorySchemas.map((schema) => (
@@ -353,31 +309,10 @@ export default function ContextEntriesPanel({
                     schema={schema}
                     entry={getEntryByRole(schema.anchor_role) ?? null}
                     onNavigate={navigateToDetail}
-                    onEdit={(entry) => openEditor(schema, entry)}
-                    onAdd={() => openEditor(schema)}
+                    onCreate={navigateToCreate}
                   />
                 ))}
               </div>
-            )}
-
-            {/* Add competitor button for market category */}
-            {category === 'market' && (
-              <Button
-                variant="outline"
-                size="sm"
-                className="border-dashed"
-                onClick={() => {
-                  const competitorSchema = categorySchemas.find(
-                    (s) => s.anchor_role === 'competitor'
-                  );
-                  if (competitorSchema) {
-                    openEditor(competitorSchema, undefined, `competitor-${Date.now()}`);
-                  }
-                }}
-              >
-                <Plus className="h-4 w-4 mr-1" />
-                Add Competitor
-              </Button>
             )}
           </div>
         );
@@ -385,7 +320,7 @@ export default function ContextEntriesPanel({
 
       {/* Agent Insights Section */}
       {agentInsights.length > 0 && (
-        <div className="space-y-4">
+        <div className="space-y-3">
           <div className="flex items-center gap-3">
             <div className="w-1 h-6 rounded-full bg-purple-500" />
             <div className="flex-1">
@@ -402,15 +337,10 @@ export default function ContextEntriesPanel({
           </div>
 
           {viewMode === 'list' ? (
-            <div className="space-y-2">
-              {agentInsights.map((entry) => (
-                <AgentInsightRow
-                  key={entry.id}
-                  entry={entry}
-                  onNavigate={navigateToDetail}
-                />
-              ))}
-            </div>
+            <AgentInsightsTable
+              entries={agentInsights}
+              onNavigate={navigateToDetail}
+            />
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
               {agentInsights.map((entry) => (
@@ -424,167 +354,209 @@ export default function ContextEntriesPanel({
           )}
         </div>
       )}
-
-      {/* Editor modal */}
-      {editingSchema && (
-        <ContextEntryEditor
-          projectId={projectId}
-          basketId={basketId}
-          anchorRole={editingSchema.anchor_role}
-          entryKey={editingEntryKey}
-          schema={editingSchema}
-          entry={editingEntry}
-          open={editorOpen}
-          onClose={closeEditor}
-          onSuccess={handleEditorSuccess}
-        />
-      )}
     </div>
   );
 }
 
 // =============================================================================
-// LIST VIEW COMPONENTS
+// TABLE VIEW COMPONENT (True List Style)
 // =============================================================================
 
-/**
- * Compact row for list view
- */
-function ContextItemRow({
-  schema,
-  entry,
+function ContextTable({
+  schemas,
+  getEntryByRole,
   onNavigate,
-  onEdit,
-  onAdd,
+  onCreate,
 }: {
-  schema: ContextEntrySchema;
-  entry: ContextEntry | null;
+  schemas: ContextEntrySchema[];
+  getEntryByRole: (role: string) => ContextEntry | undefined;
   onNavigate: (id: string) => void;
-  onEdit: (entry: ContextEntry) => void;
-  onAdd: () => void;
+  onCreate: (schemaRole: string) => void;
 }) {
-  const Icon = ROLE_ICONS[schema.anchor_role] || AlertCircle;
-  const hasContent = entry && Object.keys(entry.data).length > 0;
-
   return (
-    <Card
-      className={`group transition-all ${
-        hasContent
-          ? 'cursor-pointer hover:bg-muted/50'
-          : 'border-dashed'
-      }`}
-      onClick={() => hasContent && entry && onNavigate(entry.id)}
-    >
-      <div className="flex items-center gap-4 p-4">
-        {/* Icon */}
-        <div
-          className={`p-2 rounded-lg shrink-0 ${
-            hasContent ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground'
-          }`}
-        >
-          <Icon className="h-5 w-5" />
-        </div>
+    <div className="border rounded-lg overflow-hidden">
+      <table className="w-full">
+        <thead>
+          <tr className="bg-muted/50 border-b">
+            <th className="text-left py-2.5 px-4 text-xs font-medium text-muted-foreground uppercase tracking-wide">
+              Name
+            </th>
+            <th className="text-left py-2.5 px-4 text-xs font-medium text-muted-foreground uppercase tracking-wide w-24">
+              Source
+            </th>
+            <th className="text-left py-2.5 px-4 text-xs font-medium text-muted-foreground uppercase tracking-wide w-28">
+              Updated
+            </th>
+            <th className="text-left py-2.5 px-4 text-xs font-medium text-muted-foreground uppercase tracking-wide">
+              Preview
+            </th>
+            <th className="w-10"></th>
+          </tr>
+        </thead>
+        <tbody>
+          {schemas.map((schema) => {
+            const entry = getEntryByRole(schema.anchor_role);
+            const hasContent = entry && Object.keys(entry.data).length > 0;
+            const Icon = ROLE_ICONS[schema.anchor_role] || FileText;
 
-        {/* Title and meta */}
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2">
-            <span className="font-medium">{schema.display_name}</span>
-            {entry && <SourceBadge entry={entry} />}
-          </div>
-          {!hasContent && (
-            <p className="text-sm text-muted-foreground truncate">
-              {schema.description}
-            </p>
-          )}
-          {hasContent && entry && (
-            <p className="text-sm text-muted-foreground truncate">
-              {getContentPreview(entry.data, 80)}
-            </p>
-          )}
-        </div>
-
-        {/* Actions */}
-        <div className="flex items-center gap-2 shrink-0">
-          {hasContent && entry ? (
-            <>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-8 w-8 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onEdit(entry);
+            return (
+              <tr
+                key={schema.anchor_role}
+                className={`border-b last:border-b-0 cursor-pointer transition-colors ${
+                  hasContent ? 'hover:bg-muted/50' : 'hover:bg-muted/30'
+                }`}
+                onClick={() => {
+                  if (hasContent && entry) {
+                    onNavigate(entry.id);
+                  } else {
+                    onCreate(schema.anchor_role);
+                  }
                 }}
               >
-                <Pencil className="h-4 w-4" />
-              </Button>
-              <ChevronRight className="h-4 w-4 text-muted-foreground" />
-            </>
-          ) : (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={(e) => {
-                e.stopPropagation();
-                onAdd();
-              }}
-            >
-              <Plus className="h-4 w-4 mr-1" />
-              Add
-            </Button>
-          )}
-        </div>
-      </div>
-    </Card>
+                {/* Name */}
+                <td className="py-3 px-4">
+                  <div className="flex items-center gap-3">
+                    <div
+                      className={`p-1.5 rounded ${
+                        hasContent ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground'
+                      }`}
+                    >
+                      <Icon className="h-4 w-4" />
+                    </div>
+                    <span className={`font-medium ${!hasContent ? 'text-muted-foreground' : ''}`}>
+                      {schema.display_name}
+                    </span>
+                    {!hasContent && (
+                      <Badge variant="outline" className="text-xs text-muted-foreground">
+                        Empty
+                      </Badge>
+                    )}
+                  </div>
+                </td>
+
+                {/* Source */}
+                <td className="py-3 px-4">
+                  {entry && <SourceBadge entry={entry} />}
+                </td>
+
+                {/* Updated */}
+                <td className="py-3 px-4 text-sm text-muted-foreground">
+                  {entry ? formatRelativeDate(entry.updated_at) : '—'}
+                </td>
+
+                {/* Preview */}
+                <td className="py-3 px-4 text-sm text-muted-foreground max-w-xs truncate">
+                  {hasContent && entry
+                    ? getContentPreview(entry.data, 60)
+                    : <span className="italic">{schema.description}</span>
+                  }
+                </td>
+
+                {/* Arrow */}
+                <td className="py-3 px-4">
+                  <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
   );
 }
 
-/**
- * Agent insight row for list view
- */
-function AgentInsightRow({
-  entry,
+// =============================================================================
+// AGENT INSIGHTS TABLE
+// =============================================================================
+
+function AgentInsightsTable({
+  entries,
   onNavigate,
 }: {
-  entry: ContextEntry;
+  entries: ContextEntry[];
   onNavigate: (id: string) => void;
 }) {
-  const Icon = ROLE_ICONS[entry.anchor_role] || Sparkles;
-  const typeLabel = ITEM_TYPE_LABELS[entry.anchor_role] || entry.anchor_role;
-  const tierConfig = TIER_CONFIG[entry.tier || 'working'];
-
-  const sourceRef = entry.source_ref as { agent_type?: string } | null;
-  const agentType = sourceRef?.agent_type;
-
   return (
-    <Card
-      className="cursor-pointer hover:bg-purple-500/5 transition-all border-purple-500/20 bg-purple-500/5"
-      onClick={() => onNavigate(entry.id)}
-    >
-      <div className="flex items-center gap-4 p-4">
-        <div className="p-2 rounded-lg bg-purple-500/10 text-purple-600 shrink-0">
-          <Icon className="h-5 w-5" />
-        </div>
+    <div className="border border-purple-500/20 rounded-lg overflow-hidden bg-purple-500/5">
+      <table className="w-full">
+        <thead>
+          <tr className="bg-purple-500/10 border-b border-purple-500/20">
+            <th className="text-left py-2.5 px-4 text-xs font-medium text-purple-700 uppercase tracking-wide">
+              Name
+            </th>
+            <th className="text-left py-2.5 px-4 text-xs font-medium text-purple-700 uppercase tracking-wide w-24">
+              Tier
+            </th>
+            <th className="text-left py-2.5 px-4 text-xs font-medium text-purple-700 uppercase tracking-wide w-24">
+              Agent
+            </th>
+            <th className="text-left py-2.5 px-4 text-xs font-medium text-purple-700 uppercase tracking-wide w-28">
+              Generated
+            </th>
+            <th className="text-left py-2.5 px-4 text-xs font-medium text-purple-700 uppercase tracking-wide">
+              Summary
+            </th>
+            <th className="w-10"></th>
+          </tr>
+        </thead>
+        <tbody>
+          {entries.map((entry) => {
+            const Icon = ROLE_ICONS[entry.anchor_role] || Sparkles;
+            const typeLabel = ITEM_TYPE_LABELS[entry.anchor_role] || entry.anchor_role;
+            const tierConfig = TIER_CONFIG[entry.tier || 'working'];
+            const sourceRef = entry.source_ref as { agent_type?: string } | null;
 
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className="font-medium">{entry.display_name || typeLabel}</span>
-            <Badge variant="outline" className={`text-xs ${tierConfig.bgColor} ${tierConfig.color}`}>
-              {tierConfig.label}
-            </Badge>
-            <Badge variant="secondary" className="text-xs gap-1">
-              <Bot className="h-3 w-3" />
-              {agentType || 'Agent'}
-            </Badge>
-          </div>
-          <p className="text-sm text-muted-foreground truncate mt-0.5">
-            {getContentPreview(entry.data, 100)}
-          </p>
-        </div>
+            return (
+              <tr
+                key={entry.id}
+                className="border-b border-purple-500/20 last:border-b-0 cursor-pointer hover:bg-purple-500/10 transition-colors"
+                onClick={() => onNavigate(entry.id)}
+              >
+                {/* Name */}
+                <td className="py-3 px-4">
+                  <div className="flex items-center gap-3">
+                    <div className="p-1.5 rounded bg-purple-500/10 text-purple-600">
+                      <Icon className="h-4 w-4" />
+                    </div>
+                    <span className="font-medium">{entry.display_name || typeLabel}</span>
+                  </div>
+                </td>
 
-        <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
-      </div>
-    </Card>
+                {/* Tier */}
+                <td className="py-3 px-4">
+                  <Badge variant="outline" className={`text-xs ${tierConfig.bgColor} ${tierConfig.color}`}>
+                    {tierConfig.label}
+                  </Badge>
+                </td>
+
+                {/* Agent */}
+                <td className="py-3 px-4">
+                  <Badge variant="secondary" className="text-xs gap-1">
+                    <Bot className="h-3 w-3" />
+                    {sourceRef?.agent_type || 'Agent'}
+                  </Badge>
+                </td>
+
+                {/* Generated */}
+                <td className="py-3 px-4 text-sm text-muted-foreground">
+                  {formatRelativeDate(entry.created_at)}
+                </td>
+
+                {/* Summary */}
+                <td className="py-3 px-4 text-sm text-muted-foreground max-w-xs truncate">
+                  {getContentPreview(entry.data, 80)}
+                </td>
+
+                {/* Arrow */}
+                <td className="py-3 px-4">
+                  <ChevronRight className="h-4 w-4 text-purple-600" />
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
   );
 }
 
@@ -592,33 +564,34 @@ function AgentInsightRow({
 // GRID VIEW COMPONENTS
 // =============================================================================
 
-/**
- * Detailed card for grid view - Windows Explorer "Details" style
- */
 function ContextItemCard({
   schema,
   entry,
   onNavigate,
-  onEdit,
-  onAdd,
+  onCreate,
 }: {
   schema: ContextEntrySchema;
   entry: ContextEntry | null;
   onNavigate: (id: string) => void;
-  onEdit: (entry: ContextEntry) => void;
-  onAdd: () => void;
+  onCreate: (schemaRole: string) => void;
 }) {
-  const Icon = ROLE_ICONS[schema.anchor_role] || AlertCircle;
+  const Icon = ROLE_ICONS[schema.anchor_role] || FileText;
   const hasContent = entry && Object.keys(entry.data).length > 0;
 
   return (
     <Card
-      className={`group flex flex-col h-full transition-all ${
+      className={`group flex flex-col h-full transition-all cursor-pointer ${
         hasContent
-          ? 'cursor-pointer hover:shadow-md hover:border-primary/30'
-          : 'border-dashed'
+          ? 'hover:shadow-md hover:border-primary/30'
+          : 'border-dashed hover:border-primary/50 hover:bg-muted/30'
       }`}
-      onClick={() => hasContent && entry && onNavigate(entry.id)}
+      onClick={() => {
+        if (hasContent && entry) {
+          onNavigate(entry.id);
+        } else {
+          onCreate(schema.anchor_role);
+        }
+      }}
     >
       {/* Header */}
       <div className="flex items-start gap-3 p-4 pb-2">
@@ -637,26 +610,12 @@ function ContextItemCard({
             </div>
           )}
         </div>
-        {hasContent && entry && (
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-7 w-7 p-0 opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
-            onClick={(e) => {
-              e.stopPropagation();
-              onEdit(entry);
-            }}
-          >
-            <Pencil className="h-3.5 w-3.5" />
-          </Button>
-        )}
       </div>
 
       {/* Content preview */}
       <div className="flex-1 px-4 pb-4">
         {hasContent && entry ? (
           <div className="space-y-2">
-            {/* Show first few fields */}
             {getFieldPreviews(entry.data, schema.field_schema.fields).map((preview, idx) => (
               <div key={idx}>
                 <p className="text-xs text-muted-foreground uppercase tracking-wide mb-0.5">
@@ -684,21 +643,14 @@ function ContextItemCard({
             ))}
           </div>
         ) : (
-          <div className="h-full flex flex-col items-center justify-center py-4">
-            <p className="text-sm text-muted-foreground text-center mb-3">
+          <div className="h-full flex flex-col items-center justify-center py-4 text-center">
+            <p className="text-sm text-muted-foreground mb-2">
               {schema.description}
             </p>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={(e) => {
-                e.stopPropagation();
-                onAdd();
-              }}
-            >
-              <Plus className="h-4 w-4 mr-1" />
-              Add
-            </Button>
+            <div className="flex items-center gap-1 text-sm text-primary">
+              <Plus className="h-4 w-4" />
+              Click to add
+            </div>
           </div>
         )}
       </div>
@@ -715,9 +667,6 @@ function ContextItemCard({
   );
 }
 
-/**
- * Agent insight card for grid view
- */
 function AgentInsightCard({
   entry,
   onNavigate,
@@ -728,9 +677,7 @@ function AgentInsightCard({
   const Icon = ROLE_ICONS[entry.anchor_role] || Sparkles;
   const typeLabel = ITEM_TYPE_LABELS[entry.anchor_role] || entry.anchor_role;
   const tierConfig = TIER_CONFIG[entry.tier || 'working'];
-
   const sourceRef = entry.source_ref as { agent_type?: string } | null;
-  const agentType = sourceRef?.agent_type;
 
   return (
     <Card
@@ -750,7 +697,7 @@ function AgentInsightCard({
             </Badge>
             <Badge variant="secondary" className="text-xs gap-1">
               <Bot className="h-3 w-3" />
-              {agentType || 'Agent'}
+              {sourceRef?.agent_type || 'Agent'}
             </Badge>
           </div>
         </div>
@@ -777,9 +724,6 @@ function AgentInsightCard({
 // SHARED COMPONENTS
 // =============================================================================
 
-/**
- * Badge showing source (user or agent)
- */
 function SourceBadge({ entry }: { entry: ContextEntry }) {
   const updatedBy = entry.updated_by || entry.created_by;
   if (!updatedBy) return null;
@@ -808,11 +752,7 @@ function SourceBadge({ entry }: { entry: ContextEntry }) {
 // UTILITIES
 // =============================================================================
 
-/**
- * Get a text preview from entry data
- */
 function getContentPreview(data: Record<string, unknown>, maxLength: number): string {
-  // Try common field names in order of preference
   const preferredFields = ['summary', 'description', 'statement', 'overview', 'content', 'body'];
 
   for (const field of preferredFields) {
@@ -822,7 +762,6 @@ function getContentPreview(data: Record<string, unknown>, maxLength: number): st
     }
   }
 
-  // Fallback to first string field
   for (const value of Object.values(data)) {
     if (typeof value === 'string' && value.length > 0) {
       return value.length > maxLength ? value.slice(0, maxLength) + '...' : value;
@@ -832,9 +771,6 @@ function getContentPreview(data: Record<string, unknown>, maxLength: number): st
   return 'No content';
 }
 
-/**
- * Get field previews for grid view
- */
 function getFieldPreviews(
   data: Record<string, unknown>,
   fields: Array<{ key: string; label: string; type: string }>
@@ -849,11 +785,7 @@ function getFieldPreviews(
     if (!value) continue;
 
     if (Array.isArray(value) && value.length > 0) {
-      previews.push({
-        label: field.label,
-        value: value.map(String),
-        type: 'array',
-      });
+      previews.push({ label: field.label, value: value.map(String), type: 'array' });
     } else if (typeof value === 'string' && value.length > 0) {
       previews.push({
         label: field.label,
@@ -866,9 +798,6 @@ function getFieldPreviews(
   return previews;
 }
 
-/**
- * Format relative date
- */
 function formatRelativeDate(dateString: string): string {
   const date = new Date(dateString);
   const now = new Date();
