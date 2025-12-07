@@ -1,14 +1,15 @@
 'use client';
 
 /**
- * TPMessageList (v3.0 - Chat-First Architecture)
+ * TPMessageList (v3.1 - Desktop UI Integration)
  *
  * Displays list of chat messages with TP.
  * Supports rich in-chat displays: context cards, work outputs, recipe progress.
+ * Now includes compact indicators that link directly to Desktop windows.
  *
  * See:
  * - /docs/architecture/CHAT_FIRST_ARCHITECTURE_V1.md
- * - /docs/implementation/THINKING_PARTNER_IMPLEMENTATION_PLAN.md
+ * - /docs/implementation/DESKTOP_UI_IMPLEMENTATION_PLAN.md
  */
 
 import type {
@@ -26,6 +27,11 @@ import {
   RecipeProgressCard,
   ExecutionStepsTimeline,
 } from './chat-cards';
+import {
+  ContextIndicator,
+  WorkIndicator,
+  OutputIndicator,
+} from './chat-indicators';
 
 interface TPMessageListProps {
   messages: TPMessage[];
@@ -33,6 +39,8 @@ interface TPMessageListProps {
   onNavigateToOutput?: (outputId: string) => void;
   onNavigateToTicket?: (ticketId: string) => void;
   onViewAllContext?: () => void;
+  /** Display mode: 'cards' for rich cards, 'indicators' for compact window links */
+  displayMode?: 'cards' | 'indicators';
 }
 
 export function TPMessageList({
@@ -41,6 +49,7 @@ export function TPMessageList({
   onNavigateToOutput,
   onNavigateToTicket,
   onViewAllContext,
+  displayMode = 'cards',
 }: TPMessageListProps) {
   if (messages.length === 0) {
     return null;
@@ -52,6 +61,7 @@ export function TPMessageList({
         <TPMessageCard
           key={message.id}
           message={message}
+          displayMode={displayMode}
           onNavigateToContext={onNavigateToContext}
           onNavigateToOutput={onNavigateToOutput}
           onNavigateToTicket={onNavigateToTicket}
@@ -68,6 +78,7 @@ interface TPMessageCardProps {
   onNavigateToOutput?: (outputId: string) => void;
   onNavigateToTicket?: (ticketId: string) => void;
   onViewAllContext?: () => void;
+  displayMode?: 'cards' | 'indicators';
 }
 
 function TPMessageCard({
@@ -76,8 +87,10 @@ function TPMessageCard({
   onNavigateToOutput,
   onNavigateToTicket,
   onViewAllContext,
+  displayMode = 'cards',
 }: TPMessageCardProps) {
   const isUser = message.role === 'user';
+  const useIndicators = displayMode === 'indicators';
 
   // Get timestamp from created_at (v2.0) or timestamp (legacy)
   const timestamp = message.created_at || (message as { timestamp?: string }).timestamp;
@@ -134,7 +147,7 @@ function TPMessageCard({
         )}
 
         {/* v3.0: Rich context changes display */}
-        {hasContextChanges && (
+        {hasContextChanges && !useIndicators && (
           <ContextChangesGroup
             changes={message.context_changes as TPContextChangeRich[]}
             onNavigate={onNavigateToContext}
@@ -142,21 +155,51 @@ function TPMessageCard({
           />
         )}
 
+        {/* v3.1: Compact context indicator (Desktop UI) */}
+        {hasContextChanges && useIndicators && (
+          <div className="mt-3 border-t border-border/50 pt-3">
+            <ContextIndicator
+              items={message.context_changes as TPContextChangeRich[]}
+              onOpen={(itemIds) => itemIds[0] && onNavigateToContext?.(itemIds[0])}
+            />
+          </div>
+        )}
+
         {/* v3.0: Rich work outputs display */}
-        {hasWorkOutputs && (
+        {hasWorkOutputs && !useIndicators && (
           <WorkOutputCarousel
             outputs={message.work_outputs as TPWorkOutputPreview[]}
             onViewFull={onNavigateToOutput}
           />
         )}
 
+        {/* v3.1: Compact output indicator (Desktop UI) */}
+        {hasWorkOutputs && useIndicators && (
+          <div className="mt-3 border-t border-border/50 pt-3">
+            <OutputIndicator
+              outputs={message.work_outputs as TPWorkOutputPreview[]}
+              onOpen={(outputIds) => outputIds[0] && onNavigateToOutput?.(outputIds[0])}
+            />
+          </div>
+        )}
+
         {/* v3.0: Recipe execution progress */}
-        {hasRecipeExecution && (
+        {hasRecipeExecution && !useIndicators && (
           <RecipeProgressCard
             execution={message.recipe_execution!}
             steps={message.execution_steps}
             onTrack={onNavigateToTicket}
           />
+        )}
+
+        {/* v3.1: Compact work indicator (Desktop UI) */}
+        {hasRecipeExecution && useIndicators && (
+          <div className="mt-3 border-t border-border/50 pt-3">
+            <WorkIndicator
+              execution={message.recipe_execution!}
+              onOpen={(ticketId) => onNavigateToTicket?.(ticketId)}
+            />
+          </div>
         )}
 
         {/* v3.0: Execution steps timeline (standalone, without recipe) */}
