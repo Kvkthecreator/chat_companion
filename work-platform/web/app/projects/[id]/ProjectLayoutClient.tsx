@@ -5,13 +5,14 @@
  *
  * Provides:
  * - Main content area
- * - Thinking Partner sidebar (right panel)
+ * - Thinking Partner sidebar (right panel) - hidden on dedicated TP page
  * - Page awareness context for TP
  *
  * See: /docs/architecture/ADR_CONTEXT_ENTRIES.md
  */
 
 import type { ReactNode } from 'react';
+import { usePathname } from 'next/navigation';
 import { TPSidebar } from '@/components/thinking/TPSidebar';
 
 interface ProjectLayoutClientProps {
@@ -27,9 +28,22 @@ export default function ProjectLayoutClient({
   workspaceId,
   children,
 }: ProjectLayoutClientProps) {
+  const pathname = usePathname();
+
   // If no basket, just render children without sidebar
   if (!basketId) {
     return <div className="mx-auto">{children}</div>;
+  }
+
+  // Hide sidebar on dedicated Thinking Partner page (has its own full TP interface)
+  const isThinkingAgentPage = pathname?.includes('/agents/thinking');
+
+  if (isThinkingAgentPage) {
+    return (
+      <div className="h-[calc(100vh-57px)]">
+        {children}
+      </div>
+    );
   }
 
   return (
