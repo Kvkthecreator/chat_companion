@@ -44,7 +44,11 @@ export function Desktop({ children, className }: DesktopProps) {
       <Dock />
 
       {/* Chat Wallpaper (always full-width) */}
-      <div className="flex-1 overflow-hidden">
+      <div className={cn(
+        'flex-1 overflow-hidden',
+        // Mobile: leave room for bottom dock
+        'max-md:pb-14'
+      )}>
         {children}
       </div>
 

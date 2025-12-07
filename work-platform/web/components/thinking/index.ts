@@ -29,6 +29,13 @@ export {
   ExecutionStepsTimeline,
 } from './chat-cards';
 
+// Chat indicators (compact Desktop window links)
+export {
+  ContextIndicator,
+  WorkIndicator,
+  OutputIndicator,
+} from './chat-indicators';
+
 // Detail panels
 export {
   ContextDetailPanel,

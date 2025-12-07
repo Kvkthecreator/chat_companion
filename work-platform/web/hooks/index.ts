@@ -18,3 +18,6 @@ export {
   useTPRealtimeEnhanced,
   useTPRealtimeSimple,
 } from './useTPRealtimeEnhanced';
+
+// Desktop UI integration hooks
+export { useTPToolWindowIntegration } from './useTPToolWindowIntegration';

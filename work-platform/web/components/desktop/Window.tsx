@@ -72,8 +72,12 @@ export function Window({
       {/* Window */}
       <div
         className={cn(
-          'relative z-10 w-full max-w-2xl max-h-[80vh]',
-          'bg-card rounded-lg border border-border shadow-xl',
+          'relative z-10 w-full',
+          // Desktop: centered with max width
+          'md:max-w-2xl md:max-h-[80vh] md:rounded-lg',
+          // Mobile: full screen
+          'max-md:fixed max-md:inset-0 max-md:max-h-full max-md:rounded-none',
+          'bg-card border border-border shadow-xl',
           'flex flex-col overflow-hidden',
           // Animation
           'animate-in fade-in zoom-in-95 duration-200'

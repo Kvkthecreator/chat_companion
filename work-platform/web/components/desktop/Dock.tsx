@@ -62,7 +62,15 @@ export function Dock({ className }: DockProps) {
   return (
     <div
       className={cn(
-        'flex items-center gap-1 border-b border-border bg-muted/30 px-3 py-2',
+        'flex items-center gap-1 bg-muted/30 px-3 py-2',
+        // Desktop: top bar with bottom border
+        'md:border-b md:border-border',
+        // Mobile: bottom bar with top border, fixed position
+        'max-md:fixed max-md:bottom-0 max-md:left-0 max-md:right-0 max-md:z-40',
+        'max-md:border-t max-md:border-border max-md:justify-center',
+        'max-md:bg-background/95 max-md:backdrop-blur-sm',
+        // Safe area for iOS
+        'max-md:pb-[env(safe-area-inset-bottom)]',
         className
       )}
       role="toolbar"
