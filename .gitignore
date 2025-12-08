@@ -153,3 +153,11 @@ openai_agents/
 /api/.venv/
 /api/poetry.lock
 # Playwright auth sessions
+node_modules
+node_modules
+node_modules
+node_modules
+node_modules
+node_modules
+node_modules
+node_modules

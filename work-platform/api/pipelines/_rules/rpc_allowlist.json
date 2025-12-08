@@ -1,7 +1,0 @@
-{
-  "p0_capture": ["public.fn_ingest_dumps"],
-  "p1_substrate": ["public.fn_block_create", "public.fn_block_revision_create"],
-  "p2_graph": ["public.fn_relationship_upsert_bulk"],
-  "p3_signals": ["public.fn_reflection_create_from_substrate"],
-  "p4_presentation": ["public.fn_document_create", "public.fn_document_update", "public.fn_document_attach_substrate"]
-}

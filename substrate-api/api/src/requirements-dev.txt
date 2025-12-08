@@ -1,2 +1,0 @@
-- -e ./libs/openai_agents          # ← Codex added this but the folder doesn’t exist
-+ ./libs/openai_agents-0.0.17-py3-none-any.whl
