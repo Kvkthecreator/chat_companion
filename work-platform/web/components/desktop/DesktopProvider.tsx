@@ -90,19 +90,18 @@ function createInitialState(): DesktopState {
 function desktopReducer(state: DesktopState, action: DesktopAction): DesktopState {
   switch (action.type) {
     case 'OPEN_WINDOW': {
-      // Close all other windows (single window mode)
-      const newWindows: Record<WindowId, WindowState> = {} as Record<WindowId, WindowState>;
-      for (const id of WINDOW_IDS) {
-        newWindows[id] = {
-          isOpen: id === action.windowId,
-          highlight: id === action.windowId ? action.highlight : undefined,
-        };
-      }
-
+      // Multi-window mode: open window without closing others
+      // Just set it as active and update its state
       return {
         ...state,
         activeWindow: action.windowId,
-        windows: newWindows,
+        windows: {
+          ...state.windows,
+          [action.windowId]: {
+            isOpen: true,
+            highlight: action.highlight,
+          },
+        },
         dock: {
           ...state.dock,
           [action.windowId]: {

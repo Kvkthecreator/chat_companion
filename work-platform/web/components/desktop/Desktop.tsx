@@ -4,21 +4,22 @@
  * Desktop
  *
  * Main container for the Desktop UI system.
- * Chat as wallpaper with floating windows overlay.
+ * Chat as wallpaper with true floating windows (draggable, resizable).
  *
  * Structure:
  * - Top Dock (always visible)
  * - Chat content (wallpaper, always full-width)
- * - Floating windows (overlay on top when open)
+ * - Window container (relative positioning for floating windows)
+ * - Floating windows (draggable, resizable, no backdrop)
  *
- * Part of Desktop UI Architecture v1.0
+ * Part of Desktop UI Architecture v2.0 (Workspace Mode)
  * See: /docs/implementation/DESKTOP_UI_IMPLEMENTATION_PLAN.md
  */
 
 import type { ReactNode } from 'react';
 import { cn } from '@/lib/utils';
 import { Dock } from './Dock';
-import { Window } from './Window';
+import { FloatingWindow } from './FloatingWindow';
 import { ContextWindowContent } from './windows/ContextWindowContent';
 import { WorkWindowContent } from './windows/WorkWindowContent';
 import { OutputsWindowContent } from './windows/OutputsWindowContent';
@@ -43,55 +44,68 @@ export function Desktop({ children, className }: DesktopProps) {
       {/* Top Dock */}
       <Dock />
 
-      {/* Chat Wallpaper (always full-width) */}
+      {/* Main workspace area */}
       <div className={cn(
-        'flex-1 overflow-hidden',
+        'relative flex-1 overflow-hidden',
         // Mobile: leave room for bottom dock
         'max-md:pb-14'
       )}>
-        {children}
+        {/* Chat Wallpaper (always full-width, behind windows) */}
+        <div className="h-full overflow-hidden">
+          {children}
+        </div>
+
+        {/* Floating Windows (true floating, draggable, resizable) */}
+        <FloatingWindow
+          windowId="context"
+          title="Context"
+          icon={<FileText className="h-4 w-4" />}
+          defaultWidth={420}
+          defaultHeight={500}
+        >
+          <ContextWindowContent />
+        </FloatingWindow>
+
+        <FloatingWindow
+          windowId="work"
+          title="Work"
+          icon={<Zap className="h-4 w-4" />}
+          defaultWidth={480}
+          defaultHeight={400}
+        >
+          <WorkWindowContent />
+        </FloatingWindow>
+
+        <FloatingWindow
+          windowId="outputs"
+          title="Outputs"
+          icon={<Lightbulb className="h-4 w-4" />}
+          defaultWidth={520}
+          defaultHeight={450}
+        >
+          <OutputsWindowContent />
+        </FloatingWindow>
+
+        <FloatingWindow
+          windowId="recipes"
+          title="Recipes"
+          icon={<Target className="h-4 w-4" />}
+          defaultWidth={400}
+          defaultHeight={350}
+        >
+          <RecipesWindowContent />
+        </FloatingWindow>
+
+        <FloatingWindow
+          windowId="schedule"
+          title="Schedule"
+          icon={<Calendar className="h-4 w-4" />}
+          defaultWidth={400}
+          defaultHeight={350}
+        >
+          <ScheduleWindowContent />
+        </FloatingWindow>
       </div>
-
-      {/* Floating Windows (overlay) */}
-      <Window
-        windowId="context"
-        title="Context"
-        icon={<FileText className="h-4 w-4" />}
-      >
-        <ContextWindowContent />
-      </Window>
-
-      <Window
-        windowId="work"
-        title="Work"
-        icon={<Zap className="h-4 w-4" />}
-      >
-        <WorkWindowContent />
-      </Window>
-
-      <Window
-        windowId="outputs"
-        title="Outputs"
-        icon={<Lightbulb className="h-4 w-4" />}
-      >
-        <OutputsWindowContent />
-      </Window>
-
-      <Window
-        windowId="recipes"
-        title="Recipes"
-        icon={<Target className="h-4 w-4" />}
-      >
-        <RecipesWindowContent />
-      </Window>
-
-      <Window
-        windowId="schedule"
-        title="Schedule"
-        icon={<Calendar className="h-4 w-4" />}
-      >
-        <ScheduleWindowContent />
-      </Window>
     </div>
   );
 }

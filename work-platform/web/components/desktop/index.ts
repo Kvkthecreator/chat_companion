@@ -1,9 +1,9 @@
 /**
  * Desktop UI Components
  *
- * Chat-as-wallpaper with floating windows architecture.
+ * Chat-as-wallpaper with true floating windows (draggable, resizable).
  *
- * Part of Desktop UI Architecture v1.0
+ * Part of Desktop UI Architecture v2.0 (Workspace Mode)
  * See: /docs/implementation/DESKTOP_UI_IMPLEMENTATION_PLAN.md
  */
 
@@ -13,6 +13,8 @@ export type { WindowId, WindowState, WindowHighlight, DockItemState, DesktopStat
 export { Desktop } from './Desktop';
 export { Dock } from './Dock';
 export { DockItem } from './DockItem';
+export { FloatingWindow } from './FloatingWindow';
+// Legacy modal-style window (kept for reference)
 export { Window } from './Window';
 export { WindowBackdrop } from './WindowBackdrop';
 
