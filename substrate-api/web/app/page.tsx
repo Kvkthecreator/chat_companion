@@ -1,119 +1,198 @@
 "use client";
 
-import Head from 'next/head';
-import LandingHeader from '@/components/landing/LandingHeader';
-import LandingFooter from '@/components/landing/LandingFooter';
-import BackgroundPaths from '@/components/BackgroundPaths';
+import Link from "next/link";
 
 export default function LandingPage() {
   return (
-    <>
-      <Head>
-        <title>yarnnn — Turn chaos into context</title>
-        <meta
-          name="description"
-          content="Yarnnn turns your scattered thoughts, LLM chats, and raw ideas into structured, evolving blocks of strategy and memory."
-        />
-        <meta name="keywords" content="yarnnn, context OS, memory operating system, creative workflows, AI thinking tools" />
-        <meta property="og:title" content="yarnnn — context OS for creative builders" />
-        <meta property="og:description" content="From chaos to clarity — yarnnn helps you preserve, evolve, and act on your ideas with structure and memory." />
-        <meta property="og:type" content="website" />
-        <meta property="og:url" content="https://yarnnn.com" />
-        <meta property="og:image" content="https://yarnnn.com/og-image.png" />
-      </Head>
-      <section className="relative overflow-hidden min-h-[500px]">
-        <BackgroundPaths />
-        <div className="relative z-10">
-          <LandingHeader />
-          <div className="max-w-[1200px] mx-auto px-4 py-24 flex flex-col items-start">
-            <h1 className="font-brand text-4xl md:text-7xl mb-4">yarnnn</h1>
-            <p className="text-xl md:text-2xl max-w-[800px]">
-              Control your memory. Control your world.
-            </p>
-            <p className="mt-6 text-md md:text-lg max-w-[800px]">
-              Finally organize your AI chaos. Build a memory system that evolves with your ideas.
-            </p>
+    <div className="min-h-screen">
+      {/* Header */}
+      <header className="border-b border-neutral-200 bg-white">
+        <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 bg-black rounded-lg flex items-center justify-center">
+              <span className="text-white font-bold text-sm">CH</span>
+            </div>
+            <span className="font-semibold text-lg">Clearinghouse</span>
+          </div>
+          <nav className="flex items-center gap-6">
+            <Link href="/docs" className="text-neutral-600 hover:text-black">
+              Documentation
+            </Link>
+            <Link
+              href="/login"
+              className="bg-black text-white px-4 py-2 rounded-lg hover:bg-neutral-800 transition"
+            >
+              Sign In
+            </Link>
+          </nav>
+        </div>
+      </header>
 
-            {/* Optional demo section */}
-            {/* <div className="mt-6">
-              <iframe src="https://www.loom.com/embed/your-video-id" frameBorder="0" className="w-full h-[360px] rounded-lg" allowFullScreen></iframe>
-            </div> */}
+      {/* Hero */}
+      <section className="max-w-7xl mx-auto px-6 py-24">
+        <div className="max-w-3xl">
+          <h1 className="text-5xl md:text-6xl font-bold tracking-tight mb-6">
+            IP Licensing Infrastructure
+            <br />
+            <span className="text-neutral-500">for the AI Era</span>
+          </h1>
+          <p className="text-xl text-neutral-600 mb-8">
+            Register intellectual property rights, manage AI training permissions,
+            and license creative works with complete provenance tracking.
+          </p>
+          <div className="flex gap-4">
+            <Link
+              href="/login"
+              className="bg-black text-white px-6 py-3 rounded-lg hover:bg-neutral-800 transition font-medium"
+            >
+              Get Started
+            </Link>
+            <Link
+              href="/docs"
+              className="border border-neutral-300 px-6 py-3 rounded-lg hover:bg-neutral-100 transition font-medium"
+            >
+              View Documentation
+            </Link>
+          </div>
+        </div>
+      </section>
 
-            <div className="mt-8">
-              <a
-                href="/login"
-                onClick={() => {
-                  if (typeof window !== 'undefined') {
-                    localStorage.setItem('redirectPath', '/baskets');
-                  }
-                }}
-                className="inline-block bg-black text-white rounded-xl px-6 py-3 text-lg hover:bg-neutral-800 transition"
-              >
-                try yarnnn - Start with your name
-              </a>
+      {/* Feature Grid */}
+      <section className="max-w-7xl mx-auto px-6 py-16">
+        <div className="border-t border-neutral-200 pt-16">
+          <h2 className="text-3xl font-bold mb-12">Core Capabilities</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+            {/* Rights Registry */}
+            <div className="p-6 border border-neutral-200 rounded-xl bg-white">
+              <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center mb-4">
+                <svg className="w-5 h-5 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+              </div>
+              <h3 className="font-semibold text-lg mb-2">Rights Registry</h3>
+              <p className="text-neutral-600">
+                Register musical works, sound recordings, voice likenesses,
+                character IP, and visual works with industry-standard identifiers.
+              </p>
+            </div>
+
+            {/* AI Permissions */}
+            <div className="p-6 border border-neutral-200 rounded-xl bg-white">
+              <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center mb-4">
+                <svg className="w-5 h-5 text-purple-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                </svg>
+              </div>
+              <h3 className="font-semibold text-lg mb-2">AI Permissions</h3>
+              <p className="text-neutral-600">
+                Define granular permissions for AI training, generation,
+                style transfer, voice cloning, and derivative works.
+              </p>
+            </div>
+
+            {/* Governance */}
+            <div className="p-6 border border-neutral-200 rounded-xl bg-white">
+              <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center mb-4">
+                <svg className="w-5 h-5 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </div>
+              <h3 className="font-semibold text-lg mb-2">Governance Pipeline</h3>
+              <p className="text-neutral-600">
+                Proposal-based workflow for rights changes with configurable
+                auto-approval rules and audit trail.
+              </p>
+            </div>
+
+            {/* Licensing */}
+            <div className="p-6 border border-neutral-200 rounded-xl bg-white">
+              <div className="w-10 h-10 bg-orange-100 rounded-lg flex items-center justify-center mb-4">
+                <svg className="w-5 h-5 text-orange-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 5v2m0 4v2m0 4v2M5 5a2 2 0 00-2 2v3a2 2 0 110 4v3a2 2 0 002 2h14a2 2 0 002-2v-3a2 2 0 110-4V7a2 2 0 00-2-2H5z" />
+                </svg>
+              </div>
+              <h3 className="font-semibold text-lg mb-2">License Management</h3>
+              <p className="text-neutral-600">
+                Create license templates, grant licenses to platforms,
+                and track usage with per-use billing support.
+              </p>
+            </div>
+
+            {/* Timeline */}
+            <div className="p-6 border border-neutral-200 rounded-xl bg-white">
+              <div className="w-10 h-10 bg-red-100 rounded-lg flex items-center justify-center mb-4">
+                <svg className="w-5 h-5 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </div>
+              <h3 className="font-semibold text-lg mb-2">Complete Provenance</h3>
+              <p className="text-neutral-600">
+                Immutable timeline of all events with before/after states,
+                actor tracking, and full audit trail.
+              </p>
+            </div>
+
+            {/* API */}
+            <div className="p-6 border border-neutral-200 rounded-xl bg-white">
+              <div className="w-10 h-10 bg-neutral-100 rounded-lg flex items-center justify-center mb-4">
+                <svg className="w-5 h-5 text-neutral-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
+                </svg>
+              </div>
+              <h3 className="font-semibold text-lg mb-2">REST API</h3>
+              <p className="text-neutral-600">
+                Full-featured API for programmatic access to rights registry,
+                licensing, and usage reporting.
+              </p>
             </div>
           </div>
         </div>
       </section>
 
-      {/* Why Yarnnn Section */}
-      <section className="w-full max-w-[1200px] mx-auto px-4 py-16">
-        {/* Divider */}
-        <div className="w-full h-px bg-black mb-8" />
-
-        {/* Headline */}
-        <h2 className="text-4xl md:text-5xl font-normal mb-16">
-          Why yarnnn? Why Now?
-        </h2>
-        <p className="text-lg mb-12">
-          In the age of AI, your thoughts and ideas are more scattered than ever. Brilliant insights from chats, meetings, and random notes are lost in a sea of digital noise. Yarnnn is the first platform designed to solve this new problem, giving you a persistent, intelligent memory to build upon.
-        </p>
-
-        {/* Features (2 columns on desktop, 1 on mobile) */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-12 gap-y-10">
-          {/* 1. End AI Amnesia */}
-          <div>
-            <h3 className="text-neutral-500 text-base md:text-xl font-normal mb-2 flex items-center gap-1">
-              <span role="img" aria-label="brain">🧠</span> End AI Amnesia
-            </h3>
-            <p className="text-black text-base md:text-lg font-normal leading-relaxed">
-              You have valuable conversations with AI, but that context vanishes into endless chat histories. Yarnnn acts as the persistent memory for your AI-powered work, capturing every fleeting idea, raw_dump, and insight in a single, high-fidelity narrative so that nothing you create is ever lost.
-            </p>
-          </div>
-
-          {/* 2. Build Your Second Brain, Automatically */}
-          <div>
-            <h3 className="text-neutral-500 text-base md:text-xl font-normal mb-2 flex items-center gap-1">
-              <span role="img" aria-label="connections">🔗</span> Build Your Second Brain, Automatically
-            </h3>
-            <p className="text-black text-base md:text-lg font-normal leading-relaxed">
-              Yarnnn doesn&apos;t just store your notes; it connects them. As you add thoughts, our agents automatically build an interconnected web of your knowledge. This creates a powerful second brain that grows smarter and more valuable over time, allowing you to Evolve with Confidence as new ideas are checked against your core context.
-            </p>
-          </div>
-
-          {/* 3. Your AI Thinking Partner */}
-          <div>
-            <h3 className="text-neutral-500 text-base md:text-xl font-normal mb-2 flex items-center gap-1">
-              <span role="img" aria-label="robot">🤖</span> Your AI Thinking Partner
-            </h3>
-            <p className="text-black text-base md:text-lg font-normal leading-relaxed">
-              Our agents work in the background to analyze your memory, surface surprising connections, identify emerging patterns, and offer reflections. It&apos;s not just a tool; it&apos;s an active partner that helps you think better and discover what you didn&apos;t know about yourself.
-            </p>
-          </div>
-
-          {/* 4. Create with Confidence & Provenance */}
-          <div>
-            <h3 className="text-neutral-500 text-base md:text-xl font-normal mb-2 flex items-center gap-1">
-              <span role="img" aria-label="document">📋</span> Create with Confidence & Provenance
-            </h3>
-            <p className="text-black text-base md:text-lg font-normal leading-relaxed">
-              Move from scattered insights to clear, decision-ready documents. Every Block you Promote Your Truth with, and every brief or plan you create, is backed by a clear line of provenance, allowing you to Lock In Your Canon and trust your work.
-            </p>
+      {/* IP Types */}
+      <section className="max-w-7xl mx-auto px-6 py-16">
+        <div className="border-t border-neutral-200 pt-16">
+          <h2 className="text-3xl font-bold mb-4">Supported IP Types</h2>
+          <p className="text-neutral-600 mb-12 max-w-2xl">
+            Schema-driven architecture supports any intellectual property type.
+            Pre-configured schemas included for common creative works.
+          </p>
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+            {[
+              { name: "Musical Work", icon: "musical_work", category: "music" },
+              { name: "Sound Recording", icon: "sound_recording", category: "music" },
+              { name: "Voice Likeness", icon: "voice_likeness", category: "voice" },
+              { name: "Character IP", icon: "character_ip", category: "character" },
+              { name: "Visual Work", icon: "visual_work", category: "visual" },
+            ].map((type) => (
+              <div
+                key={type.icon}
+                className="p-4 border border-neutral-200 rounded-lg bg-white text-center"
+              >
+                <div className="text-sm font-medium">{type.name}</div>
+                <div className="text-xs text-neutral-500 mt-1">{type.category}</div>
+              </div>
+            ))}
           </div>
         </div>
       </section>
 
-      <LandingFooter />
-    </>
+      {/* Footer */}
+      <footer className="border-t border-neutral-200 mt-16">
+        <div className="max-w-7xl mx-auto px-6 py-12">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <div className="w-6 h-6 bg-black rounded flex items-center justify-center">
+                <span className="text-white font-bold text-xs">CH</span>
+              </div>
+              <span className="text-sm text-neutral-600">Clearinghouse</span>
+            </div>
+            <div className="text-sm text-neutral-500">
+              IP Licensing Infrastructure for the AI Era
+            </div>
+          </div>
+        </div>
+      </footer>
+    </div>
   );
 }
