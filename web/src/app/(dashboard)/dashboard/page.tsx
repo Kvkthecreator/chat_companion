@@ -15,7 +15,11 @@ export default function DashboardPage() {
     async function loadData() {
       try {
         const { data: { session } } = await supabase.auth.getSession()
-        if (!session) return
+        if (!session) {
+          setError('Not authenticated')
+          setIsLoading(false)
+          return
+        }
 
         const data = await workspaces.list(session.access_token)
         setWorkspaces(data.workspaces)

@@ -15,7 +15,11 @@ export default function CatalogsPage() {
     async function load() {
       try {
         const { data: { session } } = await supabase.auth.getSession()
-        if (!session) return
+        if (!session) {
+          setError('Not authenticated')
+          setIsLoading(false)
+          return
+        }
 
         const wsResult = await workspaces.list(session.access_token)
 

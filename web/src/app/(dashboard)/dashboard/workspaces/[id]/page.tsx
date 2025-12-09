@@ -24,7 +24,11 @@ export default function WorkspaceDetailPage() {
     async function load() {
       try {
         const { data: { session } } = await supabase.auth.getSession()
-        if (!session) return
+        if (!session) {
+          setError('Not authenticated')
+          setIsLoading(false)
+          return
+        }
 
         const wsResult = await workspaces.get(workspaceId, session.access_token)
         setWorkspace(wsResult.workspace)

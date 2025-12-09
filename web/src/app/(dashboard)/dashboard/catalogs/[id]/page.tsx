@@ -25,7 +25,11 @@ export default function CatalogDetailPage() {
     async function load() {
       try {
         const { data: { session } } = await supabase.auth.getSession()
-        if (!session) return
+        if (!session) {
+          setError('Not authenticated')
+          setIsLoading(false)
+          return
+        }
 
         const [catResult, entResult, schemaResult] = await Promise.all([
           catalogs.get(catalogId, session.access_token),
