@@ -1,122 +1,30 @@
-# render.yaml - YARNNN v4.0 Mono-Repo Configuration (Phase 2: Architecture Refactor)
+# render.yaml - Clearinghouse API Configuration
+# IP Licensing Infrastructure for the AI Era
+
 services:
-  # Work Platform API - Consumer/Work-Facing Application (BFF Layer)
-  # Phase 0: Switched to Docker for Claude Agent SDK (requires Node.js + Claude Code CLI)
+  # Clearinghouse API - FastAPI Backend
   - type: web
-    name: yarnnn-work-platform-api
-    env: docker
-    dockerfilePath: ./Dockerfile
-    dockerContext: ./work-platform/api
-    root: work-platform/api/
+    name: clearinghouse-api
+    runtime: python
+    buildCommand: pip install --upgrade pip && pip install -r requirements.txt
+    startCommand: cd src && uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    rootDir: substrate-api/api
     envVars:
-      - key: OPENAI_API_KEY
-        sync: false
-      - key: ANTHROPIC_API_KEY
-        sync: false  # Phase 4: For Claude Agent SDK
-      - key: GEMINI_API_KEY
-        sync: false  # For Gemini Content Agent (text + image)
+      # Supabase Configuration
       - key: SUPABASE_URL
         sync: false
       - key: SUPABASE_SERVICE_ROLE_KEY
         sync: false
       - key: SUPABASE_JWT_SECRET
-        sync: false
+        sync: false  # CRITICAL: Required for JWT authentication
+      - key: SUPABASE_JWT_AUD
+        value: authenticated
+      # Database
       - key: DATABASE_URL
         sync: false
-      # Phase 3: BFF Communication with Substrate API
-      - key: SUBSTRATE_API_URL
-        value: https://yarnnn-substrate-api.onrender.com
-      - key: SUBSTRATE_SERVICE_SECRET
+      # CORS - Frontend origins (comma-separated)
+      - key: CORS_ORIGINS
         sync: false
-
-  # Substrate API - P0-P4 Agent Pipeline + Memory/Context Domain
-  - type: web
-    name: yarnnn-substrate-api
-    env: python
-    buildCommand: pip install --upgrade pip && pip install -r requirements.txt
-    startCommand: uvicorn src.app.agent_server:app --host 0.0.0.0 --port 10000 --log-level debug
-    root: substrate-api/api/
-    envVars:
+      # Optional: OpenAI for embeddings
       - key: OPENAI_API_KEY
-        sync: false
-      - key: SUPABASE_URL
-        sync: false
-      - key: SUPABASE_SERVICE_ROLE_KEY
-        sync: false
-      - key: DATABASE_URL
-        sync: false
-      - key: MCP_SHARED_SECRET
-        sync: false
-      # Phase 3: Service-to-Service Authentication (disabled by default)
-      - key: ENABLE_SERVICE_AUTH
-        value: "false"
-      - key: SUBSTRATE_SERVICE_SECRET
-        sync: false
-      - key: ALLOWED_SERVICES
-        value: "platform-api,chatgpt-app"
-
-  - type: web
-    name: yarnnn-chatgpt-app
-    env: node
-    root: mcp-server/adapters/openai-apps
-    buildCommand: npm install && npm run build
-    startCommand: npm run start
-    envVars:
-      - key: APPS_BASE_URL
-        sync: false
-      - key: OPENAI_CLIENT_ID
-        sync: false
-      - key: OPENAI_CLIENT_SECRET
-        sync: false
-      - key: OPENAI_REDIRECT_URI
-        sync: false
-      - key: OAUTH_AUTH_URL
-        sync: false
-      - key: OAUTH_TOKEN_URL
-        sync: false
-      - key: YARNNN_API_URL
-        value: https://api.yarnnn.com
-      - key: YARNNN_API_DOMAIN
-        value: api.yarnnn.com
-      - key: SUPABASE_URL
-        sync: false
-      - key: SUPABASE_SERVICE_ROLE_KEY
-        sync: false
-      - key: ENCRYPTION_KEY
-        sync: false
-      - key: MCP_SHARED_SECRET
-        sync: false
-      - key: PORT
-        value: "4312"
-
-  # Schedule Executor - Cron job to process due work schedules
-  # Runs every 5 minutes, calls /api/schedules/execute endpoint
-  # Uses Node.js native fetch (available in Node 18+)
-  - type: cron
-    name: yarnnn-schedule-executor
-    env: node
-    schedule: "*/5 * * * *"  # Every 5 minutes
-    buildCommand: echo "No build needed"
-    startCommand: |
-      node -e "(async () => { const url = process.env.WORK_PLATFORM_URL + '/api/schedules/execute'; const secret = process.env.CRON_SECRET; console.log('[CRON] Executing schedule check at', new Date().toISOString()); try { const res = await fetch(url, { method: 'POST', headers: { 'Authorization': 'Bearer ' + secret } }); const data = await res.json(); console.log('[CRON] Result:', JSON.stringify(data)); } catch (err) { console.error('[CRON] Error:', err.message); process.exit(1); } })();"
-    envVars:
-      - key: WORK_PLATFORM_URL
-        value: https://www.yarnnn.com
-      - key: CRON_SECRET
-        sync: false
-
-  # Queue Processor - Cron job to execute pending work tickets
-  # Runs every 30 seconds, calls /api/work/process endpoint
-  # This is the unified execution engine for all work (manual, TP, scheduled)
-  - type: cron
-    name: yarnnn-queue-processor
-    env: node
-    schedule: "* * * * *"  # Every minute (Render minimum)
-    buildCommand: echo "No build needed"
-    startCommand: |
-      node -e "(async () => { const url = process.env.WORK_PLATFORM_URL + '/api/work/process'; const secret = process.env.CRON_SECRET; console.log('[QUEUE] Processing work queue at', new Date().toISOString()); try { const res = await fetch(url, { method: 'POST', headers: { 'Authorization': 'Bearer ' + secret, 'Content-Type': 'application/json' }, body: JSON.stringify({ limit: 5 }) }); const data = await res.json(); console.log('[QUEUE] Result:', JSON.stringify(data)); } catch (err) { console.error('[QUEUE] Error:', err.message); process.exit(1); } })();"
-    envVars:
-      - key: WORK_PLATFORM_URL
-        value: https://www.yarnnn.com
-      - key: CRON_SECRET
         sync: false
