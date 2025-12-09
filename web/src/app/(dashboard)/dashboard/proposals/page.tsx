@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { workspaces, catalogs, proposals, type Workspace, type Catalog, type Proposal } from '@/lib/api'
+import { workspaces, catalogs, proposals, type Proposal } from '@/lib/api'
 import Link from 'next/link'
 
 export default function ProposalsPage() {
@@ -56,6 +56,7 @@ export default function ProposalsPage() {
       }
     }
     load()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   const filteredProposals = filter === 'all'

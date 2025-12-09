@@ -26,6 +26,7 @@ export default function DashboardPage() {
       }
     }
     loadData()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   if (isLoading) {

@@ -43,6 +43,7 @@ export default function CatalogDetailPage() {
       }
     }
     load()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [catalogId])
 
   const handleCreateEntity = async (e: React.FormEvent) => {
@@ -239,10 +240,10 @@ export default function CatalogDetailPage() {
                   <div className="flex items-center gap-2">
                     {entity.ai_permissions && (
                       <div className="flex gap-1">
-                        {entity.ai_permissions.training_allowed && (
+                        {(entity.ai_permissions as { training_allowed?: boolean }).training_allowed && (
                           <span className="px-2 py-1 text-xs bg-green-50 text-green-700 rounded">Training</span>
                         )}
-                        {entity.ai_permissions.commercial_allowed && (
+                        {(entity.ai_permissions as { commercial_allowed?: boolean }).commercial_allowed && (
                           <span className="px-2 py-1 text-xs bg-blue-50 text-blue-700 rounded">Commercial</span>
                         )}
                       </div>

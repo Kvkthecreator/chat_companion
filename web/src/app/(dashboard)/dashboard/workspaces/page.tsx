@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { workspaces, catalogs, type Workspace, type Catalog } from '@/lib/api'
+import { workspaces, catalogs, type Workspace } from '@/lib/api'
 import Link from 'next/link'
 
 export default function WorkspacesPage() {
@@ -39,6 +39,7 @@ export default function WorkspacesPage() {
       }
     }
     load()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   if (isLoading) {
