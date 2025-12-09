@@ -240,7 +240,7 @@ async def create_rights_entity(request: Request, catalog_id: UUID, payload: Righ
         # Create proposal if not auto-approved
         if not auto_approve:
             await db.execute("""
-                INSERT INTO proposals (
+                INSERT INTO clearinghouse_proposals (
                     catalog_id, proposal_type, target_entity_id,
                     proposed_changes, status, created_by
                 )
@@ -354,7 +354,7 @@ async def update_rights_entity(request: Request, entity_id: UUID, payload: Right
     else:
         # Create proposal
         await db.execute("""
-            INSERT INTO proposals (
+            INSERT INTO clearinghouse_proposals (
                 catalog_id, proposal_type, target_entity_id,
                 proposed_changes, status, created_by
             )

@@ -67,7 +67,7 @@ async def list_proposals(
         SELECT p.id, p.proposal_type, p.target_entity_id, p.status, p.priority,
                p.auto_approved, p.created_by, p.created_at, p.reviewed_at,
                re.title as entity_title, re.rights_type
-        FROM proposals p
+        FROM clearinghouse_proposals p
         LEFT JOIN rights_entities re ON re.id = p.target_entity_id
         WHERE {' AND '.join(where_clauses)}
         ORDER BY
@@ -85,7 +85,7 @@ async def list_proposals(
     count_params = {k: v for k, v in params.items() if k not in ("limit", "offset")}
     count_result = await db.fetch_one(f"""
         SELECT COUNT(*) as total
-        FROM proposals
+        FROM clearinghouse_proposals
         WHERE {' AND '.join(where_clauses)}
     """, count_params)
 
@@ -147,7 +147,7 @@ async def create_proposal(request: Request, catalog_id: UUID, payload: ProposalC
             auto_reason = f"Auto-approved: {payload.proposal_type} in auto_approve_types"
 
     proposal = await db.fetch_one("""
-        INSERT INTO proposals (
+        INSERT INTO clearinghouse_proposals (
             catalog_id, proposal_type, target_entity_id,
             payload, reasoning, priority, status,
             auto_approved, auto_approval_reason, created_by
@@ -215,7 +215,7 @@ async def get_proposal(request: Request, proposal_id: UUID):
     proposal = await db.fetch_one("""
         SELECT p.*, re.title as entity_title, re.rights_type,
                c.name as catalog_name
-        FROM proposals p
+        FROM clearinghouse_proposals p
         JOIN catalogs c ON c.id = p.catalog_id
         JOIN workspace_memberships wm ON wm.workspace_id = c.workspace_id
         LEFT JOIN rights_entities re ON re.id = p.target_entity_id
@@ -248,7 +248,7 @@ async def review_proposal(request: Request, proposal_id: UUID, payload: Proposal
     # Get proposal and check admin access
     proposal = await db.fetch_one("""
         SELECT p.id, p.catalog_id, p.proposal_type, p.target_entity_id, p.payload, p.status
-        FROM proposals p
+        FROM clearinghouse_proposals p
         JOIN catalogs c ON c.id = p.catalog_id
         JOIN workspace_memberships wm ON wm.workspace_id = c.workspace_id
         WHERE p.id = :proposal_id AND wm.user_id = :user_id
@@ -267,7 +267,7 @@ async def review_proposal(request: Request, proposal_id: UUID, payload: Proposal
     async with db.transaction():
         # Update proposal
         await db.execute("""
-            UPDATE proposals
+            UPDATE clearinghouse_proposals
             SET status = :status,
                 reviewed_by = :user_id,
                 reviewed_at = now(),
@@ -360,7 +360,7 @@ async def add_comment(request: Request, proposal_id: UUID, payload: ProposalComm
     # Check access
     proposal = await db.fetch_one("""
         SELECT p.id
-        FROM proposals p
+        FROM clearinghouse_proposals p
         JOIN catalogs c ON c.id = p.catalog_id
         JOIN workspace_memberships wm ON wm.workspace_id = c.workspace_id
         WHERE p.id = :proposal_id AND wm.user_id = :user_id
@@ -390,7 +390,7 @@ async def cancel_proposal(request: Request, proposal_id: UUID):
     db = await get_db()
 
     result = await db.execute("""
-        UPDATE proposals
+        UPDATE clearinghouse_proposals
         SET status = 'cancelled', updated_at = now()
         WHERE id = :proposal_id
         AND created_by = :user_id
