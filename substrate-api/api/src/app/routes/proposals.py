@@ -1,4 +1,5 @@
 """Governance proposal endpoints."""
+import json
 from typing import Optional
 from uuid import UUID
 from fastapi import APIRouter, HTTPException, Request, Query
@@ -166,7 +167,7 @@ async def create_proposal(request: Request, catalog_id: UUID, payload: ProposalC
         "catalog_id": str(catalog_id),
         "proposal_type": payload.proposal_type,
         "target_entity_id": str(payload.target_entity_id) if payload.target_entity_id else None,
-        "payload": payload.payload,
+        "payload": json.dumps(payload.payload),
         "reasoning": payload.reasoning,
         "priority": payload.priority,
         "status": "approved" if auto_approve else "pending",
@@ -203,9 +204,9 @@ async def _apply_create_proposal(db, catalog_id: UUID, payload: dict, user_id: s
         "rights_type": payload.get("rights_type"),
         "title": payload.get("title"),
         "entity_key": payload.get("entity_key"),
-        "content": payload.get("content", {}),
-        "ai_permissions": payload.get("ai_permissions", {}),
-        "ownership_chain": payload.get("ownership_chain", []),
+        "content": json.dumps(payload.get("content", {})),
+        "ai_permissions": json.dumps(payload.get("ai_permissions", {})),
+        "ownership_chain": json.dumps(payload.get("ownership_chain", [])),
         "created_by": f"user:{user_id}"
     })
 
@@ -316,9 +317,9 @@ async def _apply_proposal(db, proposal: dict, user_id: str):
             "rights_type": payload.get("rights_type"),
             "title": payload.get("title"),
             "entity_key": payload.get("entity_key"),
-            "content": payload.get("content", {}),
-            "ai_permissions": payload.get("ai_permissions", {}),
-            "ownership_chain": payload.get("ownership_chain", []),
+            "content": json.dumps(payload.get("content", {})),
+            "ai_permissions": json.dumps(payload.get("ai_permissions", {})),
+            "ownership_chain": json.dumps(payload.get("ownership_chain", [])),
             "created_by": f"user:{user_id}"
         })
 
@@ -329,7 +330,12 @@ async def _apply_proposal(db, proposal: dict, user_id: str):
         for key in ["title", "content", "ai_permissions", "ownership_chain"]:
             if key in payload:
                 updates.append(f"{key} = :{key}")
-                params[key] = payload[key]
+                value = payload[key]
+                # Serialize dict/list values to JSON for JSONB columns
+                if isinstance(value, (dict, list)):
+                    params[key] = json.dumps(value)
+                else:
+                    params[key] = value
 
         if updates:
             updates.append("version = version + 1")

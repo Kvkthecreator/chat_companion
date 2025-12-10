@@ -1,6 +1,7 @@
 """Bulk import endpoints for rights entities."""
 import csv
 import io
+import json
 from typing import Optional, List, Dict, Any
 from uuid import UUID
 from fastapi import APIRouter, HTTPException, Request, UploadFile, File, Form
@@ -118,10 +119,10 @@ async def bulk_import_entities(
                 "rights_type": item.rights_type,
                 "title": item.title,
                 "entity_key": item.entity_key,
-                "content": item.content or {},
-                "ai_permissions": item.ai_permissions or {},
-                "ownership_chain": item.ownership_chain or [],
-                "semantic_metadata": item.semantic_metadata or {},
+                "content": json.dumps(item.content or {}),
+                "ai_permissions": json.dumps(item.ai_permissions or {}),
+                "ownership_chain": json.dumps(item.ownership_chain or []),
+                "semantic_metadata": json.dumps(item.semantic_metadata or {}),
                 "created_by": f"user:{user_id}"
             })
 
@@ -255,14 +256,12 @@ async def bulk_import_csv(
 
             if row.get('content'):
                 try:
-                    import json
                     content = json.loads(row['content'])
                 except:
                     pass
 
             if row.get('ai_permissions'):
                 try:
-                    import json
                     ai_permissions = json.loads(row['ai_permissions'])
                 except:
                     pass
@@ -285,8 +284,8 @@ async def bulk_import_csv(
                 "rights_type": rights_type,
                 "title": title,
                 "entity_key": row.get('entity_key', '').strip() or None,
-                "content": content,
-                "ai_permissions": ai_permissions,
+                "content": json.dumps(content),
+                "ai_permissions": json.dumps(ai_permissions),
                 "created_by": f"user:{user_id}"
             })
 

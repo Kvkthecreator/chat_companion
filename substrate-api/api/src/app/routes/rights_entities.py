@@ -1,4 +1,5 @@
 """Rights entity management endpoints."""
+import json
 from typing import Optional, Dict, Any, List
 from uuid import UUID
 from fastapi import APIRouter, HTTPException, Request, Query
@@ -221,9 +222,9 @@ async def create_rights_entity(request: Request, catalog_id: UUID, payload: Righ
             "rights_type": payload.rights_type,
             "title": payload.title,
             "entity_key": payload.entity_key,
-            "content": payload.content or {},
-            "ai_permissions": payload.ai_permissions or {},
-            "ownership_chain": payload.ownership_chain or [],
+            "content": json.dumps(payload.content or {}),
+            "ai_permissions": json.dumps(payload.ai_permissions or {}),
+            "ownership_chain": json.dumps(payload.ownership_chain or []),
             "status": "active" if auto_approve else "pending",
             "created_by": f"user:{user_id}"
         })
@@ -242,12 +243,12 @@ async def create_rights_entity(request: Request, catalog_id: UUID, payload: Righ
             """, {
                 "catalog_id": str(catalog_id),
                 "entity_id": str(entity["id"]),
-                "payload": {
+                "payload": json.dumps({
                     "title": payload.title,
                     "rights_type": payload.rights_type,
                     "content": payload.content,
                     "ai_permissions": payload.ai_permissions
-                },
+                }),
                 "reasoning": f"Create new {payload.rights_type} entity: {payload.title}",
                 "created_by": f"user:{user_id}"
             })
@@ -340,7 +341,11 @@ async def update_rights_entity(request: Request, entity_id: UUID, payload: Right
 
         for key, value in proposed_changes.items():
             updates.append(f"{key} = :{key}")
-            params[key] = value
+            # Serialize dict/list values to JSON for JSONB columns
+            if isinstance(value, (dict, list)):
+                params[key] = json.dumps(value)
+            else:
+                params[key] = value
 
         updates.append("version = version + 1")
         updates.append("updated_by = :user_id")
@@ -366,7 +371,7 @@ async def update_rights_entity(request: Request, entity_id: UUID, payload: Right
         """, {
             "catalog_id": str(entity["catalog_id"]),
             "entity_id": str(entity_id),
-            "payload": proposed_changes,
+            "payload": json.dumps(proposed_changes),
             "reasoning": f"Update entity fields: {', '.join(proposed_changes.keys())}",
             "created_by": f"user:{user_id}"
         })
