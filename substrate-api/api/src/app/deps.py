@@ -75,8 +75,21 @@ if USING_DATABASES_LIBRARY:
             separator = "&" if "?" in database_url else "?"
             database_url += f"{separator}statement_cache_size=0&prepared_statement_cache_size=0"
 
-            _db = Database(database_url)
-            await _db.connect()
+            # Configure connection with longer timeout for cross-region connections
+            _db = Database(
+                database_url,
+                min_size=1,
+                max_size=5,
+                # Increase command timeout for cross-region latency
+                command_timeout=60,
+            )
+
+            # Connect with extended timeout
+            try:
+                await asyncio.wait_for(_db.connect(), timeout=30.0)
+            except asyncio.TimeoutError:
+                print("⚠️  Database connection timed out after 30s, retrying...")
+                await asyncio.wait_for(_db.connect(), timeout=60.0)
             return _db
 
     @asynccontextmanager
