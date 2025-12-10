@@ -21,11 +21,13 @@ import json
 from datetime import datetime, timezone
 from typing import Optional
 
-# Add parent directory to path for imports
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+# Add src directory to path for absolute imports
+src_path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if src_path not in sys.path:
+    sys.path.insert(0, src_path)
 
-from .config import POLL_INTERVAL_SECONDS, MAX_CONCURRENT_JOBS, MAX_RETRIES
-from .handlers import dispatch_job
+from worker.config import POLL_INTERVAL_SECONDS, MAX_CONCURRENT_JOBS, MAX_RETRIES
+from worker.handlers import dispatch_job
 
 # Configure logging
 logging.basicConfig(

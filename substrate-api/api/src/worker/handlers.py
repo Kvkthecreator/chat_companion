@@ -4,7 +4,8 @@ import json
 from typing import Dict, Any
 from uuid import UUID
 
-from ..app.services.embeddings import process_entity_embedding, get_embedding_service
+# Use absolute import path - worker runs from src directory
+from app.services.embeddings import process_entity_embedding
 
 log = logging.getLogger("worker")
 
