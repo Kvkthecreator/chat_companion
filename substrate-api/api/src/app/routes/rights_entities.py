@@ -137,7 +137,7 @@ async def list_rights_entities(
 
     entities = await db.fetch_all(f"""
         SELECT id, rights_type, title, entity_key, status, version,
-               embedding_status, created_at, updated_at
+               created_at, updated_at
         FROM rights_entities
         WHERE {' AND '.join(where_clauses)}
         ORDER BY updated_at DESC
@@ -195,35 +195,20 @@ async def create_rights_entity(request: Request, catalog_id: UUID, payload: Righ
     if governance and governance["auto_approve_types"]:
         auto_approve = "CREATE" in governance["auto_approve_types"]
 
-    # Default semantic metadata
-    default_semantic = {
-        "primary_tags": [],
-        "mood": [],
-        "energy": None,
-        "language": None,
-        "explicit_content": False,
-        "type_fields": {},
-        "custom_tags": [],
-        "ai_analysis": None
-    }
-
     async with db.transaction():
         # Create entity (as draft if requires approval)
         entity = await db.fetch_one("""
             INSERT INTO rights_entities (
                 catalog_id, rights_type, title, entity_key,
                 content, ai_permissions, ownership_chain,
-                semantic_metadata, embedding_status,
                 status, created_by
             )
             VALUES (
                 :catalog_id, :rights_type, :title, :entity_key,
                 :content, :ai_permissions, :ownership_chain,
-                :semantic_metadata, 'pending',
-                :status, :user_id
+                :status, :created_by
             )
-            RETURNING id, rights_type, title, entity_key, status, version,
-                      embedding_status, created_at
+            RETURNING id, rights_type, title, entity_key, status, version, created_at
         """, {
             "catalog_id": str(catalog_id),
             "rights_type": payload.rights_type,
@@ -232,9 +217,8 @@ async def create_rights_entity(request: Request, catalog_id: UUID, payload: Righ
             "content": payload.content or {},
             "ai_permissions": payload.ai_permissions or {},
             "ownership_chain": payload.ownership_chain or [],
-            "semantic_metadata": payload.semantic_metadata or default_semantic,
-            "status": "active" if auto_approve else "draft",
-            "user_id": user_id
+            "status": "active" if auto_approve else "pending",
+            "created_by": f"user:{user_id}"
         })
 
         # Create proposal if not auto-approved
@@ -379,7 +363,7 @@ async def get_entity_processing_status(request: Request, entity_id: UUID):
     db = await get_db()
 
     entity = await db.fetch_one("""
-        SELECT re.id, re.title, re.embedding_status, re.processing_error
+        SELECT re.id, re.title, re.status
         FROM rights_entities re
         JOIN catalogs c ON c.id = re.catalog_id
         JOIN workspace_memberships wm ON wm.workspace_id = c.workspace_id
@@ -389,29 +373,16 @@ async def get_entity_processing_status(request: Request, entity_id: UUID):
     if not entity:
         raise HTTPException(status_code=404, detail="Entity not found")
 
-    # Get associated processing jobs
-    jobs = await db.fetch_all("""
-        SELECT id, job_type, status, started_at, completed_at, error_message
-        FROM processing_jobs
-        WHERE rights_entity_id = :entity_id
-        ORDER BY created_at DESC
-        LIMIT 10
-    """, {"entity_id": str(entity_id)})
-
-    # Get embedding count
-    embedding_count = await db.fetch_one("""
-        SELECT COUNT(*) as count
-        FROM entity_embeddings
-        WHERE rights_entity_id = :entity_id
-    """, {"entity_id": str(entity_id)})
-
+    # Note: processing_jobs and entity_embeddings tables may not exist yet
+    # Return basic status for now
     return {
         "entity_id": entity["id"],
         "title": entity["title"],
-        "embedding_status": entity["embedding_status"],
-        "processing_error": entity["processing_error"],
-        "embedding_count": embedding_count["count"] if embedding_count else 0,
-        "recent_jobs": [dict(j) for j in jobs]
+        "status": entity["status"],
+        "embedding_status": "not_implemented",
+        "processing_error": None,
+        "embedding_count": 0,
+        "recent_jobs": []
     }
 
 
@@ -421,13 +392,17 @@ async def trigger_entity_processing(
     entity_id: UUID,
     force: bool = False
 ):
-    """Trigger embedding generation for a rights entity."""
+    """Trigger embedding generation for a rights entity.
+
+    Note: Processing/embedding functionality is not yet implemented.
+    This endpoint is a placeholder for future AI processing features.
+    """
     user_id = request.state.user_id
     db = await get_db()
 
     # Verify entity access
     entity = await db.fetch_one("""
-        SELECT re.id, re.catalog_id, re.embedding_status, re.title
+        SELECT re.id, re.catalog_id, re.title, re.status
         FROM rights_entities re
         JOIN catalogs c ON c.id = re.catalog_id
         JOIN workspace_memberships wm ON wm.workspace_id = c.workspace_id
@@ -437,40 +412,8 @@ async def trigger_entity_processing(
     if not entity:
         raise HTTPException(status_code=404, detail="Entity not found")
 
-    # Check if already processing (unless force=True)
-    if not force and entity["embedding_status"] == "processing":
-        raise HTTPException(
-            status_code=400,
-            detail="Entity is already being processed. Use force=true to restart."
-        )
-
-    async with db.transaction():
-        # Update entity status
-        await db.execute("""
-            UPDATE rights_entities
-            SET embedding_status = 'processing',
-                processing_error = NULL,
-                updated_at = now()
-            WHERE id = :entity_id
-        """, {"entity_id": str(entity_id)})
-
-        # Create processing job
-        job = await db.fetch_one("""
-            INSERT INTO processing_jobs (
-                job_type, rights_entity_id, status, priority, config, created_by
-            )
-            VALUES (
-                'embedding_generation', :entity_id, 'queued', 0, :config, :user_id
-            )
-            RETURNING id, job_type, status, created_at
-        """, {
-            "entity_id": str(entity_id),
-            "config": {"force": force, "embedding_types": ["text"]},
-            "user_id": user_id
-        })
-
-    return {
-        "job": dict(job),
-        "entity_id": entity_id,
-        "message": "Processing job queued"
-    }
+    # Processing not yet implemented
+    raise HTTPException(
+        status_code=501,
+        detail="Processing/embedding functionality is not yet implemented"
+    )
