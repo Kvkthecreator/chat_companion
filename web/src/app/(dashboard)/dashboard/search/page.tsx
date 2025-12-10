@@ -1,11 +1,17 @@
-'use client'
+"use client"
 
-import { useState } from 'react'
-import { createClient } from '@/lib/supabase/client'
-import { search, type SearchResult } from '@/lib/api'
+import { useState } from "react"
+import { createClient } from "@/lib/supabase/client"
+import { search, type SearchResult } from "@/lib/api"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Badge } from "@/components/ui/badge"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Skeleton } from "@/components/ui/skeleton"
+import { Sparkles, Search as SearchIcon } from "lucide-react"
 
 export default function SearchPage() {
-  const [query, setQuery] = useState('')
+  const [query, setQuery] = useState("")
   const [results, setResults] = useState<SearchResult[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -34,114 +40,142 @@ export default function SearchPage() {
   }
 
   return (
-    <div>
+    <div className="space-y-6">
       {/* Header */}
-      <div className="mb-8">
-        <h1 className="text-2xl font-bold text-slate-900">Semantic Search</h1>
-        <p className="text-slate-600 mt-1">Find IP assets using natural language search</p>
+      <div className="flex flex-col gap-3">
+        <div className="flex items-center gap-3">
+          <Badge variant="outline">Search</Badge>
+          <p className="text-sm text-muted-foreground">Vector + permissions aware</p>
+        </div>
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Semantic Search</h1>
+          <p className="text-muted-foreground">
+            Find IP assets using natural language across catalogs, rights types, and permissions.
+          </p>
+        </div>
       </div>
 
       {/* Search Form */}
-      <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 mb-8">
-        <form onSubmit={handleSearch}>
-          <div className="flex gap-4">
-            <input
-              type="text"
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="flex items-center gap-2 text-lg">
+            <Sparkles className="h-5 w-5 text-primary" />
+            Natural language search
+          </CardTitle>
+          <CardDescription>Search embeddings, metadata, and AI permissions in one query.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={handleSearch} className="flex flex-col gap-4 md:flex-row">
+            <Input
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Search for music, voices, characters, visual works..."
-              className="flex-1 px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-900 focus:border-slate-900 outline-none transition-colors"
             />
-            <button
-              type="submit"
-              disabled={isLoading || !query.trim()}
-              className="px-6 py-3 bg-slate-900 text-white font-medium rounded-lg hover:bg-slate-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {isLoading ? 'Searching...' : 'Search'}
-            </button>
-          </div>
-        </form>
-      </div>
+            <Button type="submit" disabled={isLoading || !query.trim()} className="md:w-36">
+              {isLoading ? "Searching..." : "Search"}
+            </Button>
+          </form>
+        </CardContent>
+      </Card>
 
       {/* Error */}
       {error && (
-        <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg text-red-700">
-          {error}
-        </div>
+        <Card className="border-destructive/40 bg-destructive/10">
+          <CardHeader>
+            <CardTitle className="text-destructive text-lg">Search failed</CardTitle>
+            <CardDescription className="text-destructive">{error}</CardDescription>
+          </CardHeader>
+        </Card>
       )}
 
       {/* Results */}
       {searched && !isLoading && (
-        <div className="bg-white rounded-xl shadow-sm border border-slate-200">
-          <div className="p-6 border-b border-slate-200">
-            <h2 className="text-lg font-semibold text-slate-900">
-              {results.length} {results.length === 1 ? 'result' : 'results'} found
-            </h2>
-          </div>
+        <Card>
+          <CardHeader className="border-b border-border">
+            <CardTitle>
+              {results.length} {results.length === 1 ? "result" : "results"} found
+            </CardTitle>
+          </CardHeader>
 
           {results.length === 0 ? (
-            <div className="p-12 text-center">
-              <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <svg className="w-8 h-8 text-slate-400" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
-                </svg>
+            <CardContent className="flex flex-col items-center justify-center gap-3 py-12 text-center">
+              <div className="flex h-14 w-14 items-center justify-center rounded-full bg-muted">
+                <SearchIcon className="h-6 w-6 text-muted-foreground" />
               </div>
-              <h3 className="text-lg font-medium text-slate-900 mb-2">No results found</h3>
-              <p className="text-slate-500">Try a different search term or create some entities first.</p>
-            </div>
+              <div>
+                <h3 className="text-lg font-semibold">No results yet</h3>
+                <p className="text-sm text-muted-foreground">
+                  Try a different search term or add more entities.
+                </p>
+              </div>
+            </CardContent>
           ) : (
-            <div className="divide-y divide-slate-200">
+            <div className="divide-y divide-border">
               {results.map((result) => (
-                <div key={result.entity_id} className="p-6">
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1">
-                      <h3 className="font-medium text-slate-900">{result.title}</h3>
-                      <div className="flex items-center gap-3 mt-1">
-                        <span className="px-2 py-0.5 bg-slate-100 text-slate-600 text-xs rounded-full">
-                          {result.rights_type.replace('_', ' ')}
-                        </span>
+                <CardContent key={result.entity_id} className="flex flex-col gap-3">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2">
+                        <Badge variant="outline" className="capitalize">
+                          {result.rights_type.replace("_", " ")}
+                        </Badge>
                         {result.catalog_name && (
-                          <span className="text-sm text-slate-500">{result.catalog_name}</span>
+                          <span className="text-xs text-muted-foreground">{result.catalog_name}</span>
                         )}
                       </div>
+                      <h3 className="text-lg font-semibold leading-tight">{result.title}</h3>
                       {result.snippet && (
-                        <p className="text-sm text-slate-600 mt-2 line-clamp-2">{result.snippet}</p>
+                        <p className="text-sm text-muted-foreground line-clamp-2">
+                          {result.snippet}
+                        </p>
                       )}
                     </div>
-                    <div className="ml-4 text-right">
-                      <div className="text-sm font-medium text-slate-900">
+                    <div className="min-w-[140px] text-right">
+                      <p className="text-sm font-semibold">
                         {(result.similarity_score * 100).toFixed(1)}% match
-                      </div>
-                      <div className="flex items-center gap-1 mt-2">
+                      </p>
+                      <div className="flex flex-wrap justify-end gap-1 pt-2">
                         {result.permissions_summary.training_allowed && (
-                          <span className="px-2 py-0.5 bg-green-100 text-green-700 text-xs rounded-full">Training OK</span>
+                          <Badge variant="success" className="text-xs">Training OK</Badge>
                         )}
                         {result.permissions_summary.commercial_allowed && (
-                          <span className="px-2 py-0.5 bg-blue-100 text-blue-700 text-xs rounded-full">Commercial OK</span>
+                          <Badge variant="outline" className="text-xs">Commercial OK</Badge>
                         )}
                       </div>
                     </div>
                   </div>
-                </div>
+                </CardContent>
               ))}
             </div>
           )}
-        </div>
+        </Card>
       )}
 
       {/* Initial State */}
-      {!searched && (
-        <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-12 text-center">
-          <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4">
-            <svg className="w-8 h-8 text-slate-400" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
-            </svg>
-          </div>
-          <h3 className="text-lg font-medium text-slate-900 mb-2">Search your IP catalog</h3>
-          <p className="text-slate-500 max-w-md mx-auto">
-            Use natural language to find music, voice recordings, characters, and other intellectual property across your catalogs.
-          </p>
-        </div>
+      {!searched && !isLoading && (
+        <Card>
+          <CardContent className="flex flex-col items-center justify-center gap-3 py-14 text-center">
+            <div className="flex h-14 w-14 items-center justify-center rounded-full bg-muted">
+              <SearchIcon className="h-6 w-6 text-muted-foreground" />
+            </div>
+            <h3 className="text-lg font-semibold">Search your IP catalog</h3>
+            <p className="max-w-md text-sm text-muted-foreground">
+              Use natural language to find music, voice recordings, characters, and other intellectual property across your catalogs.
+            </p>
+          </CardContent>
+        </Card>
+      )}
+
+      {isLoading && (
+        <Card>
+          <CardContent className="flex items-center gap-3 py-6">
+            <Skeleton className="h-10 w-10 rounded-full" />
+            <div className="flex-1 space-y-2">
+              <Skeleton className="h-3 w-1/3" />
+              <Skeleton className="h-3 w-1/2" />
+            </div>
+          </CardContent>
+        </Card>
       )}
     </div>
   )
