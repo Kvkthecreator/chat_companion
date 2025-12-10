@@ -39,16 +39,32 @@ async def list_workspaces(request: Request):
 @router.post("/workspaces")
 async def create_workspace(request: Request, payload: WorkspaceCreate):
     """Create a new workspace."""
+    import re
     user_id = request.state.user_id
     db = await get_db()
+
+    # Generate slug from name
+    slug = re.sub(r'[^a-z0-9]+', '-', payload.name.lower()).strip('-')
+
+    # Ensure slug uniqueness by appending random suffix if needed
+    import secrets
+    base_slug = slug
+    for _ in range(5):  # Try up to 5 times
+        existing = await db.fetch_one(
+            "SELECT id FROM workspaces WHERE slug = :slug",
+            {"slug": slug}
+        )
+        if not existing:
+            break
+        slug = f"{base_slug}-{secrets.token_hex(3)}"
 
     async with db.transaction():
         # Create workspace
         workspace = await db.fetch_one("""
-            INSERT INTO workspaces (name, description, created_by)
-            VALUES (:name, :description, :user_id)
-            RETURNING id, name, description, created_at
-        """, {"name": payload.name, "description": payload.description, "user_id": user_id})
+            INSERT INTO workspaces (name, slug, description)
+            VALUES (:name, :slug, :description)
+            RETURNING id, name, slug, description, created_at
+        """, {"name": payload.name, "slug": slug, "description": payload.description})
 
         # Add creator as owner
         await db.execute("""
