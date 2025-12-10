@@ -52,15 +52,15 @@ async def list_proposals(
         raise HTTPException(status_code=404, detail="Catalog not found")
 
     # Build query
-    where_clauses = ["catalog_id = :catalog_id"]
+    where_clauses = ["p.catalog_id = :catalog_id"]
     params = {"catalog_id": str(catalog_id), "limit": limit, "offset": offset}
 
     if status != "all":
-        where_clauses.append("status = :status")
+        where_clauses.append("p.status = :status")
         params["status"] = status
 
     if proposal_type:
-        where_clauses.append("proposal_type = :proposal_type")
+        where_clauses.append("p.proposal_type = :proposal_type")
         params["proposal_type"] = proposal_type
 
     proposals = await db.fetch_all(f"""
@@ -85,7 +85,7 @@ async def list_proposals(
     count_params = {k: v for k, v in params.items() if k not in ("limit", "offset")}
     count_result = await db.fetch_one(f"""
         SELECT COUNT(*) as total
-        FROM proposals
+        FROM proposals p
         WHERE {' AND '.join(where_clauses)}
     """, count_params)
 

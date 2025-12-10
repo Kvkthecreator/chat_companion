@@ -145,12 +145,13 @@ async def list_rights_entities(
         LIMIT :limit OFFSET :offset
     """, params)
 
-    # Get total count
+    # Get total count - use same where_clauses without pagination params
+    count_params = {k: v for k, v in params.items() if k not in ("limit", "offset")}
     count_result = await db.fetch_one(f"""
         SELECT COUNT(*) as total
         FROM rights_entities
-        WHERE {' AND '.join(where_clauses[:-1] if status == "all" else where_clauses)}
-    """, {k: v for k, v in params.items() if k not in ("limit", "offset")})
+        WHERE {' AND '.join(where_clauses)}
+    """, count_params)
 
     return {
         "entities": [dict(e) for e in entities],
