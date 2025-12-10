@@ -138,16 +138,38 @@ The purpose is to show rights holders what their catalog looks like when it's "A
 
 ## Technical Build: Lighter Than Expected
 
-| Component | Implementation | Effort |
-|-----------|----------------|--------|
-| Catalog display | Existing schema + simple React UI | Low |
-| Permissions model | Already designed | Done |
-| Search/discovery | Embeddings + pgvector (designed) | Medium |
-| Generation demo | Wrap Replicate/Suno API | Low |
-| Provenance display | UI on existing schema | Low |
-| Mock dashboard | Static or seeded data | Low |
+| Component | Implementation | Effort | Status |
+|-----------|----------------|--------|--------|
+| Catalog display | Existing schema + simple React UI | Low | Done |
+| Permissions model | Already designed | Done | Done |
+| Permissions filtering | Structured JSONB queries | Low | Done |
+| Semantic search | Embeddings + pgvector | Medium | Built (nice-to-have) |
+| Generation demo | Wrap Replicate/Suno API | Low | Not started |
+| Provenance display | UI on existing schema | Low | Not started |
+| Mock dashboard | Static or seeded data | Low | Done |
 
 **Key insight**: You're not building a generation model. You're building a UI that wraps existing generation APIs to demonstrate the licensing flow.
+
+### Embeddings vs. Structured Filtering (ADR-001)
+
+**Important clarification**: Semantic search (embeddings) is a **nice-to-have**, not core to the value proposition.
+
+When AI platforms query a clearinghouse, they ask structured questions:
+
+```sql
+-- "What tracks allow training and commercial use?"
+SELECT * FROM rights_entities
+WHERE ai_permissions->>'training_allowed' = 'true'
+  AND ai_permissions->>'commercial_use' = 'true'
+```
+
+This is **structured filtering**—no embeddings required.
+
+Embeddings enable fuzzy/human discovery ("find something that feels like a sunny road trip"), which is useful for demo UX but not what AI platforms programmatically query.
+
+**Decision**: Keep embeddings infrastructure (it works), but don't invest more time improving it. Focus on making structured filtering + permissions display solid.
+
+See [ARCHITECTURE_DECISIONS.md](./ARCHITECTURE_DECISIONS.md) for full rationale.
 
 ---
 
