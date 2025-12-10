@@ -285,3 +285,213 @@ export const proposals = {
       token,
     }),
 }
+
+// =============================================================================
+// Assets
+// =============================================================================
+
+export interface Asset {
+  id: string
+  rights_entity_id: string
+  asset_type: string
+  filename: string
+  mime_type?: string
+  file_size_bytes?: number
+  storage_bucket: string
+  storage_path: string
+  is_public: boolean
+  duration_seconds?: number
+  sample_rate?: number
+  channels?: number
+  processing_status: string
+  processing_error?: string
+  extracted_metadata?: Record<string, unknown>
+  created_at: string
+  updated_at: string
+}
+
+export const assets = {
+  list: (entityId: string, token: string, params?: { asset_type?: string; processing_status?: string }) => {
+    const query = new URLSearchParams()
+    if (params?.asset_type) query.set('asset_type', params.asset_type)
+    if (params?.processing_status) query.set('processing_status', params.processing_status)
+    const queryStr = query.toString()
+    return fetchAPI<{ assets: Asset[] }>(`/api/v1/entities/${entityId}/assets${queryStr ? `?${queryStr}` : ''}`, { token })
+  },
+
+  get: (id: string, token: string) =>
+    fetchAPI<{ asset: Asset }>(`/api/v1/assets/${id}`, { token }),
+
+  upload: async (entityId: string, file: File, assetType: string, token: string, isPublic = false) => {
+    const formData = new FormData()
+    formData.append('file', file)
+    formData.append('asset_type', assetType)
+    formData.append('is_public', String(isPublic))
+
+    const response = await fetch(`${API_URL}/api/v1/entities/${entityId}/assets/upload`, {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${token}` },
+      body: formData,
+    })
+
+    if (!response.ok) {
+      const data = await response.json().catch(() => ({}))
+      throw new APIError(response.status, data.detail || 'Upload failed', data)
+    }
+
+    return response.json() as Promise<{ asset: Asset; message: string }>
+  },
+
+  getDownloadUrl: (assetId: string, token: string, expiresIn = 3600) =>
+    fetchAPI<{ url: string; filename: string; expires_in: number | null; is_public: boolean }>(
+      `/api/v1/assets/${assetId}/url?expires_in=${expiresIn}`,
+      { token }
+    ),
+
+  delete: (assetId: string, token: string) =>
+    fetchAPI<{ deleted: boolean; asset_id: string }>(`/api/v1/assets/${assetId}`, {
+      method: 'DELETE',
+      token,
+    }),
+
+  triggerProcessing: (assetId: string, token: string, jobType = 'asset_analysis') => {
+    const formData = new FormData()
+    formData.append('job_type', jobType)
+    return fetch(`${API_URL}/api/v1/assets/${assetId}/process`, {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${token}` },
+      body: formData,
+    }).then(async (response) => {
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}))
+        throw new APIError(response.status, data.detail || 'Failed to trigger processing', data)
+      }
+      return response.json() as Promise<{ job: ProcessingJob; message: string }>
+    })
+  },
+}
+
+// =============================================================================
+// Processing Jobs
+// =============================================================================
+
+export interface ProcessingJob {
+  id: string
+  job_type: string
+  rights_entity_id?: string
+  asset_id?: string
+  status: string
+  priority: number
+  started_at?: string
+  completed_at?: string
+  error_message?: string
+  retry_count: number
+  max_retries: number
+  config?: Record<string, unknown>
+  result?: Record<string, unknown>
+  created_at: string
+  updated_at: string
+  entity_title?: string
+  rights_type?: string
+}
+
+export const jobs = {
+  list: (token: string, params?: { status?: string; job_type?: string; entity_id?: string; limit?: number; offset?: number }) => {
+    const query = new URLSearchParams()
+    if (params?.status) query.set('status', params.status)
+    if (params?.job_type) query.set('job_type', params.job_type)
+    if (params?.entity_id) query.set('entity_id', params.entity_id)
+    if (params?.limit) query.set('limit', String(params.limit))
+    if (params?.offset) query.set('offset', String(params.offset))
+    const queryStr = query.toString()
+    return fetchAPI<{ jobs: ProcessingJob[]; total: number }>(`/api/v1/jobs${queryStr ? `?${queryStr}` : ''}`, { token })
+  },
+
+  listForEntity: (entityId: string, token: string, params?: { status?: string; limit?: number }) => {
+    const query = new URLSearchParams()
+    if (params?.status) query.set('status', params.status)
+    if (params?.limit) query.set('limit', String(params.limit))
+    const queryStr = query.toString()
+    return fetchAPI<{ jobs: ProcessingJob[] }>(`/api/v1/entities/${entityId}/jobs${queryStr ? `?${queryStr}` : ''}`, { token })
+  },
+
+  get: (jobId: string, token: string) =>
+    fetchAPI<{ job: ProcessingJob }>(`/api/v1/jobs/${jobId}`, { token }),
+
+  create: (data: { job_type: string; rights_entity_id?: string; asset_id?: string; priority?: number; config?: Record<string, unknown> }, token: string) =>
+    fetchAPI<{ job: ProcessingJob; message: string }>('/api/v1/jobs', {
+      method: 'POST',
+      body: JSON.stringify(data),
+      token,
+    }),
+
+  cancel: (jobId: string, token: string) =>
+    fetchAPI<{ status: string; job_id: string }>(`/api/v1/jobs/${jobId}/cancel`, {
+      method: 'POST',
+      token,
+    }),
+
+  retry: (jobId: string, token: string) =>
+    fetchAPI<{ job: ProcessingJob; original_job_id: string; message: string }>(`/api/v1/jobs/${jobId}/retry`, {
+      method: 'POST',
+      token,
+    }),
+}
+
+// =============================================================================
+// Bulk Import
+// =============================================================================
+
+export interface ImportResult {
+  index: number
+  success: boolean
+  entity_id?: string
+  title: string
+  error?: string
+}
+
+export interface BulkImportResponse {
+  total: number
+  successful: number
+  failed: number
+  results: ImportResult[]
+  job_id?: string
+}
+
+export const imports = {
+  bulk: (catalogId: string, entities: Array<{
+    rights_type: string
+    title: string
+    entity_key?: string
+    content?: Record<string, unknown>
+    ai_permissions?: Record<string, unknown>
+  }>, token: string, autoProcess = false) =>
+    fetchAPI<BulkImportResponse>(`/api/v1/catalogs/${catalogId}/import`, {
+      method: 'POST',
+      body: JSON.stringify({ entities, auto_process: autoProcess }),
+      token,
+    }),
+
+  csv: async (catalogId: string, file: File, rightsType: string, token: string, autoProcess = false) => {
+    const formData = new FormData()
+    formData.append('file', file)
+    formData.append('rights_type', rightsType)
+    formData.append('auto_process', String(autoProcess))
+
+    const response = await fetch(`${API_URL}/api/v1/catalogs/${catalogId}/import/csv`, {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${token}` },
+      body: formData,
+    })
+
+    if (!response.ok) {
+      const data = await response.json().catch(() => ({}))
+      throw new APIError(response.status, data.detail || 'CSV import failed', data)
+    }
+
+    return response.json() as Promise<BulkImportResponse>
+  },
+
+  getTemplate: (catalogId: string, rightsType: string, token: string) =>
+    `${API_URL}/api/v1/catalogs/${catalogId}/import/template?rights_type=${rightsType}`,
+}

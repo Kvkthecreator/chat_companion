@@ -1,10 +1,11 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { useParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { catalogs, entities, schemas, type Catalog, type RightsEntity, type RightsSchema } from '@/lib/api'
+import { catalogs, entities, schemas, imports, type Catalog, type RightsEntity, type RightsSchema, type BulkImportResponse } from '@/lib/api'
 import Link from 'next/link'
+import { EmbeddingStatusBadge } from '@/components/ProcessingStatus'
 
 export default function CatalogDetailPage() {
   const params = useParams()
@@ -16,43 +17,49 @@ export default function CatalogDetailPage() {
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [showNewEntity, setShowNewEntity] = useState(false)
+  const [showBulkImport, setShowBulkImport] = useState(false)
   const [newEntityTitle, setNewEntityTitle] = useState('')
   const [newEntityType, setNewEntityType] = useState('')
   const [isCreating, setIsCreating] = useState(false)
+  const [importFile, setImportFile] = useState<File | null>(null)
+  const [importType, setImportType] = useState('')
+  const [isImporting, setIsImporting] = useState(false)
+  const [importResult, setImportResult] = useState<BulkImportResponse | null>(null)
   const supabase = createClient()
 
-  useEffect(() => {
-    async function load() {
-      try {
-        const { data: { session } } = await supabase.auth.getSession()
-        if (!session) {
-          setError('Not authenticated')
-          setIsLoading(false)
-          return
-        }
-
-        const [catResult, entResult, schemaResult] = await Promise.all([
-          catalogs.get(catalogId, session.access_token),
-          entities.list(catalogId, session.access_token),
-          schemas.list(session.access_token)
-        ])
-
-        setCatalog(catResult.catalog)
-        setEntities(entResult.entities)
-        setSchemas(schemaResult.schemas)
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to load catalog')
-      } finally {
+  const loadData = useCallback(async () => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) {
+        setError('Not authenticated')
         setIsLoading(false)
+        return
       }
+
+      const [catResult, entResult, schemaResult] = await Promise.all([
+        catalogs.get(catalogId, session.access_token),
+        entities.list(catalogId, session.access_token, { status: 'all' }),
+        schemas.list(session.access_token)
+      ])
+
+      setCatalog(catResult.catalog)
+      setEntities(entResult.entities)
+      setSchemas(schemaResult.schemas)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load catalog')
+    } finally {
+      setIsLoading(false)
     }
-    load()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [catalogId])
+  }, [catalogId, supabase.auth])
+
+  useEffect(() => {
+    loadData()
+  }, [loadData])
 
   const handleCreateEntity = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsCreating(true)
+    setError(null)
 
     try {
       const { data: { session } } = await supabase.auth.getSession()
@@ -74,15 +81,39 @@ export default function CatalogDetailPage() {
     }
   }
 
-  const getStatusBadge = (status: string, embeddingStatus: string) => {
-    if (embeddingStatus === 'processing') {
-      return <span className="px-2 py-1 text-xs font-medium bg-blue-100 text-blue-800 rounded">Processing</span>
+  const handleBulkImport = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!importFile || !importType) return
+
+    setIsImporting(true)
+    setError(null)
+    setImportResult(null)
+
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) return
+
+      const result = await imports.csv(catalogId, importFile, importType, session.access_token, true)
+      setImportResult(result)
+
+      // Refresh entities list
+      const entResult = await entities.list(catalogId, session.access_token, { status: 'all' })
+      setEntities(entResult.entities)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Import failed')
+    } finally {
+      setIsImporting(false)
     }
+  }
+
+  const getStatusBadge = (status: string) => {
     switch (status) {
       case 'active':
         return <span className="px-2 py-1 text-xs font-medium bg-green-100 text-green-800 rounded">Active</span>
       case 'draft':
         return <span className="px-2 py-1 text-xs font-medium bg-yellow-100 text-yellow-800 rounded">Draft</span>
+      case 'pending':
+        return <span className="px-2 py-1 text-xs font-medium bg-amber-100 text-amber-800 rounded">Pending</span>
       case 'archived':
         return <span className="px-2 py-1 text-xs font-medium bg-slate-100 text-slate-800 rounded">Archived</span>
       default:
@@ -124,18 +155,109 @@ export default function CatalogDetailPage() {
             <h1 className="text-2xl font-bold text-slate-900">{catalog.name}</h1>
             <p className="text-slate-600 mt-1">{catalog.description || 'No description'}</p>
           </div>
-          <button
-            onClick={() => setShowNewEntity(true)}
-            className="px-4 py-2 bg-slate-900 text-white text-sm font-medium rounded-lg hover:bg-slate-800 transition-colors"
-          >
-            Add Entity
-          </button>
+          <div className="flex gap-2">
+            <button
+              onClick={() => setShowBulkImport(true)}
+              className="px-4 py-2 border border-slate-300 text-slate-700 text-sm font-medium rounded-lg hover:bg-slate-50 transition-colors"
+            >
+              Bulk Import
+            </button>
+            <button
+              onClick={() => setShowNewEntity(true)}
+              className="px-4 py-2 bg-slate-900 text-white text-sm font-medium rounded-lg hover:bg-slate-800 transition-colors"
+            >
+              Add Entity
+            </button>
+          </div>
         </div>
       </div>
 
       {error && (
         <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg text-red-700">
           {error}
+          <button onClick={() => setError(null)} className="ml-2 text-red-500 hover:text-red-700">Dismiss</button>
+        </div>
+      )}
+
+      {/* Import Result */}
+      {importResult && (
+        <div className={`mb-6 p-4 rounded-lg border ${importResult.failed > 0 ? 'bg-amber-50 border-amber-200' : 'bg-green-50 border-green-200'}`}>
+          <h4 className="font-medium mb-2">Import Complete</h4>
+          <p className="text-sm">
+            {importResult.successful} of {importResult.total} entities imported successfully.
+            {importResult.failed > 0 && ` ${importResult.failed} failed.`}
+          </p>
+          {importResult.job_id && (
+            <p className="text-sm mt-1 text-slate-600">
+              Processing job queued (ID: {importResult.job_id.slice(0, 8)}...)
+            </p>
+          )}
+          <button
+            onClick={() => { setImportResult(null); setShowBulkImport(false); }}
+            className="text-sm mt-2 text-slate-600 hover:text-slate-900"
+          >
+            Dismiss
+          </button>
+        </div>
+      )}
+
+      {/* Bulk Import Form */}
+      {showBulkImport && !importResult && (
+        <div className="mb-6 bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+          <h3 className="font-semibold text-slate-900 mb-4">Bulk Import from CSV</h3>
+          <form onSubmit={handleBulkImport} className="space-y-4">
+            <div>
+              <label htmlFor="importType" className="block text-sm font-medium text-slate-700 mb-1">
+                Entity Type (all imported entities will use this type)
+              </label>
+              <select
+                id="importType"
+                value={importType}
+                onChange={(e) => setImportType(e.target.value)}
+                required
+                className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-900 focus:border-slate-900 outline-none"
+              >
+                <option value="">Select a type...</option>
+                {availableSchemas.map((schema) => (
+                  <option key={schema.id} value={schema.id}>
+                    {schema.display_name}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label htmlFor="csvFile" className="block text-sm font-medium text-slate-700 mb-1">
+                CSV File
+              </label>
+              <input
+                type="file"
+                id="csvFile"
+                accept=".csv"
+                onChange={(e) => setImportFile(e.target.files?.[0] || null)}
+                required
+                className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-900 focus:border-slate-900 outline-none"
+              />
+              <p className="text-xs text-slate-500 mt-1">
+                CSV must have a &quot;title&quot; column. Optional: entity_key, content (JSON), ai_permissions (JSON)
+              </p>
+            </div>
+            <div className="flex gap-3">
+              <button
+                type="submit"
+                disabled={isImporting || !importFile || !importType}
+                className="px-4 py-2 bg-slate-900 text-white text-sm font-medium rounded-lg hover:bg-slate-800 disabled:opacity-50"
+              >
+                {isImporting ? 'Importing...' : 'Import'}
+              </button>
+              <button
+                type="button"
+                onClick={() => { setShowBulkImport(false); setImportFile(null); setImportType(''); }}
+                className="px-4 py-2 text-slate-600 text-sm font-medium hover:text-slate-900"
+              >
+                Cancel
+              </button>
+            </div>
+          </form>
         </div>
       )}
 
@@ -212,25 +334,41 @@ export default function CatalogDetailPage() {
               </svg>
             </div>
             <h3 className="text-lg font-medium text-slate-900 mb-2">No entities yet</h3>
-            <p className="text-slate-500 mb-6">Add your first IP entity to this catalog.</p>
-            <button
-              onClick={() => setShowNewEntity(true)}
-              className="inline-flex items-center gap-2 px-4 py-2 bg-slate-900 text-white text-sm font-medium rounded-lg hover:bg-slate-800"
-            >
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-              </svg>
-              Add Entity
-            </button>
+            <p className="text-slate-500 mb-6">Add your first IP entity or import from CSV.</p>
+            <div className="flex gap-3 justify-center">
+              <button
+                onClick={() => setShowBulkImport(true)}
+                className="inline-flex items-center gap-2 px-4 py-2 border border-slate-300 text-slate-700 text-sm font-medium rounded-lg hover:bg-slate-50"
+              >
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
+                </svg>
+                Import CSV
+              </button>
+              <button
+                onClick={() => setShowNewEntity(true)}
+                className="inline-flex items-center gap-2 px-4 py-2 bg-slate-900 text-white text-sm font-medium rounded-lg hover:bg-slate-800"
+              >
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+                </svg>
+                Add Entity
+              </button>
+            </div>
           </div>
         ) : (
           <div className="divide-y divide-slate-200">
             {catalogEntities.map((entity) => (
-              <div key={entity.id} className="p-6 hover:bg-slate-50 transition-colors">
+              <Link
+                key={entity.id}
+                href={`/dashboard/entities/${entity.id}`}
+                className="block p-6 hover:bg-slate-50 transition-colors"
+              >
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
                     <div className="flex items-center gap-3 mb-2">
-                      {getStatusBadge(entity.status, entity.embedding_status)}
+                      {getStatusBadge(entity.status)}
+                      <EmbeddingStatusBadge status={entity.embedding_status} />
                       <span className="text-xs text-slate-500 bg-slate-100 px-2 py-1 rounded">
                         {entity.rights_type}
                       </span>
@@ -239,22 +377,14 @@ export default function CatalogDetailPage() {
                     <div className="flex items-center gap-4 mt-2 text-xs text-slate-400">
                       <span>v{entity.version}</span>
                       <span>{new Date(entity.created_at).toLocaleDateString()}</span>
+                      {entity.entity_key && <span className="font-mono">{entity.entity_key}</span>}
                     </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    {entity.ai_permissions && (
-                      <div className="flex gap-1">
-                        {(entity.ai_permissions as { training_allowed?: boolean }).training_allowed && (
-                          <span className="px-2 py-1 text-xs bg-green-50 text-green-700 rounded">Training</span>
-                        )}
-                        {(entity.ai_permissions as { commercial_allowed?: boolean }).commercial_allowed && (
-                          <span className="px-2 py-1 text-xs bg-blue-50 text-blue-700 rounded">Commercial</span>
-                        )}
-                      </div>
-                    )}
-                  </div>
+                  <svg className="w-5 h-5 text-slate-400" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
+                  </svg>
                 </div>
-              </div>
+              </Link>
             ))}
           </div>
         )}
