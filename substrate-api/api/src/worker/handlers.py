@@ -24,7 +24,11 @@ async def handle_embedding_generation(job: Dict[str, Any], db) -> Dict[str, Any]
 
     log.info(f"Generating embedding for entity {entity_id}")
 
-    result = await process_entity_embedding(db, UUID(entity_id), user_id)
+    # entity_id may be asyncpg UUID or string - convert to standard UUID
+    if not isinstance(entity_id, UUID):
+        entity_id = UUID(str(entity_id))
+
+    result = await process_entity_embedding(db, entity_id, user_id)
 
     return result
 
