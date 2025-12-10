@@ -5,17 +5,14 @@ import { assets, Asset } from '@/lib/api'
 import { ProcessingStatus } from './ProcessingStatus'
 import {
   Music,
-  Image,
+  Image as ImageIcon,
   Video,
   FileText,
   File,
   Download,
   Trash2,
-  ExternalLink,
   Loader2,
   AlertCircle,
-  Play,
-  MoreVertical,
 } from 'lucide-react'
 
 interface AssetGalleryProps {
@@ -29,7 +26,7 @@ function getAssetIcon(assetType: string, mimeType?: string) {
     return <Music className="h-8 w-8 text-purple-500" />
   }
   if (assetType === 'image' || mimeType?.startsWith('image/')) {
-    return <Image className="h-8 w-8 text-blue-500" />
+    return <ImageIcon className="h-8 w-8 text-blue-500" />
   }
   if (assetType === 'video' || mimeType?.startsWith('video/')) {
     return <Video className="h-8 w-8 text-pink-500" />
@@ -58,7 +55,6 @@ export function AssetGallery({ entityId, token, onAssetDelete }: AssetGalleryPro
   const [assetList, setAssetList] = useState<Asset[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [selectedAsset, setSelectedAsset] = useState<Asset | null>(null)
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null)
   const [downloadingId, setDownloadingId] = useState<string | null>(null)
 
@@ -112,16 +108,6 @@ export function AssetGallery({ entityId, token, onAssetDelete }: AssetGalleryPro
       onAssetDelete?.(assetId)
     } catch (err) {
       console.error('Delete failed:', err)
-    }
-  }
-
-  // Refresh assets (for external use)
-  const refresh = async () => {
-    try {
-      const result = await assets.list(entityId, token)
-      setAssetList(result.assets)
-    } catch (err) {
-      console.error('Refresh failed:', err)
     }
   }
 

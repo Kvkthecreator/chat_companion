@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import { useParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { catalogs, entities, schemas, imports, type Catalog, type RightsEntity, type RightsSchema, type BulkImportResponse } from '@/lib/api'
+import { catalogs, entities, schemas, type Catalog, type RightsEntity, type RightsSchema, type BulkImportResponse } from '@/lib/api'
 import Link from 'next/link'
 import { EmbeddingStatusBadge } from '@/components/ProcessingStatus'
 import { BulkImportDialog } from '@/components/BulkImportDialog'
@@ -80,7 +80,8 @@ export default function CatalogDetailPage() {
     }
   }
 
-  const handleImportSuccess = async (result: BulkImportResponse) => {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const handleImportSuccess = async (_result: BulkImportResponse) => {
     // Refresh entities list after successful import
     try {
       const { data: { session } } = await supabase.auth.getSession()

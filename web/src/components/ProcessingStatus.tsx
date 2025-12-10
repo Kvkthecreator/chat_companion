@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { cn } from '@/lib/utils'
-import { ProcessingJob, jobs as jobsApi } from '@/lib/api'
+import { ProcessingJob } from '@/lib/api'
 import { Loader2, CheckCircle, XCircle, Clock, RefreshCw, X } from 'lucide-react'
 
 interface ProcessingStatusProps {
@@ -86,7 +86,6 @@ export function ProcessingStatusWithJobs({
   const [isOpen, setIsOpen] = useState(false)
 
   const activeJobs = jobs.filter(j => j.status === 'queued' || j.status === 'processing')
-  const failedJobs = jobs.filter(j => j.status === 'failed')
   const recentJobs = jobs.slice(0, 5)
 
   return (

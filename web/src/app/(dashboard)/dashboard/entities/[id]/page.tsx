@@ -3,9 +3,9 @@
 import { useEffect, useState, useCallback } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { entities, assets, jobs, type RightsEntity, type Asset, type ProcessingJob } from '@/lib/api'
+import { entities, assets, jobs, type RightsEntity, type Asset } from '@/lib/api'
 import Link from 'next/link'
-import { ProcessingStatus, ProcessingStatusWithJobs, EmbeddingStatusBadge } from '@/components/ProcessingStatus'
+import { ProcessingStatus, EmbeddingStatusBadge } from '@/components/ProcessingStatus'
 import { AssetUploader } from '@/components/AssetUploader'
 import { AssetGallery } from '@/components/AssetGallery'
 import { useEntityJobPolling } from '@/hooks/useJobPolling'
@@ -16,7 +16,6 @@ export default function EntityDetailPage() {
   const entityId = params.id as string
 
   const [entity, setEntity] = useState<RightsEntity | null>(null)
-  const [entityAssets, setAssets] = useState<Asset[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [token, setToken] = useState<string | null>(null)
@@ -24,7 +23,7 @@ export default function EntityDetailPage() {
   const supabase = createClient()
 
   // Job polling
-  const { jobs: entityJobs, isLoading: jobsLoading, refetch: refetchJobs, hasActiveJobs } = useEntityJobPolling(
+  const { jobs: entityJobs, refetch: refetchJobs, hasActiveJobs } = useEntityJobPolling(
     entityId,
     token || undefined,
     { enabled: !!token, stopOnComplete: false }
@@ -39,13 +38,9 @@ export default function EntityDetailPage() {
         return
       }
 
-      const [entityResult, assetsResult] = await Promise.all([
-        entities.get(entityId, session.access_token),
-        assets.list(entityId, session.access_token),
-      ])
+      const entityResult = await entities.get(entityId, session.access_token)
 
       setEntity(entityResult.entity)
-      setAssets(assetsResult.assets)
       setToken(session.access_token)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load entity')

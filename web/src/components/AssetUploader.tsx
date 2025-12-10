@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useRef } from 'react'
 import { assets, Asset } from '@/lib/api'
-import { Upload, File, Image, Music, Video, FileText, X, Loader2, CheckCircle, AlertCircle, RefreshCw } from 'lucide-react'
+import { Upload, File, Image as ImageIcon, Music, Video, FileText, X, Loader2, CheckCircle, AlertCircle, RefreshCw } from 'lucide-react'
 
 interface AssetUploaderProps {
   entityId: string
@@ -41,7 +41,7 @@ function detectAssetType(mimeType: string): string {
 
 function getFileIcon(mimeType: string) {
   if (mimeType.startsWith('audio/')) return <Music className="h-5 w-5 text-purple-500" />
-  if (mimeType.startsWith('image/')) return <Image className="h-5 w-5 text-blue-500" />
+  if (mimeType.startsWith('image/')) return <ImageIcon className="h-5 w-5 text-blue-500" />
   if (mimeType.startsWith('video/')) return <Video className="h-5 w-5 text-pink-500" />
   if (mimeType === 'application/pdf') return <FileText className="h-5 w-5 text-red-500" />
   return <File className="h-5 w-5 text-slate-500" />
@@ -96,6 +96,7 @@ export function AssetUploader({
     newUploads
       .filter(u => u.status === 'pending')
       .forEach(upload => uploadFile(upload))
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [maxFileSizeMB])
 
   const uploadFile = async (upload: UploadItem) => {

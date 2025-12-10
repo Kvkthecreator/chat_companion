@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useCallback, useRef } from 'react'
-import { imports, schemas, RightsSchema, BulkImportResponse, ImportResult } from '@/lib/api'
+import { imports, schemas, RightsSchema, BulkImportResponse } from '@/lib/api'
 import { Upload, FileText, Download, AlertCircle, CheckCircle, XCircle, Loader2, X } from 'lucide-react'
 
 interface BulkImportDialogProps {
