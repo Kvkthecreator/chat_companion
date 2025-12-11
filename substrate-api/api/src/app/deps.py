@@ -76,6 +76,12 @@ if USING_DATABASES_LIBRARY:
                 database_url = database_url.split("?")[0]
                 print("ℹ️  Stripped query parameters from DATABASE_URL for compatibility")
 
+            # Ensure the URL has the proper postgresql+asyncpg scheme for the databases library
+            # This explicitly tells the library to use asyncpg backend
+            if database_url.startswith("postgresql://"):
+                database_url = database_url.replace("postgresql://", "postgresql+asyncpg://", 1)
+                print("ℹ️  Using postgresql+asyncpg scheme for explicit backend selection")
+
             # Configure connection with longer timeout for cross-region connections
             # Disable prepared statement caching for pgbouncer/Supavisor compatibility
             # Supabase uses connection pooling in transaction mode which doesn't support prepared statements
