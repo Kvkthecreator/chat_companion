@@ -353,6 +353,19 @@ export const api = {
         `/hooks/pending/${character_id}${limit ? `?limit=${limit}` : ""}`
       ),
   },
+
+  // Subscription endpoints
+  subscription: {
+    getStatus: () =>
+      request<import("@/types").SubscriptionStatus>("/subscription/status"),
+    createCheckout: (variantId?: string) =>
+      request<import("@/types").CheckoutResponse>("/subscription/checkout", {
+        method: "POST",
+        body: JSON.stringify({ variant_id: variantId }),
+      }),
+    getPortal: () =>
+      request<import("@/types").PortalResponse>("/subscription/portal"),
+  },
 };
 
 export default api;

@@ -4,7 +4,7 @@ import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
 import type { User } from "@supabase/supabase-js"
-import { Compass, Heart, Images, LayoutDashboard, LogOut, MessageCircle, ChevronLeft, ChevronRight } from "lucide-react"
+import { Compass, Heart, Images, LayoutDashboard, LogOut, MessageCircle, ChevronLeft, ChevronRight, Settings } from "lucide-react"
 import { ModeToggle } from "@/components/mode-toggle"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
@@ -16,6 +16,7 @@ const navigation = [
   { name: "My Chats", href: "/dashboard/chats", icon: MessageCircle },
   { name: "Our Story", href: "/dashboard/story", icon: Images },
   { name: "Memories", href: "/dashboard/memories", icon: Heart },
+  { name: "Settings", href: "/settings", icon: Settings },
 ]
 
 export function Sidebar({ user }: { user: User }) {

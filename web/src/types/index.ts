@@ -378,3 +378,24 @@ export interface AvatarAsset {
 export interface AvatarAssetWithUrl extends AvatarAsset {
   image_url: string;
 }
+
+// ============================================================================
+// Subscription Types
+// ============================================================================
+
+export type SubscriptionStatusType = "free" | "premium";
+
+export interface SubscriptionStatus {
+  status: SubscriptionStatusType;
+  expires_at: string | null;
+  customer_id: string | null;
+  subscription_id: string | null;
+}
+
+export interface CheckoutResponse {
+  checkout_url: string;
+}
+
+export interface PortalResponse {
+  portal_url: string;
+}
