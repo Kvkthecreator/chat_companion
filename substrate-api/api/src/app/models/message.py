@@ -2,7 +2,7 @@
 import json
 from datetime import datetime
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import Any, ClassVar, Dict, List, Optional
 from uuid import UUID
 
 from pydantic import BaseModel, Field, field_validator
@@ -94,8 +94,8 @@ class ConversationContext(BaseModel):
     total_episodes: int = 0
     time_since_first_met: str = ""
 
-    # Stage-specific behavior guidelines
-    STAGE_GUIDELINES = {
+    # Stage-specific behavior guidelines (class constants, not model fields)
+    STAGE_GUIDELINES: ClassVar[Dict[str, str]] = {
         "acquaintance": """You're still getting to know each other. Be warm but not overly familiar.
 - Ask questions to learn about them (their work/school, what's on their mind, what they're looking forward to)
 - Share surface-level things about yourself
@@ -125,7 +125,7 @@ class ConversationContext(BaseModel):
 - Comfort with each other is evident in how you talk"""
     }
 
-    STAGE_LABELS = {
+    STAGE_LABELS: ClassVar[Dict[str, str]] = {
         "acquaintance": "Just met",
         "friendly": "Getting close",
         "close": "You're my person",
