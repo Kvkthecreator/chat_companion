@@ -40,10 +40,10 @@ async def lifespan(app: FastAPI):
     await get_db()
     log.info("Database connection established")
 
-    # Log LLM configuration
-    llm_provider = os.getenv("LLM_PROVIDER", "openai")
-    llm_model = os.getenv("LLM_MODEL", "gpt-4o-mini")
-    log.info(f"LLM configured: {llm_provider} / {llm_model}")
+    # Initialize LLM service and log configuration
+    from app.services.llm import LLMService
+    llm = LLMService.get_instance()
+    log.info(f"LLM configured: {llm.provider.value} / {llm.model}")
 
     yield
 

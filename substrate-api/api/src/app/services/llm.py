@@ -498,12 +498,24 @@ class LLMService:
 
     Supports two modes:
     1. Runtime configuration: get_client(provider, model) for specific needs
-    2. Default instance: get_instance() for app-wide default (uses DEFAULT_PROVIDER/MODEL)
+    2. Default instance: get_instance() for app-wide default (uses env vars or defaults)
+
+    Environment variables:
+    - LLM_PROVIDER: Provider name (google, openai, anthropic, etc.) - defaults to "google"
+    - LLM_MODEL: Model name - defaults to "gemini-2.0-flash"
     """
 
-    # Default provider/model for the app (can be overridden by deployment)
-    DEFAULT_PROVIDER = "google"
-    DEFAULT_MODEL = "gemini-2.0-flash"
+    # Fallback defaults if env vars not set
+    FALLBACK_PROVIDER = "google"
+    FALLBACK_MODEL = "gemini-2.0-flash"
+
+    @classmethod
+    def _get_default_provider(cls) -> str:
+        return os.getenv("LLM_PROVIDER", cls.FALLBACK_PROVIDER)
+
+    @classmethod
+    def _get_default_model(cls) -> str:
+        return os.getenv("LLM_MODEL", cls.FALLBACK_MODEL)
 
     # API key environment variable mapping
     API_KEY_ENV_VARS = {
@@ -527,9 +539,9 @@ class LLMService:
     _clients: Dict[str, BaseLLMClient] = {}  # Cache of provider+model -> client
 
     def __init__(self, provider: str = None, model: str = None):
-        """Initialize with specific provider/model or use defaults."""
-        provider = provider or self.DEFAULT_PROVIDER
-        model = model or self.DEFAULT_MODEL
+        """Initialize with specific provider/model or use defaults from env vars."""
+        provider = provider or self._get_default_provider()
+        model = model or self._get_default_model()
         self.config = self._build_config(provider, model)
         self._client = self._create_client(self.config)
 
