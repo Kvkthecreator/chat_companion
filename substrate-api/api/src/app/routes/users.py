@@ -104,12 +104,9 @@ async def complete_onboarding(
     db=Depends(get_db),
 ):
     """Complete user onboarding and create first relationship."""
-    import json
-
-    preferences_update = json.dumps({"vibe_preference": data.vibe_preference})
-
     # Update user profile
-    # Note: Using CAST() instead of :: syntax to avoid SQLAlchemy parameter parsing issues
+    # Use COALESCE to ensure preferences is always a valid JSONB object before merging
+    # and jsonb_build_object to construct the update object
     query = """
         UPDATE users
         SET
@@ -118,7 +115,7 @@ async def complete_onboarding(
             timezone = :timezone,
             age_confirmed = :age_confirmed,
             onboarding_completed = TRUE,
-            preferences = preferences || CAST(:prefs_update AS jsonb),
+            preferences = COALESCE(preferences, '{}'::jsonb) || jsonb_build_object('vibe_preference', :vibe_preference),
             updated_at = NOW()
         WHERE id = :user_id
         RETURNING *
@@ -131,7 +128,7 @@ async def complete_onboarding(
             "pronouns": data.pronouns,
             "timezone": data.timezone,
             "age_confirmed": data.age_confirmed,
-            "prefs_update": preferences_update,
+            "vibe_preference": data.vibe_preference,
             "user_id": str(user_id),
         },
     )
