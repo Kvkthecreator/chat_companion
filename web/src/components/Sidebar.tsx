@@ -4,17 +4,15 @@ import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
 import type { User } from "@supabase/supabase-js"
-import { ClipboardList, Home, LayoutDashboard, LogOut, Search, Sparkles } from "lucide-react"
+import { Heart, LayoutDashboard, LogOut, MessageCircle, Users } from "lucide-react"
 import { ModeToggle } from "@/components/mode-toggle"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 
 const navigation = [
   { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
-  { name: "Demo", href: "/dashboard/demo", icon: Sparkles, highlight: true },
-  { name: "Workspaces", href: "/dashboard/workspaces", icon: Home },
-  { name: "Search", href: "/dashboard/search", icon: Search },
-  { name: "Proposals", href: "/dashboard/proposals", icon: ClipboardList },
+  { name: "Characters", href: "/dashboard/characters", icon: Users },
+  { name: "Memories", href: "/dashboard/memories", icon: Heart },
 ]
 
 export function Sidebar({ user }: { user: User }) {
@@ -30,19 +28,23 @@ export function Sidebar({ user }: { user: User }) {
   return (
     <aside className="relative flex w-72 shrink-0 flex-col border-r border-border bg-card/60 backdrop-blur">
       <div className="flex items-center justify-between border-b border-border px-6 py-5">
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">
-            Clearinghouse
-          </p>
-          <h1 className="text-xl font-bold leading-tight">IP Licensing</h1>
-        </div>
+        <Link href="/dashboard" className="flex items-center gap-3">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-pink-400 to-purple-500 text-white text-lg">
+            F
+          </div>
+          <div>
+            <h1 className="text-xl font-bold leading-tight bg-gradient-to-r from-pink-500 to-purple-600 bg-clip-text text-transparent">
+              Fantazy
+            </h1>
+            <p className="text-xs text-muted-foreground">Cozy Companions</p>
+          </div>
+        </Link>
         <ModeToggle />
       </div>
 
       <nav className="flex-1 space-y-1 px-4 py-4">
         {navigation.map((item) => {
           const isActive = pathname === item.href || pathname.startsWith(`${item.href}/`)
-          const isHighlight = 'highlight' in item && item.highlight
           return (
             <Link
               key={item.name}
@@ -51,23 +53,16 @@ export function Sidebar({ user }: { user: User }) {
                 "group flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors",
                 isActive
                   ? "bg-primary/10 text-primary"
-                  : isHighlight
-                    ? "text-primary/80 hover:bg-primary/5 hover:text-primary"
-                    : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                  : "text-muted-foreground hover:bg-muted hover:text-foreground"
               )}
             >
               <item.icon
                 className={cn(
                   "h-5 w-5",
-                  isActive ? "text-primary" : isHighlight ? "text-primary/80" : "text-muted-foreground group-hover:text-foreground"
+                  isActive ? "text-primary" : "text-muted-foreground group-hover:text-foreground"
                 )}
               />
               {item.name}
-              {isHighlight && !isActive && (
-                <span className="ml-auto text-[10px] font-semibold uppercase tracking-wide text-primary/60 bg-primary/10 px-1.5 py-0.5 rounded">
-                  New
-                </span>
-              )}
             </Link>
           )
         })}
