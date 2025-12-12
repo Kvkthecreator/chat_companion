@@ -16,6 +16,7 @@ from middleware.auth import AuthMiddleware
 
 # Routes
 from app.routes import (
+    avatars,
     characters,
     conversation,
     episodes,
@@ -109,6 +110,7 @@ app.include_router(memory.router, tags=["Memory"])
 app.include_router(hooks.router, tags=["Hooks"])
 app.include_router(conversation.router, tags=["Conversation"])
 app.include_router(scenes.router, tags=["Scenes"])
+app.include_router(avatars.router, tags=["Avatar Kits"])
 
 
 @app.get("/")

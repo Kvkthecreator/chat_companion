@@ -136,17 +136,50 @@ async def generate_scene(
             # Fallback to basic prompt with appearance
             prompt = f"{appearance_prompt}, in an anime style, warm lighting, soft colors"
 
+    # Get storage service instance (used for both anchor download and scene upload)
+    storage = StorageService.get_instance()
+
     # Generate the image
-    # TODO: Phase 3 - Use ImageService.edit() with anchor reference when available
-    image_service = ImageService.get_instance()
+    # Check if we have an anchor reference for character consistency
+    primary_anchor_id = episode.get("primary_anchor_id")
+    use_reference = False
+    anchor_bytes = None
+
+    if primary_anchor_id:
+        # Fetch anchor image for reference-based generation
+        try:
+            anchor_query = """
+                SELECT storage_path FROM avatar_assets
+                WHERE id = :anchor_id AND is_active = TRUE
+            """
+            anchor = await db.fetch_one(anchor_query, {"anchor_id": str(primary_anchor_id)})
+            if anchor:
+                anchor_bytes = await storage.download("avatars", anchor["storage_path"])
+                use_reference = True
+                log.info(f"Using anchor reference for scene generation: {primary_anchor_id}")
+        except Exception as e:
+            log.warning(f"Failed to fetch anchor for reference: {e}")
+            # Fall back to T2I without reference
+
     try:
-        image_response = await image_service.generate(
-            prompt=prompt,
-            negative_prompt=negative_prompt or None,
-            width=1024,
-            height=1024,
-            num_images=1,
-        )
+        if use_reference and anchor_bytes:
+            # Use FLUX Kontext for character-consistent generation
+            kontext_service = ImageService.get_client("replicate", "black-forest-labs/flux-kontext-pro")
+            image_response = await kontext_service.edit(
+                prompt=prompt,
+                reference_images=[anchor_bytes],
+                aspect_ratio="1:1",
+            )
+        else:
+            # Fall back to standard T2I (no reference available)
+            image_service = ImageService.get_instance()
+            image_response = await image_service.generate(
+                prompt=prompt,
+                negative_prompt=negative_prompt or None,
+                width=1024,
+                height=1024,
+                num_images=1,
+            )
     except Exception as e:
         log.error(f"Image generation failed: {e}")
         raise HTTPException(
@@ -164,7 +197,6 @@ async def generate_scene(
     image_id = uuid.uuid4()
 
     # Upload to storage
-    storage = StorageService.get_instance()
     try:
         storage_path = await storage.upload_scene(
             image_bytes=image_bytes,
