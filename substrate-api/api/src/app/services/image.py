@@ -19,6 +19,13 @@ Usage:
     # Use the default instance
     service = ImageService.get_instance()
     response = await service.generate("A cozy coffee shop")
+
+    # For character-consistent edits, use FLUX Kontext:
+    kontext_service = ImageService.get_client("replicate", "flux-kontext-pro")
+    response = await kontext_service.edit(
+        prompt="Same woman, now smiling warmly",
+        reference_images=[anchor_image_bytes],
+    )
 """
 
 import base64
@@ -53,6 +60,18 @@ class ImageResponse:
 
 
 @dataclass
+class EditRequest:
+    """Request for image editing with reference images."""
+
+    prompt: str
+    reference_images: List[bytes]  # Anchor/reference image bytes
+    negative_prompt: Optional[str] = None
+    aspect_ratio: str = "1:1"
+    output_format: str = "png"
+    safety_tolerance: int = 2  # 0-6, lower = stricter
+
+
+@dataclass
 class ImageConfig:
     """Configuration for image service."""
 
@@ -83,6 +102,24 @@ class BaseImageClient(ABC):
     ) -> ImageResponse:
         """Generate images from a prompt."""
         pass
+
+    async def edit(
+        self,
+        prompt: str,
+        reference_images: List[bytes],
+        negative_prompt: Optional[str] = None,
+        aspect_ratio: str = "1:1",
+        output_format: str = "png",
+    ) -> ImageResponse:
+        """Edit/generate images using reference images for consistency.
+
+        Not all providers support this. Defaults to raising NotImplementedError.
+        Use FLUX Kontext on Replicate for best character consistency.
+        """
+        raise NotImplementedError(
+            f"edit() not supported by {self.__class__.__name__}. "
+            "Use ImageService.get_client('replicate', 'flux-kontext-pro') for character-consistent edits."
+        )
 
 
 class GeminiImageClient(BaseImageClient):
@@ -339,6 +376,199 @@ class ReplicateClient(BaseImageClient):
 import asyncio
 
 
+# FLUX Kontext model identifiers on Replicate
+FLUX_KONTEXT_PRO = "black-forest-labs/flux-kontext-pro"
+FLUX_KONTEXT_MAX = "black-forest-labs/flux-kontext-max"
+
+
+class FluxKontextClient(BaseImageClient):
+    """FLUX Kontext client for character-consistent image editing.
+
+    FLUX Kontext is purpose-built for maintaining visual consistency
+    when editing images. It uses reference images to preserve character
+    identity across different scenes, expressions, and poses.
+
+    Recommended for:
+    - Generating new scenes with existing character anchors
+    - Creating expression variants from portrait anchors
+    - Maintaining visual identity across episode scene cards
+    """
+
+    def __init__(self, config: ImageConfig):
+        super().__init__(config)
+        self.base_url = "https://api.replicate.com/v1"
+        self.headers = {
+            "Authorization": f"Bearer {config.api_key}",
+            "Content-Type": "application/json",
+            "Prefer": "wait",  # Use sync mode for simpler flow
+        }
+
+    async def generate(
+        self,
+        prompt: str,
+        negative_prompt: Optional[str] = None,
+        width: int = 1024,
+        height: int = 1024,
+        num_images: int = 1,
+    ) -> ImageResponse:
+        """Generate images without reference - falls back to standard FLUX."""
+        # For pure text-to-image, use parent ReplicateClient logic
+        # This is here for interface compatibility
+        return await self._run_prediction(
+            prompt=prompt,
+            aspect_ratio=self._get_aspect_ratio(width, height),
+        )
+
+    async def edit(
+        self,
+        prompt: str,
+        reference_images: List[bytes],
+        negative_prompt: Optional[str] = None,
+        aspect_ratio: str = "1:1",
+        output_format: str = "png",
+    ) -> ImageResponse:
+        """Generate images using reference images for character consistency.
+
+        Args:
+            prompt: Description of the desired output. Should reference the
+                    character from the reference image (e.g., "Same woman, now smiling").
+            reference_images: List of reference image bytes. The first image is
+                              used as the primary reference for character identity.
+            negative_prompt: What to avoid in the output.
+            aspect_ratio: Output aspect ratio (1:1, 16:9, 9:16, 4:3, 3:4).
+            output_format: Output format (png, jpg, webp).
+
+        Returns:
+            ImageResponse with the generated image(s).
+        """
+        if not reference_images:
+            raise ValueError("At least one reference image is required for edit()")
+
+        # Encode the primary reference image as data URI
+        primary_ref = reference_images[0]
+        ref_base64 = base64.b64encode(primary_ref).decode("utf-8")
+        ref_data_uri = f"data:image/png;base64,{ref_base64}"
+
+        return await self._run_prediction(
+            prompt=prompt,
+            input_image=ref_data_uri,
+            aspect_ratio=aspect_ratio,
+            output_format=output_format,
+        )
+
+    async def _run_prediction(
+        self,
+        prompt: str,
+        input_image: Optional[str] = None,
+        aspect_ratio: str = "1:1",
+        output_format: str = "png",
+    ) -> ImageResponse:
+        """Run a Replicate prediction for FLUX Kontext."""
+        start_time = time.time()
+
+        # Build input for FLUX Kontext
+        input_data = {
+            "prompt": prompt,
+            "aspect_ratio": aspect_ratio,
+            "output_format": output_format,
+            "safety_tolerance": 2,
+        }
+
+        if input_image:
+            input_data["input_image"] = input_image
+
+        # Use the official model endpoint
+        model = self.config.model
+
+        # Create prediction using the models API
+        payload = {
+            "input": input_data,
+        }
+
+        # For official models, use the models/:owner/:name/predictions endpoint
+        if "/" in model:
+            url = f"{self.base_url}/models/{model}/predictions"
+        else:
+            # Fallback for version-based calls
+            payload["version"] = model
+            url = f"{self.base_url}/predictions"
+
+        log.info(f"Running FLUX Kontext prediction: {model}")
+
+        response = await self.client.post(
+            url,
+            headers=self.headers,
+            json=payload,
+        )
+
+        # Handle async predictions (need to poll)
+        if response.status_code == 201:
+            prediction = response.json()
+            prediction_id = prediction["id"]
+
+            # Poll for completion
+            max_attempts = 120  # 2 minutes max for Kontext
+            for _ in range(max_attempts):
+                poll_response = await self.client.get(
+                    f"{self.base_url}/predictions/{prediction_id}",
+                    headers=self.headers,
+                )
+                poll_response.raise_for_status()
+                prediction = poll_response.json()
+
+                status = prediction["status"]
+                if status == "succeeded":
+                    break
+                elif status == "failed":
+                    error = prediction.get("error", "Unknown error")
+                    raise Exception(f"FLUX Kontext generation failed: {error}")
+                elif status in ("starting", "processing"):
+                    await asyncio.sleep(1)
+                else:
+                    raise Exception(f"Unknown prediction status: {status}")
+        else:
+            response.raise_for_status()
+            prediction = response.json()
+
+        latency_ms = int((time.time() - start_time) * 1000)
+
+        # Download output images
+        images = []
+        output = prediction.get("output")
+        if output:
+            # Handle both single URL and list of URLs
+            if isinstance(output, str):
+                output = [output]
+
+            for url in output:
+                img_response = await self.client.get(url)
+                img_response.raise_for_status()
+                images.append(img_response.content)
+
+        log.info(f"FLUX Kontext completed in {latency_ms}ms, {len(images)} image(s)")
+
+        return ImageResponse(
+            images=images,
+            model=model,
+            latency_ms=latency_ms,
+            raw_response=prediction,
+        )
+
+    def _get_aspect_ratio(self, width: int, height: int) -> str:
+        """Convert dimensions to FLUX aspect ratio string."""
+        ratio = width / height
+        if ratio > 1.7:
+            return "16:9"
+        elif ratio > 1.2:
+            return "4:3"
+        elif ratio < 0.6:
+            return "9:16"
+        elif ratio < 0.8:
+            return "3:4"
+        else:
+            return "1:1"
+
+
 class ImageService:
     """Provider-agnostic image generation service.
 
@@ -417,7 +647,11 @@ class ImageService:
             else:
                 return GeminiImageClient(config)
         elif config.provider == ImageProvider.REPLICATE:
-            return ReplicateClient(config)
+            # Use FluxKontextClient for Kontext models
+            if "kontext" in config.model.lower():
+                return FluxKontextClient(config)
+            else:
+                return ReplicateClient(config)
         else:
             raise ValueError(f"No client implementation for provider: {config.provider}")
 
@@ -436,6 +670,48 @@ class ImageService:
             width=width,
             height=height,
             num_images=num_images,
+        )
+
+    async def edit(
+        self,
+        prompt: str,
+        reference_images: List[bytes],
+        negative_prompt: Optional[str] = None,
+        aspect_ratio: str = "1:1",
+        output_format: str = "png",
+    ) -> ImageResponse:
+        """Edit/generate images using reference images for character consistency.
+
+        Uses the underlying client's edit() method. For best results, use a
+        FLUX Kontext model:
+
+            service = ImageService.get_client("replicate", "black-forest-labs/flux-kontext-pro")
+            response = await service.edit(
+                prompt="Same woman from the reference, now smiling warmly",
+                reference_images=[anchor_image_bytes],
+            )
+
+        Args:
+            prompt: Description of the desired output. Should reference the
+                    character from the reference image.
+            reference_images: List of reference image bytes. The first image is
+                              used as the primary reference for character identity.
+            negative_prompt: What to avoid in the output (optional).
+            aspect_ratio: Output aspect ratio (1:1, 16:9, 9:16, 4:3, 3:4).
+            output_format: Output format (png, jpg, webp).
+
+        Returns:
+            ImageResponse with the generated image(s).
+
+        Raises:
+            NotImplementedError: If the underlying client doesn't support edit().
+        """
+        return await self._client.edit(
+            prompt=prompt,
+            reference_images=reference_images,
+            negative_prompt=negative_prompt,
+            aspect_ratio=aspect_ratio,
+            output_format=output_format,
         )
 
     async def close(self):
