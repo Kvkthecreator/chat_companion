@@ -103,10 +103,11 @@ async def generate_scene(
     ) if messages else "No messages yet"
 
     # Extract avatar kit data (if available)
-    avatar_kit_id = episode.get("active_avatar_kit_id")
-    appearance_prompt = episode.get("appearance_prompt") or "A character"
-    style_prompt = episode.get("style_prompt") or ""
-    negative_prompt = episode.get("negative_prompt") or ""
+    # Note: Database Record uses bracket notation, not .get()
+    avatar_kit_id = episode["active_avatar_kit_id"]
+    appearance_prompt = episode["appearance_prompt"] or "A character"
+    style_prompt = episode["style_prompt"] or ""
+    negative_prompt = episode["negative_prompt"] or ""
 
     # Generate prompt if not provided
     prompt = data.prompt
@@ -141,7 +142,7 @@ async def generate_scene(
 
     # Generate the image
     # Check if we have an anchor reference for character consistency
-    primary_anchor_id = episode.get("primary_anchor_id")
+    primary_anchor_id = episode["primary_anchor_id"]
     use_reference = False
     anchor_bytes = None
 

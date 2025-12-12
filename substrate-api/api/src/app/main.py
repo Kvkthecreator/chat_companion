@@ -81,7 +81,9 @@ app = FastAPI(
 )
 
 # CORS configuration
-cors_origins_env = os.getenv("CORS_ORIGINS", "http://localhost:3000")
+# Default includes localhost and common Vercel patterns
+default_origins = "http://localhost:3000,https://fantazy-five.vercel.app,https://*.vercel.app"
+cors_origins_env = os.getenv("CORS_ORIGINS", default_origins)
 cors_origins = [origin.strip() for origin in cors_origins_env.split(",")]
 log.info(f"CORS allowed origins: {cors_origins}")
 app.add_middleware(
