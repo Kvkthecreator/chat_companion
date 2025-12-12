@@ -1,6 +1,5 @@
 """Scene generation API routes."""
 import logging
-import os
 import uuid
 from typing import List, Optional
 from uuid import UUID
@@ -25,23 +24,23 @@ log = logging.getLogger(__name__)
 router = APIRouter(prefix="/scenes", tags=["Scenes"])
 
 
-SCENE_PROMPT_TEMPLATE = """Based on the following conversation context, generate a vivid scene description for an anime-style illustration.
+SCENE_PROMPT_TEMPLATE = """Create an image generation prompt for this moment.
 
-Episode context:
-- Title: {episode_title}
-- Scene setting: {scene}
+Context:
 - Character: {character_name}
-- Recent conversation summary: {conversation_summary}
+- Setting: {scene}
+- Conversation: {conversation_summary}
 
-Generate a scene description that:
-1. Captures the current mood and setting
-2. Shows the character in the described environment
-3. Uses warm, cozy anime aesthetics
-4. Includes specific visual details (lighting, colors, atmosphere)
+Write a concise image prompt (50-80 words) that:
+- Describes ONE person ({character_name}) in the scene
+- Focuses on mood, lighting, and atmosphere
+- Uses comma-separated descriptive tags
 
-Format your response as a single paragraph scene description suitable for image generation.
-Style tags to incorporate: anime style, soft lighting, warm colors, slice-of-life aesthetic.
-"""
+Format: "[character description], [action/pose], [setting], [lighting], [mood], anime style, detailed background"
+
+Example output: "young woman with long dark hair, sitting by window holding tea cup, cozy cafe interior, golden hour sunlight streaming through glass, peaceful contemplative mood, anime style, detailed background, soft colors"
+
+Your prompt:"""
 
 CAPTION_PROMPT = """Based on this scene prompt, write a short poetic caption (1-2 sentences) that captures the emotional moment. Keep it evocative but brief.
 
@@ -219,9 +218,8 @@ async def generate_scene(
         },
     )
 
-    # Construct image URL
-    supabase_url = os.getenv("SUPABASE_URL", "")
-    image_url = f"{supabase_url}/storage/v1/object/authenticated/scenes/{storage_path}"
+    # Create signed URL for the new image
+    image_url = await storage.create_signed_url("scenes", storage_path)
 
     return SceneGenerateResponse(
         image_id=image_id,
@@ -268,11 +266,13 @@ async def list_episode_images(
     """
     rows = await db.fetch_all(query, {"episode_id": str(episode_id)})
 
-    supabase_url = os.getenv("SUPABASE_URL", "")
+    # Generate signed URLs for each image
+    storage = StorageService.get_instance()
     results = []
     for row in rows:
         data = dict(row)
-        data["image_url"] = f"{supabase_url}/storage/v1/object/authenticated/scenes/{data['storage_path']}"
+        # Create signed URL for temporary public access (1 hour expiry)
+        data["image_url"] = await storage.create_signed_url("scenes", data["storage_path"])
         results.append(EpisodeImageWithAsset(**data))
 
     return results
@@ -322,10 +322,10 @@ async def toggle_memory(
     """
     asset = await db.fetch_one(asset_query, {"image_id": str(row["image_id"])})
 
-    supabase_url = os.getenv("SUPABASE_URL", "")
+    storage = StorageService.get_instance()
     result = dict(row)
     result["storage_path"] = asset["storage_path"]
-    result["image_url"] = f"{supabase_url}/storage/v1/object/authenticated/scenes/{asset['storage_path']}"
+    result["image_url"] = await storage.create_signed_url("scenes", asset["storage_path"])
     result["prompt"] = asset["prompt"]
     result["style_tags"] = asset["style_tags"] or []
 
@@ -351,11 +351,11 @@ async def list_memories(
         },
     )
 
-    supabase_url = os.getenv("SUPABASE_URL", "")
+    storage = StorageService.get_instance()
     results = []
     for row in rows:
         data = dict(row)
-        data["image_url"] = f"{supabase_url}/storage/v1/object/authenticated/scenes/{data['storage_path']}"
+        data["image_url"] = await storage.create_signed_url("scenes", data["storage_path"])
         results.append(Memory(**data))
 
     return results

@@ -18,20 +18,23 @@ log = logging.getLogger(__name__)
 
 
 # Scene generation prompts
-SCENE_PROMPT_TEMPLATE = """Based on the conversation moment, generate a vivid scene description for an anime-style illustration.
+SCENE_PROMPT_TEMPLATE = """Create an image generation prompt for this moment.
 
-Character: {character_name}
-Scene setting: {scene}
-Moment description: {moment}
+Context:
+- Character: {character_name}
+- Setting: {scene}
+- Moment: {moment}
 
-Generate a scene description that:
-1. Captures the current mood and atmosphere
-2. Shows the character in an evocative setting
-3. Uses warm, cozy anime aesthetics
-4. Includes specific visual details (lighting, colors, atmosphere)
+Write a concise image prompt (50-80 words) that:
+- Describes ONE person ({character_name}) in the scene
+- Focuses on mood, lighting, and atmosphere
+- Uses comma-separated descriptive tags
 
-Format your response as a single paragraph scene description suitable for image generation.
-Style tags to incorporate: anime style, soft lighting, warm colors, slice-of-life aesthetic."""
+Format: "[character description], [action/pose], [setting], [lighting], [mood], anime style, detailed background"
+
+Example output: "young woman with long dark hair, sitting by window holding tea cup, cozy cafe interior, golden hour sunlight streaming through glass, peaceful contemplative mood, anime style, detailed background, soft colors"
+
+Your prompt:"""
 
 CAPTION_PROMPT = """Write a short poetic caption (1-2 sentences) that captures this emotional moment. Keep it evocative but brief.
 

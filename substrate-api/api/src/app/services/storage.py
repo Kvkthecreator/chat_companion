@@ -119,6 +119,44 @@ class StorageService:
         """
         return f"{self.supabase_url}/storage/v1/object/authenticated/{bucket}/{path}"
 
+    async def create_signed_url(
+        self,
+        bucket: str,
+        path: str,
+        expires_in: int = 3600,  # 1 hour default
+    ) -> str:
+        """Create a signed URL for temporary public access.
+
+        Args:
+            bucket: Storage bucket name
+            path: Object path within bucket
+            expires_in: Seconds until URL expires (default 1 hour)
+
+        Returns:
+            Signed URL string
+        """
+        url = f"{self.supabase_url}/storage/v1/object/sign/{bucket}/{path}"
+
+        headers = {
+            "Authorization": f"Bearer {self.service_role_key}",
+            "Content-Type": "application/json",
+        }
+
+        payload = {"expiresIn": expires_in}
+
+        response = await self.client.post(url, headers=headers, json=payload)
+
+        if response.status_code != 200:
+            log.error(f"Failed to create signed URL: {response.status_code} {response.text}")
+            # Fallback to authenticated URL
+            return self.get_authenticated_url(bucket, path)
+
+        data = response.json()
+        signed_path = data.get("signedURL", "")
+
+        # signedURL is relative, prepend base URL
+        return f"{self.supabase_url}/storage/v1{signed_path}"
+
     async def delete(self, bucket: str, path: str) -> None:
         """Delete an object from storage."""
         url = f"{self.supabase_url}/storage/v1/object/{bucket}/{path}"
