@@ -87,10 +87,13 @@ async def get_character(
     character_id: UUID,
     db=Depends(get_db),
 ):
-    """Get a specific character by ID."""
+    """Get a specific character by ID with avatar from kit if available."""
     query = """
-        SELECT * FROM characters
-        WHERE id = :character_id AND is_active = TRUE
+        SELECT c.*, aa.storage_path as anchor_path
+        FROM characters c
+        LEFT JOIN avatar_kits ak ON ak.id = c.active_avatar_kit_id AND ak.status = 'active'
+        LEFT JOIN avatar_assets aa ON aa.id = ak.primary_anchor_id AND aa.is_active = TRUE
+        WHERE c.id = :character_id AND c.is_active = TRUE
     """
     row = await db.fetch_one(query, {"character_id": str(character_id)})
 
@@ -100,7 +103,15 @@ async def get_character(
             detail="Character not found",
         )
 
-    return Character(**dict(row))
+    data = dict(row)
+    anchor_path = data.pop("anchor_path", None)
+
+    # If no avatar_url but has anchor_path, generate signed URL
+    if not data["avatar_url"] and anchor_path:
+        storage = StorageService.get_instance()
+        data["avatar_url"] = await storage.create_signed_url("avatars", anchor_path)
+
+    return Character(**data)
 
 
 @router.get("/slug/{slug}", response_model=Character)
@@ -108,10 +119,13 @@ async def get_character_by_slug(
     slug: str,
     db=Depends(get_db),
 ):
-    """Get a specific character by slug."""
+    """Get a specific character by slug with avatar from kit if available."""
     query = """
-        SELECT * FROM characters
-        WHERE slug = :slug AND is_active = TRUE
+        SELECT c.*, aa.storage_path as anchor_path
+        FROM characters c
+        LEFT JOIN avatar_kits ak ON ak.id = c.active_avatar_kit_id AND ak.status = 'active'
+        LEFT JOIN avatar_assets aa ON aa.id = ak.primary_anchor_id AND aa.is_active = TRUE
+        WHERE c.slug = :slug AND c.is_active = TRUE
     """
     row = await db.fetch_one(query, {"slug": slug})
 
@@ -121,7 +135,15 @@ async def get_character_by_slug(
             detail="Character not found",
         )
 
-    return Character(**dict(row))
+    data = dict(row)
+    anchor_path = data.pop("anchor_path", None)
+
+    # If no avatar_url but has anchor_path, generate signed URL
+    if not data["avatar_url"] and anchor_path:
+        storage = StorageService.get_instance()
+        data["avatar_url"] = await storage.create_signed_url("avatars", anchor_path)
+
+    return Character(**data)
 
 
 @router.get("/slug/{slug}/profile", response_model=CharacterProfile)
@@ -194,6 +216,10 @@ async def get_character_profile(
 
     data["gallery"] = gallery
     data["primary_avatar_url"] = primary_avatar_url
+
+    # Use primary_avatar_url as avatar_url fallback if avatar_url is null
+    if not data["avatar_url"] and primary_avatar_url:
+        data["avatar_url"] = primary_avatar_url
 
     return CharacterProfile(**data)
 
