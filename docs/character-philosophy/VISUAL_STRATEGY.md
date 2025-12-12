@@ -1,264 +1,345 @@
 # Visual Strategy
 
-> How images work in Fantazy—from static avatars to dynamic story visualization.
+> How images work in Fantazy—identity anchors and memory artifacts, not constant eye-candy.
 
-## The Spectrum of Visual Interaction
+---
 
-From simplest to most complex:
+## Image Roles in Fantazy
 
-### Level 0: Static Avatar Only
+Images serve three distinct purposes:
+
+| Role | Purpose | Where it lives | Generation |
+|------|---------|----------------|------------|
+| **Avatar** | Identity anchor—who you're with | Header, bubbles, cards | Pre-made (Level 0-1) |
+| **Scene Card** | Story moment—where you are | Inline in chat | Generated at key beats (Level 2) |
+| **Memory Artifact** | What you've been through | Recaps, gallery, timeline | Derived from scene cards |
+
+**Design principle:** Images are anchors to narrative and memory, not decoration.
+
+---
+
+## Technical Levels
+
+### Level 0-1: Avatar / Identity
 ```
 ┌─────────────────────┐
-│  [Character Image]  │  ← Same image always
-│                     │
+│  [Avatar: Maya]     │  ← Static or expression variants
+│  "On shift at café" │
+├─────────────────────┤
 │  Character: Hey!    │
 │  You: Hi there      │
-│  Character: ...     │
 └─────────────────────┘
 ```
-- Single profile image per character
-- Shown in chat header
-- No dynamic generation
+- **Level 0:** Single static image per character
+- **Level 1:** 5-10 pre-made expression variants (happy, thinking, flustered...)
 
-**Pros:** Simple, cheap, consistent, fast
-**Cons:** Less immersive, no story visualization
+**Implementation:** Pre-made assets, no generation cost.
 
----
-
-### Level 1: Expression Variants
-```
-┌─────────────────────┐
-│  [Happy/Sad/etc]    │  ← 5-10 pre-made variants
-│                     │
-│  Character: I'm so  │
-│  happy for you!     │
-└─────────────────────┘
-```
-- Pre-made expression set per character
-- LLM outputs emotion tag, frontend shows matching image
-- Like visual novel sprites
-
-**Pros:** More expressive, still fast, no generation cost
-**Cons:** Limited to pre-made set, upfront art cost
-
----
-
-### Level 2: Scene Images (Story Moments)
+### Level 2: Scene Cards
 ```
 ┌─────────────────────────────────────┐
 │  Character: Let's grab coffee       │
 │                                     │
 │  ┌─────────────────────────────┐   │
-│  │  [Generated: Two people at  │   │  ← Generated at key moments
-│  │   coffee shop, warm light]  │   │
+│  │  [Scene: Cozy coffee shop,  │   │
+│  │   warm evening light]       │   │
+│  │  ─────────────────────────  │   │
+│  │  "The café is quieter than  │   │
+│  │   usual tonight..."         │   │
+│  │                    ⭐ Save   │   │
 │  └─────────────────────────────┘   │
 │                                     │
 │  Character: This is nice...        │
 └─────────────────────────────────────┘
 ```
-- Generate images at specific story moments
-- Inline in chat, like picture messages
-- Triggered by story beats, not every message
+- Generated at specific story moments (not every message)
+- Full-width card with image + caption
+- Belongs to an episode, saveable as memory
 
-**Pros:** Immersive, story-like, memorable moments
-**Cons:** Generation latency, cost, consistency challenges
+**Implementation:** Gemini Flash native image generation.
 
----
-
-### Level 3: Continuous Visual Presence (X.ai Grok "Ani" style)
-```
-┌─────────────────────────────────────┐
-│  ┌─────────────────────────────┐   │
-│  │  [Live avatar that moves,   │   │  ← Real-time animated presence
-│  │   reacts, emotes]           │   │
-│  └─────────────────────────────┘   │
-│                                     │
-│  [Chat messages below]              │
-└─────────────────────────────────────┘
-```
+### Level 3: Continuous Presence (Future)
 - Animated avatar with real-time reactions
-- Lip sync, expressions, gestures
-- Video/animation generation or Live2D
-
-**Pros:** Most "alive" feeling, high engagement
-**Cons:** Very complex, expensive, technical challenge
+- Only pursue if Phase 1-2 data supports it
 
 ---
 
-## Recommended Approach
+## Current Implementation Status
 
-### Phase 1: Level 0 + 1 Hybrid (MVP)
-**Start with static avatars, prepare for expression variants**
+### LLM Service (Text) ✅
+```python
+from app.services.llm import LLMService
 
-1. Each character gets 1 high-quality base image
-2. Design image to work at multiple sizes (header, card, chat)
-3. Prepare pipeline for adding expression variants later
-4. Focus engineering on conversation quality
+client = LLMService.get_client("google", "gemini-2.0-flash")
+async for chunk in client.generate_stream(messages):
+    print(chunk)
+```
+- Provider-agnostic, runtime-configurable
+- Default: `google/gemini-2.0-flash`
+- Env var: `GOOGLE_API_KEY`
 
-**Why:**
-- Images aren't the core value prop—memory is
-- Validate conversation stickiness first
-- Reduce complexity for faster iteration
+### Image Service ✅
+```python
+from app.services.image import ImageService
 
-### Phase 2: Level 2 (Story Images)
-**Add generated images at key moments**
+client = ImageService.get_client("gemini", "gemini-2.0-flash-exp-image-generation")
+response = await client.generate(
+    prompt="A cozy coffee shop interior, warm evening light, anime style",
+    num_images=1
+)
+image_bytes = response.images[0]  # PNG, ~1-2MB
+```
+- Provider-agnostic, runtime-configurable
+- Default: `gemini/gemini-2.0-flash-exp-image-generation`
+- Env var: `GOOGLE_API_KEY` (same as LLM)
+- Latency: ~5 seconds per image
 
-Trigger points:
-- First message in a new relationship stage
-- User explicitly requests ("what does that look like?")
-- Special scenes (first date, celebration)
-- Milestone moments in relationship
+### Available Models
 
-Image prompts would be:
-- Generated by LLM based on conversation context
-- Include character description for consistency
-- Include scene description from conversation
+| Provider | Model | Use Case | Cost |
+|----------|-------|----------|------|
+| Gemini | `gemini-2.0-flash-exp-image-generation` | Scene cards | Free tier: 1500/day |
+| Gemini | `gemini-2.5-flash-image` | Higher quality scenes | Free tier available |
+| Replicate | FLUX Schnell | Alternative style | $0.003/image |
 
-### Phase 3: Evaluate Level 3
-**Only if data shows visual presence drives retention**
-
-This is a significant technical investment. Only pursue if:
-- Phase 1-2 show strong retention
-- User feedback explicitly requests this
-- Cost model supports it
+**Note:** Imagen models (`imagen-3.0-generate-002`) require Vertex AI, not available on free Google AI tier.
 
 ---
 
-## Image Generation Options
+## Storage Architecture
 
-### For Phase 2 (Story Images)
+### Supabase Storage Buckets
 
-#### Gemini Imagen (Recommended to evaluate)
-- **Pros:** Native multimodal, cheap, fast, same API as text
-- **Cons:** Quality TBD, anime style uncertain, Google restrictions
+Create these buckets in Supabase Dashboard → Storage:
 
-#### DALL-E 3
-- **Pros:** High quality, good at following prompts
-- **Cons:** Expensive (~$0.04-0.12/image), separate API
+| Bucket | Purpose | Access |
+|--------|---------|--------|
+| `avatars` | Character avatars & expressions | Public |
+| `scenes` | Generated scene cards | Authenticated (RLS) |
 
-#### Stable Diffusion (API services)
-- **Pros:** Cheap, flexible, can fine-tune for character consistency
-- **Cons:** Quality varies, anime models exist but need selection
-- Services: Replicate, RunPod, StabilityAI API
+**Bucket setup:**
+1. Go to https://supabase.com/dashboard/project/lfwhdzwbikyzalpbwfnd/storage/buckets
+2. Click "+ New bucket"
+3. Create `avatars` (public: ON)
+4. Create `scenes` (public: OFF, RLS: ON)
 
-#### Midjourney (via unofficial APIs)
-- **Pros:** Excellent quality, good at anime style
-- **Cons:** No official API, TOS concerns, queue-based
+**Path structure:**
+```
+avatars/
+  {character_id}/
+    default.png        ← Main avatar
+    happy.png          ← Expression variants (future)
+    thinking.png
+
+scenes/
+  {user_id}/
+    {episode_id}/
+      {image_id}.png   ← Generated scene cards
+```
+
+### URL Construction
+```python
+# Public avatar URL
+f"{SUPABASE_URL}/storage/v1/object/public/avatars/{character_id}/default.png"
+
+# Authenticated scene URL (requires JWT)
+f"{SUPABASE_URL}/storage/v1/object/authenticated/scenes/{user_id}/{episode_id}/{image_id}.png"
+```
+
+---
+
+## Data Model for Images
+
+### Database Schema
+
+Migration: `supabase/migrations/008_image_storage.sql`
+
+```sql
+image_assets
+├── id UUID
+├── type: 'avatar' | 'expression' | 'scene'
+├── user_id UUID (nullable for system assets)
+├── character_id UUID
+├── storage_bucket TEXT ('avatars' | 'scenes')
+├── storage_path TEXT
+├── prompt TEXT (for regeneration)
+├── model_used TEXT
+├── style_tags TEXT[]
+├── mime_type, file_size_bytes, width, height
+└── created_at
+
+episode_images (join table)
+├── episode_id UUID
+├── image_id UUID
+├── sequence_index INTEGER
+├── caption TEXT
+├── trigger_type: 'milestone' | 'user_request' | 'stage_change' | 'episode_start'
+├── is_memory BOOLEAN
+└── saved_at TIMESTAMPTZ
+
+character_expressions (future: Level 1)
+├── character_id UUID
+├── image_id UUID
+├── expression TEXT ('happy', 'thinking', 'flustered')
+└── emotion_tags TEXT[]
+```
+
+**Key insight:** Scene images attach to *episodes*, not individual messages. This makes them "story postcards" that work in both chat view and memory gallery.
+
+---
+
+## Scene Generation Triggers
+
+### MVP Trigger Set
+
+1. **Milestone scenes** (system-detected)
+   - First meeting
+   - First outing/date
+   - Big emotional moments ("I finally quit my job")
+   - Relationship stage changes (stage 1→2)
+
+2. **User-requested** (cost control + agency)
+   - "✨ Visualize" button under certain messages
+   - Enabled when recent messages describe a scene
+
+3. **Episode boundaries**
+   - Opening scene for significant episodes
+   - Limit: max 1-2 scene cards per episode
+
+### Generation Flow
+```
+Character invites user to café
+        ↓
+Episode flagged: has_outing = true
+        ↓
+Engine generates scene prompt from context
+        ↓
+ImageService.generate(prompt)
+        ↓
+Scene card inserted in chat with caption
+        ↓
+User can ⭐ to save as memory
+```
+
+---
+
+## MVP Chat UI Layout
+
+### Header
+- Avatar circle (Level 0/1)
+- Character name
+- Status line ("Closing shift at the café")
+
+### Message Stream
+- Text bubbles: user right, character left
+- Occasionally: full-width scene card
+  - Generated image
+  - Caption
+  - ⭐ Save to Memories icon
+
+### Input Area
+- Text input
+- Optional "✨ Visualize" button (appears contextually)
+
+### Memory/Profile View (later)
+- "Our story so far" → vertical strip of scene cards with dates
+- Tap any card → opens episode recap
+
+---
+
+## Cost Analysis (Updated)
+
+### Google AI Free Tier
+- **Text (Gemini Flash):** 1,500 requests/day
+- **Images:** 1,500 images/day
+- **Rate limit:** 15 RPM for images
+
+### At Scale (1000 DAU)
+
+| Scenario | Images/day | Provider | Monthly Cost |
+|----------|------------|----------|--------------|
+| Conservative (1 img/user/day) | 1,000 | Gemini Free | $0 |
+| Moderate (2 img/user/day) | 2,000 | Gemini Paid | ~$600 |
+| Heavy (5 img/user/day) | 5,000 | Replicate FLUX | ~$450 |
+
+**Recommendation:** Start with Gemini free tier, monitor usage, upgrade when needed.
+
+---
+
+## Prompt Engineering for Scene Cards
+
+### Template Structure
+```
+Scene: [description from conversation context]
+Setting: [coffee shop / apartment / park / etc]
+Time: [morning / afternoon / evening / night]
+Mood: [warm / cozy / romantic / playful / melancholic]
+Characters: [character description], [implied user presence]
+Style: anime, soft lighting, warm colors, slice-of-life aesthetic
+```
+
+### Example Prompt
+```
+A cozy coffee shop in the evening. Warm golden lighting from
+pendant lamps. A young woman with shoulder-length dark hair
+sits at a small table by the window, two cups of coffee
+between her and an empty chair across from her. She's smiling
+softly, looking toward the viewer. Rain traces gentle lines
+on the fogged window behind her. Anime style, soft focus,
+warm color palette.
+```
 
 ### Character Consistency Challenge
+For MVP: Accept some variation. Characters are "impressionistic."
 
-Major problem: Generated images need to show the SAME character each time.
-
-Solutions:
-1. **Detailed prompt engineering** - Include character description in every prompt
-2. **Fine-tuned model** - Train LoRA/DreamBooth on character
-3. **Face swap post-processing** - Generate scene, swap in consistent face
-4. **Reference image** - Use image-to-image with character base
+Future options:
+1. Detailed prompt engineering (current approach)
+2. Reference image guidance (Gemini 3 Pro supports this)
+3. Fine-tuned models (LoRA on character)
 
 ---
 
-## Cost Analysis
+## Next Steps
 
-### Scenario: 1000 Daily Active Users
+### Immediate (This Sprint)
+1. **Wire up image generation endpoint**
+   - Add `/api/generate-scene` endpoint
+   - Accept: episode_id, prompt (or auto-generate from context)
+   - Return: image URL, caption
 
-#### Static Only (Level 0-1)
-- Image cost: $0 (pre-made)
-- Storage: Minimal (S3/Cloudflare)
-- **Monthly: ~$10-20 for hosting**
+2. **Add EpisodeImage to schema**
+   - Create migration for `image_assets` and `episode_images` tables
+   - Add relationship to Episode model
 
-#### Story Images (Level 2, moderate)
-Assuming 2 images per user per day:
-- 2000 images/day × 30 days = 60,000 images/month
+3. **Build scene card component**
+   - React component for inline scene display
+   - Image + caption + save button
+   - Loading state while generating
 
-| Provider | Cost/Image | Monthly Cost |
-|----------|------------|--------------|
-| DALL-E 3 | $0.08 | $4,800 |
-| Stable Diffusion API | $0.01 | $600 |
-| Gemini Imagen | ~$0.01 | $600 |
-| Self-hosted SD | ~$0.002 | $120 |
+### Short-term (Next 2 Weeks)
+4. **Implement generation triggers**
+   - Start with user-requested only ("✨ Visualize" button)
+   - Add milestone detection later
 
-#### Story Images (Level 2, heavy)
-Assuming 5 images per user per day:
-- 5000 images/day × 30 days = 150,000 images/month
+5. **Test prompt quality**
+   - Generate 20-30 test scenes
+   - Iterate on prompt template
+   - Document what works for anime style
 
-| Provider | Cost/Image | Monthly Cost |
-|----------|------------|--------------|
-| DALL-E 3 | $0.08 | $12,000 |
-| Stable Diffusion API | $0.01 | $1,500 |
-| Gemini Imagen | ~$0.01 | $1,500 |
-| Self-hosted SD | ~$0.002 | $300 |
+### Medium-term (Month 2)
+6. **Memory gallery view**
+   - Display saved scene cards across episodes
+   - "Our story so far" timeline
 
-**Takeaway:** Self-hosted Stable Diffusion or Gemini Imagen for cost-effectiveness at scale.
-
----
-
-## Character Image Requirements
-
-### Base Image (Level 0)
-For each character, we need:
-- **Full portrait** - Upper body, expressive face
-- **Square crop** - For avatars/thumbnails
-- **Style:** Anime/webtoon inspired, warm, approachable
-- **Resolution:** 1024x1024 minimum, scalable
-
-### Expression Set (Level 1)
-If/when we add expressions:
-- Happy/delighted
-- Thinking/contemplative
-- Embarrassed/blushing
-- Concerned/worried
-- Playful/teasing
-- Neutral/default
-
-### Scene Generation Prompts (Level 2)
-Template structure:
-```
-Setting: [coffee shop / apartment / office / etc]
-Time: [morning / afternoon / evening / night]
-Mood: [warm / cozy / romantic / playful]
-Character: [detailed description of character appearance]
-Scene: [what's happening - generated from conversation]
-Style: anime, soft lighting, warm colors, slice-of-life
-```
+7. **A/B test retention impact**
+   - Compare users with/without scene cards
+   - Measure engagement with memory features
 
 ---
 
-## Implementation Plan
+## Open Questions (Reduced)
 
-### Immediate (Week 1)
-1. Ensure current character images work well
-2. Verify image display in chat UI
-3. Document character visual descriptions for future generation
-
-### Short-term (Week 2-4)
-1. Test Gemini Imagen quality/speed
-2. Test Stable Diffusion APIs (Replicate, etc.)
-3. Define trigger points for image generation
-4. Build image generation abstraction in API
-
-### Medium-term (Month 2+)
-1. Implement scene image generation
-2. A/B test image vs no-image retention
-3. Iterate on prompt engineering for consistency
-4. Consider expression variants if data supports
-
----
-
-## Open Questions
-
-1. **Do users actually want images?** Or is conversation enough?
-2. **How important is character consistency?** Can we tolerate variation?
-3. **What triggers feel right?** Every N messages? Story beats? User request?
-4. **Anime quality:** Which generators best match our style?
-5. **Moderation:** How do we handle generated image content?
-6. **Caching:** Can we cache/reuse scene images?
-
----
-
-## Research Tasks
-
-- [ ] Test Gemini Imagen with anime-style prompts
-- [ ] Test Stable Diffusion XL anime models (anything-v5, counterfeit, etc.)
-- [ ] Benchmark latency for image generation options
-- [ ] Survey competitors' visual approaches
-- [ ] User research: What do users expect/want visually?
+1. **Max scenes per episode?** Suggest: 2 (opening + one key moment)
+2. **Auto-generate vs user-requested?** Start with user-requested for cost control
+3. **Caption source?** LLM-generated from scene context
+4. **Image storage?** S3/Cloudflare R2 with CDN

@@ -1,22 +1,34 @@
 """Provider-agnostic LLM service.
 
 Supports multiple LLM providers through a unified interface.
-Configure via LLM_PROVIDER and LLM_MODEL environment variables.
+Provider and model are specified at runtime, not via environment variables.
 
 Supported providers:
+- google: Google Gemini API (Gemini Flash, Gemini Pro) - DEFAULT
 - openai: OpenAI API (GPT-4, GPT-4o-mini)
 - anthropic: Anthropic API (Claude)
-- google: Google Gemini API (Gemini Flash, Gemini Pro)
-- openrouter: OpenRouter (access to multiple models)
-- ollama: Local Ollama instance
-- custom: Custom OpenAI-compatible endpoint
+- openrouter: OpenRouter (access to many models via single API)
+- ollama: Local Ollama instance (self-hosted)
 
-Environment variables:
-- LLM_PROVIDER: Provider name (default: openai)
-- LLM_MODEL: Model name (provider-specific default)
-- GOOGLE_API_KEY: Google AI API key (for google provider)
-- OPENAI_API_KEY: OpenAI API key (for openai provider)
-- ANTHROPIC_API_KEY: Anthropic API key (for anthropic provider)
+Environment variables (credentials only):
+- GOOGLE_API_KEY: Google AI API key
+- OPENAI_API_KEY: OpenAI API key
+- ANTHROPIC_API_KEY: Anthropic API key
+- OPENROUTER_API_KEY: OpenRouter API key
+
+Usage:
+    # Get a client for a specific provider/model
+    client = LLMService.get_client("google", "gemini-2.0-flash")
+    response = await client.generate(messages)
+
+    # Use the default instance (google/gemini-2.0-flash)
+    service = LLMService.get_instance()
+    response = await service.generate(messages)
+
+    # In the future: user-selected provider from their preferences
+    user_provider = user.preferences.get("llm_provider", "google")
+    user_model = user.preferences.get("llm_model", "gemini-2.0-flash")
+    client = LLMService.get_client(user_provider, user_model)
 """
 
 import json
@@ -41,7 +53,6 @@ class LLMProvider(str, Enum):
     GOOGLE = "google"
     OPENROUTER = "openrouter"
     OLLAMA = "ollama"
-    CUSTOM = "custom"
 
 
 @dataclass
@@ -483,77 +494,110 @@ class GeminiClient(BaseLLMClient):
 
 
 class LLMService:
-    """Provider-agnostic LLM service."""
+    """Provider-agnostic LLM service.
+
+    Supports two modes:
+    1. Runtime configuration: get_client(provider, model) for specific needs
+    2. Default instance: get_instance() for app-wide default (uses DEFAULT_PROVIDER/MODEL)
+    """
+
+    # Default provider/model for the app (can be overridden by deployment)
+    DEFAULT_PROVIDER = "google"
+    DEFAULT_MODEL = "gemini-2.0-flash"
+
+    # API key environment variable mapping
+    API_KEY_ENV_VARS = {
+        LLMProvider.OPENAI: "OPENAI_API_KEY",
+        LLMProvider.ANTHROPIC: "ANTHROPIC_API_KEY",
+        LLMProvider.GOOGLE: "GOOGLE_API_KEY",
+        LLMProvider.OPENROUTER: "OPENROUTER_API_KEY",
+        LLMProvider.OLLAMA: None,
+    }
+
+    # Client class mapping
+    CLIENT_CLASSES = {
+        LLMProvider.OPENAI: OpenAIClient,
+        LLMProvider.ANTHROPIC: AnthropicClient,
+        LLMProvider.GOOGLE: GeminiClient,
+        LLMProvider.OPENROUTER: OpenRouterClient,
+        LLMProvider.OLLAMA: OllamaClient,
+    }
 
     _instance: Optional["LLMService"] = None
-    _client: Optional[BaseLLMClient] = None
+    _clients: Dict[str, BaseLLMClient] = {}  # Cache of provider+model -> client
 
-    def __init__(self):
-        self.config = self._load_config()
-        self._client = self._create_client()
+    def __init__(self, provider: str = None, model: str = None):
+        """Initialize with specific provider/model or use defaults."""
+        provider = provider or self.DEFAULT_PROVIDER
+        model = model or self.DEFAULT_MODEL
+        self.config = self._build_config(provider, model)
+        self._client = self._create_client(self.config)
 
     @classmethod
     def get_instance(cls) -> "LLMService":
-        """Get singleton instance."""
+        """Get singleton instance with default provider/model."""
         if cls._instance is None:
             cls._instance = cls()
         return cls._instance
 
-    def _load_config(self) -> LLMConfig:
-        """Load configuration from environment."""
-        provider_str = os.getenv("LLM_PROVIDER", "openai").lower()
+    @classmethod
+    def get_client(
+        cls,
+        provider: str,
+        model: str,
+        temperature: float = 0.8,
+        max_tokens: int = 1024,
+    ) -> "LLMService":
+        """Get a client for a specific provider/model combination.
+
+        Clients are cached by provider+model for reuse.
+
+        Args:
+            provider: Provider name (google, openai, anthropic, etc.)
+            model: Model name (gemini-2.0-flash, gpt-4o-mini, etc.)
+            temperature: Default temperature for generations
+            max_tokens: Default max tokens for generations
+
+        Returns:
+            LLMService instance configured for the specified provider/model
+        """
+        cache_key = f"{provider}:{model}"
+        if cache_key not in cls._clients:
+            cls._clients[cache_key] = cls(provider=provider, model=model)
+        return cls._clients[cache_key]
+
+    @classmethod
+    def _build_config(cls, provider: str, model: str) -> LLMConfig:
+        """Build configuration for a provider/model combination."""
         try:
-            provider = LLMProvider(provider_str)
+            provider_enum = LLMProvider(provider.lower())
         except ValueError:
-            log.warning(f"Unknown LLM provider '{provider_str}', defaulting to openai")
-            provider = LLMProvider.OPENAI
+            raise ValueError(f"Unknown LLM provider: {provider}. Supported: {[p.value for p in LLMProvider]}")
 
-        # Default models per provider
-        default_models = {
-            LLMProvider.OPENAI: "gpt-4o-mini",
-            LLMProvider.ANTHROPIC: "claude-3-haiku-20240307",
-            LLMProvider.GOOGLE: "gemini-2.0-flash",
-            LLMProvider.OPENROUTER: "openai/gpt-4o-mini",
-            LLMProvider.OLLAMA: "llama3.2",
-            LLMProvider.CUSTOM: "gpt-4o-mini",
-        }
-
-        # API key env vars per provider
-        api_key_vars = {
-            LLMProvider.OPENAI: "OPENAI_API_KEY",
-            LLMProvider.ANTHROPIC: "ANTHROPIC_API_KEY",
-            LLMProvider.GOOGLE: "GOOGLE_API_KEY",
-            LLMProvider.OPENROUTER: "OPENROUTER_API_KEY",
-            LLMProvider.OLLAMA: None,
-            LLMProvider.CUSTOM: "LLM_API_KEY",
-        }
-
-        api_key_var = api_key_vars.get(provider)
+        # Get API key from environment
+        api_key_var = cls.API_KEY_ENV_VARS.get(provider_enum)
         api_key = os.getenv(api_key_var) if api_key_var else None
 
+        if api_key_var and not api_key:
+            log.warning(f"No API key found for {provider} (expected {api_key_var})")
+
         return LLMConfig(
-            provider=provider,
-            model=os.getenv("LLM_MODEL", default_models[provider]),
+            provider=provider_enum,
+            model=model,
             api_key=api_key,
-            base_url=os.getenv("LLM_BASE_URL"),
-            temperature=float(os.getenv("LLM_TEMPERATURE", "0.8")),
-            max_tokens=int(os.getenv("LLM_MAX_TOKENS", "1024")),
-            timeout=float(os.getenv("LLM_TIMEOUT", "60")),
+            base_url=os.getenv("LLM_BASE_URL"),  # Optional override
+            temperature=0.8,
+            max_tokens=1024,
+            timeout=60.0,
         )
 
-    def _create_client(self) -> BaseLLMClient:
-        """Create the appropriate client for the configured provider."""
-        client_classes = {
-            LLMProvider.OPENAI: OpenAIClient,
-            LLMProvider.ANTHROPIC: AnthropicClient,
-            LLMProvider.GOOGLE: GeminiClient,
-            LLMProvider.OPENROUTER: OpenRouterClient,
-            LLMProvider.OLLAMA: OllamaClient,
-            LLMProvider.CUSTOM: OpenAIClient,
-        }
-
-        client_class = client_classes[self.config.provider]
-        return client_class(self.config)
+    @classmethod
+    def _create_client(cls, config: LLMConfig) -> BaseLLMClient:
+        """Create the appropriate client for the configuration."""
+        client_class = cls.CLIENT_CLASSES.get(config.provider)
+        if not client_class:
+            raise ValueError(f"No client implementation for provider: {config.provider}")
+        return client_class(config)
 
     async def generate(
         self,

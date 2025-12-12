@@ -1,17 +1,24 @@
 """Provider-agnostic Image Generation service.
 
 Supports multiple image generation providers through a unified interface.
-Configure via IMAGE_PROVIDER environment variable.
+Provider and model are specified at runtime, not via environment variables.
 
 Supported providers:
-- gemini: Google Gemini (Imagen) - recommended for cost/quality balance
-- replicate: Replicate API (FLUX, Stable Diffusion, etc.)
+- gemini: Google Gemini/Imagen - DEFAULT (uses GOOGLE_API_KEY)
+- replicate: Replicate API - FLUX, Stable Diffusion, etc. (uses REPLICATE_API_TOKEN)
 
-Environment variables:
-- IMAGE_PROVIDER: Provider name (default: gemini)
-- IMAGE_MODEL: Model name (provider-specific default)
-- GOOGLE_API_KEY: Google AI API key (for gemini provider)
-- REPLICATE_API_TOKEN: Replicate API token (for replicate provider)
+Environment variables (credentials only):
+- GOOGLE_API_KEY: Google AI API key
+- REPLICATE_API_TOKEN: Replicate API token
+
+Usage:
+    # Get a client for a specific provider/model
+    client = ImageService.get_client("gemini", "imagen-3.0-generate-002")
+    response = await client.generate("A cozy coffee shop")
+
+    # Use the default instance
+    service = ImageService.get_instance()
+    response = await service.generate("A cozy coffee shop")
 """
 
 import base64
@@ -21,7 +28,7 @@ import time
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import Any, ClassVar, Dict, List, Optional
 
 import httpx
 
@@ -85,6 +92,10 @@ class GeminiImageClient(BaseImageClient):
         super().__init__(config)
         self.base_url = "https://generativelanguage.googleapis.com/v1beta"
         self.api_key = config.api_key
+        self.headers = {
+            "x-goog-api-key": config.api_key,
+            "Content-Type": "application/json",
+        }
 
     async def generate(
         self,
@@ -116,9 +127,9 @@ class GeminiImageClient(BaseImageClient):
 
         # Use Imagen model for image generation
         model = self.config.model
-        url = f"{self.base_url}/models/{model}:predict?key={self.api_key}"
+        url = f"{self.base_url}/models/{model}:predict"
 
-        response = await self.client.post(url, json=payload)
+        response = await self.client.post(url, headers=self.headers, json=payload)
         response.raise_for_status()
         data = response.json()
 
@@ -329,65 +340,86 @@ import asyncio
 
 
 class ImageService:
-    """Provider-agnostic image generation service."""
+    """Provider-agnostic image generation service.
+
+    Supports two modes:
+    1. Runtime configuration: get_client(provider, model) for specific needs
+    2. Default instance: get_instance() for app-wide default
+    """
+
+    # Default provider/model for the app
+    DEFAULT_PROVIDER = "gemini"
+    DEFAULT_MODEL = "gemini-2.0-flash-exp-image-generation"
+
+    # API key environment variable mapping
+    API_KEY_ENV_VARS = {
+        ImageProvider.GEMINI: "GOOGLE_API_KEY",
+        ImageProvider.REPLICATE: "REPLICATE_API_TOKEN",
+    }
 
     _instance: Optional["ImageService"] = None
-    _client: Optional[BaseImageClient] = None
+    _clients: Dict[str, "ImageService"] = {}  # Cache of provider+model -> client
 
-    def __init__(self):
-        self.config = self._load_config()
-        self._client = self._create_client()
+    def __init__(self, provider: str = None, model: str = None):
+        """Initialize with specific provider/model or use defaults."""
+        provider = provider or self.DEFAULT_PROVIDER
+        model = model or self.DEFAULT_MODEL
+        self.config = self._build_config(provider, model)
+        self._client = self._create_client(self.config)
 
     @classmethod
     def get_instance(cls) -> "ImageService":
-        """Get singleton instance."""
+        """Get singleton instance with default provider/model."""
         if cls._instance is None:
             cls._instance = cls()
         return cls._instance
 
-    def _load_config(self) -> ImageConfig:
-        """Load configuration from environment."""
-        provider_str = os.getenv("IMAGE_PROVIDER", "gemini").lower()
+    @classmethod
+    def get_client(cls, provider: str, model: str) -> "ImageService":
+        """Get a client for a specific provider/model combination.
+
+        Clients are cached by provider+model for reuse.
+        """
+        cache_key = f"{provider}:{model}"
+        if cache_key not in cls._clients:
+            cls._clients[cache_key] = cls(provider=provider, model=model)
+        return cls._clients[cache_key]
+
+    @classmethod
+    def _build_config(cls, provider: str, model: str) -> ImageConfig:
+        """Build configuration for a provider/model combination."""
         try:
-            provider = ImageProvider(provider_str)
+            provider_enum = ImageProvider(provider.lower())
         except ValueError:
-            log.warning(f"Unknown image provider '{provider_str}', defaulting to gemini")
-            provider = ImageProvider.GEMINI
+            raise ValueError(f"Unknown image provider: {provider}. Supported: {[p.value for p in ImageProvider]}")
 
-        # Default models per provider
-        default_models = {
-            ImageProvider.GEMINI: "imagen-3.0-generate-002",
-            ImageProvider.REPLICATE: "black-forest-labs/flux-schnell",
-        }
-
-        # API key env vars per provider
-        api_key_vars = {
-            ImageProvider.GEMINI: "GOOGLE_API_KEY",
-            ImageProvider.REPLICATE: "REPLICATE_API_TOKEN",
-        }
-
-        api_key_var = api_key_vars.get(provider)
+        # Get API key from environment
+        api_key_var = cls.API_KEY_ENV_VARS.get(provider_enum)
         api_key = os.getenv(api_key_var) if api_key_var else None
 
+        if api_key_var and not api_key:
+            log.warning(f"No API key found for {provider} (expected {api_key_var})")
+
         return ImageConfig(
-            provider=provider,
-            model=os.getenv("IMAGE_MODEL", default_models[provider]),
+            provider=provider_enum,
+            model=model,
             api_key=api_key,
-            timeout=float(os.getenv("IMAGE_TIMEOUT", "120")),
+            timeout=120.0,
         )
 
-    def _create_client(self) -> BaseImageClient:
-        """Create the appropriate client for the configured provider."""
-        # Check if using Gemini Flash native image gen
-        if self.config.provider == ImageProvider.GEMINI:
-            if "flash" in self.config.model.lower():
-                return GeminiFlashImageClient(self.config)
+    @classmethod
+    def _create_client(cls, config: ImageConfig) -> BaseImageClient:
+        """Create the appropriate client for the configuration."""
+        if config.provider == ImageProvider.GEMINI:
+            # Use native Gemini image gen for flash models
+            if "flash" in config.model.lower():
+                return GeminiFlashImageClient(config)
             else:
-                return GeminiImageClient(self.config)
-        elif self.config.provider == ImageProvider.REPLICATE:
-            return ReplicateClient(self.config)
+                return GeminiImageClient(config)
+        elif config.provider == ImageProvider.REPLICATE:
+            return ReplicateClient(config)
         else:
-            raise ValueError(f"Unknown provider: {self.config.provider}")
+            raise ValueError(f"No client implementation for provider: {config.provider}")
 
     async def generate(
         self,
