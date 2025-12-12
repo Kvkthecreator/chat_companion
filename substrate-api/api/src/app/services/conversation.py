@@ -239,6 +239,10 @@ class ConversationService:
         if row:
             return Episode(**dict(row))
 
+        # Ensure user exists in public.users (auto-create if missing)
+        # This handles cases where the auth trigger didn't fire
+        await self._ensure_user_exists(user_id)
+
         # Ensure relationship exists
         rel_query = """
             INSERT INTO relationships (user_id, character_id)
@@ -338,6 +342,19 @@ class ConversationService:
         )
 
         return Episode(**dict(updated_row))
+
+    async def _ensure_user_exists(self, user_id: UUID) -> None:
+        """Ensure user exists in public.users table.
+
+        This is a fallback for cases where the auth.users trigger didn't fire
+        (e.g., user signed up before trigger was created, or trigger failed).
+        """
+        query = """
+            INSERT INTO users (id, display_name)
+            VALUES (:user_id, 'User')
+            ON CONFLICT (id) DO NOTHING
+        """
+        await self.db.execute(query, {"user_id": str(user_id)})
 
     async def _save_message(
         self,

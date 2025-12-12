@@ -23,10 +23,24 @@ async def get_current_user(
     row = await db.fetch_one(query, {"user_id": str(user_id)})
 
     if not row:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="User profile not found",
-        )
+        # Auto-create user profile if missing (fallback for auth trigger issues)
+        create_query = """
+            INSERT INTO users (id, display_name)
+            VALUES (:user_id, 'User')
+            ON CONFLICT (id) DO NOTHING
+            RETURNING *
+        """
+        row = await db.fetch_one(create_query, {"user_id": str(user_id)})
+
+        if not row:
+            # If still no row, fetch again (might have been created by concurrent request)
+            row = await db.fetch_one(query, {"user_id": str(user_id)})
+
+        if not row:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="User profile not found",
+            )
 
     return User(**dict(row))
 
