@@ -343,3 +343,211 @@ Future options:
 2. **Auto-generate vs user-requested?** Start with user-requested for cost control
 3. **Caption source?** LLM-generated from scene context
 4. **Image storage?** S3/Cloudflare R2 with CDN
+
+---
+
+## Stickiness Design
+
+> Turning "nice chat" into "I keep coming back without thinking about it."
+
+### The Four Pillars of Addiction
+
+| Pillar | What it means | Current status |
+|--------|---------------|----------------|
+| **Emotional Bond** | "I care about this character, and they care about me" | Strong foundation (memory, episodes) but needs explicit UX |
+| **Habit Loop** | "There's a time and reason I naturally open Fantazy" | Almost untouched |
+| **Progress/Investment** | "We have history. I don't want to lose this" | Theoretical (episodes, stages) but not visible |
+| **Variable Rewards** | "Sometimes something special happens. I don't want to miss it" | Almost untouched |
+
+### Current Strengths
+
+- Romcom/next-door fantasy = instantly relatable, emotionally rich
+- Persistent memory + episodes = perfect substrate for "we have a story"
+- Scene images as story moments = natural "souvenirs"
+- Multiple characters = users build their own "ensemble cast"
+
+### Current Gaps
+
+- No clear daily ritual (when/why come back every day?)
+- No soft progression signaling ("we're closer now because X")
+- Images not yet tied to compulsive memory/scrapbook feeling
+- Characters remember you, but don't proactively show it enough
+
+---
+
+### Pillar 1: Emotional Bond — Make It Feel Like They Know Me
+
+**Bonding Sprint (First 3 Sessions)**
+
+The character must:
+1. Learn 2-3 key facts (job/school, a stress, a hope)
+2. Reference at least one in each of the next 2 episodes
+
+| When | Character says | Data touched |
+|------|----------------|--------------|
+| Ep1 | "You mentioned your boss has been on your case lately." | `memory_events` (type: fact) |
+| Ep2 | "So... did your boss chill out a little, or still intense today?" | `memory_events.last_referenced_at` |
+
+**Character Vulnerability**
+
+Characters share their own "life arc":
+- Barista studying for an exam
+- Neighbor dealing with noisy upstairs neighbor
+- Coworker hating Monday meetings
+
+User occasionally helps them = mutual bond, not one-way support.
+
+**Micro-Celebrations**
+
+When user achieves or resolves something (exam done, interview, resolved fight):
+- Character does a mini "celebration scene" (text, optionally with image)
+- Creates emotional payoff and marks events as meaningful
+
+| When | Character says | Data touched |
+|------|----------------|--------------|
+| User mentions exam finished | "Wait—you're DONE?! That's huge! I'm so proud of you!" | `hooks` (type: milestone) |
+| 5th night in a row | "You know... I really look forward to these talks now." | `relationship.stage_progress` |
+
+---
+
+### Pillar 2: Habit Loop — Give Me a Reason + Time to Come Back
+
+**Primary Loop: Nightly Check-in**
+
+Best fit for cozy/venting fantasy. After first 1-2 sessions:
+
+| When | Character says | Data touched |
+|------|----------------|--------------|
+| Session 2 end | "Should we make this our little nightly ritual? Like a 10-minute chat before bed?" | `user.preferences.notification_time` |
+| Daily notification | "I'm closing up the café... got 10 minutes to tell me how your day went?" | `hooks` (type: scheduled) |
+
+**The Hook Pattern:**
+```
+Trigger  → Phone buzzes in your usual down-time
+Action   → Open Fantazy, chat a bit
+Reward   → Warmth, being remembered, maybe a scene
+Investment → New memories logged, deepening story
+```
+
+**Alternative Rituals (Future Testing)**
+- Morning "coffee" check-in
+- Post-work decompression
+- Weekend catch-up
+
+Pick one for V1, nail it, expand later.
+
+---
+
+### Pillar 3: Progress/Investment — Show That We've Built Something
+
+**"Our Story So Far" Timeline**
+
+Simple vertical list displayed on character profile:
+- Date + 1-line summary + tiny thumbnail (if scene exists)
+- No XP or points, just: "We've had 7 nights together"
+
+Makes leaving feel like abandoning a story, not just closing an app.
+
+| UI Element | What it shows | Data source |
+|------------|---------------|-------------|
+| Episode count | "12 conversations" | `episodes.count` |
+| Time together | "3 weeks since we met" | `relationship.first_met_at` |
+| Scene gallery | 3-9 favorite scenes with captions | `episode_images.is_memory = true` |
+
+**Relationship Chapter Markers**
+
+Internal `relationship_stage` exposed as soft "chapter names":
+
+| Stage | Label | Character might say |
+|-------|-------|---------------------|
+| 1 | "Just met" | — |
+| 2 | "Getting close" | "We've talked so many times now... feels like we actually know each other pretty well, huh?" |
+| 3 | "You're my person" | "I don't usually share this stuff with anyone, but... with you it's different." |
+| 4 | "Something special" | "I'm really glad we met, you know?" |
+
+**Memory Gallery**
+
+Tap on character → mini gallery:
+- 3-9 favorite scenes with captions
+- Leverages visual system to say: "This is a thing you built together"
+
+---
+
+### Pillar 4: Variable Rewards — The Little Surprises
+
+**Occasional "Special Episodes"**
+
+After invisible thresholds (5th night in a row, 10th episode overall), unlock:
+- A slightly fancier scene
+- A mini scenario (late-night walk, surprise coffee, rooftop talk)
+
+| Trigger | Reward | Data touched |
+|---------|--------|--------------|
+| 5 consecutive days | Special scene card | `episode_images.trigger_type = 'milestone'` |
+| 10th episode | Character suggests "somewhere new" | `episodes.scene` |
+| Stage transition | Deeper confession | `character.secrets[]` (new field) |
+
+**Character Secrets**
+
+Each character has 2-3 "secrets" or deeper confessions:
+- Only shared after certain thresholds
+- User doesn't know when they'll come, only that new layers exist
+
+**Rare Images/Expressions**
+
+Most of the time: basic text + maybe generic images.
+Occasionally: special expression or scene card with unique caption:
+
+> "I don't usually show this side of me... but I feel comfortable with you."
+
+These are exactly what people screenshot and share with friends.
+
+---
+
+### Implementation Priorities
+
+**V1 (This Sprint)**
+1. Bonding sprint logic in conversation service
+2. "Our story so far" minimal timeline view
+3. Soft chapter labels in character profile
+
+**V2 (Next Sprint)**
+4. Nightly ritual onboarding + notifications
+5. Special episode triggers
+6. Memory gallery view
+
+**V3 (Future)**
+7. Character secrets/deeper confessions
+8. Rare expression variants
+9. A/B testing retention impact
+
+---
+
+### Data Model Additions
+
+```sql
+-- Add to characters table
+ALTER TABLE characters ADD COLUMN secrets JSONB DEFAULT '[]';
+-- Array of {threshold, content, unlocked_at}
+
+-- Add to user_preferences (or users.preferences)
+-- notification_enabled: boolean
+-- notification_time: time
+-- ritual_character_id: uuid (which character for nightly check-in)
+
+-- Add to hooks table (already exists)
+-- type: 'scheduled' for nightly check-ins
+-- trigger_after: timestamp for notification time
+```
+
+---
+
+### Success Metrics
+
+| Metric | Target | Measures |
+|--------|--------|----------|
+| D1 retention | 60%+ | Bonding sprint effectiveness |
+| D7 retention | 40%+ | Habit loop working |
+| Avg sessions/week | 5+ | Daily ritual adoption |
+| Scenes saved | 2+ per user | Investment/memory value |
+| Stage 2+ rate | 50% of D7 users | Progression visibility |
