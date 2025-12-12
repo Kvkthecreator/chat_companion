@@ -18,6 +18,9 @@ export function ChatContainer({ characterId }: ChatContainerProps) {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const { character, isLoading: isLoadingCharacter } = useCharacter(characterId);
 
+  // Only initialize chat after character is confirmed to exist
+  const shouldInitChat = !isLoadingCharacter && !!character;
+
   const {
     messages,
     isLoading: isLoadingChat,
@@ -28,6 +31,7 @@ export function ChatContainer({ characterId }: ChatContainerProps) {
     endEpisode,
   } = useChat({
     characterId,
+    enabled: shouldInitChat,
     onError: (error) => {
       console.error("Chat error:", error);
       // TODO: Show toast

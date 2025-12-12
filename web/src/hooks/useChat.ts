@@ -6,6 +6,7 @@ import type { Message, Episode, Character } from "@/types";
 
 interface UseChatOptions {
   characterId: string;
+  enabled?: boolean;
   onError?: (error: Error) => void;
 }
 
@@ -21,7 +22,7 @@ interface UseChatReturn {
   endEpisode: () => Promise<void>;
 }
 
-export function useChat({ characterId, onError }: UseChatOptions): UseChatReturn {
+export function useChat({ characterId, enabled = true, onError }: UseChatOptions): UseChatReturn {
   const [messages, setMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSending, setIsSending] = useState(false);
@@ -201,14 +202,19 @@ export function useChat({ characterId, onError }: UseChatOptions): UseChatReturn
     }
   }, [characterId, episode, onError]);
 
-  // Load on mount
+  // Load on mount (only when enabled)
   useEffect(() => {
+    if (!enabled) {
+      setIsLoading(false);
+      return;
+    }
+
     loadMessages();
 
     return () => {
       abortControllerRef.current?.abort();
     };
-  }, [loadMessages]);
+  }, [loadMessages, enabled]);
 
   return {
     messages,
