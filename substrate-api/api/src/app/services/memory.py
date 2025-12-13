@@ -54,14 +54,14 @@ beat_classification:
     - "deep_conversation" (extended meaningful exchange)
 
 Respond with JSON:
-{
+{{
     "memories": [...],
-    "beat": {
+    "beat": {{
         "type": "...",
         "tension_change": 0,
         "milestone": null
-    }
-}
+    }}
+}}
 """
 
 HOOK_EXTRACTION_PROMPT = """Analyze this conversation and identify any follow-up conversation hooks.
