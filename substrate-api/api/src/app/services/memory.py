@@ -170,8 +170,10 @@ class MemoryService:
 
             for item in memory_items:
                 try:
+                    # Handle LLM returning uppercase types
+                    memory_type = item["type"].lower() if isinstance(item.get("type"), str) else item["type"]
                     memory = ExtractedMemory(
-                        type=MemoryType(item["type"]),
+                        type=MemoryType(memory_type),
                         summary=item["summary"],
                         content={"raw": item.get("summary")},
                         importance_score=float(item.get("importance_score", 0.5)),
