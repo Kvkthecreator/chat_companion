@@ -56,67 +56,63 @@ export function MessageInput({
   };
 
   return (
-    <div className="flex items-end gap-2 p-4 border-t bg-card/80 backdrop-blur supports-[backdrop-filter]:bg-card/70">
-      {/* Visualize button */}
-      {showVisualizeButton && onVisualize && (
-        <div className="relative">
-          <Button
-            onClick={onVisualize}
-            disabled={disabled || isGeneratingScene}
-            variant="ghost"
-            size="icon"
-            className={cn(
-              "rounded-full h-10 w-10 flex-shrink-0",
-              "text-muted-foreground hover:text-purple-500 hover:bg-purple-500/10",
-              isGeneratingScene && "text-purple-500 bg-purple-500/10",
-              suggestScene && "text-purple-500 bg-purple-500/10 animate-pulse"
-            )}
-            title={suggestScene ? "Capture this moment!" : "Visualize this moment"}
-          >
-            {isGeneratingScene ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <Sparkles className="h-4 w-4" />
-            )}
-            <span className="sr-only">Visualize scene</span>
-          </Button>
-          {/* Suggestion indicator */}
-          {suggestScene && !isGeneratingScene && (
-            <span className="absolute -top-1 -right-1 flex h-3 w-3">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-purple-400 opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-3 w-3 bg-purple-500"></span>
-            </span>
-          )}
-        </div>
-      )}
+    <div className="border-t bg-card/85 px-4 py-3 backdrop-blur supports-[backdrop-filter]:bg-card/70">
+      <div className="flex w-full items-end gap-2 rounded-full border-2 border-primary/15 bg-background/70 px-3 py-2 shadow-sm">
+        {/* Visualize button */}
+        {showVisualizeButton && onVisualize && (
+          <div className="relative">
+            <Button
+              onClick={onVisualize}
+              disabled={disabled || isGeneratingScene}
+              variant="ghost"
+              size="icon"
+              className={cn(
+                "h-10 w-10 rounded-full",
+                "text-primary hover:text-primary bg-primary/10 hover:bg-primary/20",
+                isGeneratingScene && "text-primary bg-primary/20",
+                suggestScene && "animate-pulse"
+              )}
+              title={suggestScene ? "Capture this moment" : "Visualize this moment"}
+            >
+              {isGeneratingScene ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Sparkles className="h-4 w-4" />
+              )}
+              <span className="sr-only">Visualize scene</span>
+            </Button>
+          </div>
+        )}
 
-      <div className="flex-1 relative">
-        <textarea
-          ref={textareaRef}
-          value={value}
-          onChange={(e) => setValue(e.target.value)}
-          onKeyDown={handleKeyDown}
-          placeholder={placeholder}
-          disabled={disabled}
-          rows={1}
-          className={cn(
-            "w-full resize-none rounded-2xl border bg-muted/60 px-4 py-3 pr-12 shadow-sm",
-            "text-sm placeholder:text-muted-foreground",
-            "focus:outline-none focus:ring-2 focus:ring-primary/50",
-            "disabled:opacity-50 disabled:cursor-not-allowed",
-            "max-h-[150px] overflow-y-auto"
-          )}
-        />
+        <div className="relative flex-1">
+          <textarea
+            ref={textareaRef}
+            value={value}
+            onChange={(e) => setValue(e.target.value)}
+            onKeyDown={handleKeyDown}
+            placeholder={placeholder}
+            disabled={disabled}
+            rows={1}
+            className={cn(
+              "w-full resize-none rounded-full border-none bg-transparent px-3 py-2 pr-12 text-sm shadow-none",
+              "placeholder:text-muted-foreground",
+              "focus:outline-none focus:ring-0",
+              "disabled:opacity-50 disabled:cursor-not-allowed",
+              "max-h-[150px] overflow-y-auto"
+            )}
+          />
+        </div>
+
+        <Button
+          onClick={handleSubmit}
+          disabled={disabled || !value.trim()}
+          size="icon"
+          className="h-10 w-10 flex-shrink-0 rounded-full bg-primary text-primary-foreground shadow-md hover:opacity-90"
+        >
+          <SendIcon className="h-4 w-4" />
+          <span className="sr-only">Send message</span>
+        </Button>
       </div>
-      <Button
-        onClick={handleSubmit}
-        disabled={disabled || !value.trim()}
-        size="icon"
-        className="rounded-full h-10 w-10 flex-shrink-0"
-      >
-        <SendIcon className="h-4 w-4" />
-        <span className="sr-only">Send message</span>
-      </Button>
     </div>
   );
 }
