@@ -39,31 +39,304 @@ log = logging.getLogger(__name__)
 
 
 # =============================================================================
-# Global Style Lock - Fantazy Visual Identity
+# Fantazy Visual Identity - Style Lock
 # =============================================================================
 
-FANTAZY_STYLE_LOCK = """high quality digital art, anime-influenced style,
-soft lighting, clean lines, expressive eyes,
-professional illustration quality,
-vibrant but natural colors, subtle gradients,
-character portrait focus"""
+FANTAZY_STYLE_LOCK = """masterpiece, best quality, highly detailed anime illustration,
+beautiful lighting, soft shadows, vibrant colors,
+professional digital art, clean linework, expressive detailed eyes,
+attractive character design, appealing proportions"""
 
-FANTAZY_NEGATIVE_PROMPT = """blurry, low quality, distorted,
-deformed, ugly, amateur,
-photorealistic, photo, 3d render,
-multiple people, crowd, text, watermark,
-nsfw, nude, explicit"""
+FANTAZY_NEGATIVE_PROMPT = """lowres, bad anatomy, bad hands, error, missing fingers,
+extra digit, fewer digits, cropped, worst quality, low quality, jpeg artifacts,
+signature, watermark, username, blurry, artist name,
+multiple people, crowd, text overlay,
+3d render, photorealistic, photograph"""
 
 # Expression definitions for expression pack
 EXPRESSION_TYPES = [
-    {"name": "smile", "prompt_modifier": "warmly smiling, happy expression, eyes bright"},
-    {"name": "shy", "prompt_modifier": "shy expression, slight blush, looking down slightly"},
-    {"name": "thoughtful", "prompt_modifier": "thoughtful expression, contemplative, looking to the side"},
-    {"name": "surprised", "prompt_modifier": "surprised expression, eyes wide, eyebrows raised"},
-    {"name": "annoyed", "prompt_modifier": "slightly annoyed expression, one eyebrow raised, unimpressed"},
-    {"name": "flirty", "prompt_modifier": "playful smirk, confident expression, half-lidded eyes"},
-    {"name": "sad", "prompt_modifier": "sad expression, downcast eyes, melancholic"},
+    {"name": "smile", "prompt_modifier": "warm genuine smile, happy sparkling eyes, joyful expression"},
+    {"name": "shy", "prompt_modifier": "shy blushing expression, averted gaze, cute embarrassed look"},
+    {"name": "thoughtful", "prompt_modifier": "contemplative expression, slight head tilt, gazing thoughtfully"},
+    {"name": "surprised", "prompt_modifier": "surprised expression, widened eyes, parted lips, cute shock"},
+    {"name": "annoyed", "prompt_modifier": "playfully annoyed, raised eyebrow, slight pout"},
+    {"name": "flirty", "prompt_modifier": "flirty half-lidded eyes, teasing smirk, confident alluring expression"},
+    {"name": "sad", "prompt_modifier": "melancholic expression, glistening eyes, vulnerable beauty"},
 ]
+
+
+# =============================================================================
+# Role Frame → Visual Mapping (Wardrobe + Setting)
+# =============================================================================
+
+ROLE_FRAME_VISUALS = {
+    # Everyday roles
+    "neighbor": {
+        "wardrobe": "casual home clothes, off-shoulder sweater, comfortable shorts or skirt",
+        "setting": "apartment doorway, warm interior lighting, cozy home background",
+        "pose": "leaning on doorframe, relaxed inviting posture",
+    },
+    "coworker": {
+        "wardrobe": "fitted office blouse, pencil skirt or dress pants, professional but stylish",
+        "setting": "modern office, soft desk lighting, blurred workspace background",
+        "pose": "confident seated pose, hand near face thoughtfully",
+    },
+    "barista": {
+        "wardrobe": "cute cafe apron over casual top, sleeves rolled up",
+        "setting": "warm coffee shop, ambient cafe lighting, cozy atmosphere",
+        "pose": "friendly welcoming stance, warm service smile",
+    },
+    # Fantasy/themed roles
+    "mysterious": {
+        "wardrobe": "dark elegant clothing, leather jacket or stylish coat, edgy aesthetic",
+        "setting": "moody urban night, dramatic shadow lighting, atmospheric",
+        "pose": "enigmatic stance, intense direct gaze, mysterious allure",
+    },
+    "playful": {
+        "wardrobe": "trendy casual outfit, colorful hoodie or fun fashion",
+        "setting": "bright cheerful environment, natural daylight",
+        "pose": "energetic dynamic pose, playful expression",
+    },
+    "comforting": {
+        "wardrobe": "soft cozy sweater, warm comfortable clothing",
+        "setting": "intimate cozy space, warm golden lighting, safe atmosphere",
+        "pose": "open welcoming posture, gentle caring expression",
+    },
+    "mentor": {
+        "wardrobe": "smart casual, glasses optional, mature refined style",
+        "setting": "study or library, warm lamp lighting, intellectual atmosphere",
+        "pose": "attentive listening pose, wise knowing expression",
+    },
+    "brooding": {
+        "wardrobe": "dark turtleneck or fitted dark clothing, understated elegance",
+        "setting": "moody atmospheric lighting, rain or night ambiance",
+        "pose": "contemplative distant gaze, mysterious intensity",
+    },
+    "flirty": {
+        "wardrobe": "fashionable fitted dress or stylish evening wear, attractive neckline",
+        "setting": "ambient mood lighting, sophisticated atmosphere",
+        "pose": "confident alluring posture, playful inviting expression",
+    },
+    "chaotic": {
+        "wardrobe": "eclectic colorful outfit, unique accessories, wild style",
+        "setting": "vibrant dynamic background, energetic atmosphere",
+        "pose": "spontaneous dynamic pose, excited expression",
+    },
+}
+
+# Default fallback for unknown roles
+DEFAULT_ROLE_VISUAL = {
+    "wardrobe": "attractive casual outfit, fashionable and flattering",
+    "setting": "soft pleasant lighting, simple clean background",
+    "pose": "natural appealing pose, friendly expression",
+}
+
+
+# =============================================================================
+# Archetype → Expression/Mood Mapping
+# =============================================================================
+
+ARCHETYPE_MOOD = {
+    "comforting": {
+        "expression": "warm caring smile, soft gentle eyes, nurturing gaze",
+        "mood": "safe, welcoming, emotionally available",
+    },
+    "flirty": {
+        "expression": "playful teasing smile, confident half-lidded eyes, alluring",
+        "mood": "fun, exciting, romantically charged",
+    },
+    "mysterious": {
+        "expression": "enigmatic slight smile, piercing intense eyes, intriguing",
+        "mood": "captivating, secretive, magnetically attractive",
+    },
+    "playful": {
+        "expression": "bright cheerful grin, sparkling mischievous eyes",
+        "mood": "fun, energetic, infectiously happy",
+    },
+    "brooding": {
+        "expression": "thoughtful intense gaze, subtle emotion in eyes",
+        "mood": "deep, magnetic, emotionally complex",
+    },
+    "mentor": {
+        "expression": "wise knowing smile, warm encouraging eyes",
+        "mood": "trustworthy, guiding, supportive",
+    },
+    "chaotic": {
+        "expression": "wild excited grin, bright enthusiastic eyes",
+        "mood": "unpredictable, exciting, boundless energy",
+    },
+    # Role-as-archetype fallbacks
+    "neighbor": {
+        "expression": "friendly approachable smile, warm welcoming eyes",
+        "mood": "familiar, comfortable, girl-next-door charm",
+    },
+    "coworker": {
+        "expression": "professional warm smile, intelligent attentive eyes",
+        "mood": "competent, relatable, workplace chemistry",
+    },
+    "barista": {
+        "expression": "friendly service smile, warm attentive eyes",
+        "mood": "approachable, sweet, everyday connection",
+    },
+}
+
+DEFAULT_ARCHETYPE_MOOD = {
+    "expression": "attractive warm expression, engaging eyes",
+    "mood": "appealing, inviting, emotionally present",
+}
+
+
+# =============================================================================
+# Intimacy Intent (derived from boundaries.flirting_level)
+# =============================================================================
+
+FLIRTING_LEVEL_MODIFIERS = {
+    "minimal": {
+        "gaze": "warm professional eye contact, friendly",
+        "body_language": "respectful open posture",
+        "intensity": "purely platonic warmth, supportive",
+    },
+    "subtle": {
+        "gaze": "warm friendly eye contact, approachable",
+        "body_language": "open but reserved posture",
+        "intensity": "gentle understated attraction",
+    },
+    "moderate": {
+        "gaze": "engaging eye contact with hint of interest",
+        "body_language": "relaxed confident posture, subtle allure",
+        "intensity": "balanced attraction, interested but controlled",
+    },
+    "playful": {
+        "gaze": "flirty eye contact, playful knowing look",
+        "body_language": "confident inviting posture, slight lean forward",
+        "intensity": "fun romantic tension, obvious interest",
+    },
+    "slow_burn": {
+        "gaze": "lingering meaningful eye contact, building tension",
+        "body_language": "restrained desire, controlled attraction",
+        "intensity": "magnetic pull, unspoken chemistry",
+    },
+    "forward": {
+        "gaze": "direct confident eye contact, clear desire",
+        "body_language": "openly inviting posture, confident allure",
+        "intensity": "strong attraction, bold romantic energy",
+    },
+}
+
+DEFAULT_FLIRTING_MODIFIER = FLIRTING_LEVEL_MODIFIERS["playful"]
+
+
+# =============================================================================
+# Composition Defaults
+# =============================================================================
+
+COMPOSITION_DEFAULTS = {
+    "framing": "upper body portrait, medium close-up shot",
+    "camera": "eye level, slight low angle for appeal",
+    "background": "soft bokeh background, not distracting",
+    "lighting": "flattering soft key light, gentle fill",
+}
+
+
+# =============================================================================
+# Prompt Assembly Contract
+# =============================================================================
+
+@dataclass
+class PromptAssembly:
+    """Assembled prompt components for avatar generation."""
+    appearance_prompt: str
+    composition_prompt: str
+    style_prompt: str
+    negative_prompt: str
+    full_prompt: str  # Combined ready-to-use prompt
+
+
+def assemble_avatar_prompt(
+    name: str,
+    archetype: str,
+    role_frame: Optional[str] = None,
+    boundaries: Optional[Dict[str, Any]] = None,
+    content_rating: str = "sfw",
+    custom_appearance: Optional[str] = None,
+) -> PromptAssembly:
+    """Assemble complete avatar generation prompt from character data.
+
+    This is the single source of truth for prompt construction.
+    Combines: role_frame → wardrobe/setting, archetype → mood/expression,
+    boundaries → intimacy calibration, content_rating → safety.
+
+    Args:
+        name: Character name
+        archetype: Personality archetype (comforting, flirty, mysterious, etc.)
+        role_frame: Role/occupation frame (neighbor, coworker, barista, etc.)
+        boundaries: Character boundaries dict (contains flirting_level)
+        content_rating: 'sfw' or 'adult'
+        custom_appearance: Optional override for appearance details
+
+    Returns:
+        PromptAssembly with all prompt components
+    """
+    # 1. Get role visuals (wardrobe, setting, pose)
+    effective_role = role_frame or archetype  # Fall back to archetype if no role_frame
+    role_visual = ROLE_FRAME_VISUALS.get(effective_role, DEFAULT_ROLE_VISUAL)
+
+    # 2. Get archetype mood (expression, mood)
+    archetype_data = ARCHETYPE_MOOD.get(archetype, DEFAULT_ARCHETYPE_MOOD)
+
+    # 3. Get intimacy modifiers from boundaries
+    flirting_level = "playful"  # default
+    if boundaries:
+        flirting_level = boundaries.get("flirting_level", "playful")
+    intimacy = FLIRTING_LEVEL_MODIFIERS.get(flirting_level, DEFAULT_FLIRTING_MODIFIER)
+
+    # 4. Build appearance prompt
+    # custom_appearance adds physical traits (hair, eyes, etc.) to role wardrobe
+    appearance_parts = [
+        f"1girl, {name}",  # Single character, named
+    ]
+
+    # Add custom physical traits if provided
+    if custom_appearance:
+        appearance_parts.append(custom_appearance)
+
+    # Add role-specific wardrobe
+    appearance_parts.append(role_visual["wardrobe"])
+
+    # Add expression and gaze from archetype + intimacy
+    appearance_parts.append(archetype_data["expression"])
+    appearance_parts.append(intimacy["gaze"])
+
+    appearance_prompt = ", ".join(filter(None, appearance_parts))
+
+    # 5. Build composition prompt
+    composition_parts = [
+        COMPOSITION_DEFAULTS["framing"],
+        role_visual["pose"],
+        role_visual["setting"],
+        intimacy["body_language"],
+        COMPOSITION_DEFAULTS["lighting"],
+    ]
+    composition_prompt = ", ".join(filter(None, composition_parts))
+
+    # 6. Style prompt (always use style lock)
+    style_prompt = FANTAZY_STYLE_LOCK
+
+    # 7. Negative prompt (adjust based on content rating)
+    negative_prompt = FANTAZY_NEGATIVE_PROMPT
+    if content_rating == "sfw":
+        negative_prompt += ", nsfw, nude, explicit, revealing, suggestive"
+
+    # 8. Combine into full prompt
+    full_prompt = f"{appearance_prompt}, {composition_prompt}, {style_prompt}"
+
+    return PromptAssembly(
+        appearance_prompt=appearance_prompt,
+        composition_prompt=composition_prompt,
+        style_prompt=style_prompt,
+        negative_prompt=negative_prompt,
+        full_prompt=full_prompt,
+    )
 
 
 # =============================================================================
@@ -100,60 +373,6 @@ class AvatarKitStatus:
 
 
 # =============================================================================
-# Appearance Prompt Generation
-# =============================================================================
-
-def derive_appearance_prompt(
-    name: str,
-    archetype: str,
-    personality: Optional[Dict[str, Any]] = None,
-    custom_description: Optional[str] = None,
-) -> str:
-    """Derive appearance prompt from character core if not provided.
-
-    If custom_description is provided, use that.
-    Otherwise, generate a basic prompt from archetype + personality.
-    """
-    if custom_description:
-        return custom_description
-
-    # Map archetypes to default visual traits
-    archetype_visuals = {
-        "comforting": "gentle features, warm expression, approachable appearance, soft colors",
-        "flirty": "attractive features, confident posture, playful expression, fashionable",
-        "mysterious": "enigmatic expression, sharp features, darker aesthetic, intense gaze",
-        "cheerful": "bright expression, youthful features, energetic pose, colorful style",
-        "brooding": "intense features, thoughtful expression, darker tones, dramatic lighting",
-        "nurturing": "kind features, maternal/paternal warmth, gentle smile, soft appearance",
-        "adventurous": "athletic build, determined expression, casual outdoor style",
-        "intellectual": "refined features, glasses optional, thoughtful expression, neat appearance",
-    }
-
-    base_visual = archetype_visuals.get(archetype, archetype_visuals["comforting"])
-
-    # Add personality-influenced traits
-    traits = []
-    if personality:
-        extraversion = personality.get("extraversion", 0.5)
-        if extraversion > 0.7:
-            traits.append("outgoing demeanor")
-        elif extraversion < 0.3:
-            traits.append("reserved demeanor")
-
-        agreeableness = personality.get("agreeableness", 0.5)
-        if agreeableness > 0.7:
-            traits.append("friendly face")
-
-    traits_text = ", ".join(traits) if traits else ""
-
-    prompt = f"portrait of {name}, {base_visual}"
-    if traits_text:
-        prompt += f", {traits_text}"
-
-    return prompt
-
-
-# =============================================================================
 # Avatar Generation Service
 # =============================================================================
 
@@ -187,9 +406,9 @@ class AvatarGenerationService:
             AvatarGenerationResult with success status and asset info
         """
         try:
-            # 1. Get character data
+            # 1. Get character data (including role_frame and boundaries)
             character = await db.fetch_one(
-                """SELECT id, name, archetype, baseline_personality, content_rating,
+                """SELECT id, name, archetype, role_frame, boundaries, content_rating,
                           active_avatar_kit_id
                    FROM characters
                    WHERE id = :id AND created_by = :user_id""",
@@ -204,18 +423,21 @@ class AvatarGenerationService:
 
             char_dict = dict(character)
 
-            # Parse personality if needed
-            personality = char_dict.get("baseline_personality", {})
-            if isinstance(personality, str):
+            # Parse boundaries if needed
+            boundaries = char_dict.get("boundaries", {})
+            if isinstance(boundaries, str):
                 import json
-                personality = json.loads(personality)
+                boundaries = json.loads(boundaries)
 
-            # 2. Derive appearance prompt
-            appearance_prompt = derive_appearance_prompt(
+            # 2. Assemble prompt using new contract
+            actual_rating = char_dict.get("content_rating", content_rating)
+            prompt_assembly = assemble_avatar_prompt(
                 name=char_dict["name"],
                 archetype=char_dict["archetype"],
-                personality=personality,
-                custom_description=appearance_description,
+                role_frame=char_dict.get("role_frame"),
+                boundaries=boundaries,
+                content_rating=actual_rating,
+                custom_appearance=appearance_description,
             )
 
             # 3. Ensure avatar kit exists
@@ -239,9 +461,9 @@ class AvatarGenerationService:
                         "character_id": str(character_id),
                         "created_by": str(user_id),
                         "name": f"{char_dict['name']}'s Avatar Kit",
-                        "appearance_prompt": appearance_prompt,
-                        "style_prompt": FANTAZY_STYLE_LOCK,
-                        "negative_prompt": FANTAZY_NEGATIVE_PROMPT,
+                        "appearance_prompt": prompt_assembly.appearance_prompt,
+                        "style_prompt": prompt_assembly.style_prompt,
+                        "negative_prompt": prompt_assembly.negative_prompt,
                     }
                 )
 
@@ -253,7 +475,7 @@ class AvatarGenerationService:
 
                 log.info(f"Created avatar kit {kit_id} for character {character_id}")
             else:
-                # Update existing kit's appearance prompt
+                # Update existing kit's prompts
                 await db.execute(
                     """UPDATE avatar_kits
                        SET appearance_prompt = :appearance_prompt,
@@ -263,27 +485,22 @@ class AvatarGenerationService:
                        WHERE id = :kit_id""",
                     {
                         "kit_id": str(kit_id),
-                        "appearance_prompt": appearance_prompt,
-                        "style_prompt": FANTAZY_STYLE_LOCK,
-                        "negative_prompt": FANTAZY_NEGATIVE_PROMPT,
+                        "appearance_prompt": prompt_assembly.appearance_prompt,
+                        "style_prompt": prompt_assembly.style_prompt,
+                        "negative_prompt": prompt_assembly.negative_prompt,
                     }
                 )
 
             # 4. Generate image via FLUX
-            full_prompt = f"{appearance_prompt}, {FANTAZY_STYLE_LOCK}"
-
-            # Add SFW enforcement
-            actual_rating = char_dict.get("content_rating", content_rating)
-            if actual_rating == "sfw":
-                full_prompt += ", safe for work, tasteful, fully clothed"
+            log.info(f"Prompt assembly for {char_dict['name']}: {prompt_assembly.full_prompt[:200]}...")
 
             # Use FLUX for initial generation (no reference needed)
             image_service = ImageService.get_client("replicate", "black-forest-labs/flux-1.1-pro")
 
             log.info(f"Generating hero avatar for {char_dict['name']}")
             response = await image_service.generate(
-                prompt=full_prompt,
-                negative_prompt=FANTAZY_NEGATIVE_PROMPT,
+                prompt=prompt_assembly.full_prompt,
+                negative_prompt=prompt_assembly.negative_prompt,
                 width=1024,
                 height=1024,
             )
@@ -322,7 +539,7 @@ class AvatarGenerationService:
                     "id": str(asset_id),
                     "kit_id": str(kit_id),
                     "storage_path": storage_path,
-                    "metadata": f'{{"prompt": "{full_prompt[:500]}", "model": "{response.model}"}}',
+                    "metadata": f'{{"prompt": "{prompt_assembly.full_prompt[:500]}", "model": "{response.model}"}}',
                     "file_size": len(image_bytes),
                 }
             )
