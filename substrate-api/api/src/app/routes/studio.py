@@ -1084,54 +1084,68 @@ Stay in character. Be {archetype} in your responses.
     }
 
 
-# Appearance hints for calibration characters
+# Physical appearance hints for all characters (wardrobe comes from role_frame)
 CALIBRATION_APPEARANCE_HINTS = {
-    "Luna": "silver-white hair, gentle violet eyes, cozy oversized sweater, soft features, warm smile",
-    "Raven": "dark hair with purple streaks, sharp amber eyes, leather jacket, enigmatic smirk",
-    "Felix": "messy auburn hair, bright green eyes, casual hoodie, mischievous grin",
-    "Morgan": "short grey-streaked hair, warm brown eyes, glasses, kind weathered face",
-    "Ash": "black tousled hair, intense dark eyes, black turtleneck, contemplative expression",
-    "Jade": "long wavy chestnut hair, sparkling hazel eyes, stylish dress, confident smile",
-    "River": "wild colorful rainbow hair, mismatched eyes (one blue one green), eclectic outfit with patches, excited expression",
+    # Original 3
+    "Mira": "long wavy brown hair with subtle highlights, warm amber eyes, cute beauty mark, soft youthful features",
+    "Kai": "long flowing brown hair, golden-brown eyes, delicate features, natural beauty, slight blush",
+    "Sora": "sleek black hair in professional style, sharp intelligent dark eyes, elegant features, confident aura",
+    # New 7
+    "Luna": "silver-white hair, gentle violet eyes, soft delicate features, ethereal beauty",
+    "Raven": "dark hair with purple streaks, sharp amber eyes, striking sharp features, mysterious aura",
+    "Felix": "messy auburn hair, bright green eyes, youthful cute features, energetic vibe",
+    "Morgan": "short grey-streaked hair, warm brown eyes behind stylish glasses, mature refined features",
+    "Ash": "black tousled hair falling over forehead, intense dark eyes, handsome brooding features",
+    "Jade": "long wavy chestnut hair, sparkling hazel eyes, stunning attractive features, radiant skin",
+    "River": "wild colorful rainbow hair, mismatched eyes (one blue one green), unique quirky features",
 }
 
 
 @router.post("/admin/generate-calibration-avatars")
 async def generate_calibration_avatars(
     name: Optional[str] = Query(None, description="Generate for specific character only"),
+    force: bool = Query(False, description="Force regenerate even if avatar exists"),
     db=Depends(get_db),
 ):
-    """Generate hero avatars for calibration characters that need them.
+    """Generate hero avatars for calibration characters.
 
     This endpoint is auth-exempt for calibration sprint use only.
-    Uses Gemini Flash for image generation.
+    Uses FLUX for image generation with new prompt assembly contract.
 
     Pass ?name=Luna to generate for a specific character (avoids rate limits).
+    Pass ?force=true to regenerate even if avatar already exists.
     """
     import asyncio
 
     service = get_avatar_generation_service()
 
-    # Build query - optionally filter by name
-    query = """
-        SELECT
-            c.id,
-            c.name,
-            c.archetype,
-            c.created_by,
-            ak.id as kit_id,
-            ak.primary_anchor_id
-        FROM characters c
-        LEFT JOIN avatar_kits ak ON ak.id = c.active_avatar_kit_id
-        WHERE (ak.primary_anchor_id IS NULL OR c.active_avatar_kit_id IS NULL)
-        AND c.name IN ('Luna', 'Raven', 'Felix', 'Morgan', 'Ash', 'Jade', 'River')
-    """
+    # Build query - all calibration characters
+    all_chars = list(CALIBRATION_APPEARANCE_HINTS.keys())
+
+    if force:
+        # Force mode: get all specified characters
+        query = """
+            SELECT c.id, c.name, c.archetype, c.created_by
+            FROM characters c
+            WHERE c.name = ANY(:names)
+        """
+    else:
+        # Default: only characters without hero avatars
+        query = """
+            SELECT c.id, c.name, c.archetype, c.created_by
+            FROM characters c
+            LEFT JOIN avatar_kits ak ON ak.id = c.active_avatar_kit_id
+            WHERE (ak.primary_anchor_id IS NULL OR c.active_avatar_kit_id IS NULL)
+            AND c.name = ANY(:names)
+        """
+
+    params = {"names": all_chars}
 
     if name:
-        query += " AND c.name = :name"
-        rows = await db.fetch_all(query + " ORDER BY c.name", {"name": name})
-    else:
-        rows = await db.fetch_all(query + " ORDER BY c.name")
+        query = query.replace("c.name = ANY(:names)", "c.name = :name")
+        params = {"name": name}
+
+    rows = await db.fetch_all(query + " ORDER BY c.name", params)
 
     if not rows:
         return {"message": "All calibration characters have hero avatars (or name not found)", "generated": 0}
