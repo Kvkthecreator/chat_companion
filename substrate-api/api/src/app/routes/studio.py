@@ -1,10 +1,11 @@
 """Studio API routes for character creation and management."""
 import json
 import re
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Body, Depends, HTTPException, Query, status
+from pydantic import BaseModel, Field
 
 from app.deps import get_db
 from app.dependencies import get_current_user_id
@@ -18,6 +19,12 @@ from app.models.character import (
     CharacterSummary,
     CharacterUpdateInput,
     validate_chat_ready,
+)
+from app.services.conversation_ignition import (
+    generate_opening_beat,
+    regenerate_opening_beat,
+    validate_ignition_output,
+    get_archetype_rules,
 )
 
 router = APIRouter(prefix="/studio", tags=["Studio"])
@@ -428,3 +435,272 @@ async def delete_character(
 
     # Note: result handling varies by DB driver
     # If no rows deleted, the character wasn't found/owned
+
+
+# =============================================================================
+# Conversation Ignition Endpoints
+# =============================================================================
+
+class GenerateOpeningBeatRequest(BaseModel):
+    """Request for generating opening beat."""
+    name: str = Field(..., min_length=1, max_length=50)
+    archetype: str
+    personality: Optional[Dict[str, Any]] = None
+    personality_preset: Optional[str] = None
+    boundaries: Dict[str, Any] = Field(default_factory=lambda: DEFAULT_BOUNDARIES.copy())
+    content_rating: str = Field(default="sfw", pattern="^(sfw|adult)$")
+    world_context: Optional[str] = None
+
+
+class RegenerateOpeningBeatRequest(BaseModel):
+    """Request for regenerating opening beat with feedback."""
+    previous_situation: str
+    previous_line: str
+    feedback: Optional[str] = None
+
+
+class OpeningBeatResponse(BaseModel):
+    """Response containing generated opening beat."""
+    opening_situation: str
+    opening_line: str
+    starter_prompts: List[str]
+    is_valid: bool
+    validation_errors: List[Dict[str, str]]
+    model_used: Optional[str] = None
+    latency_ms: Optional[int] = None
+
+
+class ArchetypeRulesResponse(BaseModel):
+    """Response containing archetype ignition rules."""
+    archetype: str
+    tone_range: List[str]
+    intimacy_ceiling: str
+    typical_scenes: List[str]
+    pacing: str
+    emotional_register: str
+
+
+@router.post("/generate-opening-beat", response_model=OpeningBeatResponse)
+async def generate_opening_beat_endpoint(
+    data: GenerateOpeningBeatRequest,
+    user_id: UUID = Depends(get_current_user_id),
+):
+    """Generate conversation ignition (opening beat) for a character.
+
+    This is a one-time, pre-runtime step that primes a character for chat.
+    Call this during character creation or when explicitly regenerating.
+
+    Outputs:
+    - opening_situation: Present-tense scene container
+    - opening_line: Character's first message
+    - starter_prompts: 3-5 fallback lines for stalled conversations
+    """
+    # Resolve personality
+    if data.personality:
+        personality = data.personality
+    elif data.personality_preset and data.personality_preset in PERSONALITY_PRESETS:
+        personality = PERSONALITY_PRESETS[data.personality_preset].copy()
+    else:
+        personality = PERSONALITY_PRESETS["warm_supportive"].copy()
+
+    result = await generate_opening_beat(
+        name=data.name,
+        archetype=data.archetype,
+        personality=personality,
+        boundaries=data.boundaries,
+        content_rating=data.content_rating,
+        world_context=data.world_context,
+    )
+
+    return OpeningBeatResponse(
+        opening_situation=result.opening_situation,
+        opening_line=result.opening_line,
+        starter_prompts=result.starter_prompts,
+        is_valid=result.is_valid,
+        validation_errors=[
+            {"field": e.field, "code": e.code, "message": e.message}
+            for e in result.validation_errors
+        ],
+        model_used=result.model_used,
+        latency_ms=result.latency_ms,
+    )
+
+
+@router.post("/characters/{character_id}/regenerate-opening-beat", response_model=OpeningBeatResponse)
+async def regenerate_character_opening_beat(
+    character_id: UUID,
+    data: RegenerateOpeningBeatRequest,
+    user_id: UUID = Depends(get_current_user_id),
+    db=Depends(get_db),
+):
+    """Regenerate opening beat for an existing character.
+
+    Use this when:
+    - User wants a different opening
+    - User provides specific feedback for improvement
+    """
+    # Get character
+    existing = await db.fetch_one(
+        "SELECT * FROM characters WHERE id = :id AND created_by = :user_id",
+        {"id": str(character_id), "user_id": str(user_id)}
+    )
+
+    if not existing:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Character not found or not owned by you",
+        )
+
+    char_dict = dict(existing)
+
+    # Parse personality from JSON if needed
+    personality = char_dict.get("baseline_personality", {})
+    if isinstance(personality, str):
+        personality = json.loads(personality)
+
+    # Parse boundaries from JSON if needed
+    boundaries = char_dict.get("boundaries", DEFAULT_BOUNDARIES.copy())
+    if isinstance(boundaries, str):
+        boundaries = json.loads(boundaries)
+
+    result = await regenerate_opening_beat(
+        name=char_dict["name"],
+        archetype=char_dict["archetype"],
+        personality=personality,
+        boundaries=boundaries,
+        previous_situation=data.previous_situation,
+        previous_line=data.previous_line,
+        feedback=data.feedback,
+        content_rating=char_dict.get("content_rating", "sfw"),
+    )
+
+    return OpeningBeatResponse(
+        opening_situation=result.opening_situation,
+        opening_line=result.opening_line,
+        starter_prompts=result.starter_prompts,
+        is_valid=result.is_valid,
+        validation_errors=[
+            {"field": e.field, "code": e.code, "message": e.message}
+            for e in result.validation_errors
+        ],
+        model_used=result.model_used,
+        latency_ms=result.latency_ms,
+    )
+
+
+@router.post("/characters/{character_id}/apply-opening-beat", response_model=Character)
+async def apply_opening_beat(
+    character_id: UUID,
+    opening_situation: str = Body(..., embed=True),
+    opening_line: str = Body(..., embed=True),
+    starter_prompts: Optional[List[str]] = Body(None, embed=True),
+    user_id: UUID = Depends(get_current_user_id),
+    db=Depends(get_db),
+):
+    """Apply generated opening beat to a character.
+
+    This saves the opening beat and regenerates the system prompt
+    with the new opening situation.
+    """
+    # Get character
+    existing = await db.fetch_one(
+        "SELECT * FROM characters WHERE id = :id AND created_by = :user_id",
+        {"id": str(character_id), "user_id": str(user_id)}
+    )
+
+    if not existing:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Character not found or not owned by you",
+        )
+
+    char_dict = dict(existing)
+
+    # Parse personality
+    personality = char_dict.get("baseline_personality", {})
+    if isinstance(personality, str):
+        personality = json.loads(personality)
+
+    # Parse boundaries
+    boundaries = char_dict.get("boundaries", DEFAULT_BOUNDARIES.copy())
+    if isinstance(boundaries, str):
+        boundaries = json.loads(boundaries)
+
+    # Validate the opening beat
+    errors = validate_ignition_output(
+        opening_situation=opening_situation,
+        opening_line=opening_line,
+        archetype=char_dict["archetype"],
+        boundaries=boundaries,
+        content_rating=char_dict.get("content_rating", "sfw"),
+    )
+
+    if errors:
+        error_messages = [f"{e.field}: {e.message}" for e in errors]
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid opening beat: {'; '.join(error_messages)}",
+        )
+
+    # Regenerate system prompt with new opening
+    system_prompt = generate_system_prompt(
+        name=char_dict["name"],
+        archetype=char_dict["archetype"],
+        personality=personality,
+        boundaries=boundaries,
+        opening_situation=opening_situation,
+    )
+
+    # Prepare starter prompts
+    final_starter_prompts = [opening_line]
+    if starter_prompts:
+        final_starter_prompts.extend(starter_prompts)
+
+    # Update character
+    query = """
+        UPDATE characters
+        SET opening_situation = :opening_situation,
+            opening_line = :opening_line,
+            starter_prompts = :starter_prompts,
+            system_prompt = :system_prompt,
+            updated_at = NOW()
+        WHERE id = :id
+        RETURNING *
+    """
+
+    row = await db.fetch_one(query, {
+        "id": str(character_id),
+        "opening_situation": opening_situation,
+        "opening_line": opening_line,
+        "starter_prompts": final_starter_prompts,
+        "system_prompt": system_prompt,
+    })
+
+    return Character(**dict(row))
+
+
+@router.get("/archetype-rules/{archetype}", response_model=ArchetypeRulesResponse)
+async def get_archetype_ignition_rules(
+    archetype: str,
+    user_id: UUID = Depends(get_current_user_id),
+):
+    """Get ignition rules for a specific archetype.
+
+    Useful for displaying guidance in the UI during character creation.
+    """
+    if archetype not in ARCHETYPES:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Unknown archetype: {archetype}. Available: {ARCHETYPES}",
+        )
+
+    rules = get_archetype_rules(archetype)
+
+    return ArchetypeRulesResponse(
+        archetype=rules.archetype,
+        tone_range=rules.tone_range,
+        intimacy_ceiling=rules.intimacy_ceiling,
+        typical_scenes=rules.typical_scenes,
+        pacing=rules.pacing,
+        emotional_register=rules.emotional_register,
+    )
