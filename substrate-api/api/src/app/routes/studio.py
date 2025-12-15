@@ -1084,6 +1084,166 @@ Stay in character. Be {archetype} in your responses.
     }
 
 
+# =============================================================================
+# Episode Background Generation
+# =============================================================================
+
+# Style settings for episode backgrounds (no characters, atmospheric scenes)
+BACKGROUND_STYLE = """masterpiece, best quality, highly detailed anime background,
+beautiful atmospheric lighting, cinematic composition,
+professional digital art, immersive environment,
+detailed scenery, mood setting background, no characters, empty scene"""
+
+BACKGROUND_NEGATIVE = """people, person, character, figure, human, face, eyes,
+lowres, bad anatomy, text, watermark, signature, blurry,
+multiple scenes, collage, border, frame"""
+
+
+class BackgroundGenerationResponse(BaseModel):
+    """Response from background generation."""
+    success: bool
+    episode_id: Optional[str] = None
+    character_name: Optional[str] = None
+    episode_title: Optional[str] = None
+    image_url: Optional[str] = None
+    error: Optional[str] = None
+    latency_ms: Optional[int] = None
+
+
+@router.post("/admin/generate-episode-backgrounds")
+async def generate_episode_backgrounds(
+    character: Optional[str] = Query(None, description="Generate for specific character only"),
+    episode_number: Optional[int] = Query(None, description="Generate for specific episode number only"),
+    force: bool = Query(False, description="Force regenerate even if background exists"),
+    db=Depends(get_db),
+):
+    """Generate background images for episode templates.
+
+    Uses FLUX 1.1 Pro to generate atmospheric scene backgrounds based on
+    each episode's episode_frame prompt. Backgrounds are 16:9 landscape
+    images with no characters.
+
+    Pass ?character=Luna to generate for a specific character.
+    Pass ?episode_number=0 to generate only Episode 0s.
+    Pass ?force=true to regenerate even if background already exists.
+    """
+    import asyncio
+    from app.services.image import ImageService
+    from app.services.storage import StorageService
+
+    storage = StorageService.get_instance()
+    image_service = ImageService.get_client("replicate", "black-forest-labs/flux-1.1-pro")
+
+    # Build query
+    conditions = ["et.episode_frame IS NOT NULL", "et.episode_frame != ''"]
+    params = {}
+
+    if not force:
+        conditions.append("(et.background_image_url IS NULL OR et.background_image_url = '')")
+
+    if character:
+        conditions.append("c.name = :character")
+        params["character"] = character
+
+    if episode_number is not None:
+        conditions.append("et.episode_number = :episode_number")
+        params["episode_number"] = episode_number
+
+    query = f"""
+        SELECT et.id, et.character_id, et.episode_number, et.title,
+               et.episode_frame, c.name as character_name
+        FROM episode_templates et
+        JOIN characters c ON c.id = et.character_id
+        WHERE {' AND '.join(conditions)}
+        ORDER BY c.name, et.episode_number
+    """
+
+    rows = await db.fetch_all(query, params)
+
+    if not rows:
+        return {
+            "message": "No episode templates need background generation",
+            "generated": 0,
+            "results": []
+        }
+
+    results = []
+
+    for i, row in enumerate(rows):
+        ep = dict(row)
+
+        # Build prompt for atmospheric background (no characters)
+        full_prompt = f"{ep['episode_frame']}, {BACKGROUND_STYLE}"
+
+        try:
+            # Generate 16:9 landscape background
+            response = await image_service.generate(
+                prompt=full_prompt,
+                negative_prompt=BACKGROUND_NEGATIVE,
+                width=1344,  # FLUX supports this for 16:9
+                height=768,
+            )
+
+            if not response.images:
+                results.append({
+                    "character": ep["character_name"],
+                    "episode": ep["episode_number"],
+                    "title": ep["title"],
+                    "status": "error: no image returned"
+                })
+                continue
+
+            image_bytes = response.images[0]
+
+            # Upload to storage
+            from uuid import UUID
+            storage_path = await storage.upload_episode_background(
+                image_bytes=image_bytes,
+                character_id=UUID(ep["character_id"]),
+                episode_number=ep["episode_number"],
+            )
+
+            # Get signed URL
+            image_url = await storage.create_signed_url("scenes", storage_path)
+
+            # Update database
+            await db.execute(
+                """UPDATE episode_templates
+                   SET background_image_url = :url, updated_at = NOW()
+                   WHERE id = :id""",
+                {"url": image_url, "id": str(ep["id"])}
+            )
+
+            results.append({
+                "character": ep["character_name"],
+                "episode": ep["episode_number"],
+                "title": ep["title"],
+                "status": "generated",
+                "image_url": image_url,
+                "latency_ms": response.latency_ms,
+            })
+
+        except Exception as e:
+            results.append({
+                "character": ep["character_name"],
+                "episode": ep["episode_number"],
+                "title": ep["title"],
+                "status": f"error: {str(e)}"
+            })
+
+        # Add delay between requests to avoid rate limiting
+        if i < len(rows) - 1:
+            await asyncio.sleep(2)
+
+    generated_count = sum(1 for r in results if r.get("status") == "generated")
+
+    return {
+        "message": f"Processed {len(results)} episode templates",
+        "generated": generated_count,
+        "results": results,
+    }
+
+
 # Physical appearance hints for all characters (wardrobe comes from role_frame)
 CALIBRATION_APPEARANCE_HINTS = {
     # Original 3

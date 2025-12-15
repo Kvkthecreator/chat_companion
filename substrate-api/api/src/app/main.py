@@ -21,6 +21,7 @@ from app.routes import (
     conversation,
     credits,
     episodes,
+    episode_templates,
     health,
     hooks,
     memory,
@@ -101,7 +102,7 @@ app.add_middleware(
 app.add_middleware(
     AuthMiddleware,
     exempt_paths={"/", "/health", "/docs", "/openapi.json", "/redoc"},
-    exempt_prefixes={"/health/", "/characters", "/webhooks", "/studio/admin"},  # Admin endpoints for calibration
+    exempt_prefixes={"/health/", "/characters", "/webhooks", "/studio/admin", "/episode-templates"},  # Public + admin endpoints
 )
 
 # Include routers
@@ -110,6 +111,7 @@ app.include_router(users.router, tags=["Users"])
 app.include_router(characters.router, tags=["Characters"])
 app.include_router(relationships.router, tags=["Relationships"])
 app.include_router(episodes.router, tags=["Episodes"])
+app.include_router(episode_templates.router, tags=["Episode Templates"])
 app.include_router(messages.router, tags=["Messages"])
 app.include_router(memory.router, tags=["Memory"])
 app.include_router(hooks.router, tags=["Hooks"])

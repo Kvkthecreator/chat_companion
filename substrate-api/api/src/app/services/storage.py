@@ -72,6 +72,25 @@ class StorageService:
         await self._upload(bucket, storage_path, image_bytes, content_type)
         return storage_path
 
+    async def upload_episode_background(
+        self,
+        image_bytes: bytes,
+        character_id: UUID,
+        episode_number: int,
+        content_type: str = "image/png",
+    ) -> str:
+        """Upload an episode background to the scenes bucket.
+
+        Path format: episodes/{character_id}/{episode_number}.png
+
+        Returns the storage path (not full URL).
+        """
+        storage_path = f"episodes/{character_id}/{episode_number}.png"
+        bucket = "scenes"
+
+        await self._upload(bucket, storage_path, image_bytes, content_type)
+        return storage_path
+
     async def upload_avatar(
         self,
         image_bytes: bytes,
