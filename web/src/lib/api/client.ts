@@ -509,6 +509,26 @@ export const api = {
       ),
     getExpressionTypes: () =>
       request<import("@/types").ExpressionTypesResponse>("/studio/expression-types"),
+    // Admin / Calibration endpoints
+    fixAvatarUrls: () =>
+      request<{ message: string; results: Array<{ name: string; status: string }> }>(
+        "/studio/admin/fix-avatar-urls",
+        { method: "POST" }
+      ),
+    batchCreate: (characters: Array<{
+      name: string;
+      archetype: string;
+      personality_preset?: string;
+      content_rating?: string;
+      appearance_hint?: string;
+    }>) =>
+      request<{
+        message: string;
+        results: Array<{ name: string; status: string; id?: string; appearance_hint?: string }>;
+      }>("/studio/admin/batch-create", {
+        method: "POST",
+        body: JSON.stringify({ characters }),
+      }),
   },
 };
 

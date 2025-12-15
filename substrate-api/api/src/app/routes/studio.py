@@ -900,3 +900,185 @@ async def list_expression_types(
             for e in EXPRESSION_TYPES
         ]
     }
+
+
+# =============================================================================
+# Admin / Calibration Endpoints
+# =============================================================================
+
+@router.post("/admin/fix-avatar-urls")
+async def fix_avatar_urls(
+    user_id: UUID = Depends(get_current_user_id),
+    db=Depends(get_db),
+):
+    """Fix avatar_url for characters with hero avatars but missing URL.
+
+    This is a calibration/admin endpoint to fix data inconsistencies.
+    """
+    from app.services.storage import StorageService
+
+    storage = StorageService.get_instance()
+
+    # Get characters needing URL fix
+    rows = await db.fetch_all("""
+        SELECT
+            c.id,
+            c.name,
+            aa.storage_path
+        FROM characters c
+        JOIN avatar_kits ak ON ak.id = c.active_avatar_kit_id
+        JOIN avatar_assets aa ON aa.id = ak.primary_anchor_id
+        WHERE c.avatar_url IS NULL
+        AND aa.storage_path IS NOT NULL
+        AND c.created_by = :user_id
+    """, {"user_id": str(user_id)})
+
+    if not rows:
+        return {"message": "No characters need fixing", "fixed": 0}
+
+    fixed = []
+    for row in rows:
+        row_dict = dict(row)
+        storage_path = row_dict["storage_path"]
+
+        try:
+            signed_url = await storage.create_signed_url("avatars", storage_path)
+
+            await db.execute(
+                "UPDATE characters SET avatar_url = :url, updated_at = NOW() WHERE id = :id",
+                {"url": signed_url, "id": str(row_dict["id"])}
+            )
+
+            fixed.append({"name": row_dict["name"], "status": "fixed"})
+
+        except Exception as e:
+            fixed.append({"name": row_dict["name"], "status": f"error: {str(e)}"})
+
+    return {"message": f"Processed {len(fixed)} characters", "results": fixed}
+
+
+class BatchCreateRequest(BaseModel):
+    """Request for batch character creation (calibration sprint)."""
+    characters: List[dict] = Field(
+        ...,
+        description="List of character configs with name, archetype, personality_preset, appearance_hint"
+    )
+
+
+@router.post("/admin/batch-create")
+async def batch_create_characters(
+    data: BatchCreateRequest,
+    user_id: UUID = Depends(get_current_user_id),
+    db=Depends(get_db),
+):
+    """Batch create characters for calibration sprint.
+
+    Each character config should have:
+    - name: str
+    - archetype: str
+    - personality_preset: str (optional)
+    - content_rating: str (optional, default sfw)
+    - appearance_hint: str (optional, for avatar generation)
+    """
+    from app.services.conversation_ignition import generate_opening_beat
+    from app.models.character import PERSONALITY_PRESETS, DEFAULT_BOUNDARIES
+
+    results = []
+
+    for config in data.characters:
+        name = config.get("name")
+        archetype = config.get("archetype")
+
+        if not name or not archetype:
+            results.append({"name": name or "unknown", "status": "error: missing name or archetype"})
+            continue
+
+        # Check if exists
+        slug = name.lower().replace(" ", "-")
+        existing = await db.fetch_one(
+            "SELECT id FROM characters WHERE slug = :slug",
+            {"slug": slug}
+        )
+
+        if existing:
+            results.append({"name": name, "status": "exists", "id": str(existing["id"])})
+            continue
+
+        # Get personality
+        preset_name = config.get("personality_preset", "warm_supportive")
+        personality = PERSONALITY_PRESETS.get(preset_name, PERSONALITY_PRESETS.get("warm_supportive", {}))
+
+        # Generate opening beat
+        try:
+            ignition_result = await generate_opening_beat(
+                name=name,
+                archetype=archetype,
+                personality=personality,
+                boundaries=DEFAULT_BOUNDARIES,
+                content_rating=config.get("content_rating", "sfw"),
+            )
+
+            opening_situation = ignition_result.opening_situation
+            opening_line = ignition_result.opening_line
+            starter_prompts = ignition_result.starter_prompts
+
+        except Exception as e:
+            # Fallback
+            opening_situation = f"You encounter {name}."
+            opening_line = "Hey there."
+            starter_prompts = [opening_line]
+
+        # Build system prompt
+        import json
+        system_prompt = f"""You are {name}, a {archetype} character.
+
+Personality traits: {json.dumps(personality.get('traits', []))}
+
+Stay in character. Be {archetype} in your responses.
+"""
+
+        # Insert character
+        try:
+            row = await db.fetch_one("""
+                INSERT INTO characters (
+                    name, slug, archetype,
+                    baseline_personality, boundaries, content_rating,
+                    opening_situation, opening_line,
+                    system_prompt, starter_prompts,
+                    status, is_active, created_by
+                ) VALUES (
+                    :name, :slug, :archetype,
+                    :personality, :boundaries, :content_rating,
+                    :opening_situation, :opening_line,
+                    :system_prompt, :starter_prompts,
+                    'draft', FALSE, :user_id
+                )
+                RETURNING id
+            """, {
+                "name": name,
+                "slug": slug,
+                "archetype": archetype,
+                "personality": json.dumps(personality),
+                "boundaries": json.dumps(DEFAULT_BOUNDARIES),
+                "content_rating": config.get("content_rating", "sfw"),
+                "opening_situation": opening_situation,
+                "opening_line": opening_line,
+                "system_prompt": system_prompt,
+                "starter_prompts": starter_prompts,
+                "user_id": str(user_id),
+            })
+
+            results.append({
+                "name": name,
+                "status": "created",
+                "id": str(row["id"]),
+                "appearance_hint": config.get("appearance_hint"),
+            })
+
+        except Exception as e:
+            results.append({"name": name, "status": f"error: {str(e)}"})
+
+    return {
+        "message": f"Processed {len(results)} characters",
+        "results": results,
+    }
