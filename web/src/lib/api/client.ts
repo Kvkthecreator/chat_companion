@@ -548,6 +548,53 @@ export const api = {
         method: "POST",
         body: JSON.stringify({ characters }),
       }),
+
+    // Episode Template Management (Studio)
+    listEpisodeTemplates: (characterId: string, includeAll?: boolean) => {
+      const status = includeAll ? "" : "?status=active";
+      return request<import("@/types").EpisodeTemplateSummary[]>(
+        `/episode-templates/character/${characterId}${status}`
+      );
+    },
+    getEpisodeTemplate: (templateId: string) =>
+      request<import("@/types").EpisodeTemplate>(`/episode-templates/${templateId}`),
+    createEpisodeTemplate: (data: {
+      character_id: string;
+      episode_number: number;
+      title: string;
+      slug: string;
+      situation: string;
+      opening_line: string;
+      episode_frame?: string;
+      is_default?: boolean;
+    }) =>
+      request<import("@/types").EpisodeTemplate>("/episode-templates", {
+        method: "POST",
+        body: JSON.stringify(data),
+      }),
+    updateEpisodeTemplate: (
+      templateId: string,
+      data: {
+        title?: string;
+        situation?: string;
+        opening_line?: string;
+        episode_frame?: string;
+        status?: string;
+      }
+    ) =>
+      request<import("@/types").EpisodeTemplate>(`/episode-templates/${templateId}`, {
+        method: "PATCH",
+        body: JSON.stringify(data),
+      }),
+    activateEpisodeTemplate: (templateId: string) =>
+      request<import("@/types").EpisodeTemplate>(`/episode-templates/${templateId}/activate`, {
+        method: "POST",
+      }),
+    generateEpisodeBackground: (characterId: string, episodeNumber: number) =>
+      request<{ message: string; generated: number }>("/studio/admin/generate-episode-backgrounds", {
+        method: "POST",
+        body: JSON.stringify({ character: characterId, episode_number: episodeNumber }),
+      }),
   },
 };
 

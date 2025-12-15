@@ -61,6 +61,7 @@ export interface CharacterProfile extends CharacterSummary {
   starter_prompts: string[];
   gallery: AvatarGalleryItem[];
   primary_avatar_url: string | null;
+  content_rating?: string;
 }
 
 export interface Character extends CharacterSummary {

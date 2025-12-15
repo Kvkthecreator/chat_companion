@@ -99,7 +99,7 @@ export default function DiscoverPage() {
           <p className="text-muted-foreground">No characters found</p>
           {selectedArchetype && (
             <Button
-              variant="link"
+              variant="ghost"
               onClick={() => setSelectedArchetype(null)}
               className="mt-2"
             >
