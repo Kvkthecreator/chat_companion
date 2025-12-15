@@ -129,6 +129,10 @@ class Character(BaseModel):
     starter_prompts: List[str] = Field(default_factory=list)
     example_messages: List[Dict[str, Any]] = Field(default_factory=list)
 
+    # Opening beat (first-class fields for chat ignition)
+    opening_situation: Optional[str] = None
+    opening_line: Optional[str] = None
+
     # Boundaries
     boundaries: Dict[str, Any] = Field(default_factory=dict)
 
@@ -138,10 +142,18 @@ class Character(BaseModel):
     # Relationship config
     relationship_stage_thresholds: Dict[str, int] = Field(default_factory=dict)
 
-    # Status
+    # Status & lifecycle
+    status: str = "active"  # 'draft' or 'active'
     is_active: bool = True
     is_premium: bool = False
     sort_order: int = 0
+
+    # Creator tracking
+    created_by: Optional[UUID] = None
+
+    # Discovery
+    categories: List[str] = Field(default_factory=list)
+    content_rating: str = "sfw"
 
     created_at: datetime
     updated_at: datetime

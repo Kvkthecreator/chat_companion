@@ -47,7 +47,7 @@ export function SparkBalance({
           variant="ghost"
           size="sm"
           className="h-8 w-8 p-0"
-          onClick={() => (window.location.href = "/settings?tab=sparks")}
+          onClick={() => (window.location.href = "/settings?tab=billing")}
           title="Get more Sparks"
         >
           <Plus className="h-4 w-4" />

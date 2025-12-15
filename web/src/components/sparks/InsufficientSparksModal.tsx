@@ -61,7 +61,7 @@ export function InsufficientSparksModal({
             variant="outline"
             className="w-full"
             onClick={() => {
-              window.location.href = "/settings?tab=sparks";
+              window.location.href = "/settings?tab=billing";
               onClose();
             }}
           >
