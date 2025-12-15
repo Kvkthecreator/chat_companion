@@ -4,19 +4,58 @@ import { useEffect, useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { SubscriptionCard } from "@/components/subscription";
-import { TopupPacks } from "@/components/sparks";
+import { TopupPacks, TransactionHistory } from "@/components/sparks";
 import { useUser } from "@/hooks/useUser";
 import { useSparks } from "@/hooks/useSparks";
-import { CheckCircle2, Sparkles, CreditCard, User } from "lucide-react";
+import { createClient } from "@/lib/supabase/client";
+import { CheckCircle2, Sparkles, CreditCard, User, Mail, Clock, Loader2, History } from "lucide-react";
 
 export default function SettingsPage() {
   const searchParams = useSearchParams();
   const router = useRouter();
-  const { reload } = useUser();
+  const { user, reload, updateUser, isLoading: userLoading } = useUser();
   const { reload: reloadSparks, sparkBalance, lifetimeEarned, lifetimeSpent } = useSparks();
   const [showSuccess, setShowSuccess] = useState(false);
   const [showTopupSuccess, setShowTopupSuccess] = useState(false);
+  const [email, setEmail] = useState<string | null>(null);
+  const [displayName, setDisplayName] = useState("");
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveSuccess, setSaveSuccess] = useState(false);
+
+  // Get email from Supabase auth
+  useEffect(() => {
+    async function getEmail() {
+      const supabase = createClient();
+      const { data: { user: authUser } } = await supabase.auth.getUser();
+      setEmail(authUser?.email || null);
+    }
+    getEmail();
+  }, []);
+
+  // Sync display name from user data
+  useEffect(() => {
+    if (user?.display_name) {
+      setDisplayName(user.display_name);
+    }
+  }, [user]);
+
+  const handleSaveProfile = async () => {
+    setIsSaving(true);
+    setSaveSuccess(false);
+    try {
+      await updateUser({ display_name: displayName || undefined });
+      setSaveSuccess(true);
+      setTimeout(() => setSaveSuccess(false), 3000);
+    } catch (err) {
+      console.error("Failed to save profile:", err);
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
   // Get initial tab from URL (support legacy "subscription" and "sparks" params)
   const urlTab = searchParams.get("tab");
@@ -173,19 +212,115 @@ export default function SettingsPage() {
               <TopupPacks />
             </CardContent>
           </Card>
+
+          {/* Transaction History */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <History className="h-5 w-5 text-muted-foreground" />
+                Transaction History
+              </CardTitle>
+              <CardDescription>
+                Your recent spark activity and purchases
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <TransactionHistory />
+            </CardContent>
+          </Card>
         </TabsContent>
 
         {/* Account Tab */}
         <TabsContent value="account" className="space-y-6">
+          {/* Profile Settings */}
           <Card>
             <CardHeader>
-              <CardTitle>Account Settings</CardTitle>
+              <CardTitle className="flex items-center gap-2">
+                <User className="h-5 w-5 text-muted-foreground" />
+                Profile
+              </CardTitle>
               <CardDescription>
-                Manage your account settings and preferences
+                Your public profile information
               </CardDescription>
             </CardHeader>
-            <CardContent className="text-sm text-muted-foreground">
-              Account management coming soon.
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="email" className="flex items-center gap-2">
+                  <Mail className="h-4 w-4 text-muted-foreground" />
+                  Email
+                </Label>
+                <Input
+                  id="email"
+                  type="email"
+                  value={email || ""}
+                  disabled
+                  className="bg-muted"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Email cannot be changed. Contact support if needed.
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="displayName">Display Name</Label>
+                <Input
+                  id="displayName"
+                  type="text"
+                  placeholder="Enter your display name"
+                  value={displayName}
+                  onChange={(e) => setDisplayName(e.target.value)}
+                />
+              </div>
+
+              <div className="flex items-center gap-3">
+                <Button
+                  onClick={handleSaveProfile}
+                  disabled={isSaving}
+                >
+                  {isSaving && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+                  Save Changes
+                </Button>
+                {saveSuccess && (
+                  <span className="text-sm text-green-500 flex items-center gap-1">
+                    <CheckCircle2 className="h-4 w-4" />
+                    Saved
+                  </span>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Account Info */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Clock className="h-5 w-5 text-muted-foreground" />
+                Account Info
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="flex justify-between text-sm">
+                <span className="text-muted-foreground">Member since</span>
+                <span>
+                  {user?.created_at
+                    ? new Date(user.created_at).toLocaleDateString("en-US", {
+                        month: "long",
+                        day: "numeric",
+                        year: "numeric",
+                      })
+                    : "—"}
+                </span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-muted-foreground">Subscription</span>
+                <span className="capitalize">
+                  {user?.subscription_status || "Free"}
+                </span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-muted-foreground">Timezone</span>
+                <span>{user?.timezone || "Auto"}</span>
+              </div>
             </CardContent>
           </Card>
         </TabsContent>
