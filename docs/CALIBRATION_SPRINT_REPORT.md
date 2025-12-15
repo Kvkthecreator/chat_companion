@@ -8,93 +8,98 @@ End-to-end validation of the Studio pipeline: Character Core → Conversation Ig
 
 ---
 
-## Part A: Audit of Existing Characters
+## Current Status Summary
 
-### Summary Table
-
-| Character | Archetype | Status | Avatar Kit | Hero Avatar | avatar_url | Expressions | Opening Beat |
-|-----------|-----------|--------|------------|-------------|------------|-------------|--------------|
-| Mira | barista | active | ✓ | ✓ | ✗ | 0 | ✓ |
-| Kai | neighbor | active | ✓ | ✓ | ✗ | 0 | ✓ |
-| Sora | coworker | active | ✓ | ✓ | ✗ | 0 | ✓ |
-
-### Issues Found
-
-1. **avatar_url Not Set** (All 3 characters)
-   - Avatar kits exist with primary anchors
-   - Storage paths exist in `avatars` bucket
-   - But `characters.avatar_url` was never populated
-   - **Root Cause**: Manual seed data didn't include this step
-
-2. **Activation Without Avatar URL** (All 3 characters)
-   - Characters marked as `status = 'active'`
-   - Violates hardened Phase 4.1 requirements
-   - **Note**: Pre-dates hardened validation
-
-3. **No Expression Pack** (All 3 characters)
-   - Only hero avatar exists (1 asset each)
-   - Minimum 3 expressions recommended
-
-### Opening Beat Review
-
-| Character | Opening Situation | Opening Line | Quality |
-|-----------|-------------------|--------------|---------|
-| Mira | "You walk into Crescent Cafe during a quiet afternoon..." | "oh hey~ wasn't sure i'd see you today. the usual?" | ✓ Good - casual, inviting |
-| Kai | "You bump into your neighbor in the hallway..." | "oh hey. you're up late too huh" | ✓ Good - natural, relatable |
-| Sora | "You're at your desk in the open-plan office..." | "Hey, got a minute? I need to vent about this client call..." | ✓ Good - direct, personality shows |
-
-**Ignition Quality Assessment**:
-- ✓ All situations are present-tense, non-expository
-- ✓ No self-introductions ("Hi, I'm X")
-- ✓ No form questions ("How can I help you?")
-- ✓ Tone matches archetype
-
-### Visual Identity Review
-
-| Character | Appearance Prompt | Storage Path | Notes |
-|-----------|-------------------|--------------|-------|
-| Mira | "Young woman with long flowing black hair, side-swept bangs, striking blue eyes..." | `/avatars/ddd70a7f.../anchors/...webp` | New path format |
-| Kai | "young woman with long black hair, blue eyes, fair skin" | `/avatars/characters/kai/anchor.webp` | Legacy path |
-| Sora | "woman with long black hair, confident expression" | `/avatars/characters/sora/anchor.webp` | Legacy path |
-
-**Visual Issues**:
-- Appearance prompts are minimal (especially Kai, Sora)
-- Need richer detail for consistent expression generation
-
-### Fixes Required
-
-1. **Fix avatar_url** - Generate signed URLs from anchor paths
-2. **Enrich appearance prompts** - Add more visual detail
-3. **Generate expressions** - Minimum 3 per character
+| Character | Archetype | Status | Avatar URL | Hero Avatar | Expressions | Opening Beat |
+|-----------|-----------|--------|------------|-------------|-------------|--------------|
+| Mira | barista | active | ✓ | ✓ | 0 | ✓ |
+| Kai | neighbor | active | ✓ | ✓ | 0 | ✓ |
+| Sora | coworker | active | ✓ | ✓ | 0 | ✓ |
+| Luna | comforting | draft | - | - | 0 | ✓ |
+| Raven | mysterious | draft | - | - | 0 | ✓ |
+| Felix | playful | draft | - | - | 0 | ✓ |
+| Morgan | mentor | draft | - | - | 0 | ✓ |
+| Ash | brooding | draft | - | - | 0 | ✓ |
+| Jade | flirty | draft | - | - | 0 | ✓ |
+| River | chaotic | draft | - | - | 0 | ✓ |
 
 ---
 
-## Part B: New Character Creation Plan
+## Part A: Existing Characters - COMPLETED
 
-### 7 New Characters
+### Fixes Applied
 
-| Name | Archetype | Personality Preset | Appearance Hint |
-|------|-----------|-------------------|-----------------|
-| Luna | comforting | warm_supportive | Silver-white hair, gentle violet eyes, cozy oversized sweater |
-| Raven | mysterious | mysterious_reserved | Dark hair with purple streaks, sharp amber eyes, leather jacket |
-| Felix | playful | playful_teasing | Messy auburn hair, bright green eyes, casual hoodie |
-| Morgan | mentor | warm_supportive | Short grey-streaked hair, warm brown eyes, glasses |
-| Ash | brooding | mysterious_reserved | Black tousled hair, intense dark eyes, black turtleneck |
-| Jade | flirty | playful_teasing | Long wavy chestnut hair, sparkling hazel eyes, stylish dress |
-| River | chaotic | cheerful_energetic | Wild colorful hair, mismatched eyes, eclectic outfit |
+1. **Avatar URLs Fixed** ✓
+   - Made `avatars` storage bucket public
+   - Updated `avatar_url` for Mira, Kai, Sora with public URLs
+   - URLs verified working (HTTP 200)
 
-### Archetype Coverage
+2. **Opening Beats Verified** ✓
+   - All 3 characters have quality ignition content
+   - Present-tense situations, no self-introductions
+   - Tone matches archetype
 
-- comforting: Luna (new)
-- mysterious: Raven (new)
-- playful: Felix (new)
-- mentor: Morgan (new)
-- brooding: Ash (new)
-- flirty: Jade (new)
-- chaotic: River (new)
-- barista: Mira (existing)
-- neighbor: Kai (existing)
-- coworker: Sora (existing)
+### Remaining for Existing Characters
+- Generate 3 expressions each (9 total)
+
+---
+
+## Part B: New Characters - COMPLETED
+
+### 7 Characters Created
+
+| Name | Archetype | Opening Line Preview |
+|------|-----------|---------------------|
+| Luna | comforting | "*notices you and smiles softly* hey, you made it..." |
+| Raven | mysterious | "*glances up with amber eyes* ...you found me..." |
+| Felix | playful | "*spins around dramatically* hey hey hey! perfect timing!" |
+| Morgan | mentor | "*sets down pen with a warm smile* ah, there you are..." |
+| Ash | brooding | "*acknowledges you with a slight nod* ...couldn't sleep either?" |
+| Jade | flirty | "*walks over with a playful smile* well well well..." |
+| River | chaotic | "*crashes into you with an enthusiastic hug* OHMYGOSH you came!!" |
+
+### Opening Beat Quality Assessment
+
+All 7 new characters have:
+- ✓ Present-tense situational setup
+- ✓ No self-introductions ("Hi, I'm X")
+- ✓ No form questions ("How can I help you?")
+- ✓ Tone matches archetype
+- ✓ Implies existing relationship/familiarity
+
+### Remaining for New Characters
+- Generate hero avatar for each (7 total)
+- Generate 3 expressions each (21 total)
+- Set avatar_url after hero avatar generation
+
+---
+
+## Asset Generation Required
+
+### Via Studio UI (requires FLUX credits)
+
+**Hero Avatars (7 needed):**
+1. Luna - silver-white hair, gentle violet eyes, cozy oversized sweater
+2. Raven - dark hair with purple streaks, sharp amber eyes, leather jacket
+3. Felix - messy auburn hair, bright green eyes, casual hoodie
+4. Morgan - short grey-streaked hair, warm brown eyes, glasses
+5. Ash - black tousled hair, intense dark eyes, black turtleneck
+6. Jade - long wavy chestnut hair, sparkling hazel eyes, stylish dress
+7. River - wild colorful hair, mismatched eyes, eclectic outfit
+
+**Expressions (30 needed - 3 per character):**
+- smile, shy, thoughtful (recommended minimum set)
+- Each character needs at least 3 expressions for activation
+
+### Steps to Complete
+
+1. Go to Studio UI: `https://fantazy-five.vercel.app/studio`
+2. For each new character (Luna, Raven, Felix, Morgan, Ash, Jade, River):
+   - Click character → Assets tab
+   - Click "Generate Hero Avatar" with appearance description
+   - After hero avatar generated, click "Generate Expression" for smile, shy, thoughtful
+3. For existing characters (Mira, Kai, Sora):
+   - Go to Assets tab → Generate 3 expressions each
 
 ---
 
@@ -117,51 +122,82 @@ Score each character 1-5:
 
 ---
 
-## Implementation Status
+## Implementation Progress
 
 ### Completed
 - [x] Database audit of existing characters
-- [x] Opening beat quality review
-- [x] Character templates defined for new characters
-- [x] Calibration script created
+- [x] Fixed avatar_url for existing 3 characters
+- [x] Made avatars storage bucket public
+- [x] Opening beat quality review (all 3 existing)
+- [x] Created 7 new characters with opening beats
+- [x] All 10 characters have ignition content
 
-### Pending
-- [ ] Fix avatar_url for existing characters
-- [ ] Generate expressions for existing characters (3 each)
-- [ ] Create 7 new characters
-- [ ] Generate opening beats for new characters
-- [ ] Generate hero avatars for new characters
-- [ ] Generate expressions for new characters (3 each)
-- [ ] Apply rubric scoring
-- [ ] Final activation review
+### Pending (Manual via Studio UI)
+- [ ] Generate hero avatars for 7 new characters
+- [ ] Generate expressions for all 10 characters (30 total)
+- [ ] Apply rubric scoring after visual assets complete
+- [ ] Activate characters meeting threshold
 
 ---
 
-## Calibration Learnings (Preliminary)
+## Calibration Learnings
+
+### Opening Beat Patterns That Work
+- **Situational Setup + Natural Dialogue**: "Rain patters against the window... *acknowledges you with a slight nod* ...couldn't sleep either?"
+- **Implied Familiarity**: "I was wondering when you'd show up" (vs "Hi, nice to meet you")
+- **Action Beats**: Using asterisks for physical actions creates presence
+- **Character Voice**: Felix's "hey hey hey!" vs Ash's "..." - personality in punctuation
+
+### Archetype-Visual Alignment Guide
+| Archetype | Visual Signals |
+|-----------|---------------|
+| comforting | Warm colors, soft features, cozy clothing |
+| mysterious | Darker palette, sharp features, unconventional details |
+| playful | Bright colors, casual style, animated expression |
+| brooding | Dark tones, intense gaze, understated elegance |
+| flirty | Stylish dress, confident posture, sparkling eyes |
+| chaotic | Wild hair, mismatched elements, energetic pose |
+| mentor | Warm but mature, glasses, weathered kindness |
 
 ### Appearance Prompt Quality
-- Minimal prompts lead to generic avatars
-- Need: hairstyle, eye color, clothing, expression, distinguishing features
-- Good example: Mira's detailed prompt
-- Bad example: Sora's "woman with long black hair, confident expression"
-
-### Opening Beat Patterns
-- Best: Situational setup + natural dialogue
-- Avoid: Direct greeting, self-introduction
-- Kai's "oh hey. you're up late too huh" - excellent (shared context)
-- Mira's "the usual?" - good (implies relationship history)
-
-### Archetype-Visual Alignment
-- comforting → warm colors, soft features
-- mysterious → darker palette, sharp features
-- playful → bright colors, casual style
-- brooding → dark tones, intense expression
+- **Good**: "silver-white hair, gentle violet eyes, cozy oversized sweater, soft features"
+- **Bad**: "woman with long black hair, confident expression"
+- Need: hairstyle, eye color, clothing, distinguishing features, mood/expression
 
 ---
 
-## Next Steps
+## Database Queries Reference
 
-1. Run fix script for existing characters
-2. Execute calibration sprint via Studio API
-3. Document final rubric scores
-4. Compile learnings for prompt tuning
+```sql
+-- Check all character status
+SELECT name, archetype, status, avatar_url IS NOT NULL as has_url,
+       active_avatar_kit_id IS NOT NULL as has_kit
+FROM characters ORDER BY created_at;
+
+-- Count expressions per character
+SELECT c.name, COUNT(aa.id) as expressions
+FROM characters c
+LEFT JOIN avatar_assets aa ON aa.avatar_kit_id = c.active_avatar_kit_id
+  AND aa.asset_type = 'expression' AND aa.is_active
+GROUP BY c.id ORDER BY c.name;
+```
+
+---
+
+## Summary
+
+**Completed Programmatically:**
+- 3 existing characters audited and fixed (avatar_url)
+- 7 new characters created with quality opening beats
+- Storage bucket configured for public access
+- All 10 characters have ignition-ready opening content
+
+**Requires Manual Completion (Studio UI):**
+- 7 hero avatar generations
+- 30 expression generations
+- Rubric scoring and activation
+
+**Estimated FLUX Credits Needed:**
+- Hero Avatars: 7 × ~$0.05 = ~$0.35
+- Expressions: 30 × ~$0.03 = ~$0.90
+- Total: ~$1.25
