@@ -58,6 +58,13 @@ class InsufficientSparksError(Exception):
         self.cost = cost
 
 
+def _safe_uuid(value) -> UUID:
+    """Safely convert a value to UUID, handling both string and UUID inputs."""
+    if isinstance(value, UUID):
+        return value
+    return UUID(str(value))
+
+
 class CreditsService:
     """Service for managing user spark credits."""
 
@@ -205,8 +212,8 @@ class CreditsService:
         logger.info(f"User {user_id} spent {cost} sparks on {feature_key}, balance: {new_balance}")
 
         return SparkTransaction(
-            id=UUID(tx_row["id"]),
-            user_id=UUID(tx_row["user_id"]),
+            id=_safe_uuid(tx_row["id"]),
+            user_id=_safe_uuid(tx_row["user_id"]),
             amount=tx_row["amount"],
             balance_after=tx_row["balance_after"],
             transaction_type=tx_row["transaction_type"],
@@ -291,8 +298,8 @@ class CreditsService:
         logger.info(f"Granted {amount} sparks to user {user_id}: {description}")
 
         return SparkTransaction(
-            id=UUID(tx_row["id"]),
-            user_id=UUID(tx_row["user_id"]),
+            id=_safe_uuid(tx_row["id"]),
+            user_id=_safe_uuid(tx_row["user_id"]),
             amount=tx_row["amount"],
             balance_after=tx_row["balance_after"],
             transaction_type=tx_row["transaction_type"],
@@ -390,8 +397,8 @@ class CreditsService:
 
         return [
             SparkTransaction(
-                id=UUID(row["id"]),
-                user_id=UUID(row["user_id"]),
+                id=row["id"] if isinstance(row["id"], UUID) else UUID(str(row["id"])),
+                user_id=row["user_id"] if isinstance(row["user_id"], UUID) else UUID(str(row["user_id"])),
                 amount=row["amount"],
                 balance_after=row["balance_after"],
                 transaction_type=row["transaction_type"],
