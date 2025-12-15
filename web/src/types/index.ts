@@ -139,6 +139,7 @@ export interface EpisodeSummary {
 export interface Episode extends EpisodeSummary {
   user_id: string;
   relationship_id: string | null;
+  episode_template_id: string | null;
   scene: string | null;
   summary: string | null;
   emotional_tags: string[];
@@ -146,6 +147,36 @@ export interface Episode extends EpisodeSummary {
   user_message_count: number;
   metadata: Record<string, unknown>;
   created_at: string;
+}
+
+// ============================================================================
+// Episode Template Types (Pre-defined Scenarios)
+// ============================================================================
+
+/**
+ * Episode Template Summary - for episode selection UI
+ */
+export interface EpisodeTemplateSummary {
+  id: string;
+  episode_number: number;
+  title: string;
+  slug: string;
+  background_image_url: string | null;
+  is_default: boolean;
+}
+
+/**
+ * Episode Template - full details for starting a conversation
+ */
+export interface EpisodeTemplate extends EpisodeTemplateSummary {
+  character_id: string;
+  situation: string;
+  opening_line: string;
+  episode_frame: string | null;
+  arc_hints: Record<string, unknown>[];
+  starter_prompts?: string[];  // Optional - falls back to character's prompts
+  sort_order: number;
+  status: string;
 }
 
 // Message types

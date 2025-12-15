@@ -141,12 +141,18 @@ async def get_conversation_context(
 async def start_episode(
     character_id: UUID,
     scene: Optional[str] = None,
+    episode_template_id: Optional[UUID] = None,
     user_id: UUID = Depends(get_current_user_id),
     db=Depends(get_db),
 ):
     """Start a new episode with a character.
 
     If there's already an active episode, returns that instead.
+
+    Args:
+        character_id: Character to start episode with
+        scene: Optional custom scene description
+        episode_template_id: Optional episode template ID (overrides scene)
     """
     service = ConversationService(db)
 
@@ -154,6 +160,7 @@ async def start_episode(
         user_id=user_id,
         character_id=character_id,
         scene=scene,
+        episode_template_id=episode_template_id,
     )
 
     return episode

@@ -340,8 +340,16 @@ class ConversationService:
         user_id: UUID,
         character_id: UUID,
         scene: Optional[str] = None,
+        episode_template_id: Optional[UUID] = None,
     ) -> Episode:
-        """Get active episode or create a new one."""
+        """Get active episode or create a new one.
+
+        Args:
+            user_id: User UUID
+            character_id: Character UUID
+            scene: Optional custom scene description
+            episode_template_id: Optional episode template ID (overrides scene)
+        """
         # Check for existing active episode
         query = """
             SELECT * FROM episodes
@@ -377,10 +385,20 @@ class ConversationService:
         count_row = await self.db.fetch_one(count_query, {"user_id": str(user_id), "character_id": str(character_id)})
         episode_number = count_row["next_num"]
 
+        # If episode_template_id is provided, fetch the template and use its situation
+        effective_scene = scene
+        if episode_template_id:
+            template_query = """
+                SELECT situation, title FROM episode_templates WHERE id = :template_id
+            """
+            template_row = await self.db.fetch_one(template_query, {"template_id": str(episode_template_id)})
+            if template_row:
+                effective_scene = template_row["situation"]
+
         # Create episode
         create_query = """
-            INSERT INTO episodes (user_id, character_id, relationship_id, episode_number, scene)
-            VALUES (:user_id, :character_id, :relationship_id, :episode_number, :scene)
+            INSERT INTO episodes (user_id, character_id, relationship_id, episode_number, scene, episode_template_id)
+            VALUES (:user_id, :character_id, :relationship_id, :episode_number, :scene, :episode_template_id)
             RETURNING *
         """
         new_row = await self.db.fetch_one(
@@ -390,7 +408,8 @@ class ConversationService:
                 "character_id": str(character_id),
                 "relationship_id": str(relationship_id),
                 "episode_number": episode_number,
-                "scene": scene,
+                "scene": effective_scene,
+                "episode_template_id": str(episode_template_id) if episode_template_id else None,
             },
         )
 

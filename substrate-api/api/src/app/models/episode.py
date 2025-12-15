@@ -46,6 +46,7 @@ class Episode(BaseModel):
     user_id: UUID
     character_id: UUID
     relationship_id: Optional[UUID] = None
+    episode_template_id: Optional[UUID] = None
 
     # Episode info
     episode_number: int

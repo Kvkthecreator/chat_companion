@@ -6,6 +6,7 @@ import type { Message, Episode, Character, RateLimitError } from "@/types";
 
 interface UseChatOptions {
   characterId: string;
+  episodeTemplateId?: string;
   enabled?: boolean;
   onError?: (error: Error) => void;
   onRateLimitExceeded?: (error: RateLimitError) => void;
@@ -25,7 +26,7 @@ interface UseChatReturn {
   clearSceneSuggestion: () => void;
 }
 
-export function useChat({ characterId, enabled = true, onError, onRateLimitExceeded }: UseChatOptions): UseChatReturn {
+export function useChat({ characterId, episodeTemplateId, enabled = true, onError, onRateLimitExceeded }: UseChatOptions): UseChatReturn {
   const [messages, setMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSending, setIsSending] = useState(false);
@@ -41,8 +42,8 @@ export function useChat({ characterId, enabled = true, onError, onRateLimitExcee
   const onRateLimitExceededRef = useRef(onRateLimitExceeded);
   onRateLimitExceededRef.current = onRateLimitExceeded;
 
-  // Track if we've already loaded for this characterId
-  const loadedCharacterRef = useRef<string | null>(null);
+  // Track if we've already loaded for this characterId + episodeTemplateId combo
+  const loadedKeyRef = useRef<string | null>(null);
 
   // Load active episode and messages
   const loadMessages = useCallback(async () => {
@@ -52,7 +53,10 @@ export function useChat({ characterId, enabled = true, onError, onRateLimitExcee
       let activeEpisode = await api.episodes.getActive(characterId);
 
       if (!activeEpisode) {
-        activeEpisode = await api.conversation.start(characterId);
+        // Start new episode with template if provided
+        activeEpisode = await api.conversation.start(characterId, {
+          episodeTemplateId,
+        });
       }
 
       setEpisode(activeEpisode);
@@ -67,7 +71,7 @@ export function useChat({ characterId, enabled = true, onError, onRateLimitExcee
     } finally {
       setIsLoading(false);
     }
-  }, [characterId]);
+  }, [characterId, episodeTemplateId]);
 
   // Send message (non-streaming)
   const sendMessageSimple = useCallback(async (content: string) => {
@@ -235,25 +239,28 @@ export function useChat({ characterId, enabled = true, onError, onRateLimitExcee
     setSuggestScene(false);
   }, []);
 
-  // Load on mount (only when enabled, and only once per characterId)
+  // Load on mount (only when enabled, and only once per characterId + episodeTemplateId combo)
   useEffect(() => {
     if (!enabled) {
       setIsLoading(false);
       return;
     }
 
-    // Prevent infinite loops - only load once per characterId
-    if (loadedCharacterRef.current === characterId) {
+    // Create a unique key for characterId + episodeTemplateId combo
+    const loadKey = `${characterId}:${episodeTemplateId || "default"}`;
+
+    // Prevent infinite loops - only load once per key
+    if (loadedKeyRef.current === loadKey) {
       return;
     }
-    loadedCharacterRef.current = characterId;
+    loadedKeyRef.current = loadKey;
 
     loadMessages();
 
     return () => {
       abortControllerRef.current?.abort();
     };
-  }, [loadMessages, enabled, characterId]);
+  }, [loadMessages, enabled, characterId, episodeTemplateId]);
 
   return {
     messages,

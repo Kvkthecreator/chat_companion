@@ -180,6 +180,20 @@ export const api = {
       }),
   },
 
+  // Episode Template endpoints (pre-defined scenarios)
+  episodeTemplates: {
+    listForCharacter: (characterId: string) =>
+      request<import("@/types").EpisodeTemplateSummary[]>(
+        `/episode-templates/character/${characterId}`
+      ),
+    get: (templateId: string) =>
+      request<import("@/types").EpisodeTemplate>(`/episode-templates/${templateId}`),
+    getDefault: (characterId: string) =>
+      request<import("@/types").EpisodeTemplate>(
+        `/episode-templates/character/${characterId}/default`
+      ),
+  },
+
   // Message endpoints
   messages: {
     list: (episode_id: string, params?: { limit?: number; before_id?: string }) => {
@@ -263,11 +277,16 @@ export const api = {
       request<import("@/types").ConversationContext>(
         `/conversation/${character_id}/context`
       ),
-    start: (character_id: string, scene?: string) =>
-      request<import("@/types").Episode>(
-        `/conversation/${character_id}/start${scene ? `?scene=${encodeURIComponent(scene)}` : ""}`,
+    start: (character_id: string, options?: { scene?: string; episodeTemplateId?: string }) => {
+      const params = new URLSearchParams();
+      if (options?.scene) params.set("scene", options.scene);
+      if (options?.episodeTemplateId) params.set("episode_template_id", options.episodeTemplateId);
+      const query = params.toString();
+      return request<import("@/types").Episode>(
+        `/conversation/${character_id}/start${query ? `?${query}` : ""}`,
         { method: "POST" }
-      ),
+      );
+    },
     end: (character_id: string) =>
       request<import("@/types").Episode>(`/conversation/${character_id}/end`, {
         method: "POST",

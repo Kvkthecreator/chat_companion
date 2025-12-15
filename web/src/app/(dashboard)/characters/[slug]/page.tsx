@@ -11,6 +11,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import { ArrowLeft, MessageCircle, Heart, ThumbsDown, Sparkles, Camera, Info } from "lucide-react";
+import { EpisodeSelector } from "@/components/episodes";
 import type { Relationship } from "@/types";
 
 interface CharacterProfilePageProps {
@@ -149,6 +150,12 @@ export default function CharacterProfilePage({ params }: CharacterProfilePagePro
           </Button>
         </div>
       </div>
+
+      {/* Episode Selection */}
+      <EpisodeSelector
+        characterId={profile.id}
+        characterName={profile.name}
+      />
 
       {/* Info + Gallery */}
       <div className="grid gap-8 lg:grid-cols-[1.2fr_0.8fr]">
