@@ -31,7 +31,7 @@ export function TopupPacks() {
   }
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+    <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
       {topupPacks.map((pack) => {
         const Icon = PACK_ICONS[pack.pack_name] || Sparkles;
         const isPopular = pack.pack_name === "popular";
@@ -41,26 +41,27 @@ export function TopupPacks() {
           <Card
             key={pack.pack_name}
             className={cn(
-              "relative overflow-hidden transition-all hover:shadow-lg",
-              isPopular && "border-purple-500 shadow-purple-500/20",
-              isBestValue && "border-amber-500 shadow-amber-500/20"
+              "relative overflow-hidden transition-all hover:shadow-md",
+              "border border-border/80 bg-card/80 shadow-sm",
+              isPopular && "ring-2 ring-purple-500/30",
+              isBestValue && "ring-2 ring-amber-500/30"
             )}
           >
             {isPopular && (
-              <Badge className="absolute top-2 right-2 bg-purple-500">
+              <Badge className="absolute top-3 right-3 rounded-full bg-purple-500 text-white shadow-sm">
                 Most Popular
               </Badge>
             )}
             {isBestValue && (
-              <Badge className="absolute top-2 right-2 bg-amber-500">
+              <Badge className="absolute top-3 right-3 rounded-full bg-amber-500 text-foreground shadow-sm">
                 Best Value
               </Badge>
             )}
 
-            <CardHeader className="text-center pb-2">
+            <CardHeader className="text-center pb-1">
               <Icon
                 className={cn(
-                  "h-8 w-8 mx-auto mb-2",
+                  "mx-auto mb-2 h-8 w-8",
                   isPopular
                     ? "text-purple-500"
                     : isBestValue
@@ -73,16 +74,18 @@ export function TopupPacks() {
               </CardTitle>
             </CardHeader>
 
-            <CardContent className="text-center space-y-4">
+            <CardContent className="space-y-3 text-center">
               <div>
                 <span className="text-4xl font-bold">{pack.sparks}</span>
-                <span className="text-muted-foreground ml-1">Sparks</span>
+                <span className="ml-1 text-muted-foreground">Sparks</span>
               </div>
 
               {pack.bonus_percent > 0 && (
-                <Badge variant="secondary" className="text-green-600">
-                  +{pack.bonus_percent}% bonus
-                </Badge>
+                <div className="flex justify-center">
+                  <Badge variant="secondary" className="bg-green-500/10 text-green-700">
+                    +{pack.bonus_percent}% bonus
+                  </Badge>
+                </div>
               )}
 
               <div className="text-sm text-muted-foreground">
