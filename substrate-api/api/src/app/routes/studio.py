@@ -358,9 +358,11 @@ async def activate_character(
 ):
     """Activate a draft character (make it chat-ready).
 
-    Requirements:
-    - Character must have avatar_url
-    - Character must have opening_situation and opening_line
+    Requirements (Phase 4.1 hardened):
+    - Character must have active_avatar_kit_id (generated via generate-avatar endpoint)
+    - Character must have avatar_url (set by avatar generation)
+    - Character must have opening_situation and opening_line (chat ignition)
+    - Character must have system_prompt (auto-generated)
     """
     # Get character
     existing = await db.fetch_one(
