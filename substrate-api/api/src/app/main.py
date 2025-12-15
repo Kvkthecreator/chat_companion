@@ -101,7 +101,7 @@ app.add_middleware(
 app.add_middleware(
     AuthMiddleware,
     exempt_paths={"/", "/health", "/docs", "/openapi.json", "/redoc"},
-    exempt_prefixes={"/health/", "/characters", "/webhooks"},  # Webhooks have their own auth
+    exempt_prefixes={"/health/", "/characters", "/webhooks", "/studio/admin"},  # Admin endpoints for calibration
 )
 
 # Include routers

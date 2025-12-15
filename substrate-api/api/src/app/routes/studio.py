@@ -1082,3 +1082,87 @@ Stay in character. Be {archetype} in your responses.
         "message": f"Processed {len(results)} characters",
         "results": results,
     }
+
+
+# Appearance hints for calibration characters
+CALIBRATION_APPEARANCE_HINTS = {
+    "Luna": "silver-white hair, gentle violet eyes, cozy oversized sweater, soft features, warm smile",
+    "Raven": "dark hair with purple streaks, sharp amber eyes, leather jacket, enigmatic smirk",
+    "Felix": "messy auburn hair, bright green eyes, casual hoodie, mischievous grin",
+    "Morgan": "short grey-streaked hair, warm brown eyes, glasses, kind weathered face",
+    "Ash": "black tousled hair, intense dark eyes, black turtleneck, contemplative expression",
+    "Jade": "long wavy chestnut hair, sparkling hazel eyes, stylish dress, confident smile",
+    "River": "wild colorful rainbow hair, mismatched eyes (one blue one green), eclectic outfit with patches, excited expression",
+}
+
+
+@router.post("/admin/generate-calibration-avatars")
+async def generate_calibration_avatars(
+    db=Depends(get_db),
+):
+    """Generate hero avatars for all calibration characters that need them.
+
+    This endpoint is auth-exempt for calibration sprint use only.
+    Uses FLUX via Gemini for image generation.
+    """
+    service = get_avatar_generation_service()
+
+    # Get all characters without hero avatars
+    rows = await db.fetch_all("""
+        SELECT
+            c.id,
+            c.name,
+            c.archetype,
+            c.created_by,
+            ak.id as kit_id,
+            ak.primary_anchor_id
+        FROM characters c
+        LEFT JOIN avatar_kits ak ON ak.id = c.active_avatar_kit_id
+        WHERE (ak.primary_anchor_id IS NULL OR c.active_avatar_kit_id IS NULL)
+        AND c.name IN ('Luna', 'Raven', 'Felix', 'Morgan', 'Ash', 'Jade', 'River')
+        ORDER BY c.name
+    """)
+
+    if not rows:
+        return {"message": "All calibration characters have hero avatars", "generated": 0}
+
+    results = []
+    for row in rows:
+        row_dict = dict(row)
+        name = row_dict["name"]
+        character_id = row_dict["id"]
+        user_id = row_dict["created_by"]
+
+        appearance_hint = CALIBRATION_APPEARANCE_HINTS.get(name, "")
+
+        try:
+            result = await service.generate_hero_avatar(
+                character_id=character_id,
+                user_id=user_id,
+                db=db,
+                appearance_description=appearance_hint,
+            )
+
+            if result.success:
+                results.append({
+                    "name": name,
+                    "status": "generated",
+                    "asset_id": str(result.asset_id),
+                    "avatar_url": result.avatar_url,
+                })
+            else:
+                results.append({
+                    "name": name,
+                    "status": f"failed: {result.error}",
+                })
+
+        except Exception as e:
+            results.append({
+                "name": name,
+                "status": f"error: {str(e)}",
+            })
+
+    return {
+        "message": f"Processed {len(results)} characters",
+        "results": results,
+    }

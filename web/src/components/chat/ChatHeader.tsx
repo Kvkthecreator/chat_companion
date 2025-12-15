@@ -37,8 +37,8 @@ export function ChatHeader({
         </Link>
 
         {/* Avatar */}
-        <div className="relative">
-          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-pink-400 to-purple-500 flex items-center justify-center text-white font-medium">
+        <Link href={`/characters/${character.slug}`} className="relative">
+          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-pink-400 to-purple-500 flex items-center justify-center text-white font-medium shadow-sm">
             {character.avatar_url ? (
               <img
                 src={character.avatar_url}
@@ -51,7 +51,7 @@ export function ChatHeader({
           </div>
           {/* Online indicator */}
           <span className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 border-2 border-background rounded-full" />
-        </div>
+        </Link>
 
         {/* Character info */}
         <div className="flex flex-col">
