@@ -9,6 +9,7 @@ import { ModeToggle } from "@/components/mode-toggle"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import { useState, useEffect } from "react"
+import { SparkBalance } from "@/components/sparks"
 
 const navigation = [
   { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
@@ -119,6 +120,18 @@ export function Sidebar({ user }: { user: User }) {
           )
         })}
       </nav>
+
+      {/* Spark Balance */}
+      <div className={cn(
+        "border-t border-border py-3",
+        isCollapsed ? "px-2" : "px-4"
+      )}>
+        <SparkBalance
+          compact={isCollapsed}
+          showBuyButton={!isCollapsed}
+          className={isCollapsed ? "justify-center" : ""}
+        />
+      </div>
 
       {/* User section */}
       <div className={cn(

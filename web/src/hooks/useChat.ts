@@ -1,13 +1,14 @@
 "use client";
 
 import { useState, useCallback, useRef, useEffect } from "react";
-import { api } from "@/lib/api/client";
-import type { Message, Episode, Character } from "@/types";
+import { api, APIError } from "@/lib/api/client";
+import type { Message, Episode, Character, RateLimitError } from "@/types";
 
 interface UseChatOptions {
   characterId: string;
   enabled?: boolean;
   onError?: (error: Error) => void;
+  onRateLimitExceeded?: (error: RateLimitError) => void;
 }
 
 interface UseChatReturn {
@@ -24,7 +25,7 @@ interface UseChatReturn {
   clearSceneSuggestion: () => void;
 }
 
-export function useChat({ characterId, enabled = true, onError }: UseChatOptions): UseChatReturn {
+export function useChat({ characterId, enabled = true, onError, onRateLimitExceeded }: UseChatOptions): UseChatReturn {
   const [messages, setMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSending, setIsSending] = useState(false);
@@ -34,9 +35,11 @@ export function useChat({ characterId, enabled = true, onError }: UseChatOptions
 
   const abortControllerRef = useRef<AbortController | null>(null);
 
-  // Store onError in a ref to avoid dependency issues causing infinite loops
+  // Store callbacks in refs to avoid dependency issues causing infinite loops
   const onErrorRef = useRef(onError);
   onErrorRef.current = onError;
+  const onRateLimitExceededRef = useRef(onRateLimitExceeded);
+  onRateLimitExceededRef.current = onRateLimitExceeded;
 
   // Track if we've already loaded for this characterId
   const loadedCharacterRef = useRef<string | null>(null);
@@ -182,8 +185,16 @@ export function useChat({ characterId, enabled = true, onError }: UseChatOptions
         setStreamingContent("");
       }
     } catch (error) {
-      onErrorRef.current?.(error as Error);
-      // Keep user message but show error
+      // Check if this is a rate limit error (429)
+      if (error instanceof APIError && error.status === 429) {
+        const rateLimitError = error.data as RateLimitError;
+        onRateLimitExceededRef.current?.(rateLimitError);
+        // Remove the optimistic user message on rate limit
+        setMessages((prev) => prev.filter((m) => m.id !== userMessage.id));
+      } else {
+        onErrorRef.current?.(error as Error);
+      }
+      // Keep user message but show error for other errors
     } finally {
       setIsSending(false);
       setStreamingContent("");

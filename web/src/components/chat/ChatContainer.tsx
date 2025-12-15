@@ -8,10 +8,12 @@ import { ChatHeader } from "./ChatHeader";
 import { MessageBubble, StreamingBubble } from "./MessageBubble";
 import { MessageInput } from "./MessageInput";
 import { SceneCard, SceneCardSkeleton } from "./SceneCard";
+import { RateLimitModal } from "./RateLimitModal";
 import { Skeleton } from "@/components/ui/skeleton";
 import { QuotaExceededModal } from "@/components/usage";
+import { InsufficientSparksModal } from "@/components/sparks";
 import { api } from "@/lib/api/client";
-import type { Relationship, Message, EpisodeImage } from "@/types";
+import type { Relationship, Message, EpisodeImage, InsufficientSparksError, RateLimitError } from "@/types";
 
 interface ChatContainerProps {
   characterId: string;
@@ -25,6 +27,10 @@ type ChatItem =
 export function ChatContainer({ characterId }: ChatContainerProps) {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [showQuotaModal, setShowQuotaModal] = useState(false);
+  const [showSparksModal, setShowSparksModal] = useState(false);
+  const [sparksError, setSparksError] = useState<InsufficientSparksError | null>(null);
+  const [showRateLimitModal, setShowRateLimitModal] = useState(false);
+  const [rateLimitError, setRateLimitError] = useState<RateLimitError | null>(null);
   const { character, isLoading: isLoadingCharacter } = useCharacter(characterId);
 
   // Only initialize chat after character is confirmed to exist
@@ -46,6 +52,10 @@ export function ChatContainer({ characterId }: ChatContainerProps) {
     onError: (error) => {
       console.error("Chat error:", error);
     },
+    onRateLimitExceeded: (error) => {
+      setRateLimitError(error);
+      setShowRateLimitModal(true);
+    },
   });
 
   // Scene generation
@@ -61,6 +71,10 @@ export function ChatContainer({ characterId }: ChatContainerProps) {
     },
     onQuotaExceeded: () => {
       setShowQuotaModal(true);
+    },
+    onInsufficientSparks: (error) => {
+      setSparksError(error);
+      setShowSparksModal(true);
     },
   });
 
@@ -183,6 +197,22 @@ export function ChatContainer({ characterId }: ChatContainerProps) {
       <QuotaExceededModal
         open={showQuotaModal}
         onClose={() => setShowQuotaModal(false)}
+      />
+
+      {/* Insufficient Sparks Modal */}
+      <InsufficientSparksModal
+        open={showSparksModal}
+        onClose={() => setShowSparksModal(false)}
+        cost={sparksError?.cost ?? 1}
+        featureName="image generation"
+      />
+
+      {/* Rate Limit Modal */}
+      <RateLimitModal
+        open={showRateLimitModal}
+        onClose={() => setShowRateLimitModal(false)}
+        resetAt={rateLimitError?.reset_at}
+        cooldownSeconds={rateLimitError?.cooldown_seconds}
       />
     </div>
   );

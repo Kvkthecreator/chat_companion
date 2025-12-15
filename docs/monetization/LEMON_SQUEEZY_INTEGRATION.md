@@ -497,6 +497,137 @@ Revenue:              $19.00
 
 ---
 
+## Top-Up (Spark Packs) Setup
+
+The Sparks system uses one-time purchases for top-up packs in addition to subscriptions.
+
+### Creating Top-Up Products in Lemon Squeezy
+
+1. In Lemon Squeezy Dashboard, go to **Products** > **Create Product**
+2. Create THREE products (one for each pack):
+
+| Pack Name | Sparks | Price | Product Type |
+|-----------|--------|-------|--------------|
+| Starter | 25 | $4.99 | One-time |
+| Popular | 60 | $9.99 | One-time |
+| Best Value | 150 | $19.99 | One-time |
+
+3. For each product:
+   - Set **Product Type**: One-time purchase (NOT subscription)
+   - **License Key**: Disabled (not needed)
+   - **Custom Fields**: Not needed (we use checkout custom data)
+
+4. After creating, note each product's **Variant ID** (found in product details)
+
+### Environment Variables for Top-Ups
+
+Add these to your backend `.env`:
+
+```env
+# Lemon Squeezy Top-Up Products
+TOPUP_VARIANT_STARTER=variant_123456
+TOPUP_VARIANT_POPULAR=variant_234567
+TOPUP_VARIANT_BEST_VALUE=variant_345678
+```
+
+### How Top-Ups Work
+
+1. **User clicks "Buy Spark Pack"** → Frontend calls `/topup/checkout`
+2. **Backend creates checkout** with custom data:
+   ```python
+   custom_data = {
+       "user_id": str(user.id),
+       "purchase_type": "topup",
+       "pack_name": "popular"
+   }
+   ```
+3. **User completes payment** → Lemon Squeezy fires `order_created` webhook
+4. **Webhook handler** checks `purchase_type == "topup"` and grants Sparks
+
+### Webhook Handling for Top-Ups
+
+The existing webhook endpoint handles `order_created` events:
+
+```python
+# In routes/subscription.py webhook handler
+elif event_name == "order_created":
+    custom_data = payload["meta"].get("custom_data", {})
+    purchase_type = custom_data.get("purchase_type")
+
+    if purchase_type == "topup":
+        pack_name = custom_data.get("pack_name")
+        await handle_topup_purchase(db, user_id, custom_data, attrs)
+```
+
+### Top-Up Pack Configuration
+
+Packs are configured in the backend (`routes/credits.py`):
+
+```python
+TOPUP_PACKS = {
+    "starter": TopupPack(
+        pack_name="starter",
+        sparks=25,
+        price_cents=499,
+        variant_id=settings.TOPUP_VARIANT_STARTER
+    ),
+    "popular": TopupPack(
+        pack_name="popular",
+        sparks=60,
+        price_cents=999,
+        bonus_percent=20,  # 20% more Sparks vs starter rate
+        variant_id=settings.TOPUP_VARIANT_POPULAR
+    ),
+    "best_value": TopupPack(
+        pack_name="best_value",
+        sparks=150,
+        price_cents=1999,
+        bonus_percent=50,  # 50% more Sparks vs starter rate
+        variant_id=settings.TOPUP_VARIANT_BEST_VALUE
+    ),
+}
+```
+
+### Testing Top-Ups
+
+1. In Lemon Squeezy, switch to **Test Mode**
+2. Create test products with same structure as production
+3. Use test card: `4242 4242 4242 4242`
+4. Verify webhook fires and Sparks are credited
+
+### Success URL
+
+After successful top-up, redirect to Settings with success indicator:
+
+```
+/settings?tab=sparks&topup=success
+```
+
+The Settings page handles this by showing a success banner and reloading Spark balance.
+
+### Checklist for Top-Up Setup
+
+**Lemon Squeezy Dashboard:**
+- [ ] Create "Starter" one-time product ($4.99, 25 Sparks)
+- [ ] Create "Popular" one-time product ($9.99, 60 Sparks)
+- [ ] Create "Best Value" one-time product ($19.99, 150 Sparks)
+- [ ] Note all three Variant IDs
+- [ ] Ensure `order_created` webhook event is enabled
+
+**Environment Variables:**
+- [ ] `TOPUP_VARIANT_STARTER` set
+- [ ] `TOPUP_VARIANT_POPULAR` set
+- [ ] `TOPUP_VARIANT_BEST_VALUE` set
+
+**Testing:**
+- [ ] Test checkout creates correct Lemon Squeezy URL
+- [ ] Complete test purchase in test mode
+- [ ] Verify `order_created` webhook received
+- [ ] Verify Sparks credited to user
+- [ ] Verify success redirect shows banner
+
+---
+
 ## References
 
 - [Lemon Squeezy API Docs](https://docs.lemonsqueezy.com/api)

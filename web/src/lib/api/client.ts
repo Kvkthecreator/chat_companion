@@ -222,7 +222,13 @@ export const api = {
       );
 
       if (!response.ok) {
-        throw new APIError(response.status, response.statusText);
+        let data;
+        try {
+          data = await response.json();
+        } catch {
+          data = null;
+        }
+        throw new APIError(response.status, response.statusText, data);
       }
 
       const reader = response.body?.getReader();
