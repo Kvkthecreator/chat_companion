@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { api } from "@/lib/api/client";
-import { EpisodeGrid } from "@/components/episodes";
+import { EpisodeDiscoveryCard } from "@/components/episodes";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -35,10 +35,15 @@ export default function DiscoverPage() {
     loadData();
   }, []);
 
-  // Filter by archetype (character's archetype)
-  const filteredEpisodes = selectedArchetype
-    ? episodes.filter((e) => e.character_archetype === selectedArchetype)
-    : episodes;
+  const filteredEpisodes = useMemo(() => {
+    return selectedArchetype
+      ? episodes.filter((e) => e.character_archetype === selectedArchetype)
+      : episodes;
+  }, [episodes, selectedArchetype]);
+
+  const entryEpisodes = filteredEpisodes.filter((e) => e.episode_type === "entry");
+  const coreEpisodes = filteredEpisodes.filter((e) => e.episode_type === "core");
+  const heroEpisode = entryEpisodes[0];
 
   if (isLoading) {
     return (
@@ -52,7 +57,7 @@ export default function DiscoverPage() {
             <Skeleton key={i} className="h-9 w-20 rounded-full" />
           ))}
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {[1, 2, 3, 4, 5, 6].map((i) => (
             <Skeleton key={i} className="aspect-[16/10] rounded-xl" />
           ))}
@@ -66,7 +71,7 @@ export default function DiscoverPage() {
       <div className="flex items-start justify-between">
         <SectionHeader
           title="Step into a moment"
-          description="Choose a scene. The story begins now."
+          description="Start with Episode 0, then dive deeper."
         />
         <Link href="/characters">
           <Button variant="outline" size="sm" className="gap-2">
@@ -76,7 +81,6 @@ export default function DiscoverPage() {
         </Link>
       </div>
 
-      {/* Archetype filters */}
       <div className="flex flex-wrap gap-2">
         <Button
           variant={selectedArchetype === null ? "default" : "outline"}
@@ -102,23 +106,36 @@ export default function DiscoverPage() {
         ))}
       </div>
 
-      {/* Episode grid */}
-      {filteredEpisodes.length > 0 ? (
-        <EpisodeGrid episodes={filteredEpisodes} />
-      ) : (
-        <div className="flex flex-col items-center justify-center py-16 text-center">
-          <p className="text-muted-foreground">No episodes found</p>
-          {selectedArchetype && (
-            <Button
-              variant="ghost"
-              onClick={() => setSelectedArchetype(null)}
-              className="mt-2"
-            >
-              Clear filter
-            </Button>
-          )}
-        </div>
+      {heroEpisode && (
+        <section className="space-y-3">
+          <h3 className="text-lg font-semibold">Featured Episode 0</h3>
+          <EpisodeDiscoveryCard episode={heroEpisode} className="shadow-md" />
+        </section>
       )}
+
+      <section className="space-y-3">
+        <h3 className="text-lg font-semibold">Episode 0 (start here)</h3>
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+          {entryEpisodes.map((episode) => (
+            <EpisodeDiscoveryCard key={episode.id} episode={episode} />
+          ))}
+        </div>
+        {entryEpisodes.length === 0 && (
+          <p className="text-sm text-muted-foreground">No entry episodes found.</p>
+        )}
+      </section>
+
+      <section className="space-y-3">
+        <h3 className="text-lg font-semibold">Core episodes</h3>
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+          {coreEpisodes.slice(0, 6).map((episode) => (
+            <EpisodeDiscoveryCard key={episode.id} episode={episode} />
+          ))}
+        </div>
+        {coreEpisodes.length === 0 && (
+          <p className="text-sm text-muted-foreground">More episodes coming soon.</p>
+        )}
+      </section>
     </div>
   );
 }
