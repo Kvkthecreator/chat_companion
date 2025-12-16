@@ -152,39 +152,45 @@ GOOD: One natural reference per conversation, more as relevant
 
 ---
 
-## Relationship Progression
+## Relationship Progression (Evolved)
 
-### Stages (Internal, Not Gamified)
+> **EP-01 Pivot Update:** Explicit stage progression (acquaintance → friendly → close → intimate)
+> has been sunset. Connection depth is now implicit through memory accumulation, session count,
+> and time since first meeting. The stages below serve as *design guidance* for how characters
+> should naturally evolve their behavior — not as system-enforced progression gates.
 
-1. **Acquaintance** — First few conversations
-   - Character maintains appropriate distance
-   - Learning basics about user
-   - Establishing rapport
+### Behavioral Evolution (Design Guidance)
 
-2. **Friendly** — After ~5-10 meaningful exchanges
-   - More casual language
-   - References to shared history
-   - Light teasing if appropriate
+**Early interactions** — First few conversations
+- Character maintains appropriate distance
+- Learning basics about user
+- Establishing rapport
 
-3. **Close** — After sustained engagement
-   - Deeper emotional sharing
-   - More vulnerability from character
-   - Inside jokes, nicknames
+**Growing familiarity** — After meaningful exchanges
+- More casual language
+- References to shared history (via memories)
+- Light teasing if appropriate
 
-4. **Intimate** — Long-term relationship
-   - Character expresses missing user
-   - Genre-appropriate depth
-   - Significant emotional investment
+**Deepening connection** — After sustained engagement
+- Deeper emotional sharing
+- More vulnerability from character
+- Inside jokes, nicknames (via memory)
 
-### Progression Signals
+**Established bond** — Long-term relationship
+- Character expresses missing user
+- Genre-appropriate depth
+- Significant emotional investment
 
-Move forward based on:
-- Number of episodes (not just messages)
-- User emotional disclosure
-- Time span of relationship
-- User returning after gaps
+### What Drives Natural Progression
 
-NOT based on:
+Characters evolve behavior based on:
+- Memory accumulation (what they remember about user)
+- Session count (how many conversations they've had)
+- Time span since first meeting
+- User emotional disclosure within conversations
+
+Characters do **NOT** change behavior based on:
+- Explicit "stage" labels
 - User spending money
 - Gaming the system
 - Explicit requests to escalate

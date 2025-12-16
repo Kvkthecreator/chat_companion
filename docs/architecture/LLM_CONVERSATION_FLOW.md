@@ -16,15 +16,18 @@ Each user message triggers a conversation flow that:
 
 ## Per-Message Flow
 
+> **EP-01 Pivot Note:** "Episode" in this context refers to the runtime Session entity.
+> "Relationship" refers to the Engagement entity. Stage progression has been sunset.
+
 ```
 User sends message
        │
        ▼
 ┌──────────────────────────────────────────────────────────────┐
-│  1. GET OR CREATE EPISODE                                    │
-│     - Check for active episode (user + character)            │
+│  1. GET OR CREATE SESSION                                    │
+│     - Check for active session (user + character)            │
 │     - Create new if none exists                              │
-│     - Ensure relationship record exists                      │
+│     - Ensure engagement record exists                        │
 └──────────────────────────────────────────────────────────────┘
        │
        ▼
@@ -85,12 +88,15 @@ User sends message
 | Source | Query | Limit |
 |--------|-------|-------|
 | Character | `SELECT * FROM characters WHERE id = :id` | 1 |
-| Relationship | `SELECT * FROM relationships WHERE user_id AND character_id` | 1 |
+| Engagement | `SELECT * FROM engagements WHERE user_id AND character_id` | 1 |
 | Messages | `SELECT role, content FROM messages WHERE episode_id ORDER BY created_at DESC` | 20 |
 | Memories | `get_relevant_memories()` - by importance + recency | 10 |
 | Hooks | `get_active_hooks()` - untriggered, past trigger_after | 5 |
 
 ### ConversationContext Object
+
+> **EP-01 Pivot Note:** `relationship_stage` always returns "acquaintance" (sunset).
+> Connection depth is now implicit via memory count, session count, and time_since_first_met.
 
 ```python
 ConversationContext(
@@ -100,9 +106,8 @@ ConversationContext(
     messages: List[Dict],              # Last 20 messages [{role, content}]
     memories: List[MemorySummary],     # 10 memories [{id, type, summary, importance_score}]
     hooks: List[HookSummary],          # 5 hooks [{id, type, content, suggested_opener}]
-    relationship_stage: str,           # acquaintance/friendly/close/intimate
-    relationship_progress: int,
-    total_episodes: int,
+    relationship_stage: str,           # Always "acquaintance" (stage progression sunset)
+    total_sessions: int,               # Session count (was total_episodes)
     time_since_first_met: str,         # "2 weeks", "3 days", etc.
 )
 ```
@@ -330,11 +335,14 @@ Topics to follow up on:
 | Table | Role in Conversation |
 |-------|---------------------|
 | `characters` | System prompt, life_arc, name |
-| `relationships` | Stage, progress, timestamps |
-| `episodes` | Container for messages, active status |
+| `engagements` | Stats (total_sessions, total_messages), timestamps |
+| `sessions` | Container for messages, active status |
 | `messages` | Chat history, LLM metadata |
 | `memory_events` | Extracted memories with embeddings |
 | `hooks` | Follow-up triggers |
+
+> **EP-01 Pivot:** `relationships` → `engagements`, `episodes` → `sessions`.
+> Stage/progress columns removed from engagements.
 
 ---
 

@@ -137,22 +137,22 @@ This is like Netflix: the production team knows they're making a thriller vs a r
 ├─────────────────────────────────────────────────────────────────────────────────────────┤
 │                                                                                          │
 │  ┌──────────────────┐                 ┌─────────────────┐                               │
-│  │   RELATIONSHIP   │────────────────▶│    EPISODE      │                               │
-│  │                  │                 │                 │                               │
-│  │ user_id          │                 │ user_id         │                               │
-│  │ character_id     │                 │ character_id    │                               │
-│  │ stage            │                 │ template_id ────┼──▶ (from EPISODE_TEMPLATE)    │
-│  │ stage_progress   │                 │ scene           │                               │
-│  │ dynamic {        │                 │ is_active       │                               │
-│  │   tension_level  │                 │ message_count   │                               │
-│  │   tone           │                 └────────┬────────┘                               │
-│  │   recent_beats[] │                          │                                        │
-│  │ }                │                          │                                        │
-│  │ milestones[]     │                          ▼                                        │
-│  └──────────────────┘             ┌────────────────────────┐                            │
-│                                   │      MESSAGES          │                            │
-│                                   │                        │                            │
-│                                   │ episode_id             │                            │
+│  │   ENGAGEMENT     │────────────────▶│    SESSION      │                               │
+│  │   (lightweight)  │                 │                 │                               │
+│  │                  │                 │ user_id         │                               │
+│  │ user_id          │                 │ character_id    │                               │
+│  │ character_id     │                 │ template_id ────┼──▶ (from EPISODE_TEMPLATE)    │
+│  │ total_sessions   │                 │ scene           │                               │
+│  │ total_messages   │                 │ is_active       │                               │
+│  │ first_met_at     │                 │ message_count   │                               │
+│  │ last_interaction │                 └────────┬────────┘                               │
+│  │ is_favorite      │                          │                                        │
+│  │ is_archived      │                          │                                        │
+│  └──────────────────┘                          ▼                                        │
+│                                   ┌────────────────────────┐                            │
+│  NOTE: Stage progression sunset   │      MESSAGES          │                            │
+│  (EP-01 pivot). Connection depth  │                        │                            │
+│  is implicit via memory + count.  │ episode_id             │                            │
 │                                   │ role (user/assistant)  │                            │
 │                                   │ content                │                            │
 │                                   │ metadata               │                            │
@@ -203,18 +203,21 @@ This is like Netflix: the production team knows they're making a thriller vs a r
 |--------|------|-------------|
 | **World** | Characters | Universe/setting with genre, tone, ambient details |
 | **Character** | Episode Templates, Avatar Kits | AI persona with genre-baked system_prompt |
-| **Episode Template** | - | Pre-designed scenario (situation, opening line) |
+| **Episode Template** | - | Pre-designed scenario (situation, opening line, episode_frame) |
 | **Avatar Kit** | Avatar Assets | Visual identity (prompts + anchor images) |
 
 ### Session Layer (Per User)
 
 | Entity | Owns | Description |
 |--------|------|-------------|
-| **Relationship** | Episodes | User↔Character bond (stage, progress, dynamics) |
-| **Episode** | Messages, Scene Images | Single conversation session |
+| **Engagement** | Sessions | Lightweight user↔character stats link |
+| **Session** | Messages, Scene Images | Single conversation instance |
 | **Message** | - | Individual chat exchange |
 | **Memory Event** | - | Extracted fact/preference/emotion |
 | **Hook** | - | Follow-up topic trigger |
+
+> **EP-01 Pivot Note:** Stage progression removed from Engagement. Connection depth is now
+> implicit through memory accumulation and session count rather than explicit stages.
 
 ---
 
@@ -493,11 +496,14 @@ FORBIDDEN PATTERNS:
 |-------|------------|--------------|
 | **worlds** | name, slug, genre, tone, description | Yes |
 | **characters** | name, archetype, genre, system_prompt, personality | Yes |
-| **episode_templates** | title, situation, opening_line, character_id | Inherits from character |
+| **episode_templates** | title, situation, opening_line, episode_frame, character_id | Inherits from character |
 | **avatar_kits** | appearance_prompt, style_prompt, primary_anchor_id | No (visual only) |
-| **relationships** | user_id, character_id, stage, dynamic | No (runtime) |
-| **episodes** | user_id, character_id, template_id, scene | No (runtime) |
+| **engagements** | user_id, character_id, total_sessions, total_messages | No (runtime) |
+| **sessions** | user_id, character_id, engagement_id, template_id, scene | No (runtime) |
 | **messages** | episode_id, role, content, metadata | No (runtime) |
+
+> **EP-01 Pivot:** Tables renamed: `relationships` → `engagements`, `episodes` → `sessions`.
+> Stage/stage_progress columns removed from engagements.
 
 ### Genre Column
 
@@ -547,15 +553,15 @@ The only genre-aware component is `build_system_prompt()` - a production-time fu
 │        │                                        │                            │
 │        ▼                                        ▼                            │
 │   World ──▶ Character                   ┌─────────────┐                      │
-│                │                        │  EPISODE    │                      │
-│                │                        │  (session)  │                      │
+│                │                        │  SESSION    │                      │
+│                │                        │  (runtime)  │                      │
 │                ▼                        └──────┬──────┘                      │
 │           Avatar Kit                           │                             │
 │           Episode Templates            ┌───────┼───────┐                     │
 │                │                       │       │       │                     │
 │                │                       ▼       ▼       ▼                     │
-│                │                  Messages  Memories  Relationship           │
-│                │                       │       │       Dynamic               │
+│                │                  Messages  Memories  Engagement             │
+│                │                       │       │       (stats)               │
 │                │                       └───────┼───────┘                     │
 │                │                               │                             │
 │                │                               ▼                             │

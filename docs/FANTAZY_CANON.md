@@ -133,10 +133,14 @@ The platform engine is built on generic primitives:
 | `Character` | Container for personality, voice, boundaries |
 | `World` | Setting context (café, apartment, office, etc.) |
 | `EpisodeTemplate` | Pre-authored scenario entry point |
-| `Episode` | User's instance of a conversation session |
-| `Relationship` | User ↔ Character bond progression |
+| `Session` | User's conversation instance (runtime) |
+| `Engagement` | User ↔ Character stats link (lightweight) |
 | `MemoryEvent` | Extracted facts, events, preferences |
 | `Hook` | Future engagement triggers |
+
+> **Note (EP-01 Pivot):** Session replaced the runtime Episode concept. Engagement replaced Relationship
+> and removed stage progression — connection depth is now implicit via memory accumulation and
+> episode count rather than explicit stage labels.
 
 These primitives power any genre. The theme is layered via studio configuration.
 

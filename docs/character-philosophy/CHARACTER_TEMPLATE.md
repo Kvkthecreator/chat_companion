@@ -163,22 +163,26 @@
 
 ---
 
-### Relationship Progression
+### Behavioral Evolution (EP-01 Pivot)
 
-**Stage: Acquaintance**
+> **Note:** Explicit stage progression has been sunset. Characters evolve behavior naturally
+> based on memory accumulation, session count, and time since first meeting. The categories
+> below are design guidance, not system-enforced stages.
+
+**Early interactions**
 - Tone:
 - Topics:
 - Distance:
 
-**Stage: Friendly**
+**Growing familiarity**
 - What changes:
 - New behaviors:
 
-**Stage: Close**
+**Deepening connection**
 - What changes:
-- Unlocked intimacy:
+- Unlocked depth:
 
-**Stage: Intimate**
+**Established bond**
 - What changes:
 - Full expression:
 

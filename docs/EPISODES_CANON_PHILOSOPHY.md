@@ -224,9 +224,14 @@ Strong episodes touch all four.
 
 ---
 
-## 7. Gating Philosophy (Critical)
+## 7. Gating Philosophy (Historical → Evolved)
 
-### Why Episodes Are Gated
+> **EP-01 Pivot Update:** The original gating philosophy has been evolved. Episode progression
+> is no longer gated by explicit unlock mechanics. Users can access any episode from the start.
+> Anticipation and value now come from **narrative quality** and **memory accumulation** rather
+> than artificial access controls. The principles below remain as design guidelines, not enforcement rules.
+
+### Original Gating Intent
 
 Gating exists to:
 
@@ -251,7 +256,19 @@ Gating is **not** punishment or monetization pressure.
 
 ---
 
-## 8. Relationship State Is Implicit
+## 8. Relationship State Is Implicit (Evolved)
+
+> **EP-01 Pivot Update:** Stage progression (acquaintance → friendly → close → intimate) has been
+> sunset. Connection depth is now entirely implicit through:
+> - Memory accumulation (what the character remembers about the user)
+> - Session count (how many conversations they've had)
+> - Time since first meeting
+>
+> This removes gamification entirely while preserving emotional authenticity.
+
+---
+
+## 8-LEGACY. Relationship State Was Implicit (Superseded)
 
 Fantazy does **not** expose “relationship meters” or explicit levels.
 
