@@ -163,7 +163,7 @@ export function ChatContainer({ characterId, episodeTemplateId }: ChatContainerP
   const showVisualizeButton = messages.length >= 2;
 
   return (
-    <div className="relative flex flex-col h-full overflow-hidden">
+    <div className="relative flex flex-col h-full overflow-hidden bg-transparent isolate">
       {/* Seamless background layer */}
       {backgroundImageUrl && (
         <div className="absolute inset-0 z-0">
@@ -179,7 +179,7 @@ export function ChatContainer({ characterId, episodeTemplateId }: ChatContainerP
 
       {/* Fallback gradient background when no image */}
       {!backgroundImageUrl && (
-        <div className="absolute inset-0 z-0 bg-gradient-to-br from-background via-background to-muted" />
+        <div className="absolute inset-0 z-0 bg-gradient-to-br from-[#0b0b0e] via-[#0f1014] to-[#0c0c10]" />
       )}
 
       {/* Content layer with glassmorphism */}
