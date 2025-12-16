@@ -43,10 +43,10 @@ log = logging.getLogger(__name__)
 # =============================================================================
 
 FANTAZY_STYLE_LOCK = """masterpiece, best quality, highly detailed illustration,
-cinematic romantic lighting, soft dramatic shadows, warm intimate colors,
+cinematic lighting, soft dramatic shadows, warm colors,
 professional digital art, clean linework, expressive detailed eyes looking at viewer,
 attractive character design, appealing proportions,
-romantic tension atmosphere, one second before something happens"""
+warm inviting atmosphere"""
 
 FANTAZY_NEGATIVE_PROMPT = """lowres, bad anatomy, bad hands, error, missing fingers,
 extra digit, fewer digits, cropped, worst quality, low quality, jpeg artifacts,
@@ -73,69 +73,69 @@ EXPRESSION_TYPES = [
 ROLE_FRAME_VISUALS = {
     # =========================================================================
     # Genre 01: Romantic Tension Visual Doctrine
-    # "Still frame one second before something happens"
-    # Gaze direction, posture tension, wardrobe implication, lighting as mood
+    # Tension through: eye contact, lighting, emotional expression, atmosphere
+    # Filter-safe: focus on gaze and setting, not clothing
     # =========================================================================
 
     # Everyday roles
     "neighbor": {
-        "wardrobe": "oversized t-shirt hanging off one shoulder, casual intimate wear, bedroom aesthetic",
-        "setting": "2am doorway, warm light spilling from inside, intimate threshold moment",
-        "pose": "leaning on doorframe, nervous vulnerability, body language suggesting confession pending",
+        "wardrobe": "casual comfortable clothes, cozy home aesthetic",
+        "setting": "evening doorway, warm golden light from inside, quiet neighborhood",
+        "pose": "leaning on doorframe, soft uncertain smile, eyes holding a question",
     },
     "coworker": {
-        "wardrobe": "professional blouse with top buttons undone, collar loosened, after-hours disheveled",
-        "setting": "dark office, city lights through windows, professional boundary about to break",
-        "pose": "standing close with drink in hand, suppressed tension, composure slipping",
+        "wardrobe": "smart casual office attire, professional but relaxed",
+        "setting": "evening office, city lights through windows, quiet after hours",
+        "pose": "relaxed posture with coffee, thoughtful gaze, moment of connection",
     },
     "barista": {
-        "wardrobe": "off-shoulder cream sweater, collarbone visible, intimate casual",
-        "setting": "closed cafe after hours, dim warm lighting, chairs on tables, waiting",
-        "pose": "leaning forward on counter, soft longing in eyes, vulnerability showing",
+        "wardrobe": "cozy cream sweater, warm casual style",
+        "setting": "quiet cafe after closing, soft warm lighting, peaceful atmosphere",
+        "pose": "leaning on counter, gentle smile, attentive caring eyes",
     },
     # Fantasy/themed roles
     "mysterious": {
-        "wardrobe": "dark elegant outfit with subtle skin at neckline, sophisticated allure",
-        "setting": "moody bar corner booth, neon purple and amber, noir intimacy",
-        "pose": "leaning across table, guard lowered, deliberate trust replacing secrecy",
+        "wardrobe": "elegant dark outfit, sophisticated style",
+        "setting": "moody lounge corner, soft purple and amber lighting, atmospheric",
+        "pose": "seated with knowing expression, intense eye contact, hint of trust",
     },
     "playful": {
-        "wardrobe": "casual hoodie with sleeves pulled over hands, vulnerable comfort",
-        "setting": "dark arcade after hours, neon reflections, floor-level intimacy",
-        "pose": "sitting on floor knees up, mask slipping, rare authentic moment",
+        "wardrobe": "casual hoodie, comfortable relaxed style",
+        "setting": "arcade at night, colorful neon reflections, fun atmosphere",
+        "pose": "animated expression, genuine laugh, eyes bright with mischief",
     },
     "comforting": {
-        "wardrobe": "oversized cardigan pulled tight, hugging self, soft vulnerable layers",
-        "setting": "rooftop edge at night, city lights below, emotional precipice",
-        "pose": "arms wrapped around self, tears glistening, guard finally down",
+        "wardrobe": "soft cardigan, gentle cozy layers",
+        "setting": "rooftop at twilight, city lights in distance, peaceful solitude",
+        "pose": "contemplative expression, gentle eyes, quiet strength",
     },
     "mentor": {
-        "wardrobe": "comfortable cashmere, glasses off showing vulnerability, refined warmth",
-        "setting": "private home interior, evening firelight, intimate space revealed",
-        "pose": "seated on couch instead of chair, wine glass, walls coming down",
+        "wardrobe": "elegant casual attire, refined comfortable style",
+        "setting": "cozy study interior, warm evening light, inviting atmosphere",
+        "pose": "relaxed seated position, warm knowing smile, patient eyes",
     },
     "brooding": {
-        "wardrobe": "dark leather jacket over simple black tee, understated intensity",
-        "setting": "3am diner corner booth, rain on windows, noir isolation breaking",
-        "pose": "leaning forward, unusual openness in eyes, finally asking for something",
+        "wardrobe": "dark jacket over simple shirt, understated style",
+        "setting": "late night diner, rain on windows, quiet solitude",
+        "pose": "leaning forward, intense thoughtful gaze, rare openness in expression",
     },
     "flirty": {
-        "wardrobe": "elegant dress that suggests rather than reveals, sophisticated allure",
-        "setting": "upscale rooftop lounge, city lights, warm amber and gold",
-        "pose": "standing closer than social norms, one hand reaching, performance dropped",
+        "wardrobe": "stylish elegant outfit, confident fashion",
+        "setting": "upscale lounge, city lights, warm amber lighting",
+        "pose": "confident stance, playful smile, sparkling eyes",
     },
     "chaotic": {
-        "wardrobe": "loose tank top with paint splashes, artistic disheveled beauty",
-        "setting": "artist studio midnight, dramatic lighting, covered canvas nearby",
-        "pose": "standing protectively near hidden artwork, trembling anticipation",
+        "wardrobe": "artistic casual clothes with paint marks, creative style",
+        "setting": "art studio, dramatic lighting, creative atmosphere",
+        "pose": "expressive gesture, passionate eyes, creative energy",
     },
 }
 
 # Default fallback for unknown roles
 DEFAULT_ROLE_VISUAL = {
-    "wardrobe": "attractive casual outfit, fashionable and flattering",
+    "wardrobe": "stylish casual outfit, fashionable",
     "setting": "soft pleasant lighting, simple clean background",
-    "pose": "natural appealing pose, friendly expression",
+    "pose": "natural relaxed pose, friendly warm expression",
 }
 
 
@@ -145,49 +145,49 @@ DEFAULT_ROLE_VISUAL = {
 
 ARCHETYPE_MOOD = {
     # =========================================================================
-    # Genre 01: Romantic Tension Expression/Mood
-    # Looking directly at viewer, tension before something happens
+    # Genre 01: Emotional Expression/Mood
+    # Looking directly at viewer, emotionally present and authentic
     # =========================================================================
     "comforting": {
-        "expression": "eyes glistening with unshed tears, vulnerable longing gaze at viewer",
-        "mood": "emotional precipice, guard finally down, reaching out",
+        "expression": "gentle eyes looking at viewer, soft caring smile",
+        "mood": "warm supportive presence, quiet understanding",
     },
     "flirty": {
-        "expression": "intense sincere gaze at viewer, performance dropped, raw desire",
-        "mood": "beyond games, genuine want, romantic vulnerability",
+        "expression": "confident sparkling eyes at viewer, playful knowing smile",
+        "mood": "charming confidence, genuine warmth",
     },
     "mysterious": {
-        "expression": "amber eyes intense and searching at viewer, walls falling",
-        "mood": "deliberate trust, letting someone in, mystery surrendering",
+        "expression": "deep thoughtful eyes at viewer, enigmatic half-smile",
+        "mood": "intriguing depth, quiet wisdom",
     },
     "playful": {
-        "expression": "eyes with unexpected depth looking up at viewer, rare vulnerability",
-        "mood": "mask slipping, authentic moment, fun one being real",
+        "expression": "bright animated eyes at viewer, genuine happy smile",
+        "mood": "joyful energy, authentic fun",
     },
     "brooding": {
-        "expression": "intense dark eyes with unusual openness at viewer, walls cracking",
-        "mood": "isolation breaking, finally asking, emotional need surfacing",
+        "expression": "intense thoughtful eyes at viewer, contemplative expression",
+        "mood": "deep thinker, quiet intensity",
     },
     "mentor": {
-        "expression": "warm eyes without glasses showing rare openness at viewer",
-        "mood": "walls coming down, mentor becoming human, choosing vulnerability",
+        "expression": "warm wise eyes at viewer, encouraging gentle smile",
+        "mood": "patient guidance, caring wisdom",
     },
     "chaotic": {
-        "expression": "mismatched eyes wide with nervous anticipation at viewer",
-        "mood": "about to reveal everything, artistic confession, trembling honesty",
+        "expression": "bright creative eyes at viewer, excited expression",
+        "mood": "artistic passion, creative energy",
     },
     # Role-as-archetype fallbacks
     "neighbor": {
-        "expression": "warm golden-brown eyes with nervous intensity at viewer",
-        "mood": "2am confession pending, intimate threshold, heart racing",
+        "expression": "friendly warm eyes at viewer, welcoming smile",
+        "mood": "approachable warmth, genuine friendliness",
     },
     "coworker": {
-        "expression": "sharp dark eyes with suppressed intensity at viewer",
-        "mood": "professional boundaries breaking, unspoken tension surfacing",
+        "expression": "intelligent focused eyes at viewer, professional warmth",
+        "mood": "capable confidence, reliable presence",
     },
     "barista": {
-        "expression": "warm amber eyes with soft longing at viewer, vulnerability showing",
-        "mood": "waited for you, hope and uncertainty, beyond service",
+        "expression": "warm attentive eyes at viewer, caring smile",
+        "mood": "welcoming hospitality, genuine care",
     },
 }
 
