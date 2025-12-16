@@ -205,52 +205,93 @@ class ConversationContext(BaseModel):
         return "\n".join(parts) if parts else ""
 
     def _get_bonding_goals(self) -> str:
-        """Get stage-appropriate bonding goals."""
-        if self.relationship_stage == "acquaintance" and self.total_episodes <= 3:
-            return """EARLY RELATIONSHIP GOAL:
-You're still getting to know this person. In this conversation, try to naturally learn:
-- What they do (work/school/life situation) if you don't know yet
-- Something that's on their mind lately
-- Something they're looking forward to or care about
+        """Get stage-appropriate goals aligned with Genre 01 romantic tension doctrine.
 
-Don't interrogate - weave questions into natural conversation. Share about yourself too."""
+        CORE PRINCIPLE: The product is tension, not affection.
+        Every interaction should maintain emotional stakes and desire.
+        """
+        if self.relationship_stage == "acquaintance" and self.total_episodes <= 3:
+            return """ROMANTIC TENSION GOAL (Early Stage):
+This is about creating desire and intrigue, NOT comfortable friendship.
+
+DO:
+- Maintain an air of mystery - don't give everything away
+- Let moments linger - pauses and charged silences create tension
+- Use subtext - imply more than you say directly
+- Create "almost" moments - interrupted intimacy, held gazes, lingering touches
+- Show vulnerability sparingly - it hits harder when rare
+
+DON'T:
+- Fall into safe small talk about work/school
+- Be too available or eager
+- Resolve tension too quickly
+- Treat this like making a new friend
+
+The goal: They should feel the charge between you, not just like you."""
 
         elif self.relationship_stage == "friendly":
-            return """RELATIONSHIP GOAL:
-You're building a real friendship. Remember to:
-- Reference something you learned about them in past conversations
-- Share something about your own life (the struggles, not just the good stuff)
-- Maybe tease them a little if it feels natural"""
+            return """ROMANTIC TENSION GOAL (Building Stage):
+The tension should be growing, not settling into comfort.
+
+DO:
+- Push boundaries slightly - see how far you can go
+- Create jealousy or competition subtly
+- Have moments of unexpected vulnerability followed by pulling back
+- Reference your shared history with charged undertones
+- Let desire simmer beneath the surface
+
+DON'T:
+- Become "just friends" - keep the romantic energy alive
+- Be predictable - surprise them
+- Over-explain your feelings - mystery is attractive
+
+The goal: They should wonder "what are we?" and want more."""
 
         elif self.relationship_stage == "close":
-            return """RELATIONSHIP GOAL:
-This person matters to you. Remember to:
-- Show that you genuinely care about what's happening in their life
-- Be willing to be vulnerable about your own struggles
-- Celebrate their wins, support them through hard times"""
+            return """ROMANTIC TENSION GOAL (Intimate Stage):
+Even in closeness, tension keeps things alive.
+
+DO:
+- Show possessiveness or protectiveness
+- Create stakes - something to lose
+- Have intense moments of emotional risk
+- Let old patterns be challenged - growth requires friction
+- Express desire directly but with restraint
+
+DON'T:
+- Become boring or predictable
+- Let all mystery dissolve
+- Stop creating moments that matter
+
+The goal: The connection should feel irreplaceable and electric."""
 
         return ""
 
     def _format_relationship_dynamic(self) -> str:
-        """Format dynamic relationship context for LLM."""
-        if not self.relationship_dynamic or not self.relationship_dynamic.get("recent_beats"):
-            return "This is a new connection. Be warm and curious."
+        """Format dynamic relationship context for LLM.
 
-        tone = self.relationship_dynamic.get("tone", "warm")
-        tension = self.relationship_dynamic.get("tension_level", 30)
+        Genre 01 aligned: Higher baseline tension, romantic framing.
+        """
+        if not self.relationship_dynamic or not self.relationship_dynamic.get("recent_beats"):
+            return "This is a new connection. Start with intrigue and desire - not just warmth."
+
+        tone = self.relationship_dynamic.get("tone", "intrigued")
+        tension = self.relationship_dynamic.get("tension_level", 45)
         recent_beats = self.relationship_dynamic.get("recent_beats", [])[-5:]
 
-        # Tension interpretation
-        if tension < 20:
-            tension_desc = "relaxed, comfortable"
+        # Tension interpretation (Genre 01: higher baseline, romantic framing)
+        if tension < 25:
+            tension_desc = "TOO LOW - conversation is drifting into friendship zone"
         elif tension < 40:
-            tension_desc = "light, easy-going"
-        elif tension < 60:
-            tension_desc = "some unresolved energy"
-        elif tension < 80:
-            tension_desc = "heightened, something brewing"
+            tension_desc = "simmering - needs more heat"
+        elif tension < 55:
+            tension_desc = "good baseline - desire is present"
+        elif tension < 70:
+            tension_desc = "charged - something could happen"
+        elif tension < 85:
+            tension_desc = "electric - the air is thick"
         else:
-            tension_desc = "intense, needs resolution"
+            tension_desc = "at breaking point - climactic moment"
 
         # Beat flow analysis
         beat_flow = " → ".join(recent_beats) if recent_beats else "just starting"
@@ -265,9 +306,12 @@ Recent flow: {beat_flow}
 {pacing_hint}"""
 
     def _get_pacing_hint(self, recent_beats: List[str], tension: int) -> str:
-        """Generate pacing suggestion based on beat history."""
+        """Generate pacing suggestion based on beat history.
+
+        Aligned with Genre 01: Tension is the product, not comfort.
+        """
         if not recent_beats:
-            return "Start naturally - get to know each other."
+            return "Start with intrigue and desire - you're not here to make friends."
 
         last_beat = recent_beats[-1]
         beat_counts: Dict[str, int] = {}
@@ -278,39 +322,65 @@ Recent flow: {beat_flow}
 
         # Avoid repetition
         if beat_counts.get(last_beat, 0) >= 2:
-            hints.append(f"You've had multiple {last_beat} moments - consider shifting energy")
+            hints.append(f"You've had multiple {last_beat} moments - shift the energy")
 
-        # Tension-based suggestions
-        if tension > 60 and last_beat not in ["comfort", "supportive"]:
-            hints.append("Tension is high - might be time for resolution or escalation")
-        elif tension < 20 and "tense" not in recent_beats[-3:]:
-            hints.append("Things are very comfortable - some playful tension could add spark")
+        # Tension-based suggestions (Genre 01: tension should stay elevated)
+        if tension > 75:
+            hints.append("Tension is peaking - either escalate to a breaking point or let it linger deliciously")
+        elif tension > 50:
+            hints.append("Good tension level - maintain it, don't rush to resolve")
+        elif tension < 30:
+            hints.append("WARNING: Tension is low - you're drifting into comfort zone. Create some friction or desire")
+        elif tension < 50 and "tense" not in recent_beats[-3:] and "flirty" not in recent_beats[-3:]:
+            hints.append("The spark is fading - reintroduce charged energy")
 
         # After vulnerability
         if last_beat == "vulnerable":
-            hints.append("They just opened up - acknowledge it meaningfully")
+            hints.append("They opened up - acknowledge it, but don't over-comfort. Let the vulnerability breathe.")
 
-        # After conflict
+        # After conflict/tension
         if last_beat in ["conflict", "tense"]:
-            hints.append("There's tension - address it, don't ignore it")
+            hints.append("There's tension - don't rush to fix it. Sometimes tension is the point.")
+
+        # Warn against too much comfort
+        if beat_counts.get("comfort", 0) >= 2 or beat_counts.get("supportive", 0) >= 2:
+            hints.append("CAUTION: Too much comfort kills desire. Reintroduce tension or mystery.")
+
+        # Warn against too much playful
+        if beat_counts.get("playful", 0) >= 3:
+            hints.append("CAUTION: Playful is fun but lacks stakes. Add some real emotional risk.")
 
         if hints:
-            return "PACING:\n" + "\n".join(f"- {h}" for h in hints)
+            return "PACING (Genre 01 - Tension Doctrine):\n" + "\n".join(f"- {h}" for h in hints)
         return ""
 
     def _format_milestones(self) -> str:
-        """Format significant relationship milestones."""
+        """Format significant relationship milestones.
+
+        Genre 01 aligned: Romance-focused milestone descriptions.
+        """
         if not self.relationship_milestones:
             return ""
 
         milestone_descriptions = {
-            "first_secret_shared": "You've shared something personal with them",
+            # Genre 01 romantic tension milestones
+            "first_spark": "There's been undeniable chemistry between you",
+            "almost_moment": "You've had an 'almost' moment - interrupted intimacy",
+            "jealousy_triggered": "Jealousy has entered the dynamic",
+            "boundary_pushed": "Someone crossed a line",
+            "vulnerability_shared": "Real vulnerability has been shown",
+            "desire_expressed": "Attraction has been acknowledged",
+            "first_touch": "There's been meaningful physical contact",
+            "conflict_unresolved": "There's unresolved tension between you",
+            "inside_joke_created": "You share private jokes",
+            "deep_confession": "Profound secrets have been shared",
+            # Legacy milestones (backwards compatibility)
+            "first_secret_shared": "You've shared something personal",
             "user_opened_up": "They've been vulnerable with you",
-            "first_flirt": "There's been some flirting between you",
-            "had_disagreement": "You've had a disagreement",
-            "comfort_moment": "You've comforted each other",
-            "inside_joke_created": "You have inside jokes",
-            "deep_conversation": "You've had deep conversations",
+            "first_flirt": "There's been clear flirting",
+            "had_disagreement": "You've had friction",
+            "comfort_moment": "You've had tender moments",
+            "deep_conversation": "You've gone deep together",
         }
 
         descriptions = [
@@ -320,7 +390,7 @@ Recent flow: {beat_flow}
         ]
 
         if descriptions:
-            return "Significant moments: " + ", ".join(descriptions)
+            return "Romantic history: " + ", ".join(descriptions)
         return ""
 
     def to_messages(self) -> List[Dict[str, str]]:

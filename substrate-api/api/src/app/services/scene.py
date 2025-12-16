@@ -20,8 +20,8 @@ from app.services.storage import StorageService
 log = logging.getLogger(__name__)
 
 
-# Scene generation prompts - enhanced with appearance support
-SCENE_PROMPT_TEMPLATE = """Create an image generation prompt for this moment.
+# Scene generation prompts - Genre 01 Visual Doctrine aligned
+SCENE_PROMPT_TEMPLATE = """Create an image generation prompt for this romantic tension moment.
 
 Context:
 - Character: {character_name}
@@ -29,14 +29,20 @@ Context:
 - Setting: {scene}
 - Moment: {moment}
 
-Write a concise image prompt (50-80 words) that:
-- Describes ONE person matching the appearance description
-- Focuses on mood, lighting, and atmosphere
-- Uses comma-separated descriptive tags
+GENRE 01 VISUAL DOCTRINE:
+The image must communicate desire, proximity, and anticipation.
+It should feel like "a still frame taken one second before something happens."
 
-Format: "[character description], [action/pose], [setting], [lighting], [mood], anime style, detailed background"
+Write a concise image prompt (50-80 words) that captures:
+- GAZE DIRECTION: Looking at viewer, glancing away, or meaningful eye contact
+- POSTURE: Body language suggesting tension, openness, or invitation
+- PROXIMITY: Intimacy implied through closeness or personal space
+- LIGHTING AS MOOD: Dramatic, warm, or charged atmosphere
+- EMOTIONAL STAKES: Something feels at risk or about to happen
 
-Example output: "young woman with long dark hair, sitting by window holding tea cup, cozy cafe interior, golden hour sunlight streaming through glass, peaceful contemplative mood, anime style, detailed background, soft colors"
+Format: "[character description with gaze], [charged pose/body language], [intimate setting detail], [dramatic lighting], [tension/desire mood], anime style, cinematic composition"
+
+Example output: "young woman with dark hair looking over shoulder at viewer, leaning against doorframe with arms crossed, dimly lit apartment hallway, warm lamplight casting soft shadows, charged anticipation, anime style, cinematic composition, intimate atmosphere"
 
 Your prompt:"""
 

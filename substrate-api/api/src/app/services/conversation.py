@@ -387,13 +387,15 @@ class ConversationService:
 
         # If episode_template_id is provided, fetch the template and use its situation
         effective_scene = scene
+        opening_line = None
         if episode_template_id:
             template_query = """
-                SELECT situation, title FROM episode_templates WHERE id = :template_id
+                SELECT situation, title, opening_line FROM episode_templates WHERE id = :template_id
             """
             template_row = await self.db.fetch_one(template_query, {"template_id": str(episode_template_id)})
             if template_row:
                 effective_scene = template_row["situation"]
+                opening_line = template_row["opening_line"]
 
         # Create episode
         create_query = """
@@ -413,7 +415,19 @@ class ConversationService:
             },
         )
 
-        return Episode(**dict(new_row))
+        episode = Episode(**dict(new_row))
+
+        # If template has an opening_line, save it as the first assistant message
+        # This ensures the LLM has context of what the character "already said"
+        if opening_line:
+            await self._save_message(
+                episode_id=episode.id,
+                role=MessageRole.ASSISTANT,
+                content=opening_line,
+            )
+            log.info(f"Injected opening_line for episode {episode.id}")
+
+        return episode
 
     async def end_episode(
         self,

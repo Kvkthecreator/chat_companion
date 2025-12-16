@@ -39,19 +39,28 @@ Only extract NEW information. Skip things that are:
 EXISTING MEMORIES:
 {existing_memories}
 
-Additionally, classify this exchange's narrative beat:
+Additionally, classify this exchange's narrative beat.
+
+IMPORTANT: This is a ROMANTIC TENSION experience. Tension and desire are the goal, not comfort.
 
 beat_classification:
-  type: playful | flirty | tense | vulnerable | supportive | conflict | comfort | neutral
-  tension_change: integer from -15 to +15 (negative = tension decreased, positive = increased)
+  type: playful | flirty | tense | vulnerable | supportive | conflict | comfort | charged | longing | neutral
+  tension_change: integer from -15 to +15
+    - POSITIVE tension changes (+5 to +15): flirty exchanges, "almost" moments, jealousy, vulnerability, conflict, charged silences
+    - NEGATIVE tension changes (-5 to -15): resolved conflicts, excessive comfort, breaking romantic frame
+    - Note: Some tension is GOOD - don't reduce tension just because things are "nice"
+
   milestone: null OR one of:
-    - "first_secret_shared" (character revealed something personal)
-    - "user_opened_up" (user shared something vulnerable)
-    - "first_flirt" (first explicitly flirty exchange)
-    - "had_disagreement" (conflict or tension moment)
-    - "comfort_moment" (meaningful emotional support)
+    - "first_spark" (first moment of clear romantic/sexual tension)
+    - "almost_moment" (interrupted intimacy, held back kiss, lingering touch)
+    - "jealousy_triggered" (one party showed jealousy or possessiveness)
+    - "boundary_pushed" (someone crossed a line, broke a rule)
+    - "vulnerability_shared" (someone revealed something risky)
+    - "desire_expressed" (explicit attraction acknowledged)
+    - "first_touch" (first meaningful physical contact)
+    - "conflict_unresolved" (tension left hanging, not fixed)
     - "inside_joke_created" (shared humor reference established)
-    - "deep_conversation" (extended meaningful exchange)
+    - "deep_confession" (profound personal revelation)
 
 Respond with JSON:
 {{
@@ -438,7 +447,8 @@ class MemoryService:
             return
 
         relationship_id = row["id"]
-        dynamic = row["dynamic"] or {"tone": "warm", "tension_level": 30, "recent_beats": []}
+        # Genre 01: Higher baseline tension (45 instead of 30), "intrigued" instead of "warm"
+        dynamic = row["dynamic"] or {"tone": "intrigued", "tension_level": 45, "recent_beats": []}
         milestones = row["milestones"] or []
 
         # Parse dynamic if it's a string (from DB)
@@ -446,7 +456,7 @@ class MemoryService:
             try:
                 dynamic = json.loads(dynamic)
             except json.JSONDecodeError:
-                dynamic = {"tone": "warm", "tension_level": 30, "recent_beats": []}
+                dynamic = {"tone": "intrigued", "tension_level": 45, "recent_beats": []}
 
         # Update recent beats (keep last 10)
         recent_beats = dynamic.get("recent_beats", [])
@@ -487,9 +497,12 @@ class MemoryService:
         log.debug(f"Updated relationship dynamic: tone={tone}, tension={tension}, beats={len(recent_beats)}")
 
     def _derive_tone(self, recent_beats: List[str], tension: int) -> str:
-        """Derive current tone from recent beats and tension level."""
+        """Derive current tone from recent beats and tension level.
+
+        Genre 01 aligned: Romance-focused tones, avoiding "comfortable" default.
+        """
         if not recent_beats:
-            return "warm"
+            return "intrigued"  # Genre 01: Start with intrigue, not warmth
 
         # Count recent beat types
         beat_counts = {}
@@ -499,33 +512,40 @@ class MemoryService:
         # Find dominant beat
         dominant = max(beat_counts, key=beat_counts.get)
 
-        # Map beats to tones with tension consideration
-        if tension > 70:
+        # Map beats to tones with tension consideration (Genre 01: romance-focused)
+        if tension > 75:
             if dominant in ["conflict", "tense"]:
                 return "heated"
-            elif dominant in ["flirty"]:
-                return "charged"
+            elif dominant in ["flirty", "vulnerable"]:
+                return "electric"
             else:
                 return "intense"
-        elif tension > 50:
+        elif tension > 55:
             if dominant in ["flirty"]:
-                return "flirty"
-            elif dominant in ["vulnerable", "supportive"]:
+                return "charged"
+            elif dominant in ["vulnerable"]:
                 return "intimate"
+            elif dominant in ["tense"]:
+                return "simmering"
             else:
-                return "engaged"
-        elif tension > 30:
+                return "magnetic"
+        elif tension > 40:
             if dominant in ["playful"]:
-                return "playful"
+                return "teasing"
             elif dominant in ["flirty"]:
                 return "flirty"
+            elif dominant in ["vulnerable"]:
+                return "tender"
             else:
-                return "warm"
+                return "intrigued"
         else:
+            # Genre 01: Even at low tension, avoid pure comfort
             if dominant in ["comfort", "supportive"]:
-                return "comfortable"
+                return "softened"  # Not "comfortable" - still implies potential
+            elif dominant in ["playful"]:
+                return "light"
             else:
-                return "relaxed"
+                return "curious"
 
     async def get_relationship_dynamic(
         self,
@@ -547,9 +567,10 @@ class MemoryService:
             try:
                 dynamic = json.loads(dynamic)
             except json.JSONDecodeError:
-                dynamic = {"tone": "warm", "tension_level": 30, "recent_beats": []}
+                dynamic = {"tone": "intrigued", "tension_level": 45, "recent_beats": []}
 
         return {
-            "dynamic": dynamic or {"tone": "warm", "tension_level": 30, "recent_beats": []},
+            # Genre 01: Higher baseline tension, romance-focused defaults
+            "dynamic": dynamic or {"tone": "intrigued", "tension_level": 45, "recent_beats": []},
             "milestones": row["milestones"] or [],
         }

@@ -1,0 +1,107 @@
+"""Regenerate all character system prompts with Genre 01 doctrine alignment.
+
+This script updates all active characters' system_prompts using the canonical
+build_system_prompt() function which incorporates Genre 01 Romantic Tension doctrine.
+
+Usage:
+    python -m app.scripts.regenerate_system_prompts
+"""
+
+import asyncio
+import json
+import os
+import sys
+
+# Add parent to path for imports
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+
+from databases import Database
+from app.models.character import build_system_prompt
+
+
+DATABASE_URL = os.getenv(
+    "DATABASE_URL",
+    "postgresql://postgres.lfwhdzwbikyzalpbwfnd:42PJb25YJhJHJdkl@aws-1-ap-northeast-1.pooler.supabase.com:5432/postgres"
+)
+
+
+async def regenerate_all_prompts():
+    """Regenerate system prompts for all active characters."""
+    db = Database(DATABASE_URL)
+    await db.connect()
+
+    try:
+        # Get all active characters
+        rows = await db.fetch_all("""
+            SELECT id, name, archetype, baseline_personality, boundaries,
+                   tone_style, speech_patterns, full_backstory, current_stressor,
+                   likes, dislikes
+            FROM characters
+            WHERE status = 'active'
+            ORDER BY name
+        """)
+
+        print(f"Found {len(rows)} active characters to update")
+
+        for row in rows:
+            char = dict(row)
+            char_id = char["id"]
+            name = char["name"]
+
+            # Parse JSON fields
+            personality = char["baseline_personality"]
+            if isinstance(personality, str):
+                personality = json.loads(personality)
+
+            boundaries = char["boundaries"]
+            if isinstance(boundaries, str):
+                boundaries = json.loads(boundaries)
+
+            tone_style = char["tone_style"]
+            if isinstance(tone_style, str):
+                tone_style = json.loads(tone_style) if tone_style else {}
+
+            speech_patterns = char["speech_patterns"]
+            if isinstance(speech_patterns, str):
+                speech_patterns = json.loads(speech_patterns) if speech_patterns else {}
+
+            likes = char["likes"]
+            if isinstance(likes, str):
+                likes = json.loads(likes) if likes else []
+
+            dislikes = char["dislikes"]
+            if isinstance(dislikes, str):
+                dislikes = json.loads(dislikes) if dislikes else []
+
+            # Build new system prompt
+            new_prompt = build_system_prompt(
+                name=name,
+                archetype=char["archetype"],
+                personality=personality or {},
+                boundaries=boundaries or {},
+                tone_style=tone_style,
+                speech_patterns=speech_patterns,
+                backstory=char["full_backstory"],
+                current_stressor=char["current_stressor"],
+                likes=likes,
+                dislikes=dislikes,
+            )
+
+            # Update in database
+            await db.execute(
+                "UPDATE characters SET system_prompt = :prompt, updated_at = NOW() WHERE id = :id",
+                {"id": str(char_id), "prompt": new_prompt}
+            )
+
+            print(f"  Updated {name} ({char['archetype']})")
+            print(f"    - Prompt length: {len(new_prompt)} chars")
+            print(f"    - Flirting level: {boundaries.get('flirting_level', 'playful')}")
+
+        print(f"\nSuccessfully updated {len(rows)} character system prompts")
+
+    finally:
+        await db.disconnect()
+
+
+if __name__ == "__main__":
+    asyncio.run(regenerate_all_prompts())
