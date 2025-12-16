@@ -240,10 +240,7 @@ export function ChatContainer({ characterId, episodeTemplateId }: ChatContainerP
         </div>
 
         {/* Messages area with subtle glass effect */}
-        <div className={cn(
-          "flex-1 overflow-y-auto px-4 py-4",
-          backgroundImageUrl && "bg-black/10"
-        )}>
+        <div className="flex-1 overflow-y-auto px-4 py-4 bg-transparent">
           {isLoadingChat ? (
             <MessagesSkeleton />
           ) : chatItems.length === 0 ? (

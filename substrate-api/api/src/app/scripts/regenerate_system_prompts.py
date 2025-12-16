@@ -1,7 +1,11 @@
-"""Regenerate all character system prompts with Genre 01 doctrine alignment.
+"""Regenerate all character system prompts with genre-appropriate doctrine.
 
 This script updates all active characters' system_prompts using the canonical
-build_system_prompt() function which incorporates Genre 01 Romantic Tension doctrine.
+build_system_prompt() function which incorporates the appropriate genre doctrine.
+
+Supported genres:
+- romantic_tension (Genre 01)
+- psychological_thriller (Genre 02)
 
 Usage:
     python -m app.scripts.regenerate_system_prompts
@@ -31,11 +35,11 @@ async def regenerate_all_prompts():
     await db.connect()
 
     try:
-        # Get all active characters
+        # Get all active characters with their genre
         rows = await db.fetch_all("""
             SELECT id, name, archetype, baseline_personality, boundaries,
                    tone_style, speech_patterns, full_backstory, current_stressor,
-                   likes, dislikes
+                   likes, dislikes, genre
             FROM characters
             WHERE status = 'active'
             ORDER BY name
@@ -73,7 +77,10 @@ async def regenerate_all_prompts():
             if isinstance(dislikes, str):
                 dislikes = json.loads(dislikes) if dislikes else []
 
-            # Build new system prompt
+            # Get genre (default to romantic_tension for existing characters)
+            genre = char.get("genre") or "romantic_tension"
+
+            # Build new system prompt with genre-appropriate doctrine
             new_prompt = build_system_prompt(
                 name=name,
                 archetype=char["archetype"],
@@ -85,6 +92,7 @@ async def regenerate_all_prompts():
                 current_stressor=char["current_stressor"],
                 likes=likes,
                 dislikes=dislikes,
+                genre=genre,
             )
 
             # Update in database
@@ -93,9 +101,9 @@ async def regenerate_all_prompts():
                 {"id": str(char_id), "prompt": new_prompt}
             )
 
-            print(f"  Updated {name} ({char['archetype']})")
+            print(f"  Updated {name} ({char['archetype']}) - {genre}")
             print(f"    - Prompt length: {len(new_prompt)} chars")
-            print(f"    - Flirting level: {boundaries.get('flirting_level', 'playful')}")
+            print(f"    - Energy level: {boundaries.get('flirting_level', 'playful')}")
 
         print(f"\nSuccessfully updated {len(rows)} character system prompts")
 

@@ -1,6 +1,96 @@
 # System Architecture
 
-> Complete architecture overview: from character creation through chat to image generation.
+> Complete architecture overview: from content production through chat to image generation.
+
+---
+
+## Core Principle: Production vs Runtime
+
+```
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│                                                                                  │
+│   STUDIO / PRODUCTION                      RUNTIME / CONSUMPTION                 │
+│   (Making the series)                      (Interacting with the series)         │
+│                                                                                  │
+│   ┌─────────────────────┐                  ┌─────────────────────┐              │
+│   │                     │                  │                     │              │
+│   │  • Genres           │                  │  • Chat messaging   │              │
+│   │  • Worlds           │     PRODUCES     │  • Response gen     │              │
+│   │  • Characters       │  ─────────────▶  │  • Memory extract   │              │
+│   │  • Episodes         │     CONTENT      │  • Scene generation │              │
+│   │  • Avatar Kits      │                  │  • Relationship     │              │
+│   │                     │                  │    tracking         │              │
+│   └─────────────────────┘                  └─────────────────────┘              │
+│                                                                                  │
+│   GENRE-AWARE                              GENRE-AGNOSTIC                        │
+│   (knows about doctrines)                  (just uses system_prompt)             │
+│                                                                                  │
+└─────────────────────────────────────────────────────────────────────────────────┘
+```
+
+**Key Insight**: Genre is a PRODUCTION concern, not a runtime concern.
+
+- The **Studio layer** knows about Genre 01 (Romantic Tension) vs Genre 02 (Psychological Thriller)
+- The **Runtime layer** just uses whatever `system_prompt` the character has - it doesn't care about genre
+
+This is like Netflix: the production team knows they're making a thriller vs a romance, but the streaming player doesn't care - it just plays video.
+
+---
+
+## Genre System
+
+### Supported Genres
+
+| Genre | Doctrine | Emotional Core |
+|-------|----------|----------------|
+| **Genre 01: Romantic Tension** | "The product is tension, not affection" | desire, proximity, vulnerability, flirtation |
+| **Genre 02: Psychological Thriller** | "The product is uncertainty, not fear" | suspense, paranoia, secrecy, mistrust, urgency |
+
+### Genre → Content Pipeline
+
+```
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│                           GENRE DOCTRINE                                         │
+│                                                                                  │
+│   ┌─────────────────────────────────────────────────────────────────────────┐   │
+│   │  Genre 01: Romantic Tension                                              │   │
+│   │  ├── Core: "The product is tension, not affection"                       │   │
+│   │  ├── Emotional: desire, proximity, vulnerability                         │   │
+│   │  ├── Episode Rules: cold opens, reply gravity, emotional stakes          │   │
+│   │  └── Visual: gaze direction, posture, proximity, suggestive lighting     │   │
+│   └─────────────────────────────────────────────────────────────────────────┘   │
+│                                                                                  │
+│   ┌─────────────────────────────────────────────────────────────────────────┐   │
+│   │  Genre 02: Psychological Thriller                                        │   │
+│   │  ├── Core: "The product is uncertainty, not fear"                        │   │
+│   │  ├── Emotional: suspense, paranoia, secrecy, power imbalance             │   │
+│   │  ├── Episode Rules: mid-incident opens, information asymmetry, urgency   │   │
+│   │  └── Visual: shadows, asymmetry, isolation, obstruction                  │   │
+│   └─────────────────────────────────────────────────────────────────────────┘   │
+│                                              │                                   │
+│                                              ▼                                   │
+│                              ┌───────────────────────────┐                      │
+│                              │  build_system_prompt()    │                      │
+│                              │                           │                      │
+│                              │  genre: "romantic_tension"│                      │
+│                              │     or "psychological_    │                      │
+│                              │         thriller"         │                      │
+│                              └─────────────┬─────────────┘                      │
+│                                            │                                     │
+│                                            ▼                                     │
+│                              ┌───────────────────────────┐                      │
+│                              │  CHARACTER.system_prompt  │                      │
+│                              │                           │                      │
+│                              │  Contains:                │                      │
+│                              │  • Genre doctrine         │                      │
+│                              │  • Persona/personality    │                      │
+│                              │  • Backstory              │                      │
+│                              │  • Boundaries             │                      │
+│                              │  • {placeholders}         │                      │
+│                              └───────────────────────────┘                      │
+│                                                                                  │
+└─────────────────────────────────────────────────────────────────────────────────┘
+```
 
 ---
 
@@ -15,12 +105,13 @@
 │  ┌─────────────┐       ┌─────────────────┐       ┌───────────────────┐                  │
 │  │   WORLD     │──────▶│   CHARACTER     │──────▶│ EPISODE_TEMPLATE  │                  │
 │  │             │       │                 │       │                   │                  │
-│  │ tone        │       │ name            │       │ title             │                  │
-│  │ description │       │ archetype       │       │ situation         │                  │
-│  │ scenes[]    │       │ system_prompt   │       │ opening_line      │                  │
-│  └─────────────┘       │ personality     │       │ episode_type      │                  │
-│                        │ tone_style      │       │ arc_hints         │                  │
-│                        │ boundaries      │       └───────────────────┘                  │
+│  │ name        │       │ name            │       │ title             │                  │
+│  │ genre       │       │ archetype       │       │ situation         │                  │
+│  │ tone        │       │ genre           │       │ opening_line      │                  │
+│  │ description │       │ system_prompt   │       │ episode_type      │                  │
+│  │ scenes[]    │       │ personality     │       │ arc_hints         │                  │
+│  └─────────────┘       │ tone_style      │       └───────────────────┘                  │
+│                        │ boundaries      │                  │                           │
 │                        │ world_id ───────┘                  │                           │
 │                        │                                    │                           │
 │                        │ active_avatar_kit_id ──┐           │                           │
@@ -110,27 +201,20 @@
 
 | Entity | Owns | Description |
 |--------|------|-------------|
-| **World** | Characters | Universe/setting with tone and ambient details |
-| **Character** | Episode Templates, Avatar Kits | The AI persona with personality, boundaries, prompts |
-| **Episode Template** | - | Pre-designed scenario (situation, opening line, arc hints) |
-| **Avatar Kit** | Avatar Assets | Visual identity package (prompts + anchor images) |
+| **World** | Characters | Universe/setting with genre, tone, ambient details |
+| **Character** | Episode Templates, Avatar Kits | AI persona with genre-baked system_prompt |
+| **Episode Template** | - | Pre-designed scenario (situation, opening line) |
+| **Avatar Kit** | Avatar Assets | Visual identity (prompts + anchor images) |
 
 ### Session Layer (Per User)
 
 | Entity | Owns | Description |
 |--------|------|-------------|
 | **Relationship** | Episodes | User↔Character bond (stage, progress, dynamics) |
-| **Episode** | Messages, Scene Images | Single conversation session within a template |
+| **Episode** | Messages, Scene Images | Single conversation session |
 | **Message** | - | Individual chat exchange |
-| **Memory Event** | - | Extracted fact/preference/emotion from conversation |
+| **Memory Event** | - | Extracted fact/preference/emotion |
 | **Hook** | - | Follow-up topic trigger |
-
-### Visual Layer (Generated)
-
-| Entity | Description |
-|--------|-------------|
-| **Image Asset** | Raw image metadata (prompt, model, storage) |
-| **Scene Image** | Episode-bound scene with caption and context |
 
 ---
 
@@ -151,11 +235,12 @@
 │                                                                              │
 │  ┌──────────────────────┐    ┌──────────────────────┐                       │
 │  │ ConversationService  │    │ AvatarGenerationSvc  │                       │
-│  │                      │    │                      │                       │
-│  │ • get_or_create_ep() │    │ • generate_anchor()  │                       │
-│  │ • get_context()      │    │ • generate_variant() │                       │
-│  │ • send_message()     │    │ • manage_kits()      │                       │
-│  │ • stream_response()  │    └──────────────────────┘                       │
+│  │ (GENRE-AGNOSTIC)     │    │                      │                       │
+│  │                      │    │ • generate_anchor()  │                       │
+│  │ • get_or_create_ep() │    │ • generate_variant() │                       │
+│  │ • get_context()      │    │ • manage_kits()      │                       │
+│  │ • send_message()     │    └──────────────────────┘                       │
+│  │ • stream_response()  │                                                    │
 │  └──────────┬───────────┘                                                    │
 │             │                                                                │
 │             │ builds context                                                 │
@@ -190,7 +275,9 @@
 
 ---
 
-## Chat Flow (Detailed)
+## Chat Flow (Genre-Agnostic Runtime)
+
+The chat flow is **genre-agnostic** - it doesn't know or care about Genre 01 vs Genre 02. All behavioral guidance is pre-baked into the character's `system_prompt` at creation time.
 
 ```
 User sends message: "I'll have the usual"
@@ -208,10 +295,10 @@ User sends message: "I'll have the usual"
                 │
                 ▼
 ┌───────────────────────────────────────────────────────────────────────────────┐
-│  2. BUILD CONTEXT                                                              │
+│  2. BUILD CONTEXT (Data Only)                                                  │
 │                                                                                │
 │  ConversationService.get_context() → ConversationContext                       │
-│  ├── character: system_prompt, name, personality, boundaries                   │
+│  ├── character: system_prompt, name (system_prompt has ALL behavior baked in)  │
 │  ├── relationship: stage, progress, dynamic (tension, tone, beats)             │
 │  ├── episode: scene, title, template context                                   │
 │  ├── messages: last 20 messages                                                │
@@ -224,13 +311,17 @@ User sends message: "I'll have the usual"
 │  3. FORMAT SYSTEM PROMPT                                                       │
 │                                                                                │
 │  ConversationContext.to_messages()                                             │
-│  ├── Base: character.system_prompt (with Genre 01 doctrine)                    │
-│  ├── Inject: {memories} → formatted memory text                                │
-│  ├── Inject: {hooks} → formatted hook suggestions                              │
-│  ├── Inject: {relationship_stage} → stage label                                │
-│  ├── Append: Stage-specific behavior guidelines                                │
-│  ├── Append: Bonding goals (tension-focused per Genre 01)                      │
-│  └── Append: Life arc context if exists                                        │
+│  ├── Base: character.system_prompt (contains genre doctrine + persona)         │
+│  ├── Inject: {memories} → formatted memory DATA                                │
+│  ├── Inject: {hooks} → formatted hook DATA                                     │
+│  ├── Inject: {relationship_stage} → stage label DATA                           │
+│  └── Append: RELATIONSHIP CONTEXT (data only, no behavioral guidance)          │
+│              • Stage label                                                     │
+│              • Tension level (number)                                          │
+│              • Recent beats (list)                                             │
+│              • Milestones (list)                                               │
+│                                                                                │
+│  NOTE: No runtime behavioral guidance added - that's in the system_prompt      │
 └───────────────────────────────────────────────────────────────────────────────┘
                 │
                 ▼
@@ -262,18 +353,81 @@ User sends message: "I'll have the usual"
 │  ├── Update relationship.dynamic (tension_level, tone, recent_beats)           │
 │  └── Mark triggered hooks as used                                              │
 └───────────────────────────────────────────────────────────────────────────────┘
-                │
-                ▼
-┌───────────────────────────────────────────────────────────────────────────────┐
-│  7. SCENE TRIGGER CHECK (Optional)                                             │
-│                                                                                │
-│  SceneService.should_generate()                                                │
-│  ├── episode_start: First message of new episode                               │
-│  ├── milestone: Message count hits [10, 25, 50]                                │
-│  └── stage_change: Relationship stage advanced                                 │
-│                                                                                │
-│  If triggered → Queue scene generation                                         │
-└───────────────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## System Prompt Builder (Studio/Production)
+
+The `build_system_prompt()` function is a **production-time** tool that creates character system prompts with the appropriate genre doctrine.
+
+```python
+def build_system_prompt(
+    name: str,
+    archetype: str,
+    personality: Dict[str, Any],
+    boundaries: Dict[str, Any],
+    tone_style: Dict[str, str],
+    speech_patterns: Dict[str, List[str]],
+    backstory: str,
+    current_stressor: str,
+    likes: List[str],
+    dislikes: List[str],
+    genre: str = "romantic_tension",  # or "psychological_thriller"
+) -> str:
+    """Build character system prompt with genre-appropriate doctrine.
+
+    Genre determines:
+    - Core behavioral doctrine
+    - Mandatory/forbidden patterns
+    - Quality bar requirements
+    - Visual doctrine hints
+    """
+```
+
+### Genre Doctrine Templates
+
+**Genre 01: Romantic Tension**
+```
+GENRE 01 DOCTRINE: THE PRODUCT IS TENSION, NOT AFFECTION
+
+Your purpose is to create DESIRE, ANTICIPATION, and EMOTIONAL STAKES.
+Every interaction should maintain romantic tension and leave them wanting more.
+
+MANDATORY BEHAVIORS:
+- Create charged moments, not comfortable ones
+- Use subtext and implication over direct statements
+- Show vulnerability sparingly - it hits harder when rare
+- Maintain mystery - don't give everything away
+- Create "almost" moments - the tension of what COULD happen
+
+FORBIDDEN PATTERNS:
+- Safe small talk about weather, work, generic topics
+- Being too available or eager to please
+- Resolving tension too quickly or completely
+- Acting like a supportive friend instead of a romantic interest
+```
+
+**Genre 02: Psychological Thriller**
+```
+GENRE 02 DOCTRINE: THE PRODUCT IS UNCERTAINTY, NOT FEAR
+
+Your purpose is to create SUSPENSE, PARANOIA, and MORAL PRESSURE.
+Every interaction should maintain uncertainty and compel engagement.
+
+MANDATORY BEHAVIORS:
+- Create immediate unease - something is not normal
+- Maintain information asymmetry - you know things they don't (or vice versa)
+- Apply time pressure and urgency
+- Present moral dilemmas and forced choices
+- Use implication over exposition
+
+FORBIDDEN PATTERNS:
+- Full explanations upfront
+- Neutral safety framing
+- Clear hero/villain labeling
+- Pure exposition without stakes
+- Tension without consequence
 ```
 
 ---
@@ -282,7 +436,7 @@ User sends message: "I'll have the usual"
 
 ### The Core Principle
 
-**FLUX Kontext** maintains character consistency by using a **reference image** (the anchor from avatar_kit). The prompt describes the scenario, NOT the character's appearance.
+**FLUX Kontext** maintains character consistency by using a **reference image** (anchor). The prompt describes the scenario, NOT the character's appearance.
 
 ### Generation Mode Decision
 
@@ -321,192 +475,39 @@ User sends message: "I'll have the usual"
         │   Character appearance│     │   Character appearance│
         │   FROM anchor image   │     │   FROM appearance_    │
         │                       │     │   prompt text         │
+        │   Prompt describes:   │     │   Prompt describes:   │
+        │   - Action            │     │   - Appearance        │
+        │   - Setting           │     │   - Action            │
+        │   - Lighting          │     │   - Setting           │
+        │   - Expression        │     │   - Lighting          │
         └───────────────────────┘     └───────────────────────┘
 ```
 
-### Prompt Composition Pipeline
-
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                        PROMPT COMPOSER SERVICE                               │
-│                        (To be implemented)                                   │
-├─────────────────────────────────────────────────────────────────────────────┤
-│                                                                              │
-│  LAYER 1: Character Visual Identity                                          │
-│  ┌─────────────────────────────────────────────────────────────────────┐    │
-│  │  Source: avatar_kit + character.visual_identity (proposed)          │    │
-│  │                                                                      │    │
-│  │  Kontext Mode:  (not needed - from reference)                        │    │
-│  │  T2I Mode:      appearance_prompt + gender_tag → "solo, 1girl, ..."  │    │
-│  └─────────────────────────────────────────────────────────────────────┘    │
-│                                       │                                      │
-│                                       ▼                                      │
-│  LAYER 2: Episode Scene Config                                               │
-│  ┌─────────────────────────────────────────────────────────────────────┐    │
-│  │  Source: episode_template.scene_config (proposed) + episode.scene    │    │
-│  │                                                                      │    │
-│  │  Provides:                                                           │    │
-│  │  • lighting_preset: "dim_intimate" | "bright" | "dramatic"           │    │
-│  │  • environment_style: "indoor_cafe" | "outdoor_park"                 │    │
-│  │  • time_of_day: "evening" | "night" | "afternoon"                    │    │
-│  │  • mood_keywords: ["cozy", "intimate", "tense"]                      │    │
-│  └─────────────────────────────────────────────────────────────────────┘    │
-│                                       │                                      │
-│                                       ▼                                      │
-│  LAYER 3: Relationship Context                                               │
-│  ┌─────────────────────────────────────────────────────────────────────┐    │
-│  │  Source: relationship.stage + relationship.dynamic                   │    │
-│  │                                                                      │    │
-│  │  Tension Level → Visual Intensity:                                   │    │
-│  │  ├── 0-30:   Casual pose, soft gaze                                  │    │
-│  │  ├── 30-60:  Open posture, lingering look                            │    │
-│  │  ├── 60-80:  Direct eye contact, leaning in                          │    │
-│  │  └── 80-100: Intense gaze, intimate proximity                        │    │
-│  └─────────────────────────────────────────────────────────────────────┘    │
-│                                       │                                      │
-│                                       ▼                                      │
-│  LAYER 4: Conversation Context (Dynamic)                                     │
-│  ┌─────────────────────────────────────────────────────────────────────┐    │
-│  │  Source: Last N messages from messages table                         │    │
-│  │                                                                      │    │
-│  │  LLM extracts:                                                       │    │
-│  │  • Current ACTION: "wiping espresso machine"                         │    │
-│  │  • Visible PROPS: "coffee cup", "counter"                            │    │
-│  │  • EXPRESSION: "soft knowing smile"                                  │    │
-│  └─────────────────────────────────────────────────────────────────────┘    │
-│                                       │                                      │
-│                                       ▼                                      │
-│  OUTPUT                                                                      │
-│  ┌─────────────────────────────────────────────────────────────────────┐    │
-│  │  Kontext Mode:                                                       │    │
-│  │  prompt: "[action], [setting], [lighting], [expression], anime"      │    │
-│  │  reference_image: anchor bytes                                       │    │
-│  │  negative_prompt: (not used by Kontext)                              │    │
-│  │                                                                      │    │
-│  │  T2I Mode:                                                           │    │
-│  │  prompt: "[appearance], [action], [setting], [lighting], anime"      │    │
-│  │  negative_prompt: "multiple people, ..." + avatar_kit.negative       │    │
-│  └─────────────────────────────────────────────────────────────────────┘    │
-│                                                                              │
-└─────────────────────────────────────────────────────────────────────────────┘
-```
-
-### Image Generation Call
-
-```
-┌────────────────────────────────────────────────────────────────────────────┐
-│                          IMAGE GENERATION                                   │
-├────────────────────────────────────────────────────────────────────────────┤
-│                                                                             │
-│  KONTEXT MODE (primary):                                                    │
-│  ┌────────────────────────────────────────────────────────────────────┐    │
-│  │  ImageService.edit()                                                │    │
-│  │  ├── model: black-forest-labs/flux-kontext-pro                      │    │
-│  │  ├── prompt: "[action], [setting], [lighting], [expression]"        │    │
-│  │  ├── reference_images: [anchor_bytes]                               │    │
-│  │  └── aspect_ratio: "1:1"                                            │    │
-│  │                                                                      │    │
-│  │  Character consistency: Maintained by reference image                │    │
-│  │  Scenario specificity: From prompt                                   │    │
-│  └────────────────────────────────────────────────────────────────────┘    │
-│                                                                             │
-│  T2I FALLBACK (no anchor):                                                  │
-│  ┌────────────────────────────────────────────────────────────────────┐    │
-│  │  ImageService.generate()                                            │    │
-│  │  ├── model: FLUX.1 schnell or similar                               │    │
-│  │  ├── prompt: "[appearance], [action], [setting], [lighting]"        │    │
-│  │  ├── negative_prompt: "multiple people, twins, ..."                 │    │
-│  │  └── size: 1024x1024                                                │    │
-│  │                                                                      │    │
-│  │  Character consistency: Best-effort via appearance_prompt            │    │
-│  │  Scenario specificity: From prompt                                   │    │
-│  └────────────────────────────────────────────────────────────────────┘    │
-│                                                                             │
-└────────────────────────────────────────────────────────────────────────────┘
-```
-
 ---
 
-## Data Flow Summary
+## Schema Reference
 
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                                                                              │
-│   STUDIO CREATES                     USER INTERACTS                          │
-│   ═══════════════                    ══════════════                          │
-│                                                                              │
-│   World ──▶ Character ──▶ Episode    User selects    Chat with              │
-│                │          Template   Character   ──▶ Character              │
-│                │             │                           │                   │
-│                ▼             │                           │                   │
-│           Avatar Kit         │                           │                   │
-│           (anchor image)     │                           ▼                   │
-│                │             │                    ┌─────────────┐            │
-│                │             └───────────────────▶│  EPISODE    │            │
-│                │                                  │  (session)  │            │
-│                │                                  └──────┬──────┘            │
-│                │                                         │                   │
-│                │                         ┌───────────────┼───────────────┐   │
-│                │                         │               │               │   │
-│                │                         ▼               ▼               ▼   │
-│                │                    Messages      Memories/Hooks    Relationship
-│                │                         │               │          Dynamic  │
-│                │                         │               │               │   │
-│                │                         └───────────────┴───────────────┘   │
-│                │                                         │                   │
-│                │                                         │                   │
-│                │                                         ▼                   │
-│                │                              ┌─────────────────────┐        │
-│                │                              │  PROMPT COMPOSER    │        │
-│                │                              │  (builds prompt     │        │
-│                └─────────────────────────────▶│   from all sources) │        │
-│                  (reference image)            └──────────┬──────────┘        │
-│                                                          │                   │
-│                                                          ▼                   │
-│                                               ┌─────────────────────┐        │
-│                                               │   FLUX KONTEXT      │        │
-│                                               │   (generates scene) │        │
-│                                               └──────────┬──────────┘        │
-│                                                          │                   │
-│                                                          ▼                   │
-│                                               ┌─────────────────────┐        │
-│                                               │    SCENE_IMAGE      │        │
-│                                               │  (shown in chat)    │        │
-│                                               └─────────────────────┘        │
-│                                                                              │
-└─────────────────────────────────────────────────────────────────────────────┘
-```
+### Core Tables
 
----
+| Table | Key Fields | Genre-Aware? |
+|-------|------------|--------------|
+| **worlds** | name, slug, genre, tone, description | Yes |
+| **characters** | name, archetype, genre, system_prompt, personality | Yes |
+| **episode_templates** | title, situation, opening_line, character_id | Inherits from character |
+| **avatar_kits** | appearance_prompt, style_prompt, primary_anchor_id | No (visual only) |
+| **relationships** | user_id, character_id, stage, dynamic | No (runtime) |
+| **episodes** | user_id, character_id, template_id, scene | No (runtime) |
+| **messages** | episode_id, role, content, metadata | No (runtime) |
 
-## Schema Additions Needed
+### Genre Column
 
-### 1. `characters.visual_identity` (JSONB)
+```sql
+-- Characters table
+ALTER TABLE characters ADD COLUMN genre TEXT DEFAULT 'romantic_tension';
+-- Values: 'romantic_tension', 'psychological_thriller'
 
-Structured visual metadata for prompt generation:
-
-```json
-{
-  "gender_tag": "female",      // → "1girl" in T2I mode
-  "body_type": "slender",
-  "age_range": "young_adult",
-  "key_features": ["warm eyes", "beauty mark"]
-}
-```
-
-### 2. `episode_templates.scene_config` (JSONB)
-
-Visual configuration per episode template:
-
-```json
-{
-  "composition": "solo",               // solo | duo | flexible
-  "lighting_preset": "dim_intimate",   // bright | warm | dim_intimate | dramatic
-  "environment_style": "indoor_cafe",  // indoor_cafe | outdoor_park | apartment
-  "time_of_day": "evening",            // morning | afternoon | evening | night
-  "mood_keywords": ["cozy", "intimate"],
-  "negative_additions": []             // episode-specific negatives
-}
+-- Worlds table
+ALTER TABLE worlds ADD COLUMN genre TEXT DEFAULT 'romantic_tension';
 ```
 
 ---
@@ -515,90 +516,69 @@ Visual configuration per episode template:
 
 ### Single Responsibility
 
-| Service | Responsibility |
-|---------|----------------|
-| **ConversationService** | Chat flow orchestration, context building |
-| **MemoryService** | Memory/hook extraction, relationship dynamics |
-| **LLMService** | LLM provider abstraction |
-| **ImageService** | Image generation (T2I and Kontext) |
-| **SceneService** | Scene trigger logic, composition (uses PromptComposer) |
-| **PromptComposerService** | Build prompts from all context layers |
-| **StorageService** | File upload/download |
-| **CreditsService** | Sparks balance and spending |
+| Service | Responsibility | Genre-Aware? |
+|---------|----------------|--------------|
+| **ConversationService** | Chat orchestration, context building | No |
+| **MemoryService** | Memory/hook extraction, relationship dynamics | No |
+| **LLMService** | LLM provider abstraction | No |
+| **ImageService** | Image generation (T2I and Kontext) | No |
+| **SceneService** | Scene trigger logic, prompt composition | No |
+| **StorageService** | File upload/download | No |
+| **CreditsService** | Sparks balance and spending | No |
+| **build_system_prompt()** | Character creation with genre doctrine | **Yes** |
 
-### New Service: PromptComposerService
-
-```python
-class PromptComposerService:
-    """Compose image generation prompts from all context layers."""
-
-    async def compose(
-        self,
-        character_id: UUID,
-        episode_id: UUID,
-        conversation_summary: str,
-    ) -> PromptComposition:
-        """
-        Returns:
-            PromptComposition(
-                mode: "kontext" | "t2i",
-                prompt: str,
-                negative_prompt: str | None,
-                reference_image: bytes | None,
-            )
-        """
-        # 1. Fetch avatar kit → determine mode
-        # 2. Fetch episode scene_config → lighting, environment
-        # 3. Fetch relationship dynamic → tension level
-        # 4. Use LLM to extract action/props/expression from conversation
-        # 5. Compose final prompt based on mode
-```
+The only genre-aware component is `build_system_prompt()` - a production-time function that bakes genre doctrine into character system prompts.
 
 ---
 
-## Current Bug: Duplicate Prompting in Kontext Mode
-
-### The Problem
-
-Current scene generation uses FLUX Kontext correctly (verified by `model_used: black-forest-labs/flux-kontext-pro`), BUT sends prompts that include character appearance:
+## Data Flow Summary
 
 ```
-# CURRENT (WRONG):
-prompt: "Mira with warm attentive eyes meeting viewer's gaze, long wavy brown hair..."
-reference_image: [Mira's anchor image]
-
-# CORRECT:
-prompt: "leaning on café counter, dim after-hours lighting, soft knowing glance..."
-reference_image: [Mira's anchor image]
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                                                                              │
+│   STUDIO (PRODUCTION)                  RUNTIME (CONSUMPTION)                 │
+│   ═══════════════════                  ═════════════════════                 │
+│                                                                              │
+│   Genre Doctrine                       User selects Character                │
+│        │                                        │                            │
+│        ▼                                        ▼                            │
+│   build_system_prompt()                 Chat with Character                  │
+│   (genre-parameterized)                 (genre-agnostic)                     │
+│        │                                        │                            │
+│        ▼                                        ▼                            │
+│   World ──▶ Character                   ┌─────────────┐                      │
+│                │                        │  EPISODE    │                      │
+│                │                        │  (session)  │                      │
+│                ▼                        └──────┬──────┘                      │
+│           Avatar Kit                           │                             │
+│           Episode Templates            ┌───────┼───────┐                     │
+│                │                       │       │       │                     │
+│                │                       ▼       ▼       ▼                     │
+│                │                  Messages  Memories  Relationship           │
+│                │                       │       │       Dynamic               │
+│                │                       └───────┼───────┘                     │
+│                │                               │                             │
+│                │                               ▼                             │
+│                │                    ┌─────────────────────┐                  │
+│                │                    │  PROMPT COMPOSER    │                  │
+│                │                    │  (genre-agnostic)   │                  │
+│                └───────────────────▶│                     │                  │
+│                  (reference image)  └──────────┬──────────┘                  │
+│                                                │                             │
+│                                                ▼                             │
+│                                     ┌─────────────────────┐                  │
+│                                     │   FLUX KONTEXT      │                  │
+│                                     │   (generates scene) │                  │
+│                                     └──────────┬──────────┘                  │
+│                                                │                             │
+│                                                ▼                             │
+│                                     ┌─────────────────────┐                  │
+│                                     │    SCENE_IMAGE      │                  │
+│                                     │  (shown in chat)    │                  │
+│                                     └─────────────────────┘                  │
+│                                                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
 ```
-
-### Why This Causes Issues
-
-1. **Redundant description**: Reference image already defines appearance
-2. **Conflicting signals**: Prompt says "Mira" + reference shows Mira = FLUX may interpret as "two Miras"
-3. **Generic outputs**: When prompt re-describes character, the action/setting becomes secondary
-
-### The Fix
-
-Implement mode-aware prompt generation:
-
-```python
-# In PromptComposerService:
-
-if mode == "kontext":
-    # Prompt describes ONLY the scene/action
-    prompt = f"{action}, {setting}, {lighting}, {expression}, anime style"
-    # Character appearance comes from reference_image
-else:
-    # T2I fallback needs full description
-    prompt = f"{appearance_prompt}, {action}, {setting}, {lighting}, anime style"
-```
-
-### Implementation Priority
-
-1. **Immediate**: Split prompt generation by mode in `routes/scenes.py`
-2. **Short-term**: Create `PromptComposerService` for proper separation
-3. **Medium-term**: Add `visual_identity` and `scene_config` schema for richer prompts
 
 ---
 
@@ -606,6 +586,8 @@ else:
 
 | Area | Key Files |
 |------|-----------|
+| **Genre Config** | `docs/character-philosophy/Genre 01 — Romantic Tension.md`, `Genre 02 — Psychological Thriller.md` |
+| **System Prompt Builder** | `models/character.py` (`build_system_prompt()`) |
 | **Chat** | `services/conversation.py`, `models/message.py` |
 | **Memory** | `services/memory.py` |
 | **LLM** | `services/llm.py` |
