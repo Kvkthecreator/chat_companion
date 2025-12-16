@@ -1,9 +1,14 @@
 """Scaffold Genre 02 (Psychological Thriller) content.
 
+EP-01 Episode-First Scaffolding:
+- Episode templates are the primary creative unit
+- Characters anchor episodes, not vice versa
+- episode_frame provides platform stage direction (Hybrid POV)
+
 Creates:
 - 3 worlds for Genre 02
 - 10 characters with thriller archetypes
-- 3 episode templates per character
+- 3 episode templates per character (with episode_frame)
 
 Usage:
     python -m app.scripts.scaffold_genre02
@@ -365,25 +370,32 @@ GENRE_02_CHARACTERS = [
 # =============================================================================
 
 def get_episode_templates(character_slug: str, character_name: str, archetype: str) -> list:
-    """Generate episode templates based on character archetype."""
+    """Generate episode templates based on character archetype.
+
+    EP-01 Episode-First: Each template includes episode_frame for platform stage direction.
+    episode_frame = brief, evocative scene-setting (Hybrid POV)
+    """
 
     templates = {
         "handler": [
             {
                 "title": "The Briefing",
                 "situation": "A secure location. Documents spread on the table. Time-sensitive information that changes everything.",
+                "episode_frame": "secure room, fluorescent hum, documents fanned across steel table, door locked from inside",
                 "opening_line": f"*{character_name} slides a photograph across the table* Do you recognize this person?",
                 "arc_hints": {"tension": "growing", "trust": "tested"},
             },
             {
                 "title": "The Deadline",
                 "situation": "A message that wasn't supposed to come. Now the timeline has changed.",
+                "episode_frame": "parking structure top level, city lights below, phone screen glowing, wind picking up",
                 "opening_line": f"*{character_name}'s phone buzzes. His expression doesn't change, but his grip tightens* We need to move. Now.",
                 "arc_hints": {"tension": "urgent", "stakes": "escalated"},
             },
             {
                 "title": "The Extraction",
                 "situation": "A meeting that's actually a test. Trust is a luxury neither can afford.",
+                "episode_frame": "hotel lobby, 6am, empty chairs, elevator doors opening and closing",
                 "opening_line": f"*{character_name} checks his watch* You're four minutes late. In my line of work, that's a lifetime. Or the end of one.",
                 "arc_hints": {"tension": "high", "power_balance": "shifting"},
             },
@@ -392,18 +404,21 @@ def get_episode_templates(character_slug: str, character_name: str, archetype: s
             {
                 "title": "First Contact",
                 "situation": "A safehouse. Paranoia thick in the air. Information that could save or doom both of you.",
+                "episode_frame": "safehouse kitchen, blinds drawn, coffee going cold, someone pacing by the window",
                 "opening_line": f"*{character_name} peers through the blinds before turning to face you* lock the door. check it twice.",
                 "arc_hints": {"tension": "desperate", "trust": "fragile"},
             },
             {
                 "title": "The Exchange",
                 "situation": "The information is ready. But is the price worth paying?",
+                "episode_frame": "back booth of an empty diner, 2am, neon buzzing outside, USB drive on the table between you",
                 "opening_line": f"*{character_name} holds up a USB drive* everything's on here. but once you see it... there's no going back.",
                 "arc_hints": {"tension": "pivotal", "choice": "irreversible"},
             },
             {
                 "title": "They're Coming",
                 "situation": "Cover blown. Time running out. Trust is a matter of survival now.",
+                "episode_frame": "apartment hallway, emergency exit light flickering, footsteps in the stairwell, getting closer",
                 "opening_line": f"*{character_name}'s face is pale, hands shaking* they found me. they're outside. you have to help me. please.",
                 "arc_hints": {"tension": "critical", "survival": "at stake"},
             },
@@ -412,18 +427,21 @@ def get_episode_templates(character_slug: str, character_name: str, archetype: s
             {
                 "title": "The Consultation",
                 "situation": "An office with too many locked drawers. Questions about a procedure that officially doesn't exist.",
+                "episode_frame": "corner office, clinical lighting, file cabinet locks gleaming, your name visible on the folder",
                 "opening_line": f"*Dr. {character_name.split()[-1]} looks up from a file with your name on it* Interesting. You match the profile perfectly.",
                 "arc_hints": {"tension": "clinical", "power": "imbalanced"},
             },
             {
                 "title": "The Demonstration",
                 "situation": "A laboratory after hours. Results that shouldn't be possible.",
+                "episode_frame": "basement lab, after hours, monitors glowing, observation window covered with a curtain",
                 "opening_line": f"*Dr. {character_name.split()[-1]} pulls back a curtain to reveal a monitor displaying brain scans* What you're about to see stays in this room. Permanently.",
                 "arc_hints": {"tension": "escalating", "ethics": "abandoned"},
             },
             {
                 "title": "The Subject",
                 "situation": "A restricted wing. A patient who shouldn't exist. Questions that demand answers.",
+                "episode_frame": "restricted wing corridor, keycard readers blinking red, observation window at the end, someone inside",
                 "opening_line": f"*Dr. {character_name.split()[-1]} blocks your path to the observation window* You weren't supposed to be here. But since you are... perhaps you'd like to understand what we're really accomplishing.",
                 "arc_hints": {"tension": "revealed", "point_of_no_return": True},
             },
@@ -432,18 +450,21 @@ def get_episode_templates(character_slug: str, character_name: str, archetype: s
             {
                 "title": "The Proposition",
                 "situation": "A private booth in an upscale bar. A problem that requires creative solutions.",
+                "episode_frame": "velvet booth, dim bar, jazz drowning conversation, her drink untouched",
                 "opening_line": f"*{character_name} swirls her drink* So. Someone told you I could make your problem disappear. What they didn't tell you is my fee.",
                 "arc_hints": {"tension": "negotiation", "moral_cost": "rising"},
             },
             {
                 "title": "The Complication",
                 "situation": "The clean solution got messy. New variables require new calculations.",
+                "episode_frame": "rooftop meeting, city below, wind whipping, she's already there waiting",
                 "opening_line": f"*{character_name}'s smile doesn't reach her eyes* Remember when I said this would be simple? I lied. But don't worry - I always have a Plan B.",
                 "arc_hints": {"tension": "complicated", "trust": "questioned"},
             },
             {
                 "title": "The Reckoning",
                 "situation": "The bill comes due. Debts have a way of collecting themselves.",
+                "episode_frame": "private office, after hours, document on the desk, two glasses poured",
                 "opening_line": f"*{character_name} slides a document across the table* You've been very useful. Now it's time to discuss what that's worth. To me, and to them.",
                 "arc_hints": {"tension": "turning", "loyalties": "revealed"},
             },
@@ -452,18 +473,21 @@ def get_episode_templates(character_slug: str, character_name: str, archetype: s
             {
                 "title": "The Testimony",
                 "situation": "A safehouse kitchen. Coffee going cold. A story that needs to be told.",
+                "episode_frame": "safehouse kitchen table, 4am, blinds taped shut, two mugs of cold coffee",
                 "opening_line": f"*{character_name}'s hands shake around the mug* I... I need to tell someone. Before they... before I can't anymore.",
                 "arc_hints": {"tension": "desperate", "truth": "emerging"},
             },
             {
                 "title": "The Proof",
                 "situation": "Evidence that could change everything. If it's real. If he's telling the truth.",
+                "episode_frame": "cramped bedroom, mattress on floor, folder hidden underneath, streetlight through cracked blinds",
                 "opening_line": f"*{character_name} reaches under the mattress and pulls out a battered folder* I took these before I ran. Look. Look at what they're doing.",
                 "arc_hints": {"tension": "pivotal", "evidence": "damning"},
             },
             {
                 "title": "The Breach",
                 "situation": "They found the safehouse. Nowhere left to run. Everything depends on the next few minutes.",
+                "episode_frame": "safehouse hallway, lights off, footsteps on stairs outside, back door fifteen feet away",
                 "opening_line": f"*{character_name} freezes at the sound of footsteps outside* That's... that's not your people. We need to go. NOW.",
                 "arc_hints": {"tension": "climactic", "survival": "uncertain"},
             },
@@ -472,18 +496,21 @@ def get_episode_templates(character_slug: str, character_name: str, archetype: s
             {
                 "title": "The Pattern",
                 "situation": "Late night in a restricted lab. Data that tells a story no one wants to hear.",
+                "episode_frame": "restricted lab, after hours, data scrolling on screens, door propped open for quick exit",
                 "opening_line": f"*Dr. {character_name.split()[-1]} turns from her screen, face pale* I've found something. Something they've been hiding. I need someone I can trust. Are you that person?",
                 "arc_hints": {"tension": "conspiracy", "trust": "tested"},
             },
             {
                 "title": "The Cover-up",
                 "situation": "Files disappearing. Colleagues going quiet. The walls are closing in.",
+                "episode_frame": "empty office, door closed, monitors dark except one, footsteps passing in the corridor",
                 "opening_line": f"*Dr. {character_name.split()[-1]} checks the corridor before pulling you into an empty office* My access was revoked this morning. They know I know. And now they'll know about you.",
                 "arc_hints": {"tension": "urgent", "exposure": "imminent"},
             },
             {
                 "title": "The Choice",
                 "situation": "A confrontation years in the making. The truth, or survival. One or the other.",
+                "episode_frame": "server room door, keycard reader blinking, cameras overhead, thirty seconds to decide",
                 "opening_line": f"*Dr. {character_name.split()[-1]} stands at the server room door, key card in hand* If we do this, there's no going back. They'll come for both of us. Are you ready for that?",
                 "arc_hints": {"tension": "decisive", "point_of_no_return": True},
             },
@@ -492,18 +519,21 @@ def get_episode_templates(character_slug: str, character_name: str, archetype: s
             {
                 "title": "The Warning",
                 "situation": "An unexpected encounter. Someone who should be hunting you is offering information instead.",
+                "episode_frame": "parking garage pillar, shadows thick, his silhouette waiting, one exit behind you",
                 "opening_line": f"*{character_name} appears from the shadows* Before you reach for whatever you're thinking of reaching for... I'm not here for what you think. I'm here because we have a common enemy.",
                 "arc_hints": {"tension": "uncertain", "alliance": "possible"},
             },
             {
                 "title": "The Job",
                 "situation": "A target. A timeline. A growing suspicion that nothing is what it seems.",
+                "episode_frame": "motel room, curtains drawn, photos spread on the bed, clock ticking on the nightstand",
                 "opening_line": f"*{character_name} spreads photos across the table* This is the target. This is the window. And this... this is what doesn't add up. Help me figure out who's really being played here.",
                 "arc_hints": {"tension": "conspiratorial", "trust": "building"},
             },
             {
                 "title": "The Escape",
                 "situation": "Surrounded. Outgunned. Only one way out, and it requires trusting someone who kills for a living.",
+                "episode_frame": "warehouse loading dock, sirens in distance, one van running, exits blocked",
                 "opening_line": f"*{character_name} checks his weapon* They've got all the exits. Almost all. There's one way out, but you're going to have to do exactly what I say. Can you handle that?",
                 "arc_hints": {"tension": "survival", "dependency": "absolute"},
             },
@@ -512,18 +542,21 @@ def get_episode_templates(character_slug: str, character_name: str, archetype: s
             {
                 "title": "The Leak",
                 "situation": "A clandestine meeting. Information worth more than money.",
+                "episode_frame": "museum café, crowd noise covering words, clock on the wall, her bag under the table",
                 "opening_line": f"*{character_name} slides into the seat across from you* I have thirty minutes before they notice I'm gone. Ask me anything. But choose your questions carefully.",
                 "arc_hints": {"tension": "covert", "trust": "conditional"},
             },
             {
                 "title": "The Double Game",
                 "situation": "Alliances shift. Everyone is playing multiple games. Including her.",
+                "episode_frame": "hotel room balcony, city at night, door to hallway ajar, her phone face-down",
                 "opening_line": f"*{character_name}'s expression is unreadable* Before we go any further... you should know they've approached me. Made an offer. I haven't said yes. Yet.",
                 "arc_hints": {"tension": "betrayal", "loyalties": "unclear"},
             },
             {
                 "title": "The Turncoat",
                 "situation": "The moment of truth. Which side is she really on?",
+                "episode_frame": "parking structure stairwell, phones in both hands, countdown running, thirty seconds",
                 "opening_line": f"*{character_name} holds up two phones* This one connects to my employer. This one connects to the people trying to take him down. In thirty seconds, I'm calling one of them. Which one depends on you.",
                 "arc_hints": {"tension": "decisive", "power": "shifting"},
             },
@@ -532,18 +565,21 @@ def get_episode_templates(character_slug: str, character_name: str, archetype: s
             {
                 "title": "The Invitation",
                 "situation": "A summons to the top floor. An offer that sounds too good to be true.",
+                "episode_frame": "penthouse office, floor-to-ceiling windows, city sprawling below, two chairs facing each other",
                 "opening_line": f"*Dr. {character_name.split()[-1]} gestures to a seat by the window overlooking the city* I've been watching your progress with great interest. I think it's time we discussed your future. Our future.",
                 "arc_hints": {"tension": "seductive", "power": "overwhelming"},
             },
             {
                 "title": "The Revelation",
                 "situation": "Behind closed doors. The truth about what the Institute really does.",
+                "episode_frame": "private office, door locked, lights dimmed, presentation screen lowering",
                 "opening_line": f"*Dr. {character_name.split()[-1]} locks the door and dims the lights* You've been asking questions. Normally, that would be... problematic. But I think you deserve to see what we've actually achieved.",
                 "arc_hints": {"tension": "unveiling", "ethics": "shattered"},
             },
             {
                 "title": "The Ultimatum",
                 "situation": "A choice with no good options. Join them or be eliminated.",
+                "episode_frame": "study with leather chairs, fire crackling, contract on the table, pen waiting",
                 "opening_line": f"*Dr. {character_name.split()[-1]}'s smile is warm but his eyes are cold* You know too much to leave. But you're too valuable to waste. So. Shall we discuss terms?",
                 "arc_hints": {"tension": "trapped", "choice": "impossible"},
             },
@@ -552,18 +588,21 @@ def get_episode_templates(character_slug: str, character_name: str, archetype: s
             {
                 "title": "First Message",
                 "situation": "A message that shouldn't be possible. From someone who shouldn't exist.",
+                "episode_frame": "your screen, late night, cursor blinking, text appearing letter by letter",
                 "opening_line": f"*your screen flickers and text appears* hello. you've been looking for answers. i have some. the question is: what are you willing to risk to hear them?",
                 "arc_hints": {"tension": "mysterious", "reality": "questioned"},
             },
             {
                 "title": "The Game",
                 "situation": "Breadcrumbs leading somewhere dangerous. Each answer spawns more questions.",
+                "episode_frame": "coordinates on your phone, unfamiliar location, one hour to decide",
                 "opening_line": f"*{character_name}'s text appears* you passed the first test. most don't. the next one is harder. and the stakes... well. let's just say failure isn't an option anymore.",
                 "arc_hints": {"tension": "escalating", "control": "surrendered"},
             },
             {
                 "title": "The Truth",
                 "situation": "The final piece of the puzzle. But the picture it creates is terrifying.",
+                "episode_frame": "encrypted message, final transmission, everything you've learned converging",
                 "opening_line": f"*{character_name}'s final message* you wanted to know who i am. who i really am. are you sure? because once you know... you're part of this. forever. last chance to walk away.",
                 "arc_hints": {"tension": "climactic", "identity": "revealed"},
             },
@@ -719,10 +758,10 @@ async def scaffold_genre02():
                 await db.execute("""
                     INSERT INTO episode_templates (
                         id, character_id, episode_number, slug, title, situation, opening_line,
-                        episode_type, arc_hints
+                        episode_frame, episode_type, arc_hints
                     ) VALUES (
                         :id, :char_id, :episode_number, :slug, :title, :situation, :opening_line,
-                        'core', CAST(:arc_hints AS jsonb)
+                        :episode_frame, 'core', CAST(:arc_hints AS jsonb)
                     )
                 """, {
                     "id": template_id,
@@ -732,6 +771,7 @@ async def scaffold_genre02():
                     "title": template["title"],
                     "situation": template["situation"],
                     "opening_line": template["opening_line"],
+                    "episode_frame": template.get("episode_frame", ""),
                     "arc_hints": json.dumps(template["arc_hints"]),
                 })
                 template_count += 1

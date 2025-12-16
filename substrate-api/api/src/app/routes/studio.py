@@ -1109,6 +1109,378 @@ Stay in character. Be {archetype} in your responses.
 
 
 # =============================================================================
+# Episode Template CRUD (EP-01 Episode-First Pivot)
+# =============================================================================
+
+class EpisodeTemplateCreateInput(BaseModel):
+    """Input for creating an episode template."""
+    character_id: UUID
+    title: str = Field(..., min_length=1, max_length=100)
+    situation: str = Field(..., min_length=10, max_length=1000)
+    episode_frame: Optional[str] = Field(None, max_length=500, description="Platform stage direction")
+    opening_line: str = Field(..., min_length=5, max_length=500)
+    episode_type: str = Field(default="core", pattern="^(entry|core|expansion|special)$")
+    is_default: bool = Field(default=False)
+    starter_prompts: Optional[List[str]] = None
+    background_image_url: Optional[str] = None
+    arc_hints: Optional[Dict[str, Any]] = None
+
+
+class EpisodeTemplateUpdateInput(BaseModel):
+    """Input for updating an episode template."""
+    title: Optional[str] = Field(None, max_length=100)
+    situation: Optional[str] = Field(None, max_length=1000)
+    episode_frame: Optional[str] = Field(None, max_length=500)
+    opening_line: Optional[str] = Field(None, max_length=500)
+    episode_type: Optional[str] = Field(None, pattern="^(entry|core|expansion|special)$")
+    is_default: Optional[bool] = None
+    starter_prompts: Optional[List[str]] = None
+    background_image_url: Optional[str] = None
+    arc_hints: Optional[Dict[str, Any]] = None
+    status: Optional[str] = Field(None, pattern="^(draft|active)$")
+
+
+class EpisodeTemplateResponse(BaseModel):
+    """Response model for episode template."""
+    id: str
+    character_id: str
+    episode_number: int
+    title: str
+    slug: str
+    situation: str
+    episode_frame: Optional[str] = None
+    opening_line: str
+    episode_type: str
+    is_default: bool
+    background_image_url: Optional[str] = None
+    starter_prompts: List[str] = Field(default_factory=list)
+    status: str
+    created_at: str
+    updated_at: Optional[str] = None
+
+
+@router.post("/episode-templates", response_model=EpisodeTemplateResponse, status_code=status.HTTP_201_CREATED)
+async def create_episode_template(
+    data: EpisodeTemplateCreateInput,
+    user_id: UUID = Depends(get_current_user_id),
+    db=Depends(get_db),
+):
+    """Create a new episode template.
+
+    EP-01 Episode-First: This is the primary creative workflow.
+    Episode templates define the situation, frame, and opening line.
+    """
+    # Verify character ownership
+    character = await db.fetch_one(
+        "SELECT id, slug, name FROM characters WHERE id = :id AND created_by = :user_id",
+        {"id": str(data.character_id), "user_id": str(user_id)}
+    )
+
+    if not character:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Character not found or not owned by you",
+        )
+
+    # Get next episode number for this character
+    max_ep = await db.fetch_one(
+        "SELECT COALESCE(MAX(episode_number), -1) as max_num FROM episode_templates WHERE character_id = :char_id",
+        {"char_id": str(data.character_id)}
+    )
+    episode_number = (max_ep["max_num"] or -1) + 1
+
+    # Generate slug
+    title_slug = data.title.lower().replace(" ", "-").replace("'", "")
+    slug = f"{character['slug']}-{title_slug}"
+
+    # If setting as default, unset other defaults
+    if data.is_default:
+        await db.execute(
+            "UPDATE episode_templates SET is_default = FALSE WHERE character_id = :char_id",
+            {"char_id": str(data.character_id)}
+        )
+
+    # Insert episode template
+    query = """
+        INSERT INTO episode_templates (
+            character_id, episode_number, title, slug,
+            situation, episode_frame, opening_line,
+            episode_type, is_default, starter_prompts,
+            background_image_url, arc_hints, sort_order, status
+        ) VALUES (
+            :character_id, :episode_number, :title, :slug,
+            :situation, :episode_frame, :opening_line,
+            :episode_type, :is_default, :starter_prompts,
+            :background_image_url, CAST(:arc_hints AS jsonb), :sort_order, 'draft'
+        )
+        RETURNING *
+    """
+
+    row = await db.fetch_one(query, {
+        "character_id": str(data.character_id),
+        "episode_number": episode_number,
+        "title": data.title,
+        "slug": slug,
+        "situation": data.situation,
+        "episode_frame": data.episode_frame or "",
+        "opening_line": data.opening_line,
+        "episode_type": data.episode_type,
+        "is_default": data.is_default,
+        "starter_prompts": data.starter_prompts or [],
+        "background_image_url": data.background_image_url,
+        "arc_hints": json.dumps(data.arc_hints or {}),
+        "sort_order": episode_number,
+    })
+
+    row_dict = dict(row)
+    return EpisodeTemplateResponse(
+        id=str(row_dict["id"]),
+        character_id=str(row_dict["character_id"]),
+        episode_number=row_dict["episode_number"],
+        title=row_dict["title"],
+        slug=row_dict["slug"],
+        situation=row_dict["situation"],
+        episode_frame=row_dict.get("episode_frame"),
+        opening_line=row_dict["opening_line"],
+        episode_type=row_dict["episode_type"],
+        is_default=row_dict["is_default"],
+        background_image_url=row_dict.get("background_image_url"),
+        starter_prompts=row_dict.get("starter_prompts") or [],
+        status=row_dict["status"],
+        created_at=str(row_dict["created_at"]),
+        updated_at=str(row_dict["updated_at"]) if row_dict.get("updated_at") else None,
+    )
+
+
+@router.get("/characters/{character_id}/episode-templates", response_model=List[EpisodeTemplateResponse])
+async def list_character_episode_templates(
+    character_id: UUID,
+    user_id: UUID = Depends(get_current_user_id),
+    db=Depends(get_db),
+):
+    """List all episode templates for a character.
+
+    Returns templates ordered by episode_number.
+    """
+    # Verify character ownership
+    character = await db.fetch_one(
+        "SELECT id FROM characters WHERE id = :id AND created_by = :user_id",
+        {"id": str(character_id), "user_id": str(user_id)}
+    )
+
+    if not character:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Character not found or not owned by you",
+        )
+
+    rows = await db.fetch_all(
+        """SELECT * FROM episode_templates
+           WHERE character_id = :char_id
+           ORDER BY episode_number""",
+        {"char_id": str(character_id)}
+    )
+
+    return [
+        EpisodeTemplateResponse(
+            id=str(row["id"]),
+            character_id=str(row["character_id"]),
+            episode_number=row["episode_number"],
+            title=row["title"],
+            slug=row["slug"],
+            situation=row["situation"],
+            episode_frame=row.get("episode_frame"),
+            opening_line=row["opening_line"],
+            episode_type=row["episode_type"],
+            is_default=row["is_default"],
+            background_image_url=row.get("background_image_url"),
+            starter_prompts=row.get("starter_prompts") or [],
+            status=row["status"],
+            created_at=str(row["created_at"]),
+            updated_at=str(row["updated_at"]) if row.get("updated_at") else None,
+        )
+        for row in rows
+    ]
+
+
+@router.get("/episode-templates/{template_id}", response_model=EpisodeTemplateResponse)
+async def get_episode_template(
+    template_id: UUID,
+    user_id: UUID = Depends(get_current_user_id),
+    db=Depends(get_db),
+):
+    """Get a single episode template."""
+    row = await db.fetch_one(
+        """SELECT et.* FROM episode_templates et
+           JOIN characters c ON c.id = et.character_id
+           WHERE et.id = :id AND c.created_by = :user_id""",
+        {"id": str(template_id), "user_id": str(user_id)}
+    )
+
+    if not row:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Episode template not found or not owned by you",
+        )
+
+    return EpisodeTemplateResponse(
+        id=str(row["id"]),
+        character_id=str(row["character_id"]),
+        episode_number=row["episode_number"],
+        title=row["title"],
+        slug=row["slug"],
+        situation=row["situation"],
+        episode_frame=row.get("episode_frame"),
+        opening_line=row["opening_line"],
+        episode_type=row["episode_type"],
+        is_default=row["is_default"],
+        background_image_url=row.get("background_image_url"),
+        starter_prompts=row.get("starter_prompts") or [],
+        status=row["status"],
+        created_at=str(row["created_at"]),
+        updated_at=str(row["updated_at"]) if row.get("updated_at") else None,
+    )
+
+
+@router.patch("/episode-templates/{template_id}", response_model=EpisodeTemplateResponse)
+async def update_episode_template(
+    template_id: UUID,
+    data: EpisodeTemplateUpdateInput,
+    user_id: UUID = Depends(get_current_user_id),
+    db=Depends(get_db),
+):
+    """Update an episode template."""
+    # Verify ownership
+    existing = await db.fetch_one(
+        """SELECT et.* FROM episode_templates et
+           JOIN characters c ON c.id = et.character_id
+           WHERE et.id = :id AND c.created_by = :user_id""",
+        {"id": str(template_id), "user_id": str(user_id)}
+    )
+
+    if not existing:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Episode template not found or not owned by you",
+        )
+
+    # Build update query
+    updates = []
+    values = {"id": str(template_id)}
+    update_data = data.model_dump(exclude_unset=True)
+
+    for field, value in update_data.items():
+        if value is not None:
+            if field == "arc_hints":
+                updates.append(f"{field} = CAST(:{field} AS jsonb)")
+                values[field] = json.dumps(value)
+            elif field == "starter_prompts":
+                updates.append(f"{field} = :{field}")
+                values[field] = value
+            else:
+                updates.append(f"{field} = :{field}")
+                values[field] = value
+
+    # Handle is_default special case
+    if update_data.get("is_default"):
+        await db.execute(
+            "UPDATE episode_templates SET is_default = FALSE WHERE character_id = :char_id AND id != :id",
+            {"char_id": str(existing["character_id"]), "id": str(template_id)}
+        )
+
+    if not updates:
+        # No changes
+        return EpisodeTemplateResponse(
+            id=str(existing["id"]),
+            character_id=str(existing["character_id"]),
+            episode_number=existing["episode_number"],
+            title=existing["title"],
+            slug=existing["slug"],
+            situation=existing["situation"],
+            episode_frame=existing.get("episode_frame"),
+            opening_line=existing["opening_line"],
+            episode_type=existing["episode_type"],
+            is_default=existing["is_default"],
+            background_image_url=existing.get("background_image_url"),
+            starter_prompts=existing.get("starter_prompts") or [],
+            status=existing["status"],
+            created_at=str(existing["created_at"]),
+            updated_at=str(existing["updated_at"]) if existing.get("updated_at") else None,
+        )
+
+    updates.append("updated_at = NOW()")
+
+    query = f"""
+        UPDATE episode_templates
+        SET {", ".join(updates)}
+        WHERE id = :id
+        RETURNING *
+    """
+
+    row = await db.fetch_one(query, values)
+
+    return EpisodeTemplateResponse(
+        id=str(row["id"]),
+        character_id=str(row["character_id"]),
+        episode_number=row["episode_number"],
+        title=row["title"],
+        slug=row["slug"],
+        situation=row["situation"],
+        episode_frame=row.get("episode_frame"),
+        opening_line=row["opening_line"],
+        episode_type=row["episode_type"],
+        is_default=row["is_default"],
+        background_image_url=row.get("background_image_url"),
+        starter_prompts=row.get("starter_prompts") or [],
+        status=row["status"],
+        created_at=str(row["created_at"]),
+        updated_at=str(row["updated_at"]) if row.get("updated_at") else None,
+    )
+
+
+@router.delete("/episode-templates/{template_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_episode_template(
+    template_id: UUID,
+    user_id: UUID = Depends(get_current_user_id),
+    db=Depends(get_db),
+):
+    """Delete an episode template.
+
+    Cannot delete if it's the only template for a character.
+    """
+    # Verify ownership and get character_id
+    existing = await db.fetch_one(
+        """SELECT et.id, et.character_id FROM episode_templates et
+           JOIN characters c ON c.id = et.character_id
+           WHERE et.id = :id AND c.created_by = :user_id""",
+        {"id": str(template_id), "user_id": str(user_id)}
+    )
+
+    if not existing:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Episode template not found or not owned by you",
+        )
+
+    # Check if it's the only template
+    count = await db.fetch_one(
+        "SELECT COUNT(*) as cnt FROM episode_templates WHERE character_id = :char_id",
+        {"char_id": str(existing["character_id"])}
+    )
+
+    if count["cnt"] <= 1:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Cannot delete the only episode template for a character",
+        )
+
+    await db.execute(
+        "DELETE FROM episode_templates WHERE id = :id",
+        {"id": str(template_id)}
+    )
+
+
+# =============================================================================
 # Episode Background Generation
 # =============================================================================
 

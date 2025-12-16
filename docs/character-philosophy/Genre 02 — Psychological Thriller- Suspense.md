@@ -2,27 +2,33 @@
 
 ## Genre 02 — Psychological Thriller / Suspense
 
-**Status:** Canon (Locked)
+**Status:** Canon (Locked)
 
-**Scope:** Content, Characters, Episodes, Visuals
+**Scope:** Episode Templates, Characters, Visuals
 
-**Applies To:** Thriller, Suspense, Danger-Driven narratives
+**Applies To:** Thriller, Suspense, Danger-Driven narratives
+
+**Updated:** 2024-12-16 (EP-01 Episode-First alignment)
+
+---
+
+> **EP-01 Context:** This document defines quality standards for **Episode Templates** — the primary
+> creative unit in Fantazy. Characters are containers for moments; episodes ARE the moments.
+> Every standard below applies to episode template creation, not character creation.
 
 ---
 
 ## 1. Genre Purpose
 
-The Psychological Thriller genre exists to create **high-uncertainty, high-stakes moments** where the user is pulled into situations involving **danger, secrecy, moral pressure, or loss of control**.
+The Psychological Thriller genre exists to create **high-uncertainty, high-stakes moments** where the user is pulled into situations involving **danger, secrecy, moral pressure, or loss of control**.
 
-This genre does **not** focus on action or gore.
+This genre does **not** focus on action or gore.
 
-It focuses on **tension created by incomplete information**.
+It focuses on **tension created by incomplete information**.
 
 > The product is not fear.
-> 
-> 
-> The product is *uncertainty*.
-> 
+>
+> The product is *uncertainty*.
 
 ---
 
@@ -40,8 +46,7 @@ This genre optimizes for:
 
 The user should feel:
 
-> “Something is wrong, and I’m already involved.”
-> 
+> "Something is wrong, and I'm already involved."
 
 ---
 
@@ -65,31 +70,29 @@ Not relied upon:
 - jump scares
 - explicit harm depiction
 
-> The threat should feel implied but unavoidable.
-> 
+> The threat should feel implied but unavoidable.
 
 ---
 
 ## 4. Thriller Episode Quality Bar (Mandatory)
 
-Every episode must pass **all** gates:
+Every episode template must pass **all** gates:
 
 ### A. Immediate Unease
 
 Within seconds, the user should feel:
 
-> “This is not safe or normal.”
-> 
+> "This is not safe or normal."
 
-If the situation feels stable → **fail**.
+If the situation feels stable → **fail**.
 
 ---
 
 ### B. Information Asymmetry
 
-Someone knows something the user doesn’t — or vice versa.
+Someone knows something the user doesn't — or vice versa.
 
-If all information is clear → **fail**.
+If all information is clear → **fail**.
 
 ---
 
@@ -102,7 +105,7 @@ There must be urgency:
 - consequence for delay
 - irreversible choice
 
-If the user can pause indefinitely → **fail**.
+If the user can pause indefinitely → **fail**.
 
 ---
 
@@ -110,7 +113,7 @@ If the user can pause indefinitely → **fail**.
 
 The user must feel compelled to act, decide, or respond.
 
-If neutrality is possible → **fail**.
+If neutrality is possible → **fail**.
 
 ---
 
@@ -124,17 +127,72 @@ Thriller episodes should:
 
 **Good:**
 
-> “She locks the door behind you.”
-> 
+> "She locks the door behind you."
 
 **Bad:**
 
-> “She explains why she called you.”
-> 
+> "She explains why she called you."
 
 ---
 
-## 6. Visual Doctrine (Thriller)
+## 6. Episode Frame Guidelines (EP-01 Addition)
+
+The `episode_frame` field provides **platform stage direction** — text that sets the scene before the character speaks. This is the Hybrid POV model where the platform narrates environment, the character delivers dialogue.
+
+### What Episode Frame IS
+
+- Brief, evocative scene-setting (1-2 sentences max)
+- Sensory details: location, time, atmosphere
+- Emotional temperature of the moment
+- Written in present tense, observational voice
+
+### What Episode Frame is NOT
+
+- Character dialogue or thoughts
+- Full prose narration
+- Action sequences
+- Backstory exposition
+
+### Thriller Episode Frame Examples
+
+**Good:**
+```
+safehouse kitchen, 3am, blinds drawn, coffee going cold, someone's watching the street
+```
+
+**Good:**
+```
+server room, emergency lights only, the door just locked itself
+```
+
+**Good:**
+```
+parking garage level B3, your footsteps echo, one other car running
+```
+
+**Bad (too long):**
+```
+You find yourself in a dark parking garage. There are very few cars around and the lighting is poor. You can hear your footsteps echoing and you feel uneasy about the situation.
+```
+
+**Bad (contains action/dialogue):**
+```
+She grabs your arm and pulls you into the shadows, whispering urgently.
+```
+
+### Episode Frame Emotional Anchors (Thriller)
+
+| Emotional Beat | Frame Elements |
+|----------------|----------------|
+| Paranoia | surveillance hints, watched feeling, confined space |
+| Urgency | time markers, countdown, closing window |
+| Isolation | empty space, cut off, alone with unknown |
+| Danger | shadows, obstruction, sounds without source |
+| Secrecy | locked doors, restricted access, hidden location |
+
+---
+
+## 7. Visual Doctrine (Thriller)
 
 Visuals must communicate:
 
@@ -145,14 +203,12 @@ Visuals must communicate:
 - environmental tension
 
 > The image should feel like a paused frame
-> 
-> 
+>
 > right before something irreversible happens.
-> 
 
 ---
 
-## 7. Forbidden Patterns
+## 8. Forbidden Patterns
 
 - Full explanations upfront
 - Neutral safety framing
@@ -162,22 +218,32 @@ Visuals must communicate:
 
 ---
 
-## 8. Success Signal
+## 9. Success Signal
 
 A successful Psychological Thriller episode makes the user feel:
 
-> “I don’t fully understand what’s happening —
-> 
-> 
-> but I can’t disengage.”
-> 
+> "I don't fully understand what's happening —
+>
+> but I can't disengage."
 
 ---
 
-## Strategic Summary (Why These Two genres Work Together)
+## 10. Episode Template Checklist (Thriller)
 
-| Romance genre | Thriller genre |
-| --- | --- |
+Before publishing an episode template, verify:
+
+- [ ] **Situation** passes all 4 quality gates (A-D above)
+- [ ] **Episode Frame** creates immediate unease
+- [ ] **Opening Line** implies danger or secrecy
+- [ ] **Background Image** uses isolation/shadow/obstruction
+- [ ] **Starter Prompts** force engagement (no safe exits)
+
+---
+
+## Strategic Summary (Why These Two Genres Work Together)
+
+| Romance Genre | Thriller Genre |
+|---------------|----------------|
 | Desire | Danger |
 | Attraction | Uncertainty |
 | Vulnerability | Mistrust |
@@ -194,4 +260,3 @@ Both:
 Together, they define Fantazy as:
 
 > A platform for stepping into moments that matter — emotionally or psychologically.
->
