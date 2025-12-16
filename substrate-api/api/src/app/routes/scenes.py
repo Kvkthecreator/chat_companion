@@ -1,4 +1,5 @@
 """Scene generation API routes."""
+import json
 import logging
 import uuid
 from typing import List, Optional
@@ -26,23 +27,45 @@ log = logging.getLogger(__name__)
 router = APIRouter(prefix="/scenes", tags=["Scenes"])
 
 
-# Scene prompt template - will be enhanced with avatar kit data in Phase 3
-SCENE_PROMPT_TEMPLATE = """Create an image generation prompt for this moment.
+# Scene prompt template - Genre 01 Visual Doctrine aligned
+SCENE_PROMPT_TEMPLATE = """Create an image generation prompt for this romantic tension moment.
 
-Context:
-- Character: {character_name}
+CHARACTER:
+- Name: {character_name}
 - Appearance: {appearance_prompt}
+
+EMOTIONAL CONTEXT:
 - Setting: {scene}
-- Conversation: {conversation_summary}
+- Relationship stage: {relationship_stage}
+- Current mood: {emotional_tone}
+- Tension level: {tension_level}/100
 
-Write a concise image prompt (50-80 words) that:
-- Describes ONE person matching the appearance description
-- Focuses on mood, lighting, and atmosphere
-- Uses comma-separated descriptive tags
+RECENT CONVERSATION (use to capture the current moment):
+{conversation_summary}
 
-Format: "[character description], [action/pose], [setting], [lighting], [mood], anime style, detailed background"
+═══════════════════════════════════════════════════════════════
+GENRE 01 VISUAL DOCTRINE
+═══════════════════════════════════════════════════════════════
 
-Example output: "young woman with long dark hair, sitting by window holding tea cup, cozy cafe interior, golden hour sunlight streaming through glass, peaceful contemplative mood, anime style, detailed background, soft colors"
+The image must communicate DESIRE, PROXIMITY, and ANTICIPATION.
+It should feel like "a still frame taken one second before something happens."
+
+TENSION LEVEL GUIDE:
+- Low tension (0-30): Curious glances, subtle interest, uncertain distance
+- Medium tension (30-60): Lingering looks, open body language, charged air
+- High tension (60-80): Intense gaze, physical closeness, palpable desire
+- Peak tension (80-100): Eye contact, breath-close proximity, breaking point
+
+CAPTURE IN THE IMAGE:
+1. GAZE: Where are they looking? At viewer, away with awareness, over shoulder?
+2. POSTURE: Body language that matches the emotional tone
+3. PROXIMITY: Implied closeness to the viewer
+4. LIGHTING: Mood-appropriate (warm, dramatic, soft, intense)
+5. THE MOMENT: What just happened or is about to happen?
+
+Write a concise prompt (50-80 words) that captures this specific emotional moment.
+
+Format: "[character with gaze], [pose reflecting mood], [setting detail], [dramatic lighting], [tension mood], anime style, cinematic composition"
 
 Your prompt:"""
 
@@ -80,7 +103,7 @@ async def generate_scene(
             },
         )
 
-    # Verify episode ownership and get character + avatar kit info
+    # Verify episode ownership and get character + avatar kit info + relationship context
     episode_query = """
         SELECT
             e.id, e.title, e.scene,
@@ -90,10 +113,13 @@ async def generate_scene(
             ak.appearance_prompt,
             ak.style_prompt,
             ak.negative_prompt,
-            ak.primary_anchor_id
+            ak.primary_anchor_id,
+            r.stage as relationship_stage,
+            r.dynamic as relationship_dynamic
         FROM episodes e
         JOIN characters c ON c.id = e.character_id
         LEFT JOIN avatar_kits ak ON ak.id = c.active_avatar_kit_id AND ak.status = 'active'
+        LEFT JOIN relationships r ON r.character_id = c.id AND r.user_id = e.user_id
         WHERE e.id = :episode_id AND e.user_id = :user_id
     """
     episode = await db.fetch_one(
@@ -106,6 +132,20 @@ async def generate_scene(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Episode not found",
         )
+
+    # Extract relationship context for emotional grounding
+    relationship_stage = episode["relationship_stage"] or "acquaintance"
+    relationship_dynamic = episode["relationship_dynamic"]
+    if isinstance(relationship_dynamic, str):
+        try:
+            relationship_dynamic = json.loads(relationship_dynamic)
+        except:
+            relationship_dynamic = {}
+    elif relationship_dynamic is None:
+        relationship_dynamic = {}
+
+    emotional_tone = relationship_dynamic.get("tone", "intrigued")
+    tension_level = relationship_dynamic.get("tension_level", 45)
 
     # Get conversation summary for context (last few messages)
     messages_query = """
@@ -130,12 +170,15 @@ async def generate_scene(
     # Generate prompt if not provided
     prompt = data.prompt
     if not prompt:
-        # Use LLM to generate scene prompt
+        # Use LLM to generate scene prompt with full emotional context
         llm = LLMService.get_instance()
         prompt_request = SCENE_PROMPT_TEMPLATE.format(
             character_name=episode["character_name"],
             appearance_prompt=appearance_prompt,
             scene=episode["scene"] or "A cozy setting",
+            relationship_stage=relationship_stage,
+            emotional_tone=emotional_tone,
+            tension_level=tension_level,
             conversation_summary=conversation_summary,
         )
 
