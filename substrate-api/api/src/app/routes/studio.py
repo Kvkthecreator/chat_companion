@@ -136,7 +136,7 @@ async def list_my_characters(
         values["status"] = status_filter
 
     query = f"""
-        SELECT id, name, slug, archetype, avatar_url, short_backstory, is_premium
+        SELECT id, name, slug, archetype, avatar_url, short_backstory, is_premium, genre
         FROM characters
         WHERE {" AND ".join(conditions)}
         ORDER BY created_at DESC

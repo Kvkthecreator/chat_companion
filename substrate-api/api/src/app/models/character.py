@@ -50,6 +50,7 @@ class CharacterSummary(BaseModel):
     avatar_url: Optional[str] = None
     short_backstory: Optional[str] = None
     is_premium: bool = False
+    genre: str = "romantic_tension"
 
 
 class AvatarGalleryItem(BaseModel):
@@ -110,6 +111,7 @@ class Character(BaseModel):
     slug: str
     archetype: str
     world_id: Optional[UUID] = None
+    genre: str = "romantic_tension"
     avatar_url: Optional[str] = None
 
     # Personality

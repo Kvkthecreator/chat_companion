@@ -368,7 +368,7 @@ export default function CharacterDetailPage() {
               </span>
             </div>
             <p className="text-sm text-muted-foreground capitalize">
-              {character.archetype} &middot; {character.content_rating.toUpperCase()}
+              {character.archetype} &middot; {character.genre?.replace('_', ' ') || 'romantic tension'} &middot; {character.content_rating.toUpperCase()}
             </p>
           </div>
         </div>
@@ -431,6 +431,10 @@ export default function CharacterDetailPage() {
               <div>
                 <p className="text-xs text-muted-foreground">Archetype</p>
                 <p className="font-medium capitalize">{character.archetype}</p>
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">Genre</p>
+                <p className="font-medium capitalize">{character.genre?.replace('_', ' ') || 'romantic tension'}</p>
               </div>
               <div>
                 <p className="text-xs text-muted-foreground">Slug</p>

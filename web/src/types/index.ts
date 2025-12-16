@@ -36,6 +36,8 @@ export interface UserPreferences {
 }
 
 // Character types
+export type Genre = "romantic_tension" | "psychological_thriller";
+
 export interface CharacterSummary {
   id: string;
   name: string;
@@ -44,6 +46,7 @@ export interface CharacterSummary {
   avatar_url: string | null;
   short_backstory: string | null;
   is_premium: boolean;
+  genre?: Genre;
 }
 
 export interface AvatarGalleryItem {
@@ -66,6 +69,7 @@ export interface CharacterProfile extends CharacterSummary {
 
 export interface Character extends CharacterSummary {
   world_id: string | null;
+  genre: Genre;
   baseline_personality: Record<string, unknown>;
   tone_style: Record<string, unknown>;
   speech_patterns: Record<string, unknown>;
