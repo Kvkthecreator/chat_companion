@@ -254,6 +254,13 @@ export function ChatContainer({ characterId, episodeTemplateId }: ChatContainerP
             />
           ) : (
           <>
+            {/* Stage direction at the start of conversation */}
+            {episodeTemplate?.episode_frame && (
+              <StageDirection
+                frame={episodeTemplate.episode_frame}
+                hasBackground={!!backgroundImageUrl}
+              />
+            )}
             {chatItems.map((item) =>
               item.type === "message" ? (
                 <MessageBubble
@@ -442,6 +449,20 @@ function EmptyState({
         {episodeTemplate?.situation || `Send a message to begin your conversation. ${characterName} will remember everything you share.`}
       </p>
 
+      {/* Episode frame - stage direction (Hybrid POV) */}
+      {episodeTemplate?.episode_frame && (
+        <div className={cn(
+          "mb-4 px-4 py-3 rounded-xl max-w-sm text-sm backdrop-blur-sm border-l-2",
+          hasBackground
+            ? "bg-black/20 border-white/40 text-white/90"
+            : "bg-muted/30 border-primary/40 text-muted-foreground"
+        )}>
+          <p className="leading-relaxed">
+            [{episodeTemplate.episode_frame}]
+          </p>
+        </div>
+      )}
+
       {/* Episode opening line if available */}
       {episodeTemplate?.opening_line && (
         <div className={cn(
@@ -548,5 +569,32 @@ function ContextChip({
       </span>
       {value}
     </Badge>
+  );
+}
+
+/**
+ * StageDirection - Platform stage direction (Hybrid POV)
+ * Displays the episode_frame as scene-setting narration at the start of conversation.
+ */
+function StageDirection({
+  frame,
+  hasBackground,
+}: {
+  frame: string;
+  hasBackground?: boolean;
+}) {
+  return (
+    <div className="flex justify-center mb-6">
+      <div className={cn(
+        "max-w-md px-5 py-3 rounded-xl text-sm text-center backdrop-blur-sm border",
+        hasBackground
+          ? "bg-black/30 border-white/20 text-white/90"
+          : "bg-muted/40 border-border/50 text-muted-foreground"
+      )}>
+        <p className="leading-relaxed italic">
+          [{frame}]
+        </p>
+      </div>
+    </div>
   );
 }
