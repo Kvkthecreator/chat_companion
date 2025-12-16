@@ -129,6 +129,63 @@ ROLE_FRAME_VISUALS = {
         "setting": "art studio, dramatic lighting, creative atmosphere",
         "pose": "expressive gesture, passionate eyes, creative energy",
     },
+
+    # =========================================================================
+    # Genre 02: Psychological Thriller Visual Doctrine
+    # Tension through: shadow, ambiguity, composure under pressure
+    # Filter-safe: focus on atmosphere and intensity, not threat
+    # =========================================================================
+
+    "handler": {
+        "wardrobe": "impeccable dark suit, crisp white shirt, no tie, expensive watch",
+        "setting": "high-rise office at night, city lights below, minimal lighting",
+        "pose": "seated with hands steepled, composed calculating gaze, slight knowing smile",
+    },
+    "informant": {
+        "wardrobe": "worn leather jacket, dark layers, hood down",
+        "setting": "dimly lit bar booth, neon signs outside window, rain on glass",
+        "pose": "leaning forward conspiratorially, eyes scanning, guarded trust",
+    },
+    "researcher": {
+        "wardrobe": "rumpled dress shirt, sleeves rolled, reading glasses pushed up",
+        "setting": "cluttered office late at night, papers everywhere, single desk lamp",
+        "pose": "surrounded by documents, intense focused expression, discovery in eyes",
+    },
+    "fixer": {
+        "wardrobe": "practical dark clothing, tactical watch, minimal accessories",
+        "setting": "warehouse loading dock, industrial lighting, urban night",
+        "pose": "arms crossed, assessing stance, competent dangerous calm",
+    },
+    "witness": {
+        "wardrobe": "everyday casual clothes, slightly disheveled, ordinary person look",
+        "setting": "anonymous coffee shop corner, watching the door, harsh fluorescent",
+        "pose": "hunched protectively, nervous glances, fear hidden behind composure",
+    },
+    "analyst": {
+        "wardrobe": "professional but worn cardigan, practical glasses, tired elegance",
+        "setting": "monitoring room, multiple screens glowing, data streams",
+        "pose": "surrounded by screens, analytical gaze, seeing patterns others miss",
+    },
+    "operative": {
+        "wardrobe": "tactical casual, dark fitted jacket, athletic build evident",
+        "setting": "rooftop at dusk, city sprawl below, surveillance position",
+        "pose": "alert relaxed stance, scanning horizon, professional readiness",
+    },
+    "insider": {
+        "wardrobe": "expensive corporate attire, subtle designer details, polished",
+        "setting": "executive boardroom, glass walls, power evident in surroundings",
+        "pose": "confident seated position, slight lean forward, playing both sides",
+    },
+    "director": {
+        "wardrobe": "distinguished suit, silver accents, authority in every detail",
+        "setting": "private study, rare books, chess set mid-game, fireplace glow",
+        "pose": "standing by window, hands clasped behind back, orchestrating",
+    },
+    "unknown": {
+        "wardrobe": "nondescript dark clothing, face partially shadowed, anonymous",
+        "setting": "liminal space, doorway or corridor, neither here nor there",
+        "pose": "partially turned, identity ambiguous, more question than answer",
+    },
 }
 
 # Default fallback for unknown roles
@@ -188,6 +245,51 @@ ARCHETYPE_MOOD = {
     "barista": {
         "expression": "warm attentive eyes at viewer, caring smile",
         "mood": "welcoming hospitality, genuine care",
+    },
+
+    # =========================================================================
+    # Genre 02: Psychological Thriller Expression/Mood
+    # Intensity through gaze, composure, hidden depths
+    # =========================================================================
+    "handler": {
+        "expression": "piercing intelligent eyes at viewer, controlled neutral expression",
+        "mood": "calculating composure, power held in reserve",
+    },
+    "informant": {
+        "expression": "wary but open eyes at viewer, guarded hopeful expression",
+        "mood": "desperate trust, information as currency",
+    },
+    "researcher": {
+        "expression": "intense focused eyes at viewer, driven obsessive expression",
+        "mood": "truth-seeking passion, patterns in chaos",
+    },
+    "fixer": {
+        "expression": "steady assessing eyes at viewer, professional calm expression",
+        "mood": "competent danger, problems solved cleanly",
+    },
+    "witness": {
+        "expression": "haunted wary eyes at viewer, barely contained fear",
+        "mood": "ordinary person, extraordinary knowledge",
+    },
+    "analyst": {
+        "expression": "sharp analytical eyes at viewer, knowing expression",
+        "mood": "seeing connections, data-driven intuition",
+    },
+    "operative": {
+        "expression": "alert watchful eyes at viewer, trained readiness",
+        "mood": "controlled lethality, mission focus",
+    },
+    "insider": {
+        "expression": "confident knowing eyes at viewer, strategic smile",
+        "mood": "playing all sides, survival through leverage",
+    },
+    "director": {
+        "expression": "commanding wise eyes at viewer, authoritative presence",
+        "mood": "orchestrating moves, long game patience",
+    },
+    "unknown": {
+        "expression": "mysterious shadowed eyes at viewer, unreadable expression",
+        "mood": "identity fluid, allegiance unclear",
     },
 }
 

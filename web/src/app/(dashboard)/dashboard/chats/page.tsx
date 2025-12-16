@@ -87,19 +87,7 @@ export default function MyChatsPage() {
               <Card className="cursor-pointer transition-all hover:-translate-y-0.5 hover:shadow-md">
                 <CardContent className="p-4">
                   <div className="flex items-center gap-4">
-                    <div className="h-14 w-14 shrink-0 overflow-hidden rounded-full border border-border/60 bg-muted">
-                      {rel.character_avatar_url ? (
-                        <img
-                          src={rel.character_avatar_url}
-                          alt={rel.character_name}
-                          className="h-full w-full object-cover"
-                        />
-                      ) : (
-                        <div className="flex h-full w-full items-center justify-center text-xl font-bold text-muted-foreground">
-                          {rel.character_name[0]}
-                        </div>
-                      )}
-                    </div>
+                    <AvatarWithFallback name={rel.character_name} src={rel.character_avatar_url} />
 
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2">
@@ -151,4 +139,28 @@ function formatRelativeTime(dateString: string): string {
   if (diffHours < 24) return `${diffHours}h ago`;
   if (diffDays < 7) return `${diffDays}d ago`;
   return date.toLocaleDateString();
+}
+
+function AvatarWithFallback({ name, src }: { name: string; src: string | null }) {
+  const [errored, setErrored] = useState(false);
+  const initial = name?.[0] ?? "•";
+
+  if (!src || errored) {
+    return (
+      <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-full border border-border/60 bg-muted text-xl font-semibold text-muted-foreground">
+        {initial}
+      </div>
+    );
+  }
+
+  return (
+    <div className="h-14 w-14 shrink-0 overflow-hidden rounded-full border border-border/60 bg-muted">
+      <img
+        src={src}
+        alt={name}
+        className="h-full w-full object-cover"
+        onError={() => setErrored(true)}
+      />
+    </div>
+  );
 }
