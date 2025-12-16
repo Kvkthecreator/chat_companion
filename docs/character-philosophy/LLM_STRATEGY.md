@@ -300,3 +300,220 @@ Needs:
 - API key configuration
 - Model selection per use case
 - Error handling and fallbacks
+
+---
+
+## Image Generation Strategy
+
+### Core Principle: Character Consistency via Reference
+
+**FLUX Kontext** is our primary image generation model because it enables **reference-based generation**:
+- Input: Reference image (anchor) + text prompt
+- Output: New image that preserves the character's appearance while depicting the new scenario
+- Result: Character looks the same across all generated scenes
+
+This is critical for the product experience - users form attachment to a specific visual identity.
+
+### Two Generation Modes
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                    Scene Generation Request                      │
+└─────────────────────────┬───────────────────────────────────────┘
+                          │
+                          ▼
+                ┌─────────────────────┐
+                │  Has Anchor Image?  │
+                └─────────┬───────────┘
+                          │
+            ┌─────────────┴─────────────┐
+            │                           │
+            ▼                           ▼
+┌───────────────────────┐   ┌───────────────────────┐
+│   KONTEXT MODE        │   │   T2I FALLBACK MODE   │
+│   (Reference-based)   │   │   (No reference)      │
+└───────────────────────┘   └───────────────────────┘
+```
+
+### Mode 1: FLUX Kontext (Primary)
+
+When we have an anchor image from the character's avatar kit:
+
+**What the reference provides:**
+- Character's face, features, body type
+- Hair style, color
+- General aesthetic/style
+
+**What the prompt should describe:**
+- ACTION: What the character is doing (from conversation context)
+- SETTING: Environment details (from episode scene_config)
+- MOOD: Lighting, atmosphere (from tension level + episode)
+- EXPRESSION: Emotional micro-expression (from conversation tone)
+
+**Prompt structure (Kontext mode):**
+```
+[action from conversation], [setting from episode], [lighting/mood],
+[emotional expression], anime style, cinematic
+```
+
+**Example:**
+```
+leaning on café counter wiping espresso machine, dim after-hours lighting,
+soft shadows, warm knowing glance over shoulder, anime style, cinematic
+```
+
+**NOT included in prompt:** Character appearance (comes from reference image)
+
+### Mode 2: T2I Fallback (No Reference)
+
+When no anchor image is available (new character, no avatar kit):
+
+**Prompt structure (T2I mode):**
+```
+[appearance from avatar_kit.appearance_prompt], [action from conversation],
+[setting from episode], [lighting/mood], [expression], anime style, cinematic
+```
+
+**Example:**
+```
+young woman with long wavy brown hair and warm amber eyes, wearing cozy cream sweater,
+leaning on café counter, dim after-hours lighting, soft knowing glance, anime style, cinematic
+```
+
+**Negative prompt required:** `multiple people, two people, twins, couple, duo, 2girls, 2boys, group, crowd` + avatar_kit.negative_prompt
+
+---
+
+## Prompt Composition Data Sources
+
+### Layer 1: Character Visual Identity
+
+**Source:** `characters` table + `avatar_kits` table
+
+| Field | Use | Mode |
+|-------|-----|------|
+| `avatar_kits.primary_anchor_id` | Reference image for Kontext | Kontext |
+| `avatar_kits.appearance_prompt` | Character description | T2I only |
+| `avatar_kits.style_prompt` | Artistic style modifiers | Both |
+| `avatar_kits.negative_prompt` | Things to avoid | T2I only |
+
+**Proposed addition:** `characters.visual_identity` (JSONB)
+```json
+{
+  "gender_tag": "female",     // → "1girl" for T2I mode
+  "body_type": "slender",
+  "age_range": "young_adult",
+  "key_features": ["warm eyes", "beauty mark"]
+}
+```
+
+### Layer 2: Episode Scene Config
+
+**Source:** `episode_templates` table
+
+**Proposed addition:** `episode_templates.scene_config` (JSONB)
+```json
+{
+  "composition": "solo",              // solo | duo | flexible
+  "lighting_preset": "dim_intimate",  // bright | warm | dim_intimate | dramatic | natural
+  "environment_style": "indoor_cafe", // indoor_cafe | outdoor_park | apartment | etc
+  "time_of_day": "evening",           // morning | afternoon | evening | night
+  "mood_keywords": ["cozy", "intimate", "quiet"],
+  "negative_additions": []            // episode-specific things to avoid
+}
+```
+
+**Current field:** `episode_templates.situation` - describes the scenario context
+
+### Layer 3: Relationship Context
+
+**Source:** `relationships` table
+
+| Field | Use |
+|-------|-----|
+| `relationships.stage` | Intensity of visual intimacy |
+| `relationships.dynamic.tension_level` | Maps to visual intensity |
+| `relationships.dynamic.tone` | Emotional color |
+
+**Tension → Visual Mapping:**
+| Tension Level | Visual Expression |
+|---------------|-------------------|
+| 0-30 (low) | Casual pose, soft gaze, comfortable distance |
+| 30-60 (medium) | Open posture, lingering look, warm lighting |
+| 60-80 (high) | Direct eye contact, leaning in, dramatic shadows |
+| 80-100 (peak) | Intense gaze, intimate proximity, charged atmosphere |
+
+### Layer 4: Conversation Context (Dynamic)
+
+**Source:** Recent messages from `messages` table
+
+The LLM analyzes conversation to extract:
+- **Current action:** What is the character physically doing?
+- **Objects/props:** What items from conversation should be visible?
+- **Micro-expression:** What emotion matches this exact moment?
+
+**Example conversation → extraction:**
+```
+User: "I'll have the usual"
+Mira: "Coming right up. You know, I was starting to think you weren't
+      going to show tonight..."
+
+→ Action: preparing drink while talking
+→ Props: coffee cup, espresso machine
+→ Expression: playful smile, slight eyebrow raise
+```
+
+---
+
+## Prompt Composer Architecture
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                     PROMPT COMPOSER SERVICE                      │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                  │
+│  Input:                                                         │
+│  ├── character_id → fetch avatar_kit, visual_identity           │
+│  ├── episode_id → fetch scene_config, situation                 │
+│  ├── relationship → fetch stage, dynamic (tension, tone)        │
+│  └── messages → last N messages for context                     │
+│                                                                  │
+│  Process:                                                        │
+│  1. Check if anchor image exists → determines mode              │
+│  2. If Kontext mode: compose action/setting/mood prompt         │
+│  3. If T2I mode: prepend appearance_prompt + add negatives      │
+│  4. Apply tension_level → visual intensity mapping              │
+│  5. Apply episode scene_config                                   │
+│                                                                  │
+│  Output:                                                         │
+│  ├── prompt: string                                              │
+│  ├── negative_prompt: string (T2I mode only)                    │
+│  ├── reference_image: bytes (Kontext mode only)                 │
+│  └── generation_mode: "kontext" | "t2i"                         │
+│                                                                  │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## Implementation Checklist
+
+### Database Schema
+- [ ] Add `characters.visual_identity` (JSONB)
+- [ ] Add `episode_templates.scene_config` (JSONB)
+- [ ] Populate visual_identity for existing characters
+- [ ] Populate scene_config for existing episode templates
+
+### Services
+- [ ] Create `PromptComposerService`
+- [ ] Implement mode detection (Kontext vs T2I)
+- [ ] Implement per-mode prompt building
+- [ ] Integrate tension → visual mapping
+- [ ] Update `routes/scenes.py` to use composer
+- [ ] Update `services/scene.py` to use composer
+
+### Testing
+- [ ] Test Kontext mode with anchor images
+- [ ] Test T2I fallback without anchors
+- [ ] Verify character consistency across multiple generations
+- [ ] Verify scenario-specific outputs (not generic poses)

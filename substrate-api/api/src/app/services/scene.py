@@ -20,14 +20,35 @@ from app.services.storage import StorageService
 log = logging.getLogger(__name__)
 
 
-# Scene generation prompts - Genre 01 Visual Doctrine aligned
-SCENE_PROMPT_TEMPLATE = """Create an image generation prompt for this SPECIFIC romantic moment.
+# ═══════════════════════════════════════════════════════════════════════════════
+# KONTEXT MODE PROMPT TEMPLATE
+# Used when we have an anchor/reference image. Character appearance comes from
+# the reference image, so prompt describes ONLY action/setting/mood.
+# ═══════════════════════════════════════════════════════════════════════════════
+KONTEXT_PROMPT_TEMPLATE = """Create a scene transformation prompt. A reference image of the character will be provided.
 
-═══════════════════════════════════════════════════════════════
-CRITICAL RULES (MUST FOLLOW)
-═══════════════════════════════════════════════════════════════
-- SOLO IMAGE: Only ONE person in the image. Never two people.
-- SCENARIO-SPECIFIC: Capture THIS exact moment, not a generic pose
+CRITICAL: DO NOT describe the character's appearance (hair, eyes, face, clothing).
+ONLY describe the ACTION, SETTING, and MOOD.
+
+SETTING & MOMENT:
+- Location: {scene}
+- What's happening: {moment}
+
+Write a prompt (40-60 words) describing the scene transformation.
+
+FORMAT: "[action/pose], [setting details], [lighting], [expression], anime style, cinematic"
+
+GOOD EXAMPLE: "leaning on café counter, dim after-hours lighting, steaming coffee cup nearby, soft knowing glance over shoulder, anime style, cinematic"
+
+BAD EXAMPLE: "young woman with brown hair..." ← NO! Appearance comes from reference image.
+
+Your prompt:"""
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# T2I MODE PROMPT TEMPLATE
+# Used when NO reference image exists. Must include full character appearance.
+# ═══════════════════════════════════════════════════════════════════════════════
+T2I_PROMPT_TEMPLATE = """Create an image prompt for this romantic moment. Include full character description.
 
 CHARACTER:
 - Name: {character_name}
@@ -37,22 +58,11 @@ SETTING & MOMENT:
 - Location: {scene}
 - What's happening: {moment}
 
-═══════════════════════════════════════════════════════════════
-GENRE 01 VISUAL DOCTRINE
-═══════════════════════════════════════════════════════════════
-"A still frame taken one second before something happens."
+Write a prompt (50-80 words) for this specific scenario.
 
-WHAT TO CAPTURE:
-1. What is {character_name} physically DOING right now?
-2. What specific OBJECT or DETAIL from the moment should be visible?
-3. What emotional expression matches this exact moment?
+FORMAT: "solo, 1girl, [character appearance], [action], [setting], [lighting], [expression], anime style, cinematic"
 
-Write a prompt (50-80 words) for THIS SPECIFIC scenario.
-
-MANDATORY FORMAT:
-"solo, 1girl, [character appearance], [SPECIFIC action from moment], [setting detail], [mood-appropriate lighting], [emotional expression], anime style, cinematic"
-
-Example: "solo, 1girl, young woman with messy black hair, wiping down espresso machine while glancing over shoulder at viewer, steaming coffee cup on counter, dim café after-hours lighting, soft knowing smile, anime style, cinematic"
+Example: "solo, 1girl, young woman with messy black hair, wiping down espresso machine, dim café after-hours lighting, soft knowing smile, anime style, cinematic"
 
 Your prompt:"""
 
@@ -129,31 +139,57 @@ class SceneService:
         style_prompt: Optional[str] = None,
         negative_prompt: Optional[str] = None,
         avatar_kit_id: Optional[UUID] = None,
+        # Anchor image for Kontext mode
+        anchor_image: Optional[bytes] = None,
     ) -> Optional[Dict[str, Any]]:
         """Generate a scene card for a conversation moment.
 
         Returns the generated scene data or None if generation fails.
 
-        If avatar kit data is provided, it will be used for visual consistency.
+        If anchor_image is provided, uses FLUX Kontext (reference-based).
+        Otherwise falls back to T2I with appearance_prompt.
         """
         try:
-            # Generate scene prompt via LLM
-            prompt_request = SCENE_PROMPT_TEMPLATE.format(
-                character_name=character_name,
-                appearance_prompt=appearance_prompt or "A character",
-                scene=scene_setting or "A cozy setting",
-                moment=moment_description,
-            )
+            # ═══════════════════════════════════════════════════════════════
+            # Determine mode and generate appropriate prompt
+            # ═══════════════════════════════════════════════════════════════
+            use_kontext = anchor_image is not None
 
-            prompt_response = await self.llm_service.generate([
-                {"role": "system", "content": """You are an expert at writing image generation prompts for anime-style illustrations.
+            if use_kontext:
+                # KONTEXT MODE: Prompt describes scene only, not appearance
+                log.info(f"KONTEXT MODE: Generating scene for episode {episode_id}")
+                prompt_request = KONTEXT_PROMPT_TEMPLATE.format(
+                    scene=scene_setting or "A cozy setting",
+                    moment=moment_description,
+                )
+                system_prompt = """You are an expert at writing scene transformation prompts for FLUX Kontext.
+
+CRITICAL: A reference image of the character will be provided separately.
+Your prompt must describe ONLY the scene/action - NOT the character's appearance.
+
+DO NOT mention: hair color, eye color, face features, clothing
+DO describe: action, pose, setting, lighting, mood, expression"""
+
+            else:
+                # T2I MODE: Prompt includes full character appearance
+                log.info(f"T2I MODE: Generating scene for episode {episode_id}")
+                prompt_request = T2I_PROMPT_TEMPLATE.format(
+                    character_name=character_name,
+                    appearance_prompt=appearance_prompt or "A character",
+                    scene=scene_setting or "A cozy setting",
+                    moment=moment_description,
+                )
+                system_prompt = """You are an expert at writing image generation prompts for anime-style illustrations.
 
 CRITICAL RULES:
 1. ALWAYS start with "solo, 1girl" (or "solo, 1boy" for male characters)
-2. NEVER include multiple people - only the character
-3. Capture the SPECIFIC scenario from the moment - not generic poses
-4. Include setting-specific props and details
-5. Match lighting to the location (dim for after-hours café, warm for living room, etc.)"""},
+2. Include the character's full appearance as described
+3. NEVER include multiple people - only the character
+4. Capture the SPECIFIC scenario from the moment
+5. Match lighting to the location"""
+
+            prompt_response = await self.llm_service.generate([
+                {"role": "system", "content": system_prompt},
                 {"role": "user", "content": prompt_request},
             ], max_tokens=300)
             scene_prompt = prompt_response.content.strip()
@@ -162,19 +198,32 @@ CRITICAL RULES:
             if style_prompt:
                 scene_prompt = f"{scene_prompt}, {style_prompt}"
 
-            # Build negative prompt - strong rejection of multiple people
-            base_negative = "multiple people, two people, twins, couple, pair, duo, 2girls, 2boys, group, crowd"
-            final_negative = f"{base_negative}, photorealistic, 3D render, harsh shadows, text, watermark"
-            if negative_prompt:
-                final_negative = f"{final_negative}, {negative_prompt}"
+            log.info(f"Generated {'KONTEXT' if use_kontext else 'T2I'} prompt: {scene_prompt[:100]}...")
 
-            # Generate image
-            image_response = await self.image_service.generate(
-                prompt=scene_prompt,
-                negative_prompt=final_negative,
-                width=1024,
-                height=1024,
-            )
+            # ═══════════════════════════════════════════════════════════════
+            # Generate image using appropriate method
+            # ═══════════════════════════════════════════════════════════════
+            if use_kontext:
+                # Use FLUX Kontext with reference image
+                kontext_service = ImageService.get_client("replicate", "black-forest-labs/flux-kontext-pro")
+                image_response = await kontext_service.edit(
+                    prompt=scene_prompt,
+                    reference_images=[anchor_image],
+                    aspect_ratio="1:1",
+                )
+            else:
+                # Fall back to T2I
+                base_negative = "multiple people, two people, twins, couple, pair, duo, 2girls, 2boys, group, crowd"
+                final_negative = f"{base_negative}, photorealistic, 3D render, harsh shadows, text, watermark"
+                if negative_prompt:
+                    final_negative = f"{final_negative}, {negative_prompt}"
+
+                image_response = await self.image_service.generate(
+                    prompt=scene_prompt,
+                    negative_prompt=final_negative,
+                    width=1024,
+                    height=1024,
+                )
 
             if not image_response.images:
                 log.warning("No image generated")

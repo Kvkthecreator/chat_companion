@@ -27,15 +27,53 @@ log = logging.getLogger(__name__)
 router = APIRouter(prefix="/scenes", tags=["Scenes"])
 
 
-# Scene prompt template - Genre 01 Visual Doctrine aligned
-SCENE_PROMPT_TEMPLATE = """Create an image generation prompt for this SPECIFIC romantic moment.
+# ═══════════════════════════════════════════════════════════════════════════════
+# KONTEXT MODE PROMPT TEMPLATE
+# Used when we have an anchor/reference image. Character appearance comes from
+# the reference image, so prompt describes ONLY action/setting/mood.
+# ═══════════════════════════════════════════════════════════════════════════════
+KONTEXT_PROMPT_TEMPLATE = """Create an image prompt that transforms a reference photo into a NEW SCENE.
 
-═══════════════════════════════════════════════════════════════
-CRITICAL RULES (MUST FOLLOW)
-═══════════════════════════════════════════════════════════════
-- SOLO IMAGE: Only ONE person in the image (the character). Never two people.
-- SCENARIO-SPECIFIC: The scene must capture THIS exact moment from conversation below
-- Include a UNIQUE action/pose based on what's happening in the conversation
+CRITICAL: The reference image already shows the character's appearance.
+DO NOT describe the character's face, hair, eyes, or clothing.
+ONLY describe the ACTION, SETTING, and MOOD.
+
+SETTING & MOOD:
+- Location: {scene}
+- Relationship stage: {relationship_stage}
+- Emotional tone: {emotional_tone}
+- Tension level: {tension_level}/100
+
+CURRENT CONVERSATION (capture THIS specific moment):
+{conversation_summary}
+
+TENSION LEVEL VISUAL GUIDE:
+- Low (0-30): Casual activity, soft gaze, comfortable posture
+- Medium (30-60): Attentive pose, warm eye contact, open body language
+- High (60-80): Leaning in, intense gaze, dramatic lighting
+- Peak (80-100): Intimate proximity, charged atmosphere, breath-close
+
+WHAT TO DESCRIBE (action/setting only, NOT appearance):
+1. What ACTION is the character doing right now?
+2. What SETTING DETAILS should be visible?
+3. What is the LIGHTING mood?
+4. What EXPRESSION/EMOTION should show?
+
+Write a prompt (40-60 words) describing ONLY the scene transformation.
+
+FORMAT: "[action/pose], [setting details], [lighting], [expression], anime style, cinematic"
+
+GOOD EXAMPLE: "leaning on café counter wiping espresso machine, dim after-hours lighting with warm lamp glow, steaming coffee cup nearby, soft knowing glance over shoulder, anime style, cinematic"
+
+BAD EXAMPLE (DO NOT DO THIS): "young woman with brown hair and amber eyes, wearing cream sweater..." ← This describes appearance which comes from the reference!
+
+Your prompt:"""
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# T2I MODE PROMPT TEMPLATE
+# Used when NO reference image exists. Must include full character appearance.
+# ═══════════════════════════════════════════════════════════════════════════════
+T2I_PROMPT_TEMPLATE = """Create an image prompt for this romantic moment. Include full character description.
 
 CHARACTER:
 - Name: {character_name}
@@ -47,36 +85,20 @@ SETTING & MOOD:
 - Emotional tone: {emotional_tone}
 - Tension level: {tension_level}/100
 
-═══════════════════════════════════════════════════════════════
-CURRENT CONVERSATION (capture THIS specific moment)
-═══════════════════════════════════════════════════════════════
+CURRENT CONVERSATION (capture THIS specific moment):
 {conversation_summary}
 
-═══════════════════════════════════════════════════════════════
-GENRE 01 VISUAL DOCTRINE
-═══════════════════════════════════════════════════════════════
-"A still frame taken one second before something happens."
-
 TENSION LEVEL VISUAL GUIDE:
-- Low (0-30): Curious sideways glance, hands occupied with task, slight smile
-- Medium (30-60): Looking up from activity, open posture, soft lighting
-- High (60-80): Direct eye contact, leaning in, dramatic shadows
-- Peak (80-100): Intense gaze, intimate proximity, breath-close moment
+- Low (0-30): Casual activity, soft gaze, comfortable posture
+- Medium (30-60): Attentive pose, warm eye contact, open body language
+- High (60-80): Leaning in, intense gaze, dramatic lighting
+- Peak (80-100): Intimate proximity, charged atmosphere, breath-close
 
-WHAT TO CAPTURE:
-Based on the conversation above, identify:
-1. What is {character_name} physically DOING right now? (making coffee, leaning on counter, etc.)
-2. What specific OBJECT or SETTING DETAIL from the conversation should be visible?
-3. What emotional micro-expression matches this exact moment?
+Write a prompt (50-80 words) for this specific scenario.
 
-═══════════════════════════════════════════════════════════════
+FORMAT: "solo, 1girl, [character appearance from above], [action], [setting], [lighting], [expression], anime style, cinematic"
 
-Write a prompt (50-80 words) for THIS SPECIFIC scenario.
-
-MANDATORY FORMAT:
-"solo, 1girl, [character appearance], [SPECIFIC action from conversation], [setting-specific detail from conversation], [lighting matching {scene}], [emotional expression], anime style, cinematic"
-
-Example for café scene: "solo, 1girl, young woman with messy black hair, wiping down espresso machine while glancing over shoulder at viewer, steaming coffee cup on counter, dim café after-hours lighting, soft knowing smile, anime style, cinematic"
+Example: "solo, 1girl, young woman with long wavy brown hair and warm amber eyes wearing cozy cream sweater, leaning on café counter, dim after-hours lighting, soft knowing smile, anime style, cinematic"
 
 Your prompt:"""
 
@@ -178,55 +200,18 @@ async def generate_scene(
     style_prompt = episode["style_prompt"] or ""
     negative_prompt = episode["negative_prompt"] or ""
 
-    # Generate prompt if not provided
-    prompt = data.prompt
-    if not prompt:
-        # Use LLM to generate scene prompt with full emotional context
-        llm = LLMService.get_instance()
-        prompt_request = SCENE_PROMPT_TEMPLATE.format(
-            character_name=episode["character_name"],
-            appearance_prompt=appearance_prompt,
-            scene=episode["scene"] or "A cozy setting",
-            relationship_stage=relationship_stage,
-            emotional_tone=emotional_tone,
-            tension_level=tension_level,
-            conversation_summary=conversation_summary,
-        )
-
-        try:
-            response = await llm.generate([
-                {"role": "system", "content": """You are an expert at writing image generation prompts for anime-style illustrations.
-
-CRITICAL RULES:
-1. ALWAYS start with "solo, 1girl" (or "solo, 1boy" for male characters)
-2. NEVER include multiple people - only the character
-3. Capture the SPECIFIC scenario from the conversation - not generic poses
-4. Include setting-specific props and details mentioned in the conversation
-5. Match lighting to the location (dim for after-hours café, warm for living room, etc.)"""},
-                {"role": "user", "content": prompt_request},
-            ])
-            prompt = response.content.strip()
-
-            # Append style prompt if available
-            if style_prompt:
-                prompt = f"{prompt}, {style_prompt}"
-
-        except Exception as e:
-            log.warning(f"Failed to generate scene prompt: {e}")
-            # Fallback to basic prompt with appearance
-            prompt = f"{appearance_prompt}, in an anime style, warm lighting, soft colors"
-
-    # Get storage service instance (used for both anchor download and scene upload)
+    # Get storage service instance
     storage = StorageService.get_instance()
 
-    # Generate the image
-    # Check if we have an anchor reference for character consistency
+    # ═══════════════════════════════════════════════════════════════════════════
+    # STEP 1: Determine generation mode (Kontext vs T2I)
+    # Check if anchor exists FIRST - this determines which prompt template to use
+    # ═══════════════════════════════════════════════════════════════════════════
     primary_anchor_id = episode["primary_anchor_id"]
-    use_reference = False
+    use_kontext = False
     anchor_bytes = None
 
     if primary_anchor_id:
-        # Fetch anchor image for reference-based generation
         try:
             anchor_query = """
                 SELECT storage_path FROM avatar_assets
@@ -235,14 +220,89 @@ CRITICAL RULES:
             anchor = await db.fetch_one(anchor_query, {"anchor_id": str(primary_anchor_id)})
             if anchor:
                 anchor_bytes = await storage.download("avatars", anchor["storage_path"])
-                use_reference = True
-                log.info(f"Using anchor reference for scene generation: {primary_anchor_id}")
+                use_kontext = True
+                log.info(f"KONTEXT MODE: Using anchor reference {primary_anchor_id}")
         except Exception as e:
-            log.warning(f"Failed to fetch anchor for reference: {e}")
-            # Fall back to T2I without reference
+            log.warning(f"Failed to fetch anchor, falling back to T2I: {e}")
 
+    if not use_kontext:
+        log.info("T2I MODE: No anchor available, using text-to-image")
+
+    # ═══════════════════════════════════════════════════════════════════════════
+    # STEP 2: Generate prompt using appropriate template for the mode
+    # Kontext: Describe action/setting/mood ONLY (appearance from reference)
+    # T2I: Include full character appearance in prompt
+    # ═══════════════════════════════════════════════════════════════════════════
+    prompt = data.prompt
+    if not prompt:
+        llm = LLMService.get_instance()
+
+        if use_kontext:
+            # KONTEXT MODE: Prompt describes scene transformation only
+            prompt_request = KONTEXT_PROMPT_TEMPLATE.format(
+                scene=episode["scene"] or "A cozy setting",
+                relationship_stage=relationship_stage,
+                emotional_tone=emotional_tone,
+                tension_level=tension_level,
+                conversation_summary=conversation_summary,
+            )
+            system_prompt = """You are an expert at writing scene transformation prompts for FLUX Kontext.
+
+CRITICAL: A reference image of the character will be provided separately.
+Your prompt must describe ONLY the scene/action - NOT the character's appearance.
+
+DO NOT mention: hair color, eye color, face features, clothing details, body type
+DO describe: action, pose, setting, lighting, mood, expression
+
+The reference image handles character consistency. Your prompt handles the scene."""
+
+        else:
+            # T2I MODE: Prompt includes full character appearance
+            prompt_request = T2I_PROMPT_TEMPLATE.format(
+                character_name=episode["character_name"],
+                appearance_prompt=appearance_prompt,
+                scene=episode["scene"] or "A cozy setting",
+                relationship_stage=relationship_stage,
+                emotional_tone=emotional_tone,
+                tension_level=tension_level,
+                conversation_summary=conversation_summary,
+            )
+            system_prompt = """You are an expert at writing image generation prompts for anime-style illustrations.
+
+CRITICAL RULES:
+1. ALWAYS start with "solo, 1girl" (or "solo, 1boy" for male characters)
+2. Include the character's full appearance as described
+3. NEVER include multiple people - only the character
+4. Capture the SPECIFIC scenario from the conversation
+5. Match lighting to the location"""
+
+        try:
+            response = await llm.generate([
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": prompt_request},
+            ])
+            prompt = response.content.strip()
+
+            # Append style prompt if available (for both modes)
+            if style_prompt:
+                prompt = f"{prompt}, {style_prompt}"
+
+            log.info(f"Generated {'KONTEXT' if use_kontext else 'T2I'} prompt: {prompt[:100]}...")
+
+        except Exception as e:
+            log.warning(f"Failed to generate scene prompt: {e}")
+            if use_kontext:
+                # Kontext fallback: generic scene description
+                prompt = f"looking at viewer, {episode['scene'] or 'cozy indoor setting'}, warm lighting, anime style"
+            else:
+                # T2I fallback: include appearance
+                prompt = f"{appearance_prompt}, in an anime style, warm lighting, soft colors"
+
+    # ═══════════════════════════════════════════════════════════════════════════
+    # STEP 3: Generate image using appropriate method
+    # ═══════════════════════════════════════════════════════════════════════════
     try:
-        if use_reference and anchor_bytes:
+        if use_kontext and anchor_bytes:
             # Use FLUX Kontext for character-consistent generation
             kontext_service = ImageService.get_client("replicate", "black-forest-labs/flux-kontext-pro")
             image_response = await kontext_service.edit(
