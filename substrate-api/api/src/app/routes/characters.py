@@ -61,8 +61,8 @@ async def list_characters(
         data = dict(row)
         anchor_path = data.pop("anchor_path", None)
 
-        # If no avatar_url but has anchor_path, generate signed URL
-        if not data["avatar_url"] and anchor_path:
+        # Always prefer fresh signed URL from anchor_path (avoids expired URLs)
+        if anchor_path:
             if storage is None:
                 storage = StorageService.get_instance()
             data["avatar_url"] = await storage.create_signed_url("avatars", anchor_path)
@@ -113,8 +113,8 @@ async def get_character(
     data = dict(row)
     anchor_path = data.pop("anchor_path", None)
 
-    # If no avatar_url but has anchor_path, generate signed URL
-    if not data["avatar_url"] and anchor_path:
+    # Always prefer fresh signed URL from anchor_path (avoids expired URLs)
+    if anchor_path:
         storage = StorageService.get_instance()
         data["avatar_url"] = await storage.create_signed_url("avatars", anchor_path)
 
@@ -148,8 +148,8 @@ async def get_character_by_slug(
     data = dict(row)
     anchor_path = data.pop("anchor_path", None)
 
-    # If no avatar_url but has anchor_path, generate signed URL
-    if not data["avatar_url"] and anchor_path:
+    # Always prefer fresh signed URL from anchor_path (avoids expired URLs)
+    if anchor_path:
         storage = StorageService.get_instance()
         data["avatar_url"] = await storage.create_signed_url("avatars", anchor_path)
 
