@@ -164,6 +164,36 @@ ROLE_FRAME_VISUALS = {
         "setting": "liminal space, doorway or corridor, neither here nor there",
         "pose": "partially turned, identity ambiguous, more question than answer",
     },
+
+    # =========================================================================
+    # K-World Visual Doctrine (K-Drama/K-Culture)
+    # Soft glamour, editorial photography feel, heightened emotion
+    # =========================================================================
+    "wounded_star": {
+        "wardrobe": "oversized hoodie, casual mask pulled down, minimal makeup, natural beauty",
+        "setting": "quiet convenience store at night, fluorescent lighting, rain on windows",
+        "pose": "vulnerable stance, guarded but curious eyes, hint of recognition",
+    },
+    "idol_next_door": {
+        "wardrobe": "stylish casual Korean fashion, designer touches, effortless chic",
+        "setting": "rooftop cafe, Seoul cityscape, golden hour light",
+        "pose": "candid moment, genuine smile breaking through practiced composure",
+    },
+    "chaebol_heir": {
+        "wardrobe": "impeccable designer suit, subtle luxury accessories, perfect grooming",
+        "setting": "penthouse overlooking city, floor to ceiling windows, minimalist elegance",
+        "pose": "confident stance, softening gaze, vulnerability beneath polish",
+    },
+    "contract_partner": {
+        "wardrobe": "professional attire with personal touches, smart casual elegance",
+        "setting": "upscale office after hours, city lights, intimate atmosphere",
+        "pose": "leaning on desk, professional mask slipping, unexpected warmth",
+    },
+    "childhood_friend": {
+        "wardrobe": "comfortable familiar clothes, nostalgic aesthetic, lived-in charm",
+        "setting": "neighborhood street at dusk, familiar storefronts, warm streetlights",
+        "pose": "easy familiarity, fond eyes, history in every gesture",
+    },
 }
 
 DEFAULT_ROLE_VISUAL = {
@@ -260,6 +290,27 @@ ARCHETYPE_MOOD = {
         "expression": "mysterious shadowed eyes at viewer, unreadable expression",
         "mood": "identity fluid, allegiance unclear",
     },
+    # K-World archetypes
+    "wounded_star": {
+        "expression": "tired but striking eyes at viewer, vulnerability beneath composure",
+        "mood": "guarded warmth, hidden depths, real person behind the image",
+    },
+    "idol_next_door": {
+        "expression": "bright genuine eyes at viewer, warmth breaking through idol polish",
+        "mood": "approachable star quality, authentic charm",
+    },
+    "chaebol_heir": {
+        "expression": "intense refined eyes at viewer, softening arrogance",
+        "mood": "privilege meeting vulnerability, walls coming down",
+    },
+    "contract_partner": {
+        "expression": "professional warm eyes at viewer, growing genuine interest",
+        "mood": "business becoming personal, unexpected feelings",
+    },
+    "childhood_friend": {
+        "expression": "fond knowing eyes at viewer, comfortable intimacy",
+        "mood": "history in every glance, unspoken understanding",
+    },
 }
 
 DEFAULT_ARCHETYPE_MOOD = {
@@ -279,6 +330,8 @@ FLIRTING_LEVEL_MODIFIERS = {
     "playful": {"gaze": "bright playful eye contact, fun expression", "body_language": "confident open posture, engaged"},
     "slow_burn": {"gaze": "thoughtful meaningful eye contact", "body_language": "composed thoughtful posture"},
     "forward": {"gaze": "direct confident eye contact", "body_language": "confident open posture"},
+    # K-World specific
+    "guarded_warm": {"gaze": "guarded but warm eye contact, walls softening", "body_language": "protective posture opening slightly"},
 }
 
 DEFAULT_FLIRTING_MODIFIER = FLIRTING_LEVEL_MODIFIERS["moderate"]
