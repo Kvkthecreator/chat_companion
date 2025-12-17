@@ -10,14 +10,15 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
-import { Play, Sparkles } from "lucide-react";
-import type { CharacterSummary, RelationshipWithCharacter, User } from "@/types";
+import { Play, Sparkles, BookOpen, ArrowRight } from "lucide-react";
+import type { RelationshipWithCharacter, User, SeriesSummary, World } from "@/types";
 
 export default function DashboardPage() {
   const router = useRouter();
   const [user, setUser] = useState<User | null>(null);
-  const [characters, setCharacters] = useState<CharacterSummary[]>([]);
   const [relationships, setRelationships] = useState<RelationshipWithCharacter[]>([]);
+  const [series, setSeries] = useState<SeriesSummary[]>([]);
+  const [worlds, setWorlds] = useState<World[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const supabase = createClient();
@@ -32,15 +33,17 @@ export default function DashboardPage() {
         }
 
         // Load data in parallel
-        const [userData, charactersData, relationshipsData] = await Promise.all([
+        const [userData, relationshipsData, seriesData, worldsData] = await Promise.all([
           api.users.me().catch(() => null),
-          api.characters.list(),
           api.relationships.list().catch(() => []),
+          api.series.list({ status: "active" }).catch(() => []),
+          api.worlds.list().catch(() => []),
         ]);
 
         setUser(userData);
-        setCharacters(charactersData);
         setRelationships(relationshipsData);
+        setSeries(seriesData);
+        setWorlds(worldsData);
       } catch (err) {
         setError(err instanceof Error ? err.message : "Failed to load data");
       } finally {
@@ -55,9 +58,6 @@ export default function DashboardPage() {
     return <DashboardSkeleton />;
   }
 
-  // Build relationship map for quick lookup
-  const relationshipMap = new Map(relationships.map((r) => [r.character_id, r]));
-
   // Sort relationships by last interaction
   const sortedRelationships = [...relationships].sort((a, b) => {
     const timeA = a.last_interaction_at ? new Date(a.last_interaction_at).getTime() : 0;
@@ -65,26 +65,24 @@ export default function DashboardPage() {
     return timeB - timeA;
   });
 
-  // Hero: most recent relationship
+  // Hero: most recent relationship with active episode
   const heroRelationship = sortedRelationships[0];
-  const heroCharacter = heroRelationship
-    ? characters.find((c) => c.id === heroRelationship.character_id)
-    : null;
 
-  // All characters for grid (excluding hero if exists)
-  const gridCharacters = heroCharacter
-    ? characters.filter((c) => c.id !== heroCharacter.id)
-    : characters;
+  // Build world map
+  const worldMap = new Map(worlds.map((w) => [w.id, w]));
+
+  // Featured series for discovery
+  const featuredSeries = series.find((s) => s.is_featured) || series[0];
 
   return (
     <div className="space-y-8">
       {/* Header */}
       <div>
         <h1 className="text-3xl font-bold tracking-tight">
-          {user?.display_name ? `Hey, ${user.display_name}` : "Welcome back"}
+          {user?.display_name ? `Welcome back, ${user.display_name}` : "Welcome back"}
         </h1>
         <p className="text-muted-foreground">
-          Your cozy companions are waiting for you.
+          Continue your stories or discover something new.
         </p>
       </div>
 
@@ -95,24 +93,27 @@ export default function DashboardPage() {
         </Card>
       )}
 
-      {/* Continue / Hero Card */}
-      {heroRelationship && heroCharacter && (
+      {/* Continue Episode - Hero Card */}
+      {heroRelationship && (
         <section>
-          <h2 className="mb-3 text-lg font-semibold text-muted-foreground">Continue</h2>
+          <h2 className="mb-3 text-lg font-semibold text-muted-foreground flex items-center gap-2">
+            <Play className="h-4 w-4" />
+            Continue Your Story
+          </h2>
           <Link href={`/chat/${heroRelationship.character_id}`}>
             <Card className="overflow-hidden hover:shadow-lg transition-all group cursor-pointer ring-2 ring-primary/20 hover:ring-primary/40">
               <div className="flex flex-col sm:flex-row">
                 <div className="relative w-full sm:w-48 h-48 sm:h-auto shrink-0 overflow-hidden bg-muted">
-                  {heroCharacter.avatar_url ? (
+                  {heroRelationship.character_avatar_url ? (
                     <img
-                      src={heroCharacter.avatar_url}
-                      alt={heroCharacter.name}
+                      src={heroRelationship.character_avatar_url}
+                      alt={heroRelationship.character_name}
                       className="w-full h-full object-cover object-top group-hover:scale-105 transition-transform duration-300"
                     />
                   ) : (
                     <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-primary/20 to-secondary/20">
                       <span className="text-4xl font-bold text-muted-foreground/50">
-                        {heroCharacter.name[0]}
+                        {heroRelationship.character_name[0]}
                       </span>
                     </div>
                   )}
@@ -121,7 +122,7 @@ export default function DashboardPage() {
                   <div>
                     <div className="flex items-center gap-2 mb-2">
                       <Badge variant="secondary" className="text-xs">
-                        {heroRelationship.stage === "acquaintance" ? "Episode 0" : "In Progress"}
+                        Episode {heroRelationship.total_episodes || 0}
                       </Badge>
                       {heroRelationship.last_interaction_at && (
                         <span className="text-xs text-muted-foreground">
@@ -129,11 +130,15 @@ export default function DashboardPage() {
                         </span>
                       )}
                     </div>
-                    <h3 className="text-xl font-semibold mb-1">{heroCharacter.name}</h3>
-                    <p className="text-sm text-muted-foreground capitalize mb-2">{heroCharacter.archetype}</p>
-                    <p className="text-sm text-foreground/80 line-clamp-2">
-                      {heroCharacter.short_backstory || "Pick up where you left off—your episode awaits."}
+                    <h3 className="text-xl font-semibold mb-1">{heroRelationship.character_name}</h3>
+                    <p className="text-sm text-muted-foreground capitalize mb-2">
+                      {heroRelationship.character_archetype}
                     </p>
+                    <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                      <span>{heroRelationship.total_messages} messages</span>
+                      <span>•</span>
+                      <span className="capitalize">{heroRelationship.stage || "acquaintance"}</span>
+                    </div>
                   </div>
                   <Button className="mt-4 w-full sm:w-auto gap-2">
                     <Play className="h-4 w-4" />
@@ -146,44 +151,88 @@ export default function DashboardPage() {
         </section>
       )}
 
-      {/* All Characters Grid */}
-      <section>
-        <div className="flex items-center justify-between mb-4">
-          <div>
-            <h2 className="text-lg font-semibold text-muted-foreground">
-              {heroCharacter ? "More Characters" : "Meet Your Characters"}
-            </h2>
-            <p className="text-sm text-muted-foreground/70">
-              {gridCharacters.length} characters available
-            </p>
+      {/* Your Stories - Grouped by recent activity */}
+      {sortedRelationships.length > 1 && (
+        <section>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-semibold text-muted-foreground">Your Stories</h2>
+            <Link href="/dashboard/chats" className="text-sm text-primary hover:underline flex items-center gap-1">
+              View all <ArrowRight className="h-3 w-3" />
+            </Link>
           </div>
-        </div>
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
+            {sortedRelationships.slice(1, 6).map((rel) => (
+              <StoryCard key={rel.id} relationship={rel} />
+            ))}
+          </div>
+        </section>
+      )}
 
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
-          {gridCharacters.map((character) => {
-            const relationship = relationshipMap.get(character.id);
-            return (
-              <CharacterGridCard
-                key={character.id}
-                character={character}
-                relationship={relationship}
-              />
-            );
-          })}
-        </div>
-      </section>
+      {/* Discover New Series */}
+      {featuredSeries && (
+        <section>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-semibold text-muted-foreground flex items-center gap-2">
+              <Sparkles className="h-4 w-4" />
+              Discover Something New
+            </h2>
+            <Link href="/discover" className="text-sm text-primary hover:underline flex items-center gap-1">
+              Browse all <ArrowRight className="h-3 w-3" />
+            </Link>
+          </div>
+          <Link href={`/series/${featuredSeries.slug}`}>
+            <Card className="overflow-hidden hover:shadow-lg transition-all group cursor-pointer">
+              <div className="relative h-40 overflow-hidden">
+                {featuredSeries.cover_image_url ? (
+                  <img
+                    src={featuredSeries.cover_image_url}
+                    alt={featuredSeries.title}
+                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                  />
+                ) : (
+                  <div className="w-full h-full bg-gradient-to-br from-blue-600/40 via-purple-500/30 to-pink-500/20" />
+                )}
+                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent" />
+                <div className="absolute bottom-0 left-0 right-0 p-4">
+                  <div className="flex items-center gap-2 mb-2">
+                    {featuredSeries.world_id && worldMap.get(featuredSeries.world_id) && (
+                      <Badge variant="secondary" className="bg-black/60 text-white border-0 text-[10px]">
+                        {worldMap.get(featuredSeries.world_id)?.name}
+                      </Badge>
+                    )}
+                    <Badge variant="secondary" className="bg-primary/80 text-primary-foreground text-[10px] capitalize">
+                      {featuredSeries.series_type}
+                    </Badge>
+                  </div>
+                  <h3 className="font-semibold text-white text-lg">{featuredSeries.title}</h3>
+                  {featuredSeries.tagline && (
+                    <p className="text-white/80 text-sm italic mt-1">{featuredSeries.tagline}</p>
+                  )}
+                  <div className="flex items-center gap-2 text-white/70 text-xs mt-2">
+                    <BookOpen className="h-3 w-3" />
+                    <span>{featuredSeries.total_episodes} episodes</span>
+                  </div>
+                </div>
+              </div>
+            </Card>
+          </Link>
+        </section>
+      )}
 
-      {/* Empty state */}
-      {characters.length === 0 && (
+      {/* Empty state - no relationships yet */}
+      {relationships.length === 0 && (
         <Card className="py-12">
           <CardContent className="flex flex-col items-center justify-center text-center">
             <div className="w-16 h-16 rounded-full bg-gradient-to-br from-pink-400 to-purple-500 flex items-center justify-center text-white text-2xl mb-4">
               <Sparkles className="h-8 w-8" />
             </div>
-            <h3 className="text-lg font-semibold mb-2">No characters available</h3>
-            <p className="text-sm text-muted-foreground max-w-sm">
-              Characters are being prepared. Check back soon to meet your cozy companions!
+            <h3 className="text-lg font-semibold mb-2">Start Your First Story</h3>
+            <p className="text-sm text-muted-foreground max-w-sm mb-4">
+              Discover series and characters waiting to meet you.
             </p>
+            <Button asChild>
+              <Link href="/discover">Discover Stories</Link>
+            </Button>
           </CardContent>
         </Card>
       )}
@@ -191,33 +240,25 @@ export default function DashboardPage() {
   );
 }
 
-interface CharacterGridCardProps {
-  character: CharacterSummary;
-  relationship?: RelationshipWithCharacter;
+interface StoryCardProps {
+  relationship: RelationshipWithCharacter;
 }
 
-function CharacterGridCard({ character, relationship }: CharacterGridCardProps) {
-  const stageLabels: Record<string, string> = {
-    acquaintance: "New",
-    friendly: "Friendly",
-    close: "Close",
-    intimate: "Special",
-  };
-
+function StoryCard({ relationship }: StoryCardProps) {
   return (
-    <Link href={`/chat/${character.id}`}>
+    <Link href={`/chat/${relationship.character_id}`}>
       <Card className="overflow-hidden hover:shadow-md transition-all duration-200 hover:-translate-y-0.5 cursor-pointer group h-full">
         <div className="aspect-[3/4] relative overflow-hidden bg-muted">
-          {character.avatar_url ? (
+          {relationship.character_avatar_url ? (
             <img
-              src={character.avatar_url}
-              alt={character.name}
+              src={relationship.character_avatar_url}
+              alt={relationship.character_name}
               className="w-full h-full object-cover object-top group-hover:scale-105 transition-transform duration-300"
             />
           ) : (
             <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-muted to-muted-foreground/20">
               <span className="text-3xl font-bold text-muted-foreground/50">
-                {character.name[0]}
+                {relationship.character_name[0]}
               </span>
             </div>
           )}
@@ -225,38 +266,23 @@ function CharacterGridCard({ character, relationship }: CharacterGridCardProps) 
           {/* Gradient overlay */}
           <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
 
-          {/* Badges */}
-          <div className="absolute top-2 left-2 right-2 flex justify-between items-start">
-            {character.is_premium && (
-              <Badge className="bg-amber-500/90 text-amber-950 text-[10px] px-1.5 py-0">
-                Premium
-              </Badge>
-            )}
-            {relationship?.stage && (
-              <Badge
-                variant="secondary"
-                className={cn(
-                  "text-[10px] px-1.5 py-0 ml-auto",
-                  relationship.stage !== "acquaintance" && "bg-primary/80 text-primary-foreground"
-                )}
-              >
-                {stageLabels[relationship.stage] || relationship.stage}
-              </Badge>
-            )}
-            {!relationship && (
-              <Badge variant="outline" className="text-[10px] px-1.5 py-0 ml-auto bg-white/80 text-foreground border-0">
-                Episode 0
-              </Badge>
-            )}
-          </div>
+          {/* Episode badge */}
+          <Badge
+            variant="secondary"
+            className="absolute top-2 right-2 bg-black/60 text-white border-0 text-[10px]"
+          >
+            Ep {relationship.total_episodes || 0}
+          </Badge>
 
           {/* Name overlay */}
           <div className="absolute bottom-0 left-0 right-0 p-2 text-white">
             <h3 className="font-semibold text-sm leading-tight drop-shadow-md truncate">
-              {character.name}
+              {relationship.character_name}
             </h3>
-            <p className="text-[11px] text-white/75 capitalize truncate">
-              {character.archetype}
+            <p className="text-[11px] text-white/75">
+              {relationship.last_interaction_at
+                ? formatRelativeTime(relationship.last_interaction_at)
+                : "Start episode"}
             </p>
           </div>
         </div>
@@ -280,8 +306,8 @@ function DashboardSkeleton() {
       {/* Grid skeleton */}
       <div className="space-y-4">
         <Skeleton className="h-5 w-32" />
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
-          {[...Array(12)].map((_, i) => (
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
+          {[...Array(5)].map((_, i) => (
             <Skeleton key={i} className="aspect-[3/4] rounded-xl" />
           ))}
         </div>

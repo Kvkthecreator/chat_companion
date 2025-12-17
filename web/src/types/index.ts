@@ -237,7 +237,7 @@ export interface EpisodeTemplateSummary {
 
 /**
  * Episode Discovery Item - for episode-first discovery UI
- * Includes character context for display
+ * Includes character and series context for display
  */
 export interface EpisodeDiscoveryItem extends EpisodeTemplateSummary {
   situation: string;
@@ -246,6 +246,12 @@ export interface EpisodeDiscoveryItem extends EpisodeTemplateSummary {
   character_slug: string;
   character_archetype: string;
   character_avatar_url: string | null;
+  // Series context (for Series-First discovery)
+  series_id: string | null;
+  series_title: string | null;
+  series_slug: string | null;
+  world_id: string | null;
+  world_name: string | null;
 }
 
 /**

@@ -6,7 +6,8 @@ import { api } from "@/lib/api/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { MessageCircle, Clock } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { MessageCircle, Clock, BookOpen, Play } from "lucide-react";
 import type { RelationshipWithCharacter } from "@/types";
 
 export default function MyChatsPage() {
@@ -44,7 +45,7 @@ export default function MyChatsPage() {
         </div>
         <div className="space-y-3">
           {[1, 2, 3].map((i) => (
-            <Skeleton key={i} className="h-20 rounded-xl" />
+            <Skeleton key={i} className="h-24 rounded-xl" />
           ))}
         </div>
       </div>
@@ -61,9 +62,9 @@ export default function MyChatsPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold tracking-tight">My Chats</h1>
+        <h1 className="text-3xl font-bold tracking-tight">Your Stories</h1>
         <p className="text-muted-foreground">
-          Continue your conversations
+          Continue your conversations and episodes.
         </p>
       </div>
 
@@ -72,28 +73,28 @@ export default function MyChatsPage() {
           <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center mb-4">
             <MessageCircle className="h-8 w-8 text-muted-foreground" />
           </div>
-          <p className="text-muted-foreground mb-4">No chats yet</p>
-          <Link
-            href="/discover"
-            className="text-primary hover:underline"
-          >
-            Discover characters to chat with
-          </Link>
+          <p className="text-muted-foreground mb-4">No stories yet</p>
+          <Button asChild>
+            <Link href="/discover">Discover Stories</Link>
+          </Button>
         </div>
       ) : (
         <div className="space-y-3">
           {sortedRelationships.map((rel) => (
             <Link key={rel.id} href={`/chat/${rel.character_id}`}>
-              <Card className="cursor-pointer transition-all hover:-translate-y-0.5 hover:shadow-md">
+              <Card className="cursor-pointer transition-all hover:-translate-y-0.5 hover:shadow-md group">
                 <CardContent className="p-4">
                   <div className="flex items-center gap-4">
                     <AvatarWithFallback name={rel.character_name} src={rel.character_avatar_url} />
 
                     <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 flex-wrap">
                         <h3 className="truncate text-base font-semibold">{rel.character_name}</h3>
-                        {rel.stage && (
-                          <Badge variant="secondary" className="text-[11px]">
+                        <Badge variant="secondary" className="text-[10px]">
+                          Episode {rel.total_episodes || 0}
+                        </Badge>
+                        {rel.stage && rel.stage !== "acquaintance" && (
+                          <Badge variant="outline" className="text-[10px]">
                             {stageLabels[rel.stage] || rel.stage}
                           </Badge>
                         )}
@@ -101,21 +102,30 @@ export default function MyChatsPage() {
                       <p className="text-sm text-muted-foreground capitalize">
                         {rel.character_archetype}
                       </p>
-                      <div className="mt-1 flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
-                        <span>{rel.total_messages} messages</span>
+                      <div className="mt-2 flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
+                        <span className="flex items-center gap-1">
+                          <MessageCircle className="h-3 w-3" />
+                          {rel.total_messages} messages
+                        </span>
                         <span>•</span>
-                        <span>{rel.total_episodes} episodes</span>
+                        <span className="flex items-center gap-1">
+                          <BookOpen className="h-3 w-3" />
+                          {rel.total_episodes} episodes
+                        </span>
                         <span>•</span>
-                        <span>
+                        <span className="flex items-center gap-1">
+                          <Clock className="h-3 w-3" />
                           {rel.last_interaction_at
                             ? formatRelativeTime(rel.last_interaction_at)
-                            : "No chats yet"}
+                            : "Not started"}
                         </span>
                       </div>
                     </div>
 
-                    <div className="text-muted-foreground">
-                      <Clock className="h-5 w-5" />
+                    <div className="shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <div className="h-10 w-10 rounded-full bg-primary flex items-center justify-center">
+                        <Play className="h-4 w-4 text-primary-foreground ml-0.5" fill="currentColor" />
+                      </div>
                     </div>
                   </div>
                 </CardContent>
