@@ -92,9 +92,11 @@ export default function MyChatsPage() {
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2">
                         <h3 className="truncate text-base font-semibold">{rel.character_name}</h3>
-                        <Badge variant="secondary" className="text-[11px]">
-                          {stageLabels[rel.stage] || rel.stage}
-                        </Badge>
+                        {rel.stage && (
+                          <Badge variant="secondary" className="text-[11px]">
+                            {stageLabels[rel.stage] || rel.stage}
+                          </Badge>
+                        )}
                       </div>
                       <p className="text-sm text-muted-foreground capitalize">
                         {rel.character_archetype}

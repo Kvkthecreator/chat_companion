@@ -65,7 +65,7 @@ export function CharacterCard({
                 <h3 className="font-semibold text-lg drop-shadow-md">
                   {character.name}
                 </h3>
-                {relationship && (
+                {relationship?.stage && (
                   <Badge variant="secondary" className="text-xs bg-white/20 text-white border-0">
                     {stageLabels[relationship.stage] || relationship.stage}
                   </Badge>

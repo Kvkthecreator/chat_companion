@@ -232,7 +232,7 @@ function CharacterGridCard({ character, relationship }: CharacterGridCardProps) 
                 Premium
               </Badge>
             )}
-            {relationship && (
+            {relationship?.stage && (
               <Badge
                 variant="secondary"
                 className={cn(

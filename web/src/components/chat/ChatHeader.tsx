@@ -57,7 +57,7 @@ export function ChatHeader({
         <div className="flex flex-col">
           <div className="flex items-center gap-2">
             <h1 className="font-semibold text-sm">{character.name}</h1>
-            {relationship && (
+            {relationship?.stage && (
               <Badge variant="secondary" className="text-[10px] h-5">
                 {stageLabels[relationship.stage] || relationship.stage}
               </Badge>
