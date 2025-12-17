@@ -227,9 +227,10 @@ export const api = {
       request<import("@/types").SeriesWithCharacters>(`/series/${seriesId}/with-characters`),
     create: (data: {
       title: string;
-      slug: string;
+      slug?: string;  // Will be auto-generated if not provided
       description?: string;
       tagline?: string;
+      genre?: string;
       worldId?: string;
       seriesType?: string;
     }) =>
@@ -237,9 +238,10 @@ export const api = {
         method: "POST",
         body: JSON.stringify({
           title: data.title,
-          slug: data.slug,
+          slug: data.slug || data.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, ''),
           description: data.description,
           tagline: data.tagline,
+          genre: data.genre,
           world_id: data.worldId,
           series_type: data.seriesType || "standalone",
         }),
@@ -678,6 +680,23 @@ export const api = {
         `/studio/admin/generate-episode-backgrounds?character=${encodeURIComponent(characterName)}&episode_number=${episodeNumber}`,
         { method: "POST" }
       ),
+  },
+
+  // World endpoints (setting/context - per WORLD_TAXONOMY_CANON.md)
+  worlds: {
+    list: (params?: { status?: string; transparency?: string }) => {
+      const searchParams = new URLSearchParams();
+      if (params?.status) searchParams.set("status", params.status);
+      if (params?.transparency) searchParams.set("transparency", params.transparency);
+      const query = searchParams.toString();
+      return request<import("@/types").World[]>(
+        `/worlds${query ? `?${query}` : ""}`
+      );
+    },
+    get: (worldId: string) =>
+      request<import("@/types").World>(`/worlds/${worldId}`),
+    getBySlug: (slug: string) =>
+      request<import("@/types").World>(`/worlds/slug/${slug}`),
   },
 };
 

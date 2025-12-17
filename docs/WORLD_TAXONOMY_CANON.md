@@ -316,7 +316,7 @@ tropes:
 
 ## Implementation Checklist
 
-### Phase 1: Verify Current State
+### Phase 1: Verify Current State ✅
 - [x] Real Life active
 - [x] Celebrity Sphere active
 - [x] K-World active
@@ -324,14 +324,26 @@ tropes:
 - [x] Near Future active
 - [x] Fantasy Realms active
 
-### Phase 2: Tier 2 Worlds (Next Sprint)
-- [ ] Create migration 024_tier2_worlds.sql
-- [ ] Anime: Slice of Life
-- [ ] Campus Life
+### Phase 2: Tier 2 Worlds ✅
+Migration: `supabase/migrations/024_seed_genesis_worlds.sql`
+
+- [x] Anime: Slice of Life (`anime-slice-of-life`)
+- [x] Campus Life (`campus-life`)
+
+### Phase 3: K-World Content Scaffolding ✅
+Script: `substrate-api/api/src/app/scripts/scaffold_series_first.py`
+
+- [x] Soo-ah character (wounded_star archetype)
+- [x] "Stolen Moments" series (6 episodes)
+- [x] K-World visual doctrine in avatar_generation.py
+- [x] Soo-ah avatar generated
+
+### Phase 4: Additional Tier 2 Worlds (Pending)
 - [ ] Supernatural: Vampires
 - [ ] J-World
+- [ ] Dark Romance
 
-### Phase 3: Content Scaffolding
+### Phase 5: Additional Content (Future)
 - [ ] One series per new world
 - [ ] 2-3 episodes each
 - [ ] Validate QA checklist applies

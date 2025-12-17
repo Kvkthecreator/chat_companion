@@ -387,6 +387,7 @@ export interface SeriesSummary {
   tagline: string | null;
   series_type: SeriesType;
   genre: string | null;  // For filtering (romantic_tension, psychological_thriller, etc.)
+  world_id: string | null;  // For filtering by world
   total_episodes: number;
   cover_image_url: string | null;
   is_featured: boolean;

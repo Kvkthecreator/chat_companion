@@ -7,18 +7,34 @@ import { Button } from '@/components/ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { cn } from '@/lib/utils'
 import { api } from '@/lib/api/client'
-import type { CharacterSummary, SeriesSummary } from '@/types'
+import type { CharacterSummary, SeriesSummary, World } from '@/types'
 
 export default function StudioPage() {
   const [characters, setCharacters] = useState<CharacterSummary[]>([])
   const [series, setSeries] = useState<SeriesSummary[]>([])
+  const [worlds, setWorlds] = useState<World[]>([])
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState<'all' | 'draft' | 'active'>('all')
-  const [activeTab, setActiveTab] = useState<'overview' | 'characters' | 'series'>('overview')
+  const [worldFilter, setWorldFilter] = useState<string | null>(null)
+  // Series-First: default to series tab
+  const [activeTab, setActiveTab] = useState<'overview' | 'series' | 'characters'>('series')
 
   useEffect(() => {
     fetchData()
-  }, [filter])
+  }, [filter, worldFilter])
+
+  useEffect(() => {
+    fetchWorlds()
+  }, [])
+
+  const fetchWorlds = async () => {
+    try {
+      const data = await api.worlds.list()
+      setWorlds(data)
+    } catch {
+      setWorlds([])
+    }
+  }
 
   const fetchData = async () => {
     try {
@@ -27,9 +43,12 @@ export default function StudioPage() {
       const charData = await api.studio.listCharacters(statusFilter)
       setCharacters(charData)
 
-      // Fetch series (new)
+      // Fetch series
       try {
-        const seriesData = await api.series.list({ status: filter !== 'all' ? filter : 'active' })
+        const seriesData = await api.series.list({
+          status: filter !== 'all' ? filter : undefined,
+          worldId: worldFilter || undefined
+        })
         setSeries(seriesData)
       } catch {
         // Series endpoint may not exist yet
@@ -86,12 +105,12 @@ export default function StudioPage() {
         </CardContent>
       </Card>
 
-      {/* Tab Navigation */}
+      {/* Tab Navigation - Series-First */}
       <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as typeof activeTab)}>
         <TabsList>
-          <TabsTrigger value="overview">Overview</TabsTrigger>
-          <TabsTrigger value="characters">Characters</TabsTrigger>
           <TabsTrigger value="series">Series</TabsTrigger>
+          <TabsTrigger value="characters">Characters</TabsTrigger>
+          <TabsTrigger value="overview">Overview</TabsTrigger>
         </TabsList>
 
         {/* Overview Tab */}
@@ -239,13 +258,45 @@ export default function StudioPage() {
           )}
         </TabsContent>
 
-        {/* Series Tab */}
+        {/* Series Tab - Primary Content View */}
         <TabsContent value="series" className="space-y-6 mt-6">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <h2 className="text-xl font-semibold">Series</h2>
-            <Button asChild variant="outline">
-              <Link href="/studio/series/create">New Series</Link>
-            </Button>
+            <div className="flex items-center gap-3">
+              {/* World Filter */}
+              <select
+                value={worldFilter || ''}
+                onChange={(e) => setWorldFilter(e.target.value || null)}
+                className="rounded-md border border-input bg-background px-3 py-1.5 text-sm"
+              >
+                <option value="">All Worlds</option>
+                {worlds.map(world => (
+                  <option key={world.id} value={world.id}>
+                    {world.name}
+                  </option>
+                ))}
+              </select>
+              {/* Status Filter */}
+              <div className="flex gap-1">
+                {(['all', 'draft', 'active'] as const).map((f) => (
+                  <button
+                    key={f}
+                    onClick={() => setFilter(f)}
+                    className={cn(
+                      'rounded-full px-3 py-1 text-sm transition',
+                      filter === f
+                        ? 'bg-primary text-primary-foreground'
+                        : 'bg-muted text-muted-foreground hover:text-foreground'
+                    )}
+                  >
+                    {f.charAt(0).toUpperCase() + f.slice(1)}
+                  </button>
+                ))}
+              </div>
+              <Button asChild>
+                <Link href="/studio/series/create">New Series</Link>
+              </Button>
+            </div>
           </div>
 
           {series.length === 0 ? (
@@ -279,7 +330,15 @@ export default function StudioPage() {
                         )}
                         <div className="flex-1 min-w-0">
                           <p className="font-medium truncate">{s.title}</p>
-                          <p className="text-sm text-muted-foreground capitalize">{s.series_type}</p>
+                          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                            <span className="capitalize">{s.series_type}</span>
+                            {s.world_id && (
+                              <>
+                                <span>·</span>
+                                <span>{worlds.find(w => w.id === s.world_id)?.name || 'Unknown World'}</span>
+                              </>
+                            )}
+                          </div>
                           <p className="text-xs text-muted-foreground">
                             {s.total_episodes} episode{s.total_episodes !== 1 ? 's' : ''}
                           </p>

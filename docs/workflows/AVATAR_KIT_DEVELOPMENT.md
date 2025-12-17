@@ -354,6 +354,73 @@ WHERE si.avatar_kit_id IS NOT NULL;
 
 ---
 
+---
+
+## Prompt Engineering for Avatars
+
+The avatar generation system uses a multi-layer prompt assembly defined in `substrate-api/api/src/app/services/avatar_generation.py`.
+
+### Visual Doctrine Layers
+
+| Layer | Source | Purpose |
+|-------|--------|---------|
+| `FANTAZY_STYLE_LOCK` | Global | Consistent quality baseline (masterpiece, cinematic lighting) |
+| `ROLE_FRAME_VISUALS` | Per archetype | Wardrobe, setting, pose for character type |
+| `ARCHETYPE_MOOD` | Per archetype | Expression, emotional mood |
+| `FLIRTING_LEVEL_MODIFIERS` | Per character | Gaze, body language intensity |
+| `COMPOSITION_DEFAULTS` | Global | Framing, camera angle |
+
+### World-Specific Visual Mappings
+
+Visual mappings are organized by world/genre in `avatar_generation.py`:
+
+**K-World Archetypes** (K-Drama visual doctrine):
+- `wounded_star` — Convenience store at night, oversized hoodie, vulnerable beauty
+- `idol_next_door` — Rooftop cafe, Seoul skyline, candid warmth
+- `chaebol_heir` — Penthouse, designer suit, controlled vulnerability
+- `contract_partner` — Office after hours, professional mask slipping
+- `childhood_friend` — Neighborhood at dusk, nostalgic comfort
+
+**Genre 02 Archetypes** (Psychological Thriller):
+- `handler`, `asset`, `researcher`, `enforcer`, `sleeper`, `operative`, etc.
+
+### Adding New World Visual Mappings
+
+To add visual mappings for a new world:
+
+1. Add archetype entries to `ROLE_FRAME_VISUALS` dict:
+   ```python
+   "archetype_name": {
+       "wardrobe": "clothing description",
+       "setting": "background/environment",
+       "pose": "body language, expression hints",
+   },
+   ```
+
+2. Add archetype entries to `ARCHETYPE_MOOD` dict:
+   ```python
+   "archetype_name": {
+       "expression": "facial expression, eye direction",
+       "mood": "emotional atmosphere",
+   },
+   ```
+
+3. Optionally add world-specific flirting levels to `FLIRTING_LEVEL_MODIFIERS`:
+   ```python
+   "guarded_warm": {"gaze": "description", "body_language": "description"},
+   ```
+
+### Asset Types
+
+Valid values for `avatar_assets.asset_type`:
+- `portrait` — Upper body/face shot (primary anchor)
+- `fullbody` — Full body pose
+- `scene` — Character in environment
+
+**Note:** The DB constraint is `CHECK ((asset_type = ANY (ARRAY['portrait', 'fullbody', 'scene'])))`.
+
+---
+
 ## Related Documentation
 
 - [Database Access Guide](../DATABASE_ACCESS.md)
