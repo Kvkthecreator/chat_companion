@@ -38,6 +38,7 @@ class Series(BaseModel):
     slug: str
     description: Optional[str] = None
     tagline: Optional[str] = None
+    genre: Optional[str] = None
 
     # Relationships
     world_id: Optional[UUID] = None
@@ -53,6 +54,7 @@ class Series(BaseModel):
     # Visual assets
     cover_image_url: Optional[str] = None
     thumbnail_url: Optional[str] = None
+    visual_style: Dict[str, Any] = Field(default_factory=dict)
 
     # Publishing state
     status: str = "draft"
