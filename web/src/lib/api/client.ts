@@ -100,22 +100,23 @@ export const api = {
     archetypes: () => request<string[]>("/characters/archetypes/list"),
   },
 
-  // Relationship endpoints
+  // Engagement endpoints (user-character relationships)
+  // Note: Backend uses /engagements, frontend types use Relationship naming
   relationships: {
     list: (include_archived?: boolean) =>
       request<import("@/types").RelationshipWithCharacter[]>(
-        `/relationships${include_archived ? "?include_archived=true" : ""}`
+        `/engagements${include_archived ? "?include_archived=true" : ""}`
       ),
     create: (character_id: string) =>
-      request<import("@/types").Relationship>("/relationships", {
+      request<import("@/types").Relationship>("/engagements", {
         method: "POST",
         body: JSON.stringify({ character_id }),
       }),
     get: (id: string) =>
-      request<import("@/types").Relationship>(`/relationships/${id}`),
+      request<import("@/types").Relationship>(`/engagements/${id}`),
     getByCharacter: (character_id: string) =>
       request<import("@/types").Relationship>(
-        `/relationships/character/${character_id}`
+        `/engagements/character/${character_id}`
       ),
     update: (
       id: string,
@@ -126,7 +127,7 @@ export const api = {
         relationship_notes?: string;
       }
     ) =>
-      request<import("@/types").Relationship>(`/relationships/${id}`, {
+      request<import("@/types").Relationship>(`/engagements/${id}`, {
         method: "PATCH",
         body: JSON.stringify(data),
       }),
