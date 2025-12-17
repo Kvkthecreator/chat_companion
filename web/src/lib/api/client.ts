@@ -205,6 +205,78 @@ export const api = {
       ),
   },
 
+  // Series endpoints (narrative containers - per CONTENT_ARCHITECTURE_CANON.md)
+  series: {
+    list: (params?: { worldId?: string; seriesType?: string; status?: string; featured?: boolean; limit?: number }) => {
+      const searchParams = new URLSearchParams();
+      if (params?.worldId) searchParams.set("world_id", params.worldId);
+      if (params?.seriesType) searchParams.set("series_type", params.seriesType);
+      if (params?.status) searchParams.set("status_filter", params.status);
+      if (params?.featured) searchParams.set("featured", "true");
+      if (params?.limit) searchParams.set("limit", String(params.limit));
+      const query = searchParams.toString();
+      return request<import("@/types").SeriesSummary[]>(
+        `/series${query ? `?${query}` : ""}`
+      );
+    },
+    get: (seriesId: string) =>
+      request<import("@/types").Series>(`/series/${seriesId}`),
+    getWithEpisodes: (seriesId: string) =>
+      request<import("@/types").SeriesWithEpisodes>(`/series/${seriesId}/with-episodes`),
+    getWithCharacters: (seriesId: string) =>
+      request<import("@/types").SeriesWithCharacters>(`/series/${seriesId}/with-characters`),
+    create: (data: {
+      title: string;
+      slug: string;
+      description?: string;
+      tagline?: string;
+      worldId?: string;
+      seriesType?: string;
+    }) =>
+      request<import("@/types").Series>("/series", {
+        method: "POST",
+        body: JSON.stringify({
+          title: data.title,
+          slug: data.slug,
+          description: data.description,
+          tagline: data.tagline,
+          world_id: data.worldId,
+          series_type: data.seriesType || "standalone",
+        }),
+      }),
+    update: (seriesId: string, data: {
+      title?: string;
+      description?: string;
+      tagline?: string;
+      worldId?: string;
+      seriesType?: string;
+      status?: string;
+      isFeatured?: boolean;
+      episodeOrder?: string[];
+      featuredCharacters?: string[];
+    }) =>
+      request<import("@/types").Series>(`/series/${seriesId}`, {
+        method: "PATCH",
+        body: JSON.stringify({
+          title: data.title,
+          description: data.description,
+          tagline: data.tagline,
+          world_id: data.worldId,
+          series_type: data.seriesType,
+          status: data.status,
+          is_featured: data.isFeatured,
+          episode_order: data.episodeOrder,
+          featured_characters: data.featuredCharacters,
+        }),
+      }),
+    activate: (seriesId: string) =>
+      request<import("@/types").Series>(`/series/${seriesId}/activate`, { method: "POST" }),
+    feature: (seriesId: string) =>
+      request<import("@/types").Series>(`/series/${seriesId}/feature`, { method: "POST" }),
+    delete: (seriesId: string) =>
+      request<null>(`/series/${seriesId}`, { method: "DELETE" }),
+  },
+
   // Message endpoints
   messages: {
     list: (episode_id: string, params?: { limit?: number; before_id?: string }) => {

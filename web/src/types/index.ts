@@ -250,9 +250,11 @@ export interface EpisodeDiscoveryItem extends EpisodeTemplateSummary {
 
 /**
  * Episode Template - full details for starting a conversation
+ * Extended with Episode Dynamics per EPISODE_DYNAMICS_CANON.md
  */
 export interface EpisodeTemplate extends EpisodeTemplateSummary {
   character_id: string;
+  series_id: string | null;  // Series container
   situation: string;
   opening_line: string;
   episode_frame: string | null;
@@ -260,6 +262,10 @@ export interface EpisodeTemplate extends EpisodeTemplateSummary {
   starter_prompts?: string[];  // Optional - falls back to character's prompts
   sort_order: number;
   status: string;
+  // Episode Dynamics (per EPISODE_DYNAMICS_CANON.md)
+  dramatic_question: string | null;  // Narrative tension to explore
+  beat_guidance: Record<string, string>;  // Soft waypoints: establishment, complication, escalation, pivot_opportunity
+  resolution_types: string[];  // Valid endings: positive, neutral, negative, surprise
 }
 
 // Message types
@@ -359,6 +365,58 @@ export interface World {
   metadata: Record<string, unknown>;
   is_active: boolean;
   created_at: string;
+}
+
+// ============================================================================
+// Series Types (per CONTENT_ARCHITECTURE_CANON.md)
+// ============================================================================
+
+/**
+ * Series type per GLOSSARY.md
+ */
+export type SeriesType = "standalone" | "serial" | "anthology" | "crossover";
+
+/**
+ * Series Summary - for lists and cards
+ */
+export interface SeriesSummary {
+  id: string;
+  title: string;
+  slug: string;
+  tagline: string | null;
+  series_type: SeriesType;
+  total_episodes: number;
+  cover_image_url: string | null;
+  is_featured: boolean;
+}
+
+/**
+ * Full Series model
+ */
+export interface Series extends SeriesSummary {
+  description: string | null;
+  world_id: string | null;
+  featured_characters: string[];
+  episode_order: string[];
+  thumbnail_url: string | null;
+  status: "draft" | "active" | "archived" | "featured";
+  featured_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+/**
+ * Series with embedded episode templates
+ */
+export interface SeriesWithEpisodes extends Series {
+  episodes: EpisodeTemplateSummary[];
+}
+
+/**
+ * Series with embedded character summaries
+ */
+export interface SeriesWithCharacters extends Series {
+  characters: CharacterSummary[];
 }
 
 // Scene types
