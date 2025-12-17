@@ -54,9 +54,19 @@ export function useChat({ characterId, episodeTemplateId, enabled = true, onErro
 
       if (!activeEpisode) {
         // Start new episode with template if provided
-        activeEpisode = await api.conversation.start(characterId, {
-          episodeTemplateId,
-        });
+        try {
+          activeEpisode = await api.conversation.start(characterId, {
+            episodeTemplateId,
+          });
+        } catch (err) {
+          // If the backend returns a conflict because the engagement/session already exists, recover gracefully.
+          if (err instanceof APIError && err.status === 409) {
+            // Attempt to fetch the freshly-active episode again (or one may have been created in parallel)
+            activeEpisode = await api.episodes.getActive(characterId);
+          } else {
+            throw err;
+          }
+        }
       }
 
       setEpisode(activeEpisode);
