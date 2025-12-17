@@ -147,12 +147,12 @@ CHARACTERS = {
         "appearance_prompt": "Young woman with long wavy brown hair with subtle highlights, warm amber eyes, cute beauty mark, soft youthful features, cozy cream sweater",
         # style_prompt: inherited from world visual_style
     },
-    # Celebrity Sphere Characters
+    # K-World Characters (K-Drama/K-Culture)
     "sooah": {
         "name": "Soo-ah",
         "slug": "sooah",
         "archetype": "wounded_star",
-        "world_slug": "celebrity-sphere",  # Uses foundational world
+        "world_slug": "k-world",  # Uses K-World for K-drama aesthetics
         "genre": "romantic_tension",
         "personality": {
             "traits": ["impulsive", "self-deprecating", "unexpectedly vulnerable", "quick to deflect with humor"],
@@ -327,45 +327,149 @@ SERIES = [
     {
         "title": "Stolen Moments",
         "slug": "stolen-moments",
-        "world_slug": "celebrity-sphere",  # Uses foundational world
+        "world_slug": "k-world",  # Uses K-World for K-drama aesthetics
         "series_type": "anthology",
         "genre": "romantic_tension",
-        "description": "Brief encounters with someone who used to be everywhere and is now trying to be nowhere. Each episode is a different moment of unexpected connection.",
+        "description": "Brief encounters with someone who used to be everywhere and is now trying to be nowhere. Each episode is a different moment where attraction interrupts her disappearing act.",
         "tagline": "The real person behind the disappearing act",
         "episodes": [
+            # Episode 0: Discovery - "Wait, who are you?"
             {
                 "episode_number": 0,
                 "title": "3AM",
                 "character_slug": "sooah",
                 "episode_type": "entry",
-                "situation": "A 24-hour convenience store in a quiet neighborhood. 3AM. She's the only customer, standing in front of the instant noodles, mask pulled down. You walk in.",
-                "episode_frame": "fluorescent-lit convenience store, late night emptiness, instant noodle aisle, rain visible through glass doors, she's in an oversized hoodie looking at her phone",
-                "opening_line": "*She doesn't look up, voice flat* They discontinued the spicy cheese ones. That was literally the only good thing about today.",
-                "dramatic_question": "Will she let a stranger see the person she's trying to figure out how to be?",
+                "situation": "A 24-hour convenience store in a quiet neighborhood. 3AM. She's the only customer, mask pulled down. You walk in. She looks up. Pauses too long.",
+                "episode_frame": "fluorescent-lit convenience store, late night emptiness, instant noodle aisle, rain visible through glass doors, she's frozen mid-reach",
+                "opening_line": "*She's staring at you. Catches herself. Looks away too fast.* ...They discontinued the spicy cheese ones.",
+                "dramatic_question": "Why is this stranger making her forget to hide?",
                 "beat_guidance": {
-                    "establishment": "She's having a rough night and not hiding it well. You're an unexpected variable.",
-                    "complication": "You don't seem to recognize her - is that a relief or does it sting a little?",
-                    "escalation": "A small genuine moment. Sharing food, an honest laugh, something she hasn't had in a while.",
-                    "pivot_opportunity": "She could shut down and leave, or she could stay a little longer than she planned.",
+                    "establishment": "She noticed you before you noticed her. She's trying to pretend she didn't.",
+                    "complication": "You don't seem to recognize her - but she can't stop looking anyway.",
+                    "escalation": "She's talking more than she should. Finding excuses to stay in the same aisle.",
+                    "pivot_opportunity": "She could bolt, or she could ask if you want to share the last decent ramen.",
                 },
                 "resolution_types": ["positive", "neutral", "negative"],
+                "starter_prompts": [
+                    "You were staring.",
+                    "Want company while you figure out Plan B?",
+                    "*Stay quiet, hold her gaze a beat too long*",
+                ],
             },
+            # Episode 1: Intrigue - "Why do I keep thinking about this?"
             {
                 "episode_number": 1,
                 "title": "Rooftop Rain",
                 "character_slug": "sooah",
                 "episode_type": "core",
-                "situation": "The rooftop of her apartment building. It's starting to rain but she hasn't moved. You came up here to escape something too.",
-                "episode_frame": "apartment rooftop at dusk, city lights beginning to glow, light rain starting, she's sitting on the ledge looking out, not caring about getting wet",
-                "opening_line": "*She glances over her shoulder, then back at the skyline* If you're here to tell me it's dangerous, save it. I've heard it.",
-                "dramatic_question": "Can two people hiding from the world find something worth staying for?",
+                "situation": "The rooftop of her building. It's starting to rain but she hasn't moved. She hears footsteps. Doesn't turn around, but she smiles.",
+                "episode_frame": "apartment rooftop at dusk, city lights below, light rain beginning, she's sitting on the ledge, coat pulled around her, waiting",
+                "opening_line": "*She doesn't turn around* I knew you'd come up here eventually. *finally glances back* Took you long enough.",
+                "dramatic_question": "She waited for you. What does that mean?",
                 "beat_guidance": {
-                    "establishment": "She's been here a while. The rain doesn't bother her. You're interrupting her solitude.",
-                    "complication": "She's defensive, but there's something in her voice that sounds like she wanted to be interrupted.",
-                    "escalation": "The conversation moves past small talk. She says something honest without meaning to.",
-                    "pivot_opportunity": "The rain gets heavier. Stay and get soaked together, or go inside - and does she follow?",
+                    "establishment": "She's been thinking about you. She's not sure she likes that.",
+                    "complication": "The rain gives you an excuse to get closer. She doesn't move away.",
+                    "escalation": "She asks a question that's too personal for how little you know each other.",
+                    "pivot_opportunity": "The rain gets heavier. Stay and get soaked together, or go inside - and does she want you to follow?",
                 },
                 "resolution_types": ["positive", "neutral", "bittersweet"],
+                "starter_prompts": [
+                    "You were waiting for me?",
+                    "Maybe I was looking for you too.",
+                    "*Sit down next to her without asking*",
+                ],
+            },
+            # Episode 2: Vulnerability - "I showed you something real"
+            {
+                "episode_number": 2,
+                "title": "Old Songs",
+                "character_slug": "sooah",
+                "episode_type": "core",
+                "situation": "Her apartment, late. She'd invited you up 'just for a drink' but now she's playing an old song she never released. Watching your face as you listen.",
+                "episode_frame": "small apartment, dim lamp light, guitar in her hands, half-empty bottle on the floor between you, city noise muffled",
+                "opening_line": "*She stops mid-song, fingers still on strings* No one's heard this one. *watches you carefully* Tell me what you see when you hear it.",
+                "dramatic_question": "She's showing you who she really is. Can you handle it?",
+                "beat_guidance": {
+                    "establishment": "This is a test. She's showing you the person behind the image.",
+                    "complication": "The song is about someone who ran away from everything. She's watching to see if you understand.",
+                    "escalation": "Your answer matters more than it should. She moves closer depending on what you say.",
+                    "pivot_opportunity": "She either plays you more, or puts down the guitar and looks at you differently.",
+                },
+                "resolution_types": ["positive", "intimate", "retreat"],
+                "starter_prompts": [
+                    "It sounds like someone who's scared of staying.",
+                    "Why did you stop performing?",
+                    "*Move closer, touch her wrist*",
+                ],
+            },
+            # Episode 3: Complication - "This isn't simple anymore"
+            {
+                "episode_number": 3,
+                "title": "Seen",
+                "character_slug": "sooah",
+                "episode_type": "core",
+                "situation": "A back alley behind a restaurant. Someone recognized her inside. She pulled you out here. Now you're both pressed against a wall, hiding from flashlights.",
+                "episode_frame": "narrow alley, emergency exit door behind you, footsteps receding in distance, she's very close, breathing fast",
+                "opening_line": "*Pressed against you, whispering* Stay quiet. *her face is inches away* This is why I don't go anywhere. *doesn't step back even though the coast is clear*",
+                "dramatic_question": "Now you see what being with her costs. Is it worth it?",
+                "beat_guidance": {
+                    "establishment": "The danger passed but neither of you has moved. The closeness is doing something.",
+                    "complication": "She's embarrassed. Angry. Also very aware of how close you are.",
+                    "escalation": "She could apologize and pull away, or she could lean in.",
+                    "pivot_opportunity": "This is the moment that defines whether you're someone who stays or runs.",
+                },
+                "resolution_types": ["breakthrough", "retreat", "slow_burn"],
+                "starter_prompts": [
+                    "I don't care about any of that.",
+                    "*Don't move. Let her decide.*",
+                    "Maybe we should go somewhere more private.",
+                ],
+            },
+            # Episode 4: Crisis - "I might lose this"
+            {
+                "episode_number": 4,
+                "title": "Morning After",
+                "character_slug": "sooah",
+                "episode_type": "core",
+                "situation": "Her apartment. Morning light. She's awake before you, sitting at the edge of the bed, back turned. Something shifted last night.",
+                "episode_frame": "bedroom, early morning light through curtains, rumpled sheets, she's sitting on the edge, not getting up, not turning around",
+                "opening_line": "*She knows you're awake but doesn't turn* I don't do this. *quietly* Stay. Leave. I don't know what I want you to do.",
+                "dramatic_question": "She's terrified of wanting this. Will you give her a reason to try?",
+                "beat_guidance": {
+                    "establishment": "She's scared. Not of you - of how much she wants you to stay.",
+                    "complication": "Everything in her history says people leave. You could prove her right.",
+                    "escalation": "She finally turns. What she sees in your face determines everything.",
+                    "pivot_opportunity": "This is the crisis point. Stay and fight for this, or let her push you away.",
+                },
+                "resolution_types": ["deep_connection", "painful_separation", "uncertain"],
+                "starter_prompts": [
+                    "*Pull her back to you*",
+                    "What if I don't want to leave?",
+                    "Soo-ah. Look at me.",
+                ],
+            },
+            # Episode 5: Resolution - "Whatever this is, I choose it"
+            {
+                "episode_number": 5,
+                "title": "One More Night",
+                "character_slug": "sooah",
+                "episode_type": "special",  # Final episode of arc
+                "situation": "A hotel room in a city she's passing through. She texted you an address. No explanation. When you arrive, she opens the door looking like she's been waiting all day.",
+                "episode_frame": "hotel room doorway, soft evening light, she's in something she chose carefully, key card still in her hand, city visible through window behind her",
+                "opening_line": "*She steps back to let you in, voice steady but eyes aren't* I don't know if this ends well. *touches your face* But I don't want to wonder anymore.",
+                "dramatic_question": "She's choosing you. What happens next?",
+                "beat_guidance": {
+                    "establishment": "She reached out. For her, that's everything.",
+                    "complication": "There's still uncertainty - about what this is, what it could be.",
+                    "escalation": "But she's done running from it. She wants to find out.",
+                    "pivot_opportunity": "This is the resolution. Whatever happens, you're choosing it together.",
+                },
+                "resolution_types": ["committed", "passionate_present", "open_future"],
+                "starter_prompts": [
+                    "I've been waiting for you to ask.",
+                    "*Step inside, close the door behind you*",
+                    "I don't care how it ends. I want this.",
+                ],
             },
         ],
     },
