@@ -97,7 +97,13 @@ async def send_message_stream(
             })
             yield f"data: {error_data}\n\n"
         except Exception as e:
-            yield f"data: [ERROR] {str(e)}\n\n"
+            import logging
+            import traceback
+            log = logging.getLogger(__name__)
+            log.error(f"Streaming error: {type(e).__name__}: {str(e)}")
+            log.error(traceback.format_exc())
+            error_msg = f"{type(e).__name__}: {str(e)}" if str(e) else type(e).__name__
+            yield f"data: [ERROR] {error_msg}\n\n"
 
     return StreamingResponse(
         generate(),
