@@ -253,8 +253,9 @@ export interface EpisodeDiscoveryItem extends EpisodeTemplateSummary {
  * Extended with Episode Dynamics per EPISODE_DYNAMICS_CANON.md
  */
 export interface EpisodeTemplate extends EpisodeTemplateSummary {
-  character_id: string;
+  character_id: string | null;  // Anchor character (nullable for drafts)
   series_id: string | null;  // Series container
+  // featured_characters deferred until crossover content (Genesis Stage = single anchor)
   situation: string;
   opening_line: string;
   episode_frame: string | null;
@@ -385,6 +386,7 @@ export interface SeriesSummary {
   slug: string;
   tagline: string | null;
   series_type: SeriesType;
+  genre: string | null;  // For filtering (romantic_tension, psychological_thriller, etc.)
   total_episodes: number;
   cover_image_url: string | null;
   is_featured: boolean;
