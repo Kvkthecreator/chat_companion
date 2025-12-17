@@ -2,69 +2,140 @@
 
 > Defining what each image type conveys, where it appears, and how it should be generated.
 
+**Status:** CANONICAL - Updated 2024-12-17
+**Related:** CONTENT_ARCHITECTURE_CANON.md, World taxonomy docs
+
+---
+
 ## Overview
 
 The Fantazy visual system has **4 distinct image layers**, each serving a specific narrative purpose:
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│  DISCOVERY LAYER (Browse/Marketing)                         │
-│  ├─ Series Cover    → "What world am I entering?"          │
-│  └─ Episode Card    → "What situation awaits?"             │
-├─────────────────────────────────────────────────────────────┤
-│  IDENTITY LAYER (Character Recognition)                     │
-│  └─ Character Avatar → "Who am I talking to?"              │
-├─────────────────────────────────────────────────────────────┤
-│  ATMOSPHERE LAYER (Immersion)                               │
-│  └─ Episode Background → "Where am I right now?"           │
-├─────────────────────────────────────────────────────────────┤
-│  MOMENT LAYER (User-Generated)                              │
-│  └─ Scene Cards → "What just happened between us?"         │
-└─────────────────────────────────────────────────────────────┘
+DISCOVERY LAYER (Browse/Marketing)
+├─ Series Cover    → "What world and who awaits me?"
+└─ Episode Card    → "What situation awaits?" (future)
+
+IDENTITY LAYER (Character Recognition)
+└─ Character Avatar → "Who am I talking to?"
+
+ATMOSPHERE LAYER (Immersion)
+└─ Episode Background → "Where am I right now?"
+
+MOMENT LAYER (User-Generated)
+└─ Scene Cards → "What just happened between us?"
 ```
-
-## Visual Identity Cascade
-
-**IMPLEMENTED** - All content images inherit visual identity through a cascade:
-
-```
-World visual_style (K-World base aesthetic)
-    ↓ inheritance
-Series visual_style (genre-specific overrides)
-    ↓ merge
-Episode-specific context (location, time of day)
-    ↓ generation
-Final Image Prompt
-```
-
-### Database Schema
-- `worlds.visual_style` - JSONB with base aesthetic (color palette, rendering style)
-- `series.visual_style` - JSONB with series-level overrides (mood, motifs)
-- Both use the `VisualStyle` schema defined in `app/models/world.py`
-
-### VisualStyle Fields
-```python
-base_style: str       # Core art direction (e.g., "anime-influenced illustration")
-color_palette: str    # Color themes (e.g., "warm neon, cool shadows")
-rendering: str        # Technical rendering (e.g., "soft cel shading")
-character_framing: str # How characters are presented
-negative_prompt: str  # What to avoid
-mood: str            # Emotional atmosphere (series-level)
-recurring_motifs: list # Visual themes (series-level)
-genre_markers: str   # Genre-specific visual cues (series-level)
-atmosphere: str      # Environmental feel (series-level)
-```
-
-### Service Files
-- `app/services/content_image_generation.py` - Visual cascade logic + prompt builders
-- `app/scripts/generate_series_images.py` - CLI script for batch generation
 
 ---
 
-## 1. Series Cover Image
+## Critical Design Principle: Separation of Concerns
+
+**LEARNING (2024-12-17):** Previous implementation conflated character styling with environment rendering, and narrative mood with visual instructions. This created confused outputs.
+
+### The Problem We Solved
+
+```
+BAD: Merged prompt with everything
+─────────────────────────────────
+"Korean convenience store at 3am" +
+"cinematic K-drama photography, soft glamour" +      ← CHARACTER styling
+"cherry blossom pinks" +                              ← WRONG season/mood
+"idol-grade beauty, expressive close-ups" +          ← CHARACTER framing
+"mysterious, fleeting, bittersweet longing" +        ← NARRATIVE concept
+"featuring rain, late night, empty spaces"           ← GENERIC motifs
+
+Result: Confused model, inconsistent outputs
+```
+
+### The Fix: Purpose-Specific Prompts
+
+Each image type gets ONLY the prompt elements relevant to its purpose:
+
+| Image Type | Gets | Does NOT Get |
+|------------|------|--------------|
+| Episode Background | Location, time, environmental rendering | Character styling, narrative mood, generic motifs |
+| Series Cover | Scene + character + cinematic composition | Portrait framing, abstract mood words |
+| Character Avatar | Appearance, expression, character framing | Environmental context, scene elements |
+| Scene Cards | Character anchor + scene context + action | Abstract mood, generic style |
+
+---
+
+## 1. Episode Background
 
 ### Purpose
-Marketing/discovery image that conveys the **emotional promise** of the series.
+Atmospheric backdrop that establishes **where the conversation takes place**.
+
+### Where It Appears
+- Chat page (full-height background behind messages)
+- Applied with gradient overlay for readability (`from-black/40 via-black/20 to-black/60`)
+
+### Visual Requirements
+| Attribute | Requirement |
+|-----------|-------------|
+| Aspect Ratio | 9:16 (576x1024) - portrait for mobile |
+| Content | Location/setting ONLY - NO characters |
+| Style | Atmospheric, suitable as text backdrop |
+| Focus | Soft atmospheric blur acceptable |
+
+### Prompt Structure (CANONICAL)
+
+```
+{location_description},
+{time_of_day} lighting,
+{environmental_rendering},
+atmospheric depth, cinematic composition,
+empty scene, no people, no characters, no faces,
+masterpiece, best quality
+```
+
+**location_description:** Concrete, specific scene description
+- GOOD: "Korean convenience store interior, fluorescent lights, snack aisles, glass doors"
+- BAD: "intimate isolation in urban environment"
+
+**time_of_day:** Lighting context only
+- GOOD: "3am fluorescent lighting", "soft morning light through curtains"
+- BAD: "mysterious late night mood"
+
+**environmental_rendering:** How environments are rendered (NOT characters)
+- GOOD: "cinematic photography, atmospheric depth, soft ambient lighting"
+- BAD: "idol-grade beauty, expressive close-ups, fashion-forward styling"
+
+### Negative Prompt (CANONICAL)
+
+```
+people, person, character, figure, silhouette, face, portrait,
+anime, cartoon, illustration style,
+text, watermark, signature,
+blurry, low quality, distorted
+```
+
+### Episode-Specific Configuration
+
+Each episode MUST have explicit location/time configuration. Do NOT rely on inheritance.
+
+```python
+EPISODE_BACKGROUNDS = {
+    "3AM": {
+        "location": "Korean convenience store interior, fluorescent ceiling lights, snack aisles, refrigerated drinks section, glass entrance doors, tiled floor",
+        "time": "3am, harsh fluorescent lighting, nighttime visible through windows",
+        "rendering": "urban night photography, cold artificial light, quiet isolation"
+    },
+    "Morning After": {
+        "location": "Korean apartment bedroom, rumpled white bedding, curtained window, minimal furniture",
+        "time": "early morning, soft diffused daylight through sheer curtains",
+        "rendering": "intimate interior photography, warm natural light, quiet stillness"
+    }
+}
+```
+
+**Note:** "Morning After" gets MORNING rendering, not "late night" from series motifs.
+
+---
+
+## 2. Series Cover
+
+### Purpose
+Marketing/discovery image that conveys **"What world and who awaits me?"**
 
 ### Where It Appears
 - Discover page (featured hero card)
@@ -72,54 +143,87 @@ Marketing/discovery image that conveys the **emotional promise** of the series.
 - Series detail page header
 
 ### Visual Requirements
-- **Aspect Ratio**: 16:9 (landscape) or 1:1 (square for cards)
-- **Style**: Atmospheric, mood-focused, may include character silhouette
-- **Content**: Setting + mood + genre hint (NOT a portrait)
-- **Text**: None (title overlaid by UI)
+| Attribute | Requirement |
+|-----------|-------------|
+| Aspect Ratio | 16:9 (1024x576) - landscape for cards |
+| Content | Character IN environment, cinematic composition |
+| Style | Evocative, story-promising, genre-appropriate |
+| Character | Featured character, atmospheric pose (not portrait crop) |
+
+### Why Character IN Scene (Not Empty Environment)
+
+Empty atmospheric scenes are:
+- Generic (could be any story)
+- Less compelling for discovery
+- Missing the core promise (the character relationship)
+
+Character in scene delivers:
+- WHO you'll meet (recognition)
+- WHERE/WHAT MOOD (context)
+- Story promise in a single image
 
 ### Generation Approach
-- **Input**: Series title, tagline, genre, world tone
-- **Prompt Focus**: Environment, lighting, color palette, emotional tone
-- **Example**: "Stolen Moments" → Neon-lit Seoul street at night, rain reflections, sense of mystery and longing
 
-### Priority
-**Medium** - Enhances discovery but not critical for core experience
+Series covers require **two-stage generation** or **composite approach**:
 
----
+**Option A: FLUX Kontext with Character Reference**
+```python
+# Use character's avatar anchor as reference
+prompt = """
+{character_name} in {scene_description},
+{character_pose_and_expression},
+{environmental_context},
+cinematic wide shot, atmospheric lighting,
+{genre_visual_cues}
+"""
+reference_images = [character_avatar_anchor_bytes]
+```
 
-## 2. Episode Background Image
+**Option B: Full Description (No Reference)**
+```python
+prompt = """
+{character_full_appearance},
+standing/sitting in {scene_description},
+{pose_and_expression},
+cinematic composition, establishing shot,
+{environmental_context and lighting}
+"""
+```
 
-### Purpose
-Atmospheric backdrop that establishes **where the conversation takes place**.
+### Prompt Structure (CANONICAL)
 
-### Where It Appears
-- Chat page (full-height background behind messages)
-- Applied with gradient overlay for readability
+```
+{character_description OR "character from reference"},
+{pose_and_framing} in {scene_description},
+{time_of_day and lighting},
+cinematic composition, atmospheric depth,
+{genre_visual_style},
+masterpiece, best quality, highly detailed
+```
 
-### Visual Requirements
-- **Aspect Ratio**: 9:16 (portrait) or 16:9 (will be cropped/covered)
-- **Style**: Soft focus, atmospheric, NOT busy
-- **Content**: Location/setting only (NO characters)
-- **Overlay Compatibility**: Must work with `from-black/40 via-black/20 to-black/60` gradient
+### Series Cover Examples
 
-### Generation Approach
-- **Input**: Episode situation, dramatic_question, time of day hints
-- **Prompt Focus**: Empty environment, ambient lighting, mood
-- **Negative Prompt**: people, characters, faces, text
+**Stolen Moments (Romantic Tension)**
+```
+Young Korean woman in casual clothes (hoodie, mask pulled down),
+standing alone in neon-lit Seoul street at night,
+rain-wet pavement reflecting city lights,
+looking back over shoulder with guarded expression,
+cinematic wide shot, moody urban atmosphere,
+K-drama romantic tension aesthetic,
+masterpiece, best quality
+```
 
-### Episode-Specific Examples (Stolen Moments)
-
-| Episode | Title | Setting | Background Concept |
-|---------|-------|---------|-------------------|
-| EP-00 | 3AM | Convenience store | Fluorescent-lit konbini interior, empty aisles, 3am quiet |
-| EP-01 | Rain Check | Café awning | Rain outside café window, warm interior light, blurred street |
-| EP-02 | Missed Connection | Train platform | Empty subway platform, last train announcement ambiance |
-| EP-03 | Borrowed Time | Rooftop | Seoul rooftop at dusk, city lights below, golden hour fading |
-| EP-04 | Paper Walls | Apartment hallway | Dim apartment corridor, soft light under doors |
-| EP-05 | Last Call | Bar closing | Bar interior, chairs on tables, neon signs dimming |
-
-### Priority
-**High** - Directly impacts immersion during conversation
+**Nexus Tower (Psychological Thriller)**
+```
+Sharp-suited man in modern corporate lobby,
+standing at floor-to-ceiling windows overlooking city,
+cold blue lighting, reflective surfaces,
+composed posture but tension in stance,
+cinematic establishing shot, thriller atmosphere,
+corporate noir aesthetic,
+masterpiece, best quality
+```
 
 ---
 
@@ -136,22 +240,42 @@ Visual identity that answers **"Who am I talking to?"**
 - Scene card generation (as reference anchor)
 
 ### Visual Requirements
-- **Aspect Ratio**: 1:1 (square)
-- **Style**: Fantazy house style (anime-influenced illustration)
-- **Content**: Character portrait, face clearly visible
-- **Expression**: Neutral-warm (versatile for any conversation context)
+| Attribute | Requirement |
+|-----------|-------------|
+| Aspect Ratio | 1:1 (square) |
+| Content | Character portrait, face clearly visible |
+| Expression | Neutral-warm (versatile for any conversation) |
+| Style | Fantazy house style via Avatar Kit |
 
 ### Generation Approach
-- **Source**: Avatar Kit system with primary anchor
-- **Prompt**: Full appearance description + Fantazy style lock
-- **Consistency**: Same anchor used for all scene card generations
+- **Source:** Avatar Kit system with primary anchor
+- **Prompt:** Full appearance description + style directives
+- **Consistency:** Same anchor used for all scene card generations
 
-### Current Status
-- Soo-ah: **Has avatar** (generated via Avatar Kit)
-- Managed via Studio character gallery
+### Prompt Structure (via Avatar Kit)
 
-### Priority
-**Critical** - Required for character activation
+```
+{appearance_prompt from avatar kit},
+{style_prompt from world visual_style - CHARACTER fields only},
+portrait, face clearly visible, looking at viewer,
+{expression_guidance},
+masterpiece, best quality
+```
+
+### World Visual Style - Character Fields
+
+Only these fields apply to character generation:
+
+```python
+CHARACTER_STYLE_FIELDS = [
+    "base_style",        # Art direction for characters
+    "character_framing", # How characters are presented
+    "color_palette",     # Can apply to character lighting
+    "negative_prompt",   # What to avoid
+]
+```
+
+Fields like `rendering` may contain environmental terms ("rain on windows") - filter these out for avatar generation.
 
 ---
 
@@ -163,121 +287,212 @@ Capture **specific moments** during conversation as visual memories.
 ### Where It Appears
 - Inline in chat message flow
 - User's "Memories" gallery (if saved)
-- Triggered at milestones or user request
+- Triggered at milestones or user request ("Visualize it")
 
 ### Visual Requirements
-- **Aspect Ratio**: 16:9 (cinematic)
-- **Style**: Fantazy style, character-consistent
-- **Content**: Character + action + setting
-- **Caption**: AI-generated poetic 1-2 sentence description
+| Attribute | Requirement |
+|-----------|-------------|
+| Aspect Ratio | 16:9 (cinematic) or 1:1 (moment) |
+| Content | Character + action + setting |
+| Style | Consistent with character's established look |
+| Caption | AI-generated 1-2 sentence description |
 
 ### Generation Approach
-- **KONTEXT Mode** (preferred): Uses avatar anchor as reference
-- **T2I Mode** (fallback): Full appearance in prompt
-- **Trigger Points**: Episode start, milestones, user "Visualize it" click
 
-### Priority
-**Medium** - Enhances engagement but generated on-demand
-
----
-
-## Generation Pipeline
-
-### Immediate Needs (Stolen Moments Series)
-
-1. **Series Cover** (1 image)
-   - Prompt: "Seoul night cityscape, neon reflections on wet pavement, mysterious atmosphere, sense of fleeting moments, K-drama aesthetic, cinematic lighting, no people"
-
-2. **Episode Backgrounds** (6 images)
-   - Generate per-episode atmospheric backgrounds
-   - Use existing `generate_episode_backgrounds` script
-   - Prompts derived from episode situations
-
-### Not Needed Now
-- Character Avatar: Already exists for Soo-ah
-- Scene Cards: Generated during gameplay
-
----
-
-## Prompt Templates
-
-### Series Cover Template
-```
-{world_tone} {setting_type}, {time_of_day} lighting, {mood_keywords},
-cinematic composition, no people, no text, atmospheric depth,
-{genre_visual_cues}, masterpiece quality illustration
+**Primary: FLUX Kontext with Avatar Anchor**
+```python
+kontext_service = ImageService.get_client("replicate", "flux-kontext-pro")
+response = await kontext_service.edit(
+    prompt="Same woman from reference, now {action} in {setting}",
+    reference_images=[avatar_anchor_bytes],
+    aspect_ratio="16:9"
+)
 ```
 
-### Episode Background Template
-```
-{location} interior/exterior, {time_of_day}, empty scene,
-{mood_adjectives}, {lighting_style}, no people, no characters,
-soft atmospheric blur, suitable for text overlay,
-{world_aesthetic} style, ambient and immersive
-```
+**Fallback: Text-to-Image (if no anchor)**
+Full character appearance in prompt.
 
-### Style Lock (All Images)
-```
-Positive: masterpiece, best quality, highly detailed illustration,
-cinematic lighting, soft dramatic shadows, warm color palette,
-anime-influenced art style, professional quality
+### Prompt Structure
 
-Negative: photorealistic, 3D render, multiple people, text,
-watermark, signature, blurry, low quality, deformed
+```
+{character reference instruction OR full appearance},
+{specific action/pose from conversation moment},
+{current scene setting},
+{lighting and atmosphere matching episode},
+cinematic composition,
+masterpiece, best quality
 ```
 
 ---
 
-## Implementation Checklist
+## Visual Style Schema (Revised)
 
-### Phase 1: Stolen Moments Launch ✅ COMPLETED
-- [x] Generate series cover image
-- [x] Generate 6 episode background images
-- [x] Store URLs in database (Replicate delivery URLs)
-- [x] Update database records (series.cover_image_url, episode_templates.background_image_url)
+### World-Level Visual Style
 
-### Phase 2: Pipeline Automation
-- [ ] Add cover generation to series creation flow
-- [ ] Add background generation to episode template creation
-- [ ] Studio UI for image preview/regeneration
+Worlds define the **base aesthetic** for all content. The schema separates character and environment concerns:
 
-### Phase 3: Quality & Iteration
-- [ ] A/B test different background styles
-- [ ] User feedback on immersion
-- [ ] Refine prompt templates based on results
+```python
+class WorldVisualStyle:
+    # CHARACTER RENDERING (for avatars, scene cards, series covers with character)
+    character_base_style: str    # "cinematic K-drama photography, soft glamour"
+    character_framing: str       # "idol-grade beauty, expressive close-ups"
+    character_lighting: str      # "beauty lighting, soft diffused light"
 
----
+    # ENVIRONMENT RENDERING (for episode backgrounds, establishing shots)
+    environment_base_style: str  # "cinematic urban photography"
+    environment_palette: str     # "neon nights, warm interiors, cold fluorescent"
+    environment_rendering: str   # "atmospheric depth, rain reflections"
 
-## Generation Script Usage
-
-```bash
-# Generate all images for a series (cover + backgrounds)
-cd substrate-api/api/src
-export FANTAZY_DB_PASSWORD='...'
-export REPLICATE_API_TOKEN='...'
-python -m app.scripts.generate_series_images --series-slug stolen-moments
-
-# Options
---dry-run          # Show prompts without generating
---cover-only       # Only generate series cover
---backgrounds-only # Only generate episode backgrounds
---skip-existing    # Skip if image already exists
+    # SHARED
+    negative_prompt: str         # What to avoid across all generations
 ```
 
-### Current Provider
-- **Replicate + FLUX 1.1 Pro** (`black-forest-labs/flux-1.1-pro`)
-- Handles rate limiting with retry + exponential backoff
+### Series-Level Visual Style
+
+Series can override world defaults with **genre-specific** adjustments:
+
+```python
+class SeriesVisualStyle:
+    # GENRE MARKERS (visual, not narrative)
+    genre_visual_cues: str       # "noir lighting, high contrast" NOT "mysterious longing"
+
+    # ENVIRONMENTAL MOOD (concrete, not abstract)
+    environment_mood: str        # "rain-slicked surfaces, neon reflections" NOT "intimate isolation"
+
+    # RECURRING VISUAL ELEMENTS (optional, use sparingly)
+    visual_motifs: List[str]     # ["rain", "neon signs", "empty spaces"]
+
+    # Do NOT include:
+    # - Abstract narrative concepts ("bittersweet longing", "thrill of secrecy")
+    # - These belong in episode_frame and character system_prompt, not image generation
+```
+
+### What NOT to Put in Visual Style
+
+| Bad (Narrative Concept) | Good (Visual Instruction) |
+|------------------------|---------------------------|
+| "mysterious, fleeting" | "moody lighting, shadows" |
+| "bittersweet longing" | "warm color grade, soft focus" |
+| "intimate isolation" | "empty spaces, single figure" |
+| "the thrill of secrecy" | "hidden corners, low light" |
+
+**Rule:** If it describes an emotion or narrative concept, it doesn't belong in visual style. Translate to concrete visual terms.
 
 ---
 
-## Decisions Made
+## Prompt Priority Order
 
-1. **Series Cover Aspect Ratio**: 16:9 (1024x576) - cropped by UI for cards
-2. **Episode Background Aspect Ratio**: 9:16 (576x1024) - portrait for mobile chat
-3. **Image Storage**: Replicate delivery URLs stored directly in DB
-4. **Fallback**: Gradient overlay applied via CSS if no background_image_url
+For all image types, structure prompts with most important elements FIRST:
+
+```
+1. SUBJECT (what/who is in the image)
+2. CONTEXT (where, when, doing what)
+3. COMPOSITION (framing, camera angle)
+4. STYLE (rendering approach)
+5. QUALITY (masterpiece, best quality)
+```
+
+Models weight early tokens more heavily. Don't bury the subject under style directives.
+
+---
+
+## Implementation Files
+
+| File | Purpose |
+|------|---------|
+| `app/services/content_image_generation.py` | Prompt builders, style merging |
+| `app/scripts/generate_series_images.py` | Batch generation script |
+| `app/services/image.py` | Provider-agnostic generation service |
+
+---
+
+## Generation Checklist
+
+### Before Generating Episode Backgrounds
+- [ ] Each episode has explicit location description (not inherited)
+- [ ] Time of day matches episode context (morning ≠ "late night")
+- [ ] Prompt contains NO character styling terms
+- [ ] Prompt contains NO abstract mood words
+- [ ] Location description is FIRST in prompt
+
+### Before Generating Series Covers
+- [ ] Character appearance is defined (anchor or description)
+- [ ] Scene context matches series setting
+- [ ] Character pose/expression serves the genre
+- [ ] Composition is cinematic (not portrait crop)
+
+### Before Generating Character Avatars
+- [ ] Using Avatar Kit system
+- [ ] Style fields are character-appropriate (not environmental)
+- [ ] Expression is versatile (neutral-warm)
+
+---
+
+## Appendix: K-World Visual Style (Reference)
+
+**Style Direction:** Soft romantic anime, Korean webtoon influenced
+
+### Character Rendering
+```
+base_style: "anime illustration, soft romantic style, Korean webtoon influenced"
+character_framing: "expressive anime faces, soft features, emotional eyes, romantic poses"
+character_lighting: "soft cel-shading, gentle lighting, atmospheric glow"
+```
+
+### Environment Rendering
+```
+environment_style: "detailed anime backgrounds, soft focus depth, warm ambient lighting"
+environment_palette: "warm pastels, soft pinks and ambers, gentle neon accents, dreamy color grading"
+environment_rendering: "soft cel-shading, gentle lighting, atmospheric glow, slight bloom effect"
+```
+
+### Negative (Shared)
+```
+"photorealistic, western cartoon, 3D render, harsh shadows, gritty, dark, horror"
+```
+
+---
+
+## Appendix: Stolen Moments Episode Configs (Reference)
+
+**Style:** Soft romantic anime with mood-driven atmosphere
+
+```python
+STOLEN_MOMENTS_BACKGROUNDS = {
+    "3AM": {
+        "location": "anime convenience store interior, fluorescent lights casting soft glow, colorful snack packages, glass doors showing rainy night",
+        "time": "late night 3am atmosphere, warm fluorescent glow, gentle light reflections",
+        "mood": "quiet lonely beauty, romantic solitude, chance encounter feeling",
+    },
+    "Rooftop Rain": {
+        "location": "anime rooftop scene, Seoul city skyline with glowing lights below, puddles reflecting city colors",
+        "time": "dusk turning to evening, soft rain falling, dreamy city lights emerging",
+        "mood": "romantic melancholy, anticipation, beautiful sadness",
+    },
+    "Old Songs": {
+        "location": "cozy anime apartment living room, warm lamp light, acoustic guitar against wall, vinyl records scattered",
+        "time": "late night, warm golden lamp glow, intimate darkness outside windows",
+        "mood": "intimate warmth, vulnerability, creative space",
+    },
+    "Seen": {
+        "location": "anime back alley scene, wet pavement with neon reflections, soft bokeh lights in distance",
+        "time": "night, colorful neon glow mixing with shadows, rain-slicked surfaces",
+        "mood": "hidden moment, exciting tension, stolen privacy",
+    },
+    "Morning After": {
+        "location": "soft anime bedroom, white rumpled bedding, sheer curtains with light filtering through, plants by window",
+        "time": "early morning, soft golden sunlight through curtains, gentle warm glow",
+        "mood": "tender intimacy, quiet vulnerability, new beginnings",
+    },
+    "One More Night": {
+        "location": "anime luxury hotel room, large window showing sparkling city night view, elegant furnishings",
+        "time": "evening, city lights twinkling through window, warm interior glow",
+        "mood": "romantic anticipation, elegant desire, bittersweet longing",
+    }
+}
+```
 
 ---
 
 *Last Updated: 2024-12-17*
-*Status: Implemented - Phase 1 complete for Stolen Moments*
+*Status: CANONICAL - Corrected prompt architecture*

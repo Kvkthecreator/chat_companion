@@ -1,11 +1,14 @@
 """Content Image Generation Service.
 
-Generates images for Series covers and Episode backgrounds using
-the Visual Identity Cascade system:
+Generates images for Series covers and Episode backgrounds.
 
-World visual_style → Series visual_style → Episode-specific context
+CANONICAL REFERENCE: docs/IMAGE_STRATEGY.md
 
-Reference: docs/IMAGE_STRATEGY.md
+Key Design Principles:
+1. SEPARATION OF CONCERNS - Character styling vs environment rendering
+2. PURPOSE-SPECIFIC PROMPTS - Each image type gets only relevant elements
+3. PROMPT PRIORITY ORDER - Subject first, then context, then style
+4. NO NARRATIVE CONCEPTS - Visual instructions only, not abstract mood words
 """
 
 import logging
@@ -18,223 +21,287 @@ log = logging.getLogger(__name__)
 
 
 # =============================================================================
-# Fantazy Style Lock - Applied to ALL generated images
-# =============================================================================
-
-FANTAZY_STYLE_LOCK = """masterpiece, best quality, highly detailed illustration,
-cinematic lighting, soft dramatic shadows, professional quality,
-cohesive color palette, atmospheric depth"""
-
-FANTAZY_NEGATIVE_LOCK = """lowres, bad anatomy, bad hands, text, error,
-missing fingers, extra digit, fewer digits, cropped, worst quality,
-low quality, normal quality, jpeg artifacts, signature, watermark,
-username, blurry, deformed, disfigured, mutation, mutated"""
-
-
-# =============================================================================
-# Image Type Templates
+# Constants
 # =============================================================================
 
 class ImageType:
     """Image type constants."""
     SERIES_COVER = "series_cover"
     EPISODE_BACKGROUND = "episode_background"
-    WORLD_HERO = "world_hero"
+    CHARACTER_AVATAR = "character_avatar"
+    SCENE_CARD = "scene_card"
 
 
 # Aspect ratios for different image types
 ASPECT_RATIOS = {
-    ImageType.SERIES_COVER: (1024, 576),  # 16:9 landscape
-    ImageType.EPISODE_BACKGROUND: (576, 1024),  # 9:16 portrait (for mobile chat)
-    ImageType.WORLD_HERO: (1024, 576),  # 16:9 landscape
+    ImageType.SERIES_COVER: (1024, 576),      # 16:9 landscape
+    ImageType.EPISODE_BACKGROUND: (576, 1024), # 9:16 portrait (mobile chat)
+    ImageType.CHARACTER_AVATAR: (1024, 1024),  # 1:1 square
+    ImageType.SCENE_CARD: (1024, 576),         # 16:9 cinematic
 }
 
 
 # =============================================================================
-# Visual Style Cascade
+# Episode Background Configuration
+# Per-episode configs with EXPLICIT location, time, and rendering.
+# ANIME STYLE: Soft romantic anime, Korean webtoon influenced
 # =============================================================================
 
-def merge_visual_styles(
-    world_style: Dict[str, Any],
-    series_style: Optional[Dict[str, Any]] = None
-) -> Dict[str, Any]:
-    """
-    Merge world and series visual styles with cascade inheritance.
+# Anime style constants for K-World
+KWORLD_ANIME_STYLE = "anime illustration, soft romantic style, Korean webtoon, detailed background art"
+KWORLD_ANIME_QUALITY = "masterpiece, best quality, highly detailed anime"
+KWORLD_ANIME_NEGATIVE = "photorealistic, 3D render, western cartoon, harsh shadows, dark, horror, blurry, low quality"
 
-    Series-level values override world-level values where specified.
-    """
-    merged = dict(world_style)  # Start with world as base
+STOLEN_MOMENTS_BACKGROUNDS = {
+    "3AM": {
+        "location": "anime convenience store interior, fluorescent lights casting soft glow, colorful snack packages on shelves, glass doors showing rainy night outside",
+        "time": "late night 3am atmosphere, warm fluorescent glow, gentle light reflections",
+        "mood": "quiet lonely beauty, romantic solitude, chance encounter feeling",
+        "rendering": KWORLD_ANIME_STYLE,
+    },
+    "Rooftop Rain": {
+        "location": "anime rooftop scene, Seoul city skyline with glowing lights below, puddles reflecting city colors, low wall ledge",
+        "time": "dusk turning to evening, soft rain falling, dreamy city lights emerging",
+        "mood": "romantic melancholy, anticipation, beautiful sadness",
+        "rendering": KWORLD_ANIME_STYLE,
+    },
+    "Old Songs": {
+        "location": "cozy anime apartment living room, warm lamp light, acoustic guitar against wall, vinyl records scattered, soft cushions",
+        "time": "late night, warm golden lamp glow, intimate darkness outside windows",
+        "mood": "intimate warmth, vulnerability, creative space",
+        "rendering": KWORLD_ANIME_STYLE,
+    },
+    "Seen": {
+        "location": "anime back alley scene, wet pavement with neon reflections, soft bokeh lights in distance, narrow atmospheric passage",
+        "time": "night, colorful neon glow mixing with shadows, rain-slicked surfaces",
+        "mood": "hidden moment, exciting tension, stolen privacy",
+        "rendering": KWORLD_ANIME_STYLE,
+    },
+    "Morning After": {
+        "location": "soft anime bedroom, white rumpled bedding, sheer curtains with light filtering through, minimal cozy decor, plants by window",
+        "time": "early morning, soft golden sunlight through curtains, gentle warm glow",
+        "mood": "tender intimacy, quiet vulnerability, new beginnings",
+        "rendering": KWORLD_ANIME_STYLE,
+    },
+    "One More Night": {
+        "location": "anime luxury hotel room, large window showing sparkling city night view, modern elegant furnishings, soft ambient lighting",
+        "time": "evening, city lights twinkling through window, warm interior glow",
+        "mood": "romantic anticipation, elegant desire, bittersweet longing",
+        "rendering": KWORLD_ANIME_STYLE,
+    },
+}
 
-    if series_style:
-        for key, value in series_style.items():
-            if value is not None and value != "":
-                # Series overrides world for non-empty values
-                if key in merged and isinstance(merged[key], list) and isinstance(value, list):
-                    # For lists (like recurring_motifs), extend rather than replace
-                    merged[key] = merged[key] + value
-                else:
-                    merged[key] = value
+# Weekend Regular series backgrounds
+WEEKEND_REGULAR_BACKGROUNDS = {
+    "Extra Shot": {
+        "location": "cozy anime café interior, warm wood tones, large windows with afternoon sunlight streaming in, coffee bar visible in background, plants and books on shelves, comfortable seating",
+        "time": "afternoon, warm golden sunlight, soft shadows, peaceful Sunday atmosphere",
+        "mood": "comfortable warmth, gentle anticipation, familiar space becoming significant",
+        "rendering": KWORLD_ANIME_STYLE,
+    },
+    "Last Call": {
+        "location": "anime café at closing time, chairs stacked on some tables, warm pendant lights dimmed low, rain visible through windows, empty intimate space, cleaning supplies nearby",
+        "time": "evening closing time, soft warm interior lights against rain outside, quiet solitude",
+        "mood": "intimate possibility, gentle tension, the magic of empty spaces after hours",
+        "rendering": KWORLD_ANIME_STYLE,
+    },
+    "Page 47": {
+        "location": "cozy anime café corner booth, wooden table with open sketchbook, coffee cups, afternoon light catching dust particles, intimate seating arrangement",
+        "time": "afternoon, soft diffused light through windows, warm and quiet atmosphere",
+        "mood": "vulnerability, trust, artistic intimacy, shared secrets between two people",
+        "rendering": KWORLD_ANIME_STYLE,
+    },
+    "Different Context": {
+        "location": "anime evening street scene, quiet neighborhood, soft streetlights beginning to glow, small shops with warm lights, residential area feel",
+        "time": "early evening, golden hour fading to blue hour, warm streetlights emerging",
+        "mood": "chance encounter magic, new possibilities, outside the usual context",
+        "rendering": KWORLD_ANIME_STYLE,
+    },
+    "Your Usual": {
+        "location": "small anime apartment kitchen, morning light through window, pour-over coffee setup on counter, art supplies and sketches visible, cozy creative living space",
+        "time": "morning, soft golden sunlight filtering in, peaceful domestic atmosphere",
+        "mood": "morning after tenderness, domestic intimacy, new chapter beginning",
+        "rendering": KWORLD_ANIME_STYLE,
+    },
+    "Reserved": {
+        "location": "anime café interior, familiar wooden table by window, hand-drawn reserved sign on table, two coffee cups, warm welcoming atmosphere",
+        "time": "afternoon, warm familiar lighting, comfortable and meaningful sunlight",
+        "mood": "full circle, belonging, quiet declaration of something special",
+        "rendering": KWORLD_ANIME_STYLE,
+    },
+}
 
-    return merged
-
-
-def build_style_prompt(visual_style: Dict[str, Any]) -> str:
-    """
-    Build a style prompt string from visual_style dict.
-
-    Returns a coherent prompt fragment for image generation.
-    """
-    parts = []
-
-    if visual_style.get("base_style"):
-        parts.append(visual_style["base_style"])
-
-    if visual_style.get("color_palette"):
-        parts.append(visual_style["color_palette"])
-
-    if visual_style.get("rendering"):
-        parts.append(visual_style["rendering"])
-
-    if visual_style.get("atmosphere"):
-        parts.append(visual_style["atmosphere"])
-
-    if visual_style.get("mood"):
-        parts.append(f"{visual_style['mood']} mood")
-
-    if visual_style.get("genre_markers"):
-        parts.append(visual_style["genre_markers"])
-
-    return ", ".join(parts)
-
-
-def build_negative_prompt(visual_style: Dict[str, Any]) -> str:
-    """
-    Build negative prompt from visual_style + Fantazy defaults.
-    """
-    parts = [FANTAZY_NEGATIVE_LOCK]
-
-    if visual_style.get("negative_prompt"):
-        parts.append(visual_style["negative_prompt"])
-
-    return ", ".join(parts)
+# Combined lookup for all series
+ALL_EPISODE_BACKGROUNDS = {
+    **STOLEN_MOMENTS_BACKGROUNDS,
+    **WEEKEND_REGULAR_BACKGROUNDS,
+}
 
 
 # =============================================================================
-# Prompt Builders
+# Negative Prompts (Purpose-Specific)
 # =============================================================================
 
-def build_series_cover_prompt(
-    series_title: str,
-    series_tagline: Optional[str],
-    series_genre: Optional[str],
-    visual_style: Dict[str, Any],
-    world_name: Optional[str] = None,
-) -> str:
-    """
-    Build prompt for series cover image.
+BACKGROUND_NEGATIVE = """people, person, character, figure, silhouette, face, portrait, human,
+photorealistic, 3D render, western cartoon, CGI,
+text, watermark, signature, logo,
+blurry, low quality, distorted, dark, gritty, horror"""
 
-    Focus: Atmospheric, mood-focused, setting-centric (NO characters)
-    """
-    style_prompt = build_style_prompt(visual_style)
+SERIES_COVER_NEGATIVE = """multiple people, crowd, group,
+photorealistic, 3D render, western cartoon, chibi,
+text, watermark, signature, logo,
+blurry, low quality, distorted, bad anatomy, extra limbs, dark, horror"""
 
-    # Extract motifs if available
-    motifs = visual_style.get("recurring_motifs", [])
-    motif_str = ", ".join(motifs[:3]) if motifs else ""
+CHARACTER_NEGATIVE = """multiple people, crowd,
+blurry face, distorted face, extra limbs, bad anatomy,
+text, watermark, signature,
+low quality, worst quality"""
 
-    # Build the core prompt
-    prompt_parts = [
-        f"cinematic establishing shot",
-        f"atmospheric scene representing '{series_title}'",
-    ]
 
-    if series_tagline:
-        prompt_parts.append(f"evoking the feeling of '{series_tagline}'")
-
-    if series_genre:
-        prompt_parts.append(f"{series_genre} genre aesthetic")
-
-    if motif_str:
-        prompt_parts.append(f"featuring {motif_str}")
-
-    # Add style
-    prompt_parts.append(style_prompt)
-    prompt_parts.append(FANTAZY_STYLE_LOCK)
-
-    # Critical: NO characters
-    prompt_parts.append("empty scene, no people, no characters, no faces")
-
-    return ", ".join(prompt_parts)
-
+# =============================================================================
+# Prompt Builders - Episode Background
+# =============================================================================
 
 def build_episode_background_prompt(
     episode_title: str,
-    episode_situation: str,
-    visual_style: Dict[str, Any],
-    time_of_day: Optional[str] = None,
-    location_hint: Optional[str] = None,
-) -> str:
+    episode_config: Optional[Dict[str, str]] = None,
+    fallback_situation: Optional[str] = None,
+) -> tuple[str, str]:
     """
     Build prompt for episode background image.
 
-    Focus: Empty environment, atmospheric, suitable as chat backdrop
-    """
-    style_prompt = build_style_prompt(visual_style)
+    CANONICAL STRUCTURE (docs/IMAGE_STRATEGY.md):
+    1. Style declaration (anime first for model to understand)
+    2. Location description
+    3. Time of day / lighting
+    4. Mood / atmosphere
+    5. Quality markers
+    6. Constraints (no people)
 
+    Args:
+        episode_title: Episode title for config lookup
+        episode_config: Optional explicit config dict with location/time/mood/rendering
+        fallback_situation: Fallback situation text if no config found
+
+    Returns:
+        Tuple of (positive_prompt, negative_prompt)
+    """
+    # Get episode-specific config (check all series backgrounds)
+    config = episode_config or ALL_EPISODE_BACKGROUNDS.get(episode_title, {})
+
+    if config:
+        location = config.get("location", "")
+        time = config.get("time", "")
+        mood = config.get("mood", "")
+        rendering = config.get("rendering", KWORLD_ANIME_STYLE)
+    elif fallback_situation:
+        # Extract what we can from situation text (less ideal)
+        location = f"anime scene, {fallback_situation[:120]}"
+        time = ""
+        mood = "atmospheric, emotional"
+        rendering = KWORLD_ANIME_STYLE
+    else:
+        raise ValueError(f"No config found for episode '{episode_title}' and no fallback provided")
+
+    # Build prompt with STYLE FIRST (helps model understand the aesthetic)
     prompt_parts = [
-        "atmospheric background scene",
-        "empty environment",
+        rendering,                                   # 1. STYLE - anime first
+        location,                                    # 2. SUBJECT - what the scene is
+        time,                                        # 3. CONTEXT - when/lighting
+        mood,                                        # 4. MOOD - emotional atmosphere
+        "atmospheric depth, soft lighting, beautiful composition",  # 5. COMPOSITION
+        "empty scene, no people, no characters, no figures",  # 6. CONSTRAINTS
+        KWORLD_ANIME_QUALITY,                        # 7. QUALITY
     ]
 
-    # Extract location from situation if not provided
-    if location_hint:
-        prompt_parts.append(f"{location_hint} setting")
-    elif episode_situation:
-        # Try to extract location context from situation
-        prompt_parts.append(f"scene setting for: {episode_situation[:100]}")
+    # Filter empty parts and join
+    prompt = ", ".join(p for p in prompt_parts if p)
 
-    if time_of_day:
-        prompt_parts.append(f"{time_of_day} lighting")
-
-    # Add style
-    prompt_parts.append(style_prompt)
-    prompt_parts.append(FANTAZY_STYLE_LOCK)
-
-    # Critical for backgrounds
-    prompt_parts.extend([
-        "soft atmospheric blur",
-        "suitable for text overlay",
-        "no people",
-        "no characters",
-        "no faces",
-        "empty scene",
-    ])
-
-    return ", ".join(prompt_parts)
+    return prompt, BACKGROUND_NEGATIVE
 
 
 # =============================================================================
-# Episode Background Concepts
+# Prompt Builders - Series Cover
 # =============================================================================
 
-# Pre-defined location/time concepts for common episode situations
-EPISODE_LOCATION_CONCEPTS = {
-    # K-World typical locations
-    "convenience_store": "fluorescent-lit Korean convenience store interior, konbini, late night quiet, snack aisles",
-    "cafe": "cozy Korean café interior, warm lighting, rain outside window, coffee shop ambiance",
-    "subway": "empty Seoul subway platform, last train atmosphere, urban transit",
-    "rooftop": "Seoul rooftop at dusk, city lights below, golden hour fading to night",
-    "apartment_hallway": "dim apartment building corridor, soft light under doors, residential",
-    "bar": "intimate Korean bar interior, closing time, neon signs dimming, soju bottles",
-    "park": "Seoul park at twilight, autumn leaves, park bench, city skyline distant",
-    "office": "late night office, desk lamp lighting, city view through window",
-    "street": "rainy Seoul street at night, neon reflections on wet pavement",
-    "beach": "Korean beach at sunset, waves, distant pier, romantic atmosphere",
+def build_series_cover_prompt(
+    character_description: str,
+    scene_description: str,
+    pose_and_expression: str,
+    lighting_and_time: str,
+    genre_style: str = "cinematic",
+) -> tuple[str, str]:
+    """
+    Build prompt for series cover image (character IN scene).
+
+    CANONICAL STRUCTURE (docs/IMAGE_STRATEGY.md):
+    1. Character description (WHO)
+    2. Pose and position in scene (WHAT they're doing)
+    3. Scene/environment description (WHERE)
+    4. Lighting and time of day
+    5. Composition and style
+    6. Quality markers
+
+    Args:
+        character_description: Full character appearance
+        scene_description: Environmental context
+        pose_and_expression: What the character is doing/feeling
+        lighting_and_time: Time of day and lighting setup
+        genre_style: Genre-appropriate style cues
+
+    Returns:
+        Tuple of (positive_prompt, negative_prompt)
+    """
+    prompt_parts = [
+        character_description,                       # 1. WHO
+        pose_and_expression,                         # 2. WHAT
+        f"in {scene_description}",                   # 3. WHERE
+        lighting_and_time,                           # 4. LIGHTING
+        f"cinematic wide shot, {genre_style}",       # 5. COMPOSITION
+        "atmospheric depth, highly detailed",        # 6. DETAIL
+        "masterpiece, best quality",                 # 7. QUALITY
+    ]
+
+    prompt = ", ".join(p for p in prompt_parts if p)
+
+    return prompt, SERIES_COVER_NEGATIVE
+
+
+def build_stolen_moments_cover_prompt() -> tuple[str, str]:
+    """
+    Build the specific series cover prompt for Stolen Moments.
+
+    Returns anime-style character-in-scene prompt for Soo-ah.
+    """
+    return build_series_cover_prompt(
+        character_description="beautiful anime girl, young Korean woman in her mid-20s, soft features, expressive tired eyes, hair in simple ponytail, wearing oversized hoodie with mask pulled down, vulnerable beauty",
+        scene_description="anime Seoul street at night, soft neon glow reflecting on rain-wet pavement, dreamy urban atmosphere, bokeh city lights",
+        pose_and_expression="standing alone, looking back over shoulder with guarded but curious expression, slight blush, emotional eyes",
+        lighting_and_time="night scene, soft colorful neon reflections, warm and cool tones mixing, gentle atmospheric glow",
+        genre_style="romantic anime style, Korean webtoon aesthetic, soft cel-shading, emotional atmosphere",
+    )
+
+
+def build_weekend_regular_cover_prompt() -> tuple[str, str]:
+    """
+    Build the specific series cover prompt for Weekend Regular.
+
+    Returns anime-style character-in-scene prompt for Minji the barista.
+    """
+    return build_series_cover_prompt(
+        character_description="beautiful anime girl, young Korean woman early 20s, soft gentle features, warm brown eyes, hair in low ponytail with loose strands framing face, wearing café apron over casual sweater, paint-stained fingers, gentle warm smile",
+        scene_description="cozy anime café interior, warm afternoon sunlight through large windows, wooden counter and coffee equipment, plants and books in background, inviting atmosphere",
+        pose_and_expression="leaning slightly on counter, holding coffee cup, looking at viewer with shy but warm expression, slight blush, eyes that have been watching",
+        lighting_and_time="afternoon golden hour, warm sunlight streaming through windows, soft cozy atmosphere",
+        genre_style="romantic anime style, slice of life aesthetic, soft warm colors, Korean webtoon influence, gentle everyday magic",
+    )
+
+
+# Series cover prompt lookup
+SERIES_COVER_PROMPTS = {
+    "stolen-moments": build_stolen_moments_cover_prompt,
+    "weekend-regular": build_weekend_regular_cover_prompt,
 }
-
-
-def get_location_concept(location_key: str) -> Optional[str]:
-    """Get pre-defined location concept by key."""
-    return EPISODE_LOCATION_CONCEPTS.get(location_key.lower().replace(" ", "_"))
 
 
 # =============================================================================
@@ -243,242 +310,192 @@ def get_location_concept(location_key: str) -> Optional[str]:
 
 class ContentImageGenerator:
     """
-    Generates content images (series covers, episode backgrounds)
-    using the Visual Identity Cascade system.
+    Generates content images (series covers, episode backgrounds).
+
+    Uses purpose-specific prompt building - no cascade confusion.
     """
 
-    def __init__(self):
-        self.image_service = ImageService.get_instance()
+    def __init__(self, provider: str = "replicate", model: str = "black-forest-labs/flux-1.1-pro"):
+        """Initialize with specified provider/model."""
+        self.provider = provider
+        self.model = model
 
-    async def generate_series_cover(
-        self,
-        series_title: str,
-        series_tagline: Optional[str],
-        series_genre: Optional[str],
-        world_visual_style: Dict[str, Any],
-        series_visual_style: Optional[Dict[str, Any]] = None,
-        world_name: Optional[str] = None,
-    ) -> Dict[str, Any]:
-        """
-        Generate a series cover image.
-
-        Returns:
-            Dict with 'image_url', 'prompt', 'model_used'
-        """
-        # Merge visual styles
-        merged_style = merge_visual_styles(world_visual_style, series_visual_style)
-
-        # Build prompt
-        prompt = build_series_cover_prompt(
-            series_title=series_title,
-            series_tagline=series_tagline,
-            series_genre=series_genre,
-            visual_style=merged_style,
-            world_name=world_name,
-        )
-
-        negative_prompt = build_negative_prompt(merged_style)
-
-        # Get dimensions
-        width, height = ASPECT_RATIOS[ImageType.SERIES_COVER]
-
-        log.info(f"Generating series cover for '{series_title}'")
-        log.debug(f"Prompt: {prompt}")
-
-        # Generate
-        result = await self.image_service.generate(
-            prompt=prompt,
-            negative_prompt=negative_prompt,
-            width=width,
-            height=height,
-        )
-
-        return {
-            "image_url": result.image_url,
-            "prompt": prompt,
-            "negative_prompt": negative_prompt,
-            "model_used": result.model_used,
-            "latency_ms": result.latency_ms,
-            "image_type": ImageType.SERIES_COVER,
-        }
+    def _get_service(self) -> ImageService:
+        """Get image service client."""
+        return ImageService.get_client(self.provider, self.model)
 
     async def generate_episode_background(
         self,
         episode_title: str,
-        episode_situation: str,
-        world_visual_style: Dict[str, Any],
-        series_visual_style: Optional[Dict[str, Any]] = None,
-        location_key: Optional[str] = None,
-        time_of_day: Optional[str] = None,
+        episode_config: Optional[Dict[str, str]] = None,
+        fallback_situation: Optional[str] = None,
     ) -> Dict[str, Any]:
         """
         Generate an episode background image.
 
         Args:
             episode_title: Episode title (e.g., "3AM")
-            episode_situation: Episode situation/description
-            world_visual_style: World's visual_style dict
-            series_visual_style: Series' visual_style dict (optional)
-            location_key: Key for pre-defined location concept
-            time_of_day: Time hint (e.g., "late night", "dusk")
+            episode_config: Optional explicit config dict
+            fallback_situation: Fallback text if no config
 
         Returns:
-            Dict with 'image_url', 'prompt', 'model_used'
+            Dict with image bytes, prompt, model info
         """
-        # Merge visual styles
-        merged_style = merge_visual_styles(world_visual_style, series_visual_style)
-
-        # Get location concept if key provided
-        location_hint = None
-        if location_key:
-            location_hint = get_location_concept(location_key)
-
-        # Build prompt
-        prompt = build_episode_background_prompt(
+        prompt, negative = build_episode_background_prompt(
             episode_title=episode_title,
-            episode_situation=episode_situation,
-            visual_style=merged_style,
-            time_of_day=time_of_day,
-            location_hint=location_hint,
+            episode_config=episode_config,
+            fallback_situation=fallback_situation,
         )
 
-        negative_prompt = build_negative_prompt(merged_style)
-
-        # Get dimensions (portrait for mobile chat background)
         width, height = ASPECT_RATIOS[ImageType.EPISODE_BACKGROUND]
 
         log.info(f"Generating episode background for '{episode_title}'")
-        log.debug(f"Prompt: {prompt}")
+        log.info(f"Prompt: {prompt[:200]}...")
 
-        # Generate
-        result = await self.image_service.generate(
+        service = self._get_service()
+        result = await service.generate(
             prompt=prompt,
-            negative_prompt=negative_prompt,
+            negative_prompt=negative,
             width=width,
             height=height,
         )
 
         return {
-            "image_url": result.image_url,
+            "images": result.images,
             "prompt": prompt,
-            "negative_prompt": negative_prompt,
-            "model_used": result.model_used,
+            "negative_prompt": negative,
+            "model": result.model,
             "latency_ms": result.latency_ms,
             "image_type": ImageType.EPISODE_BACKGROUND,
         }
 
-    async def generate_batch_episode_backgrounds(
+    async def generate_series_cover(
         self,
-        episodes: List[Dict[str, Any]],
-        world_visual_style: Dict[str, Any],
-        series_visual_style: Optional[Dict[str, Any]] = None,
-    ) -> List[Dict[str, Any]]:
+        character_description: str,
+        scene_description: str,
+        pose_and_expression: str,
+        lighting_and_time: str,
+        genre_style: str = "cinematic",
+        use_reference: bool = False,
+        reference_image_bytes: Optional[bytes] = None,
+    ) -> Dict[str, Any]:
         """
-        Generate backgrounds for multiple episodes.
+        Generate a series cover image (character in scene).
 
         Args:
-            episodes: List of dicts with 'title', 'situation', 'location_key', 'time_of_day'
-            world_visual_style: World's visual_style dict
-            series_visual_style: Series' visual_style dict
+            character_description: Full character appearance
+            scene_description: Environmental context
+            pose_and_expression: Character action/emotion
+            lighting_and_time: Lighting setup
+            genre_style: Genre-specific style cues
+            use_reference: Whether to use FLUX Kontext with reference
+            reference_image_bytes: Character anchor image if using reference
 
         Returns:
-            List of generation results
+            Dict with image bytes, prompt, model info
         """
-        results = []
-
-        for ep in episodes:
-            try:
-                result = await self.generate_episode_background(
-                    episode_title=ep.get("title", ""),
-                    episode_situation=ep.get("situation", ""),
-                    world_visual_style=world_visual_style,
-                    series_visual_style=series_visual_style,
-                    location_key=ep.get("location_key"),
-                    time_of_day=ep.get("time_of_day"),
-                )
-                result["episode_title"] = ep.get("title")
-                result["episode_id"] = ep.get("id")
-                result["success"] = True
-                results.append(result)
-            except Exception as e:
-                log.error(f"Failed to generate background for '{ep.get('title')}': {e}")
-                results.append({
-                    "episode_title": ep.get("title"),
-                    "episode_id": ep.get("id"),
-                    "success": False,
-                    "error": str(e),
-                })
-
-        return results
-
-
-# =============================================================================
-# Convenience Functions
-# =============================================================================
-
-async def generate_series_images(
-    db,
-    series_id: UUID,
-    generate_cover: bool = True,
-    generate_backgrounds: bool = True,
-) -> Dict[str, Any]:
-    """
-    Generate all images for a series (cover + episode backgrounds).
-
-    Fetches series, world, and episode data from database,
-    applies visual identity cascade, and generates images.
-    """
-    # Fetch series with world
-    series_query = """
-        SELECT s.*, w.visual_style as world_visual_style, w.name as world_name
-        FROM series s
-        LEFT JOIN worlds w ON s.world_id = w.id
-        WHERE s.id = :series_id
-    """
-    series_row = await db.fetch_one(series_query, {"series_id": str(series_id)})
-
-    if not series_row:
-        raise ValueError(f"Series {series_id} not found")
-
-    series_data = dict(series_row)
-    world_style = series_data.get("world_visual_style") or {}
-    series_style = series_data.get("visual_style") or {}
-
-    generator = ContentImageGenerator()
-    results = {"series_id": str(series_id), "cover": None, "backgrounds": []}
-
-    # Generate cover
-    if generate_cover:
-        try:
-            cover_result = await generator.generate_series_cover(
-                series_title=series_data["title"],
-                series_tagline=series_data.get("tagline"),
-                series_genre=series_data.get("genre"),
-                world_visual_style=world_style,
-                series_visual_style=series_style,
-                world_name=series_data.get("world_name"),
-            )
-            results["cover"] = cover_result
-        except Exception as e:
-            log.error(f"Failed to generate series cover: {e}")
-            results["cover"] = {"success": False, "error": str(e)}
-
-    # Generate episode backgrounds
-    if generate_backgrounds:
-        episodes_query = """
-            SELECT id, title, situation, episode_number
-            FROM episode_templates
-            WHERE series_id = :series_id
-            ORDER BY episode_number
-        """
-        episode_rows = await db.fetch_all(episodes_query, {"series_id": str(series_id)})
-
-        episodes = [dict(row) for row in episode_rows]
-        background_results = await generator.generate_batch_episode_backgrounds(
-            episodes=episodes,
-            world_visual_style=world_style,
-            series_visual_style=series_style,
+        prompt, negative = build_series_cover_prompt(
+            character_description=character_description,
+            scene_description=scene_description,
+            pose_and_expression=pose_and_expression,
+            lighting_and_time=lighting_and_time,
+            genre_style=genre_style,
         )
-        results["backgrounds"] = background_results
+
+        width, height = ASPECT_RATIOS[ImageType.SERIES_COVER]
+
+        log.info(f"Generating series cover")
+        log.info(f"Prompt: {prompt[:200]}...")
+
+        if use_reference and reference_image_bytes:
+            # Use FLUX Kontext for character consistency
+            service = ImageService.get_client("replicate", "black-forest-labs/flux-kontext-pro")
+            # Modify prompt to reference the input image
+            kontext_prompt = f"Same person from reference image, {pose_and_expression}, in {scene_description}, {lighting_and_time}, cinematic wide shot, {genre_style}, masterpiece"
+            result = await service.edit(
+                prompt=kontext_prompt,
+                reference_images=[reference_image_bytes],
+                aspect_ratio="16:9",
+            )
+            prompt = kontext_prompt  # Update for return
+        else:
+            # Standard text-to-image
+            service = self._get_service()
+            result = await service.generate(
+                prompt=prompt,
+                negative_prompt=negative,
+                width=width,
+                height=height,
+            )
+
+        return {
+            "images": result.images,
+            "prompt": prompt,
+            "negative_prompt": negative,
+            "model": result.model,
+            "latency_ms": result.latency_ms,
+            "image_type": ImageType.SERIES_COVER,
+            "used_reference": use_reference,
+        }
+
+    async def generate_stolen_moments_cover(
+        self,
+        use_reference: bool = False,
+        reference_image_bytes: Optional[bytes] = None,
+    ) -> Dict[str, Any]:
+        """
+        Generate the Stolen Moments series cover specifically.
+
+        Convenience method with pre-configured prompt for Soo-ah.
+        """
+        return await self.generate_series_cover(
+            character_description="Young Korean woman in her mid-20s, natural beauty, tired but striking eyes, hair pulled back simply, wearing oversized hoodie with mask pulled down around chin",
+            scene_description="empty neon-lit Seoul street at night, rain-wet pavement reflecting colorful signs, urban isolation",
+            pose_and_expression="standing alone, looking back over shoulder with guarded but curious expression, slight tension in posture",
+            lighting_and_time="night, neon lights reflecting on wet street, mix of warm and cool tones",
+            genre_style="K-drama romantic tension aesthetic, moody urban atmosphere",
+            use_reference=use_reference,
+            reference_image_bytes=reference_image_bytes,
+        )
+
+
+# =============================================================================
+# Batch Generation Helpers
+# =============================================================================
+
+async def generate_all_episode_backgrounds(
+    series_slug: str,
+    episode_configs: Dict[str, Dict[str, str]],
+) -> List[Dict[str, Any]]:
+    """
+    Generate backgrounds for all episodes in a series.
+
+    Args:
+        series_slug: Series identifier
+        episode_configs: Dict mapping episode titles to their configs
+
+    Returns:
+        List of generation results
+    """
+    generator = ContentImageGenerator()
+    results = []
+
+    for title, config in episode_configs.items():
+        try:
+            result = await generator.generate_episode_background(
+                episode_title=title,
+                episode_config=config,
+            )
+            result["episode_title"] = title
+            result["success"] = True
+            results.append(result)
+            log.info(f"Generated background for '{title}'")
+        except Exception as e:
+            log.error(f"Failed to generate background for '{title}': {e}")
+            results.append({
+                "episode_title": title,
+                "success": False,
+                "error": str(e),
+            })
 
     return results
