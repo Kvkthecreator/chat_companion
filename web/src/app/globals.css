@@ -141,3 +141,19 @@ body {
 .image-fade-in[data-loaded="true"] {
   @apply opacity-100 scale-100;
 }
+
+/* Full-bleed chat background bridge for sidebar/header */
+html.chat-has-bg body {
+  background: transparent;
+  position: relative;
+}
+
+html.chat-has-bg body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  background:
+    linear-gradient(to bottom, rgba(0,0,0,0.55), rgba(0,0,0,0.15)),
+    var(--chat-bg-image) center center / cover no-repeat;
+}

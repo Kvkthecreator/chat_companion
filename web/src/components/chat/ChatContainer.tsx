@@ -170,6 +170,21 @@ export function ChatContainer({ characterId, episodeTemplateId }: ChatContainerP
   const activeBackgroundUrl = latestScene?.image_url || backgroundImageUrl;
   const hasBackground = !!activeBackgroundUrl;
 
+  // Broadcast background to document root so shell (sidebar/header) can inherit the immersive layer.
+  useEffect(() => {
+    if (!hasBackground || !activeBackgroundUrl) {
+      document.documentElement.classList.remove("chat-has-bg");
+      document.documentElement.style.removeProperty("--chat-bg-image");
+      return;
+    }
+    document.documentElement.classList.add("chat-has-bg");
+    document.documentElement.style.setProperty("--chat-bg-image", `url("${activeBackgroundUrl}")`);
+    return () => {
+      document.documentElement.classList.remove("chat-has-bg");
+      document.documentElement.style.removeProperty("--chat-bg-image");
+    };
+  }, [hasBackground, activeBackgroundUrl]);
+
   return (
     <div className={cn(
       "relative flex flex-col h-full w-full overflow-hidden",
