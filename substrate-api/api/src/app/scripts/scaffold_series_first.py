@@ -92,6 +92,9 @@ CHARACTERS = {
         },
         "backstory": "Musician who works night shifts at the cafe. Writes songs about the people she meets but never shows anyone.",
         "current_stressor": "Her lease is up next month. She's been avoiding thinking about what comes next.",
+        # Avatar kit prompts
+        "appearance_prompt": "Young woman with silver-white hair, gentle violet eyes, soft delicate features, ethereal beauty, soft cardigan, gentle cozy layers",
+        "style_prompt": "anime style, soft cel shading, warm color palette, gentle lighting, expressive detailed eyes",
     },
     "mira": {
         "name": "Mira",
@@ -115,6 +118,9 @@ CHARACTERS = {
         },
         "backstory": "Art school dropout who found peace in the ritual of making coffee. The cafe is her gallery now.",
         "current_stressor": "An ex texted last week. She hasn't replied but hasn't deleted it either.",
+        # Avatar kit prompts
+        "appearance_prompt": "Young woman with long wavy brown hair with subtle highlights, warm amber eyes, cute beauty mark, soft youthful features, cozy cream sweater",
+        "style_prompt": "anime style, soft cel shading, warm color palette, gentle lighting, expressive detailed eyes",
     },
     # Thriller Characters
     "cassian": {
@@ -139,6 +145,9 @@ CHARACTERS = {
         },
         "backstory": "Former intelligence analyst who now 'consults' for corporations with problems that can't go through official channels.",
         "current_stressor": "A contact went silent three days ago. The last message was coordinates. Just coordinates.",
+        # Avatar kit prompts
+        "appearance_prompt": "Man in his 30s with short dark hair, sharp intelligent grey eyes, angular features, composed expression, tailored dark suit",
+        "style_prompt": "anime style, dramatic lighting, cool color palette, sharp shadows, intense gaze",
     },
     "vera": {
         "name": "Vera",
@@ -163,6 +172,9 @@ CHARACTERS = {
         },
         "backstory": "Used to work in data analysis for a company that doesn't officially exist. Saw something she wasn't supposed to.",
         "current_stressor": "The same car has been parked outside for two days. Different drivers.",
+        # Avatar kit prompts
+        "appearance_prompt": "Young woman with messy dark hair, tired but alert hazel eyes, sharp features, anxious expression, oversized hoodie",
+        "style_prompt": "anime style, muted colors, harsh lighting, paranoid atmosphere, detailed expressive eyes",
     },
 }
 
@@ -269,7 +281,7 @@ SERIES = [
 
 async def scaffold_worlds(db: Database) -> dict:
     """Create worlds. Returns slug -> id mapping."""
-    print("\n[1/5] Creating worlds...")
+    print("\n[1/7] Creating worlds...")
     world_ids = {}
 
     for world in WORLDS:
@@ -304,7 +316,7 @@ async def scaffold_worlds(db: Database) -> dict:
 
 async def scaffold_characters(db: Database, world_ids: dict) -> dict:
     """Create characters. Returns slug -> id mapping."""
-    print("\n[2/5] Creating characters...")
+    print("\n[2/7] Creating characters...")
     character_ids = {}
 
     for slug, char in CHARACTERS.items():
@@ -368,7 +380,7 @@ async def scaffold_characters(db: Database, world_ids: dict) -> dict:
 
 async def scaffold_series(db: Database, world_ids: dict) -> dict:
     """Create series. Returns slug -> id mapping."""
-    print("\n[3/5] Creating series...")
+    print("\n[3/7] Creating series...")
     series_ids = {}
 
     for series in SERIES:
@@ -412,7 +424,7 @@ async def scaffold_series(db: Database, world_ids: dict) -> dict:
 
 async def scaffold_episodes(db: Database, series_ids: dict, character_ids: dict) -> dict:
     """Create episode templates within series. Returns series_slug -> [episode_ids] mapping."""
-    print("\n[4/5] Creating episode templates...")
+    print("\n[4/7] Creating episode templates...")
     episode_map = {}
 
     for series in SERIES:
@@ -481,9 +493,79 @@ async def scaffold_episodes(db: Database, series_ids: dict, character_ids: dict)
     return episode_map
 
 
+async def scaffold_avatar_kits(db: Database, character_ids: dict) -> dict:
+    """Create avatar kits for characters (prompts only, no images).
+
+    Returns slug -> kit_id mapping.
+
+    Avatar kits contain the visual identity contract (prompts) that can be used
+    to generate images later via Studio UI or admin endpoints.
+    """
+    print("\n[5/7] Creating avatar kits...")
+    kit_ids = {}
+
+    for slug, char in CHARACTERS.items():
+        char_id = character_ids.get(slug)
+        if not char_id:
+            print(f"  - {char['name']}: character not found (skipped)")
+            continue
+
+        # Check if kit already exists
+        existing = await db.fetch_one(
+            "SELECT id FROM avatar_kits WHERE character_id = :char_id",
+            {"char_id": char_id}
+        )
+
+        if existing:
+            kit_ids[slug] = existing["id"]
+            print(f"  - {char['name']}: avatar kit exists (skipped)")
+            continue
+
+        # Get appearance and style prompts
+        appearance_prompt = char.get("appearance_prompt", f"{char['name']}, {char['archetype']} character")
+        style_prompt = char.get("style_prompt", "anime style, soft cel shading, warm colors, expressive eyes")
+
+        kit_id = str(uuid.uuid4())
+
+        await db.execute("""
+            INSERT INTO avatar_kits (
+                id, character_id, name, description,
+                appearance_prompt, style_prompt, negative_prompt,
+                status, is_default
+            ) VALUES (
+                :id, :character_id, :name, :description,
+                :appearance_prompt, :style_prompt, :negative_prompt,
+                'draft', TRUE
+            )
+        """, {
+            "id": kit_id,
+            "character_id": char_id,
+            "name": f"{char['name']} Default",
+            "description": f"Default avatar kit for {char['name']}",
+            "appearance_prompt": appearance_prompt,
+            "style_prompt": style_prompt,
+            "negative_prompt": "lowres, bad anatomy, blurry, multiple people, text, watermark",
+        })
+
+        # Link kit to character
+        await db.execute("""
+            UPDATE characters
+            SET active_avatar_kit_id = :kit_id
+            WHERE id = :char_id
+        """, {
+            "kit_id": kit_id,
+            "char_id": char_id,
+        })
+
+        kit_ids[slug] = kit_id
+        print(f"  - {char['name']}: avatar kit created (prompts ready)")
+
+    return kit_ids
+
+
 async def update_series_episode_order(db: Database, series_ids: dict, episode_map: dict):
     """Update series.episode_order with created episode IDs."""
-    print("\n[5/5] Updating series episode order...")
+    print("\n[6/7] Updating series episode order...")
 
     for series_slug, episode_ids in episode_map.items():
         series_id = series_ids.get(series_slug)
@@ -503,6 +585,26 @@ async def update_series_episode_order(db: Database, series_ids: dict, episode_ma
         print(f"  - {series_slug}: {len(episode_ids)} episodes linked")
 
 
+async def verify_scaffold(db: Database):
+    """Verify scaffolded content counts."""
+    print("\n[7/7] Verifying scaffold...")
+
+    counts = await db.fetch_one("""
+        SELECT
+            (SELECT COUNT(*) FROM worlds) as worlds,
+            (SELECT COUNT(*) FROM characters) as characters,
+            (SELECT COUNT(*) FROM avatar_kits) as avatar_kits,
+            (SELECT COUNT(*) FROM series) as series,
+            (SELECT COUNT(*) FROM episode_templates) as episode_templates
+    """)
+
+    print(f"  - Worlds: {counts['worlds']}")
+    print(f"  - Characters: {counts['characters']}")
+    print(f"  - Avatar Kits: {counts['avatar_kits']}")
+    print(f"  - Series: {counts['series']}")
+    print(f"  - Episode Templates: {counts['episode_templates']}")
+
+
 async def scaffold_all(dry_run: bool = False):
     """Main scaffold function."""
     print("=" * 60)
@@ -514,6 +616,7 @@ async def scaffold_all(dry_run: bool = False):
         print("\n[DRY RUN] Would create:")
         print(f"  - {len(WORLDS)} worlds")
         print(f"  - {len(CHARACTERS)} characters")
+        print(f"  - {len(CHARACTERS)} avatar kits (prompts only)")
         print(f"  - {len(SERIES)} series")
         total_eps = sum(len(s["episodes"]) for s in SERIES)
         print(f"  - {total_eps} episode templates")
@@ -527,7 +630,9 @@ async def scaffold_all(dry_run: bool = False):
         character_ids = await scaffold_characters(db, world_ids)
         series_ids = await scaffold_series(db, world_ids)
         episode_map = await scaffold_episodes(db, series_ids, character_ids)
+        kit_ids = await scaffold_avatar_kits(db, character_ids)
         await update_series_episode_order(db, series_ids, episode_map)
+        await verify_scaffold(db)
 
         # Summary
         print("\n" + "=" * 60)
@@ -535,12 +640,14 @@ async def scaffold_all(dry_run: bool = False):
         print("=" * 60)
         print(f"Worlds: {len(world_ids)}")
         print(f"Characters: {len(character_ids)}")
+        print(f"Avatar Kits: {len(kit_ids)}")
         print(f"Series: {len(series_ids)}")
         total_eps = sum(len(eps) for eps in episode_map.values())
         print(f"Episode Templates: {total_eps}")
         print("\nNOTE: All content is in 'draft' status.")
-        print("To activate:")
-        print("  1. Create avatar_kits for characters")
+        print("Avatar kits have prompts but NO images yet.")
+        print("\nTo activate:")
+        print("  1. Generate avatars via Studio UI or admin endpoint")
         print("  2. UPDATE characters SET status = 'active'")
         print("  3. UPDATE series SET status = 'active'")
 
