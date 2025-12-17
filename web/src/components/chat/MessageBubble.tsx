@@ -43,19 +43,19 @@ export function MessageBubble({
       {/* Message content */}
       <div
         className={cn(
-          "max-w-[85%] rounded-2xl px-4 py-3 shadow-lg transition-colors",
+          "max-w-[85%] rounded-2xl px-4 py-3 shadow-sm transition-colors",
           isUser
             ? cn(
                 "rounded-tr-md",
                 hasBackground
-                  ? "bg-white/90 text-gray-900 backdrop-blur-sm"
+                  ? "bg-white/90 text-gray-900 backdrop-blur-sm shadow-lg"
                   : "bg-primary text-primary-foreground"
               )
             : cn(
-                "rounded-tl-md backdrop-blur-xl backdrop-saturate-150",
+                "rounded-tl-md",
                 hasBackground
-                  ? "bg-black/50 text-white border border-white/10"
-                  : "bg-card/90 text-foreground border border-border/50"
+                  ? "backdrop-blur-xl backdrop-saturate-150 bg-black/50 text-white border border-white/10 shadow-lg"
+                  : "bg-card text-foreground border border-border"
               )
         )}
       >
@@ -108,11 +108,10 @@ export function StreamingBubble({
 
       {/* Message content */}
       <div className={cn(
-        "max-w-[85%] rounded-2xl rounded-tl-md px-4 py-3 shadow-lg",
-        "backdrop-blur-xl backdrop-saturate-150",
+        "max-w-[85%] rounded-2xl rounded-tl-md px-4 py-3",
         hasBackground
-          ? "bg-black/50 text-white border border-white/10"
-          : "bg-card/90 text-foreground border border-border/50"
+          ? "backdrop-blur-xl backdrop-saturate-150 bg-black/50 text-white border border-white/10 shadow-lg"
+          : "bg-card text-foreground border border-border shadow-sm"
       )}>
         <p className="text-sm whitespace-pre-wrap break-words leading-relaxed">
           {content}

@@ -43,9 +43,10 @@ export function Sidebar({ user }: { user: User }) {
       className={cn(
         "relative flex shrink-0 flex-col transition-all duration-300",
         isCollapsed ? "w-[72px]" : "w-72",
+        // In immersive mode, use glass. Otherwise, solid background.
         isImmersive
-          ? "bg-black/40 backdrop-blur-xl backdrop-saturate-150 border-r border-white/10"
-          : "bg-card/60 backdrop-blur border-r border-border"
+          ? "bg-black/60 backdrop-blur-xl border-r border-white/10"
+          : "bg-card border-r border-border"
       )}
     >
       {/* Toggle button */}

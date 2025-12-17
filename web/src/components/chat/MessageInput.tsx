@@ -63,7 +63,7 @@ export function MessageInput({
         "flex w-full items-end gap-2 rounded-full px-3 py-2",
         hasBackground
           ? "bg-white/10 border border-white/20"
-          : "bg-muted/50 border border-border/50"
+          : "bg-muted border border-border"
       )}>
         {/* Visualize button */}
         {showVisualizeButton && onVisualize && (

@@ -187,8 +187,8 @@ export function ChatContainer({ characterId, episodeTemplateId }: ChatContainerP
             <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,transparent_0%,rgba(0,0,0,0.4)_100%)]" />
           </>
         ) : (
-          /* Rich dark gradient when no image */
-          <div className="absolute inset-0 bg-gradient-to-br from-[#0a0a0c] via-[#0d0e12] to-[#08080a]" />
+          /* Clean dark background when no image */
+          <div className="absolute inset-0 bg-background" />
         )}
       </div>
 
@@ -197,10 +197,9 @@ export function ChatContainer({ characterId, episodeTemplateId }: ChatContainerP
         {/* Floating glass header */}
         <div className={cn(
           "mx-3 mt-3 rounded-2xl border shadow-lg transition-colors",
-          "backdrop-blur-xl backdrop-saturate-150",
           hasBackground
-            ? "bg-black/40 border-white/10"
-            : "bg-card/80 border-border/50"
+            ? "backdrop-blur-xl backdrop-saturate-150 bg-black/40 border-white/10"
+            : "bg-card border-border"
         )}>
           <ChatHeader
             character={character}
@@ -213,7 +212,7 @@ export function ChatContainer({ characterId, episodeTemplateId }: ChatContainerP
             "flex flex-wrap gap-2 px-4 py-2 text-xs border-t",
             hasBackground
               ? "border-white/10 text-white/90"
-              : "border-border/50 text-muted-foreground"
+              : "border-border text-muted-foreground"
           )}>
             {relationship && (
               <ContextChip label="Stage" value={formatStage(relationship.stage)} hasBackground={hasBackground} />
@@ -335,10 +334,9 @@ export function ChatContainer({ characterId, episodeTemplateId }: ChatContainerP
         <div className="mx-3 mb-3">
           <div className={cn(
             "rounded-2xl border shadow-lg transition-colors",
-            "backdrop-blur-xl backdrop-saturate-150",
             hasBackground
-              ? "bg-black/40 border-white/10"
-              : "bg-card/80 border-border/50"
+              ? "backdrop-blur-xl backdrop-saturate-150 bg-black/40 border-white/10"
+              : "bg-card border-border"
           )}>
             <MessageInput
               onSend={sendMessage}
