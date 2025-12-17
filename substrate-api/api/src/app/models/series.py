@@ -26,6 +26,7 @@ class SeriesSummary(BaseModel):
     slug: str
     tagline: Optional[str] = None
     series_type: str = SeriesType.STANDALONE
+    genre: Optional[str] = None
     total_episodes: int = 0
     cover_image_url: Optional[str] = None
     is_featured: bool = False
