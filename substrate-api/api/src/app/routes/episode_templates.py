@@ -21,9 +21,13 @@ router = APIRouter(prefix="/episode-templates", tags=["Episode Templates"])
 
 
 async def _get_signed_url(path: Optional[str]) -> Optional[str]:
-    """Generate a signed URL for a storage path."""
+    """Generate a signed URL for a storage path, or return external URLs directly."""
     if not path:
         return None
+    # If it's already an external URL (e.g., from Replicate), return as-is
+    if path.startswith("http://") or path.startswith("https://"):
+        return path
+    # Otherwise, treat as Supabase storage path and generate signed URL
     storage = StorageService.get_instance()
     return await storage.create_signed_url("scenes", path, expires_in=3600)
 
