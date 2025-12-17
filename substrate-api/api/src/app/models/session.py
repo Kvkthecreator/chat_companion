@@ -1,4 +1,9 @@
-"""Session models (formerly Episode runtime)."""
+"""Session models.
+
+A Session is the runtime conversation instance when a user plays through an episode.
+Reference: docs/GLOSSARY.md - Session States: active, paused, faded, complete
+"""
+
 import json
 from datetime import datetime
 from typing import Any, Dict, List, Optional, TYPE_CHECKING
@@ -10,10 +15,28 @@ if TYPE_CHECKING:
     from app.models.message import Message
 
 
+class SessionState:
+    """Session state constants (per GLOSSARY.md Session States)."""
+    ACTIVE = "active"      # Currently in conversation
+    PAUSED = "paused"      # User left mid-conversation
+    FADED = "faded"        # Natural conversation pause reached
+    COMPLETE = "complete"  # Dramatic question addressed, resolution reached
+
+
+class ResolutionType:
+    """Resolution type constants (per EPISODE_DYNAMICS_CANON.md)."""
+    POSITIVE = "positive"    # Favorable outcome
+    NEUTRAL = "neutral"      # Neither positive nor negative
+    NEGATIVE = "negative"    # Unfavorable outcome
+    SURPRISE = "surprise"    # Unexpected turn
+    FADED = "faded"          # Natural fade without explicit resolution
+
+
 class SessionCreate(BaseModel):
     """Data for creating a session."""
 
     character_id: UUID
+    episode_template_id: Optional[UUID] = None
     scene: Optional[str] = None
     title: Optional[str] = None
 
@@ -24,6 +47,8 @@ class SessionUpdate(BaseModel):
     title: Optional[str] = None
     scene: Optional[str] = None
     is_active: Optional[bool] = None
+    session_state: Optional[str] = None
+    resolution_type: Optional[str] = None
 
 
 class SessionSummary(BaseModel):
@@ -31,12 +56,13 @@ class SessionSummary(BaseModel):
 
     id: UUID
     character_id: UUID
-    episode_number: int  # Keep as episode_number for display
+    episode_number: int
     title: Optional[str] = None
     started_at: datetime
     ended_at: Optional[datetime] = None
     message_count: int = 0
     is_active: bool = True
+    session_state: str = SessionState.ACTIVE
 
 
 class Session(BaseModel):
@@ -44,16 +70,22 @@ class Session(BaseModel):
 
     A Session is the runtime instance when a user starts an Episode Template.
     Terminology: Episode Template = scenario, Session = runtime.
+
+    Session States (per GLOSSARY.md):
+    - active: Currently in conversation
+    - paused: User left mid-conversation
+    - faded: Natural conversation pause reached
+    - complete: Dramatic question addressed, resolution reached
     """
 
     id: UUID
     user_id: UUID
     character_id: UUID
-    engagement_id: Optional[UUID] = None  # was relationship_id
+    engagement_id: Optional[UUID] = None
     episode_template_id: Optional[UUID] = None
 
     # Session info
-    episode_number: int  # Keep for display purposes
+    episode_number: int
     title: Optional[str] = None
     scene: Optional[str] = None
 
@@ -70,15 +102,20 @@ class Session(BaseModel):
     message_count: int = 0
     user_message_count: int = 0
 
-    # Status
+    # Status (legacy - prefer session_state)
     is_active: bool = True
+
+    # Session state tracking (new - per EPISODE_DYNAMICS_CANON.md)
+    session_state: str = SessionState.ACTIVE
+    resolution_type: Optional[str] = None
+    fade_metadata: Dict[str, Any] = Field(default_factory=dict)
 
     # Metadata
     metadata: Dict[str, Any] = Field(default_factory=dict)
 
     created_at: datetime
 
-    @field_validator("metadata", mode="before")
+    @field_validator("metadata", "fade_metadata", mode="before")
     @classmethod
     def ensure_metadata_is_dict(cls, v: Any) -> Dict[str, Any]:
         """Handle metadata as JSON string (from DB)."""
@@ -120,11 +157,3 @@ class SessionWithMessages(Session):
     """Session with embedded messages."""
 
     messages: List[Any] = Field(default_factory=list)
-
-
-# Backwards compatibility aliases (deprecated)
-Episode = Session
-EpisodeCreate = SessionCreate
-EpisodeUpdate = SessionUpdate
-EpisodeSummary = SessionSummary
-EpisodeWithMessages = SessionWithMessages

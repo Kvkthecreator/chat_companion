@@ -15,16 +15,20 @@ from app.models.character import (
     CharacterBoundaries,
 )
 from app.models.world import World, WorldSummary
+from app.models.series import (
+    Series,
+    SeriesSummary,
+    SeriesCreate,
+    SeriesUpdate,
+    SeriesWithEpisodes,
+    SeriesWithCharacters,
+    SeriesType,
+)
 from app.models.engagement import (
     Engagement,
     EngagementCreate,
     EngagementUpdate,
     EngagementWithCharacter,
-    # Backwards compatibility aliases
-    Relationship,
-    RelationshipCreate,
-    RelationshipUpdate,
-    RelationshipWithCharacter,
 )
 from app.models.session import (
     Session,
@@ -32,12 +36,8 @@ from app.models.session import (
     SessionSummary,
     SessionUpdate,
     SessionWithMessages,
-    # Backwards compatibility aliases
-    Episode,
-    EpisodeCreate,
-    EpisodeSummary,
-    EpisodeUpdate,
-    EpisodeWithMessages,
+    SessionState,
+    ResolutionType,
 )
 from app.models.message import (
     Message,
@@ -82,28 +82,27 @@ __all__ = [
     # World
     "World",
     "WorldSummary",
-    # Engagement (new)
+    # Series (new)
+    "Series",
+    "SeriesSummary",
+    "SeriesCreate",
+    "SeriesUpdate",
+    "SeriesWithEpisodes",
+    "SeriesWithCharacters",
+    "SeriesType",
+    # Engagement
     "Engagement",
     "EngagementCreate",
     "EngagementUpdate",
     "EngagementWithCharacter",
-    # Relationship (deprecated aliases)
-    "Relationship",
-    "RelationshipCreate",
-    "RelationshipUpdate",
-    "RelationshipWithCharacter",
-    # Session (new)
+    # Session
     "Session",
     "SessionCreate",
     "SessionSummary",
     "SessionUpdate",
     "SessionWithMessages",
-    # Episode (deprecated aliases)
-    "Episode",
-    "EpisodeCreate",
-    "EpisodeSummary",
-    "EpisodeUpdate",
-    "EpisodeWithMessages",
+    "SessionState",
+    "ResolutionType",
     # Message
     "Message",
     "MessageCreate",

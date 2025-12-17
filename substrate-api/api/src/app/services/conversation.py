@@ -10,10 +10,6 @@ from app.models.character import Character
 from app.models.session import Session
 from app.models.message import Message, MessageRole, ConversationContext, MemorySummary, HookSummary
 from app.models.engagement import Engagement
-
-# Backwards compatibility aliases
-Episode = Session
-Relationship = Engagement
 from app.services.llm import LLMService
 from app.services.memory import MemoryService
 from app.services.usage import UsageService
@@ -325,6 +321,44 @@ class ConversationService:
         relationship_dynamic = relationship_dynamic_data.get("dynamic", {}) if relationship_dynamic_data else {}
         relationship_milestones = relationship_dynamic_data.get("milestones", []) if relationship_dynamic_data else []
 
+        # Get episode dynamics from episode_template (per EPISODE_DYNAMICS_CANON.md)
+        episode_frame = None
+        dramatic_question = None
+        beat_guidance = {}
+        resolution_types = ["positive", "neutral", "negative"]
+        series_context = None
+
+        if episode_id:
+            # Get episode_template_id from the session
+            session_query = "SELECT episode_template_id FROM sessions WHERE id = :episode_id"
+            session_row = await self.db.fetch_one(session_query, {"episode_id": str(episode_id)})
+
+            if session_row and session_row["episode_template_id"]:
+                template_id = session_row["episode_template_id"]
+                # Fetch episode dynamics from template
+                template_query = """
+                    SELECT episode_frame, dramatic_question, beat_guidance, resolution_types, series_id
+                    FROM episode_templates
+                    WHERE id = :template_id
+                """
+                template_row = await self.db.fetch_one(template_query, {"template_id": str(template_id)})
+
+                if template_row:
+                    episode_frame = template_row.get("episode_frame")
+                    dramatic_question = template_row.get("dramatic_question")
+                    beat_guidance_raw = template_row.get("beat_guidance")
+                    if beat_guidance_raw:
+                        beat_guidance = json.loads(beat_guidance_raw) if isinstance(beat_guidance_raw, str) else beat_guidance_raw
+                    resolution_types_raw = template_row.get("resolution_types")
+                    if resolution_types_raw:
+                        resolution_types = list(resolution_types_raw) if not isinstance(resolution_types_raw, str) else resolution_types
+
+                    # If part of a series, get series context from previous episodes
+                    if template_row.get("series_id"):
+                        series_context = await self._get_series_context(
+                            user_id, character_id, template_row["series_id"], template_id
+                        )
+
         return ConversationContext(
             character_system_prompt=character.system_prompt,
             character_name=character.name,
@@ -339,6 +373,12 @@ class ConversationService:
             time_since_first_met=time_since_first_met,
             relationship_dynamic=relationship_dynamic,
             relationship_milestones=relationship_milestones,
+            # Episode dynamics (per EPISODE_DYNAMICS_CANON.md)
+            episode_frame=episode_frame,
+            dramatic_question=dramatic_question,
+            beat_guidance=beat_guidance,
+            resolution_types=resolution_types,
+            series_context=series_context,
         )
 
     async def get_or_create_episode(
@@ -619,3 +659,75 @@ class ConversationService:
                 hooks=extracted_hooks,
             )
             log.info(f"Saved {len(extracted_hooks)} hooks")
+
+    async def _get_series_context(
+        self,
+        user_id: UUID,
+        character_id: UUID,
+        series_id: str,
+        current_template_id: str,
+    ) -> Optional[str]:
+        """Build series context from previous episodes for serial continuity.
+
+        Per EPISODE_DYNAMICS_CANON.md: For serial series, provide summary bridge
+        of what happened before to maintain narrative continuity.
+        """
+        # Get episode order from series
+        series_query = """
+            SELECT episode_order, series_type FROM series WHERE id = :series_id
+        """
+        series_row = await self.db.fetch_one(series_query, {"series_id": str(series_id)})
+
+        if not series_row or series_row["series_type"] != "serial":
+            # Only provide series context for serial series
+            return None
+
+        episode_order = series_row.get("episode_order", [])
+        if not episode_order or not isinstance(episode_order, list):
+            return None
+
+        # Find current episode's position in order
+        try:
+            current_index = episode_order.index(current_template_id)
+        except ValueError:
+            return None
+
+        if current_index == 0:
+            # First episode in series, no prior context
+            return None
+
+        # Get summaries from user's completed sessions for prior episodes
+        prior_template_ids = episode_order[:current_index]
+
+        # Fetch summaries from completed sessions
+        summaries_query = """
+            SELECT s.summary, et.title, et.episode_number
+            FROM sessions s
+            JOIN episode_templates et ON s.episode_template_id = et.id
+            WHERE s.user_id = :user_id
+            AND s.character_id = :character_id
+            AND s.episode_template_id = ANY(:template_ids)
+            AND s.summary IS NOT NULL
+            ORDER BY et.episode_number
+        """
+        summary_rows = await self.db.fetch_all(summaries_query, {
+            "user_id": str(user_id),
+            "character_id": str(character_id),
+            "template_ids": prior_template_ids,
+        })
+
+        if not summary_rows:
+            return None
+
+        # Build context string
+        context_parts = []
+        for row in summary_rows:
+            title = row.get("title", f"Episode {row.get('episode_number', '?')}")
+            summary = row.get("summary", "")
+            if summary:
+                context_parts.append(f"• {title}: {summary}")
+
+        if not context_parts:
+            return None
+
+        return "Previous episodes:\n" + "\n".join(context_parts)

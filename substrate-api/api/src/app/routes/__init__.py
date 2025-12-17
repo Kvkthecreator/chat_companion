@@ -7,6 +7,7 @@ from app.routes import (
     engagements,
     sessions,
     episode_templates,
+    series,
     messages,
     memory,
     hooks,
@@ -16,22 +17,16 @@ from app.routes import (
     credits,
     avatars,
     studio,
-    # Backwards compatibility aliases
-    relationships,
-    episodes,
 )
 
 __all__ = [
     "health",
     "users",
     "characters",
-    # New names
     "engagements",
     "sessions",
-    # Legacy aliases
-    "relationships",
-    "episodes",
     "episode_templates",
+    "series",
     "messages",
     "memory",
     "hooks",

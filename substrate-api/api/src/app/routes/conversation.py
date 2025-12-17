@@ -9,7 +9,7 @@ from fastapi.responses import StreamingResponse
 from app.deps import get_db
 from app.dependencies import get_current_user_id
 from app.models.message import MessageCreate, Message
-from app.models.episode import Episode
+from app.models.session import Session
 from app.services.conversation import ConversationService
 from app.services.rate_limiter import RateLimitExceededError
 
@@ -137,7 +137,7 @@ async def get_conversation_context(
     }
 
 
-@router.post("/{character_id}/start", response_model=Episode)
+@router.post("/{character_id}/start", response_model=Session)
 async def start_episode(
     character_id: UUID,
     scene: Optional[str] = None,
@@ -166,7 +166,7 @@ async def start_episode(
     return episode
 
 
-@router.post("/{character_id}/end", response_model=Episode)
+@router.post("/{character_id}/end", response_model=Session)
 async def end_episode(
     character_id: UUID,
     user_id: UUID = Depends(get_current_user_id),

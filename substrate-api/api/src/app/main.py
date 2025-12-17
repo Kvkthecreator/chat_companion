@@ -23,6 +23,7 @@ from app.routes import (
     engagements,
     sessions,
     episode_templates,
+    series,
     health,
     hooks,
     memory,
@@ -31,9 +32,6 @@ from app.routes import (
     studio,
     subscription,
     users,
-    # Legacy routes (backwards compatibility)
-    episodes,
-    relationships,
 )
 
 log = logging.getLogger("uvicorn.error")
@@ -105,20 +103,17 @@ app.add_middleware(
 app.add_middleware(
     AuthMiddleware,
     exempt_paths={"/", "/health", "/docs", "/openapi.json", "/redoc"},
-    exempt_prefixes={"/health/", "/characters", "/webhooks", "/studio/admin", "/episode-templates"},  # Public + admin endpoints
+    exempt_prefixes={"/health/", "/characters", "/webhooks", "/studio/admin", "/episode-templates", "/series"},
 )
 
 # Include routers
 app.include_router(health.router, tags=["Health"])
 app.include_router(users.router, tags=["Users"])
 app.include_router(characters.router, tags=["Characters"])
-# New endpoints
 app.include_router(engagements.router, tags=["Engagements"])
 app.include_router(sessions.router, tags=["Sessions"])
-# Legacy endpoints (backwards compatibility)
-app.include_router(relationships.router, tags=["Relationships (deprecated)"])
-app.include_router(episodes.router, tags=["Episodes (deprecated)"])
 app.include_router(episode_templates.router, tags=["Episode Templates"])
+app.include_router(series.router, tags=["Series"])
 app.include_router(messages.router, tags=["Messages"])
 app.include_router(memory.router, tags=["Memory"])
 app.include_router(hooks.router, tags=["Hooks"])

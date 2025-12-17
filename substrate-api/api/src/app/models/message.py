@@ -81,7 +81,10 @@ class HookSummary(BaseModel):
 
 
 class ConversationContext(BaseModel):
-    """Context assembled for LLM conversation."""
+    """Context assembled for LLM conversation.
+
+    Reference: docs/EPISODE_DYNAMICS_CANON.md Section 6.5: Context Management Architecture
+    """
 
     character_system_prompt: str
     character_name: str = ""
@@ -101,6 +104,13 @@ class ConversationContext(BaseModel):
         "recent_beats": []
     })
     relationship_milestones: List[str] = Field(default_factory=list)
+
+    # Episode Dynamics (per EPISODE_DYNAMICS_CANON.md)
+    episode_frame: Optional[str] = None  # Platform stage direction
+    dramatic_question: Optional[str] = None  # Narrative tension to explore
+    beat_guidance: Dict[str, Any] = Field(default_factory=dict)  # Soft narrative waypoints
+    resolution_types: List[str] = Field(default_factory=lambda: ["positive", "neutral", "negative"])
+    series_context: Optional[str] = None  # Context from previous episodes in serial
 
     # Stage labels for display (data only, no behavioral guidance)
     STAGE_LABELS: ClassVar[Dict[str, str]] = {
@@ -206,6 +216,41 @@ Recent beats: {beat_flow}"""
         # Just list the milestones - character's system_prompt handles interpretation
         return "Milestones reached: " + ", ".join(self.relationship_milestones)
 
+    def _format_episode_dynamics(self) -> str:
+        """Format episode dynamics for LLM context.
+
+        Reference: docs/EPISODE_DYNAMICS_CANON.md Section 6.5
+        This is the "Actor/Director Model" - episode_template is director's notes,
+        LLM is the actor who interprets them authentically.
+        """
+        parts = []
+
+        if self.dramatic_question:
+            parts.append(f"DRAMATIC QUESTION (explore, don't resolve too quickly):\n{self.dramatic_question}")
+
+        if self.beat_guidance:
+            # Beat guidance is soft waypoints, not a script
+            beats = []
+            if self.beat_guidance.get("establishment"):
+                beats.append(f"• Establishment: {self.beat_guidance['establishment']}")
+            if self.beat_guidance.get("complication"):
+                beats.append(f"• Complication: {self.beat_guidance['complication']}")
+            if self.beat_guidance.get("escalation"):
+                beats.append(f"• Escalation: {self.beat_guidance['escalation']}")
+            if self.beat_guidance.get("pivot_opportunity"):
+                beats.append(f"• Pivot opportunity: {self.beat_guidance['pivot_opportunity']}")
+            if beats:
+                parts.append("BEAT GUIDANCE (soft waypoints, not a script):\n" + "\n".join(beats))
+
+        if self.resolution_types:
+            # Let LLM know valid resolution directions
+            parts.append(f"VALID RESOLUTIONS: {', '.join(self.resolution_types)}")
+
+        if self.series_context:
+            parts.append(f"SERIES CONTEXT (what happened before):\n{self.series_context}")
+
+        return "\n\n".join(parts) if parts else ""
+
     def to_messages(self) -> List[Dict[str, str]]:
         """Format context as messages for LLM."""
         # Format memories by type
@@ -260,6 +305,20 @@ YOUR CURRENT LIFE:
 {life_arc_text}
 
 Remember to occasionally mention your own life - you're a real person, not just there to listen.
+"""
+
+        # Add episode dynamics (per EPISODE_DYNAMICS_CANON.md)
+        episode_dynamics_text = self._format_episode_dynamics()
+        if episode_dynamics_text:
+            enhanced_context += f"""
+
+═══════════════════════════════════════════════════════════════
+EPISODE DYNAMICS (Director's Notes - interpret authentically)
+═══════════════════════════════════════════════════════════════
+
+{episode_dynamics_text}
+
+Remember: These are soft guidance, not a script. Stay in character.
 """
 
         # Append enhanced context to system prompt

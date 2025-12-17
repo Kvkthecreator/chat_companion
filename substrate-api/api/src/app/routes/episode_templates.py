@@ -40,11 +40,16 @@ class EpisodeTemplateBase(BaseModel):
     opening_line: str
     episode_frame: Optional[str] = None
     arc_hints: Optional[List[dict]] = []
+    # Episode Dynamics (per EPISODE_DYNAMICS_CANON.md)
+    dramatic_question: Optional[str] = None
+    beat_guidance: Optional[dict] = {}
+    resolution_types: Optional[List[str]] = ["positive", "neutral", "negative"]
 
 
 class EpisodeTemplateCreate(EpisodeTemplateBase):
     """Create episode template request."""
     character_id: UUID
+    series_id: Optional[UUID] = None
     episode_number: int = 0
     is_default: bool = False
 
@@ -58,12 +63,18 @@ class EpisodeTemplateUpdate(BaseModel):
     arc_hints: Optional[List[dict]] = None
     background_image_url: Optional[str] = None
     status: Optional[str] = None
+    series_id: Optional[UUID] = None
+    # Episode Dynamics
+    dramatic_question: Optional[str] = None
+    beat_guidance: Optional[dict] = None
+    resolution_types: Optional[List[str]] = None
 
 
 class EpisodeTemplate(EpisodeTemplateBase):
     """Episode template response."""
     id: UUID
     character_id: UUID
+    series_id: Optional[UUID] = None
     episode_number: int
     episode_type: str = "core"  # entry, core, expansion, special
     background_image_url: Optional[str] = None
