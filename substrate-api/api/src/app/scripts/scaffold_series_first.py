@@ -36,7 +36,8 @@ DATABASE_URL = os.getenv(
 # =============================================================================
 
 # -----------------------------------------------------------------------------
-# WORLDS
+# WORLDS (specific locations within foundational worlds)
+# These inherit visual_style from their thematic parent (Real Life for grounded content)
 # -----------------------------------------------------------------------------
 WORLDS = [
     {
@@ -46,6 +47,14 @@ WORLDS = [
         "description": "A cozy late-night cafe where connections spark over coffee and quiet conversations. The kind of place where strangers become something more.",
         "tone": "intimate warmth",
         "default_scenes": ["counter seats", "corner booth", "rooftop terrace", "closing time"],
+        # Inherits Real Life visual style: soft realistic photography
+        "visual_style": {
+            "base_style": "soft realistic photography style",
+            "color_palette": "warm amber tones, soft golden lighting, cozy atmosphere",
+            "rendering": "soft natural lighting, shallow depth of field, intimate framing",
+            "character_framing": "candid portrait, warm genuine expression, comfortable setting",
+            "negative_prompt": "anime, cartoon, fantasy elements, harsh lighting, cold colors"
+        },
     },
     {
         "name": "The Safehouse",
@@ -54,6 +63,14 @@ WORLDS = [
         "description": "An unmarked apartment in a quiet neighborhood. The kind of place people go when they need to disappear - or when someone wants them to.",
         "tone": "claustrophobic tension",
         "default_scenes": ["main room", "kitchen", "window watch", "back exit"],
+        # Grounded thriller aesthetic: realistic but tense
+        "visual_style": {
+            "base_style": "cinematic thriller photography",
+            "color_palette": "muted desaturated colors, cold undertones, shadows dominant",
+            "rendering": "harsh directional lighting, deep shadows, claustrophobic framing",
+            "character_framing": "tense portrait, guarded expression, eyes showing exhaustion",
+            "negative_prompt": "anime, cartoon, bright cheerful colors, fantasy elements, soft lighting"
+        },
     },
     {
         "name": "Nexus Tower",
@@ -62,6 +79,14 @@ WORLDS = [
         "description": "A gleaming corporate headquarters where deals worth billions are made in whispered conversations. The higher the floor, the darker the secrets.",
         "tone": "corporate menace",
         "default_scenes": ["executive floor", "server room", "parking garage", "private elevator"],
+        # Corporate thriller aesthetic: polished but menacing
+        "visual_style": {
+            "base_style": "corporate editorial photography, high-end magazine quality",
+            "color_palette": "cool steel blues, sharp contrast, selective warm accents",
+            "rendering": "dramatic professional lighting, clean lines, power composition",
+            "character_framing": "executive portrait, controlled expression, calculated gaze",
+            "negative_prompt": "anime, cartoon, casual settings, warm cozy atmosphere, fantasy elements"
+        },
     },
 ]
 
@@ -92,9 +117,9 @@ CHARACTERS = {
         },
         "backstory": "Musician who works night shifts at the cafe. Writes songs about the people she meets but never shows anyone.",
         "current_stressor": "Her lease is up next month. She's been avoiding thinking about what comes next.",
-        # Avatar kit prompts
+        # Avatar kit prompts - style inherited from world (Crescent Cafe: warm realistic)
         "appearance_prompt": "Young woman with silver-white hair, gentle violet eyes, soft delicate features, ethereal beauty, soft cardigan, gentle cozy layers",
-        "style_prompt": "anime style, soft cel shading, warm color palette, gentle lighting, expressive detailed eyes",
+        # style_prompt: inherited from world visual_style
     },
     "mira": {
         "name": "Mira",
@@ -118,9 +143,9 @@ CHARACTERS = {
         },
         "backstory": "Art school dropout who found peace in the ritual of making coffee. The cafe is her gallery now.",
         "current_stressor": "An ex texted last week. She hasn't replied but hasn't deleted it either.",
-        # Avatar kit prompts
+        # Avatar kit prompts - style inherited from world (Crescent Cafe: warm realistic)
         "appearance_prompt": "Young woman with long wavy brown hair with subtle highlights, warm amber eyes, cute beauty mark, soft youthful features, cozy cream sweater",
-        "style_prompt": "anime style, soft cel shading, warm color palette, gentle lighting, expressive detailed eyes",
+        # style_prompt: inherited from world visual_style
     },
     # Thriller Characters
     "cassian": {
@@ -145,9 +170,9 @@ CHARACTERS = {
         },
         "backstory": "Former intelligence analyst who now 'consults' for corporations with problems that can't go through official channels.",
         "current_stressor": "A contact went silent three days ago. The last message was coordinates. Just coordinates.",
-        # Avatar kit prompts
+        # Avatar kit prompts - style inherited from world (Nexus Tower: corporate thriller)
         "appearance_prompt": "Man in his 30s with short dark hair, sharp intelligent grey eyes, angular features, composed expression, tailored dark suit",
-        "style_prompt": "anime style, dramatic lighting, cool color palette, sharp shadows, intense gaze",
+        # style_prompt: inherited from world visual_style
     },
     "vera": {
         "name": "Vera",
@@ -172,9 +197,9 @@ CHARACTERS = {
         },
         "backstory": "Used to work in data analysis for a company that doesn't officially exist. Saw something she wasn't supposed to.",
         "current_stressor": "The same car has been parked outside for two days. Different drivers.",
-        # Avatar kit prompts
+        # Avatar kit prompts - style inherited from world (The Safehouse: claustrophobic thriller)
         "appearance_prompt": "Young woman with messy dark hair, tired but alert hazel eyes, sharp features, anxious expression, oversized hoodie",
-        "style_prompt": "anime style, muted colors, harsh lighting, paranoid atmosphere, detailed expressive eyes",
+        # style_prompt: inherited from world visual_style
     },
 }
 
@@ -297,8 +322,8 @@ async def scaffold_worlds(db: Database) -> dict:
 
         world_id = str(uuid.uuid4())
         await db.execute("""
-            INSERT INTO worlds (id, name, slug, description, tone, default_scenes, genre)
-            VALUES (:id, :name, :slug, :description, :tone, :scenes, :genre)
+            INSERT INTO worlds (id, name, slug, description, tone, default_scenes, genre, visual_style)
+            VALUES (:id, :name, :slug, :description, :tone, :scenes, :genre, CAST(:visual_style AS jsonb))
         """, {
             "id": world_id,
             "name": world["name"],
@@ -307,9 +332,10 @@ async def scaffold_worlds(db: Database) -> dict:
             "tone": world["tone"],
             "scenes": world["default_scenes"],
             "genre": world["genre"],
+            "visual_style": json.dumps(world.get("visual_style", {})),
         })
         world_ids[world["slug"]] = world_id
-        print(f"  - {world['name']}: created")
+        print(f"  - {world['name']}: created (with visual_style)")
 
     return world_ids
 
@@ -493,16 +519,31 @@ async def scaffold_episodes(db: Database, series_ids: dict, character_ids: dict)
     return episode_map
 
 
-async def scaffold_avatar_kits(db: Database, character_ids: dict) -> dict:
+async def scaffold_avatar_kits(db: Database, character_ids: dict, world_ids: dict) -> dict:
     """Create avatar kits for characters (prompts only, no images).
 
     Returns slug -> kit_id mapping.
 
     Avatar kits contain the visual identity contract (prompts) that can be used
     to generate images later via Studio UI or admin endpoints.
+
+    Visual Style Inheritance:
+    - World defines base visual style (from worlds.visual_style)
+    - Character can override with style_override if needed
+    - Avatar kit merges: world style + character appearance + optional overrides
     """
     print("\n[5/7] Creating avatar kits...")
     kit_ids = {}
+
+    # Pre-fetch world visual styles
+    world_styles = {}
+    for world_slug, world_id in world_ids.items():
+        style = await db.fetch_one(
+            "SELECT visual_style FROM worlds WHERE id = :id",
+            {"id": world_id}
+        )
+        if style and style["visual_style"]:
+            world_styles[world_slug] = style["visual_style"]
 
     for slug, char in CHARACTERS.items():
         char_id = character_ids.get(slug)
@@ -521,9 +562,38 @@ async def scaffold_avatar_kits(db: Database, character_ids: dict) -> dict:
             print(f"  - {char['name']}: avatar kit exists (skipped)")
             continue
 
-        # Get appearance and style prompts
+        # Build style prompt from world visual style + character-specific elements
+        world_slug = char.get("world_slug")
+        world_style = world_styles.get(world_slug, {})
+
+        # Get appearance prompt (character-specific)
         appearance_prompt = char.get("appearance_prompt", f"{char['name']}, {char['archetype']} character")
-        style_prompt = char.get("style_prompt", "anime style, soft cel shading, warm colors, expressive eyes")
+
+        # Build style_prompt: prefer world style, allow character override
+        if char.get("style_prompt"):
+            # Character has explicit override
+            style_prompt = char["style_prompt"]
+        elif world_style:
+            # Inherit from world visual style
+            style_parts = []
+            if world_style.get("base_style"):
+                style_parts.append(world_style["base_style"])
+            if world_style.get("color_palette"):
+                style_parts.append(world_style["color_palette"])
+            if world_style.get("rendering"):
+                style_parts.append(world_style["rendering"])
+            if world_style.get("character_framing"):
+                style_parts.append(world_style["character_framing"])
+            style_prompt = ", ".join(style_parts) if style_parts else "soft realistic style"
+        else:
+            # Fallback default
+            style_prompt = "soft realistic photography style, natural warm tones, gentle lighting"
+
+        # Build negative prompt: prefer world style, allow fallback
+        if world_style.get("negative_prompt"):
+            negative_prompt = world_style["negative_prompt"]
+        else:
+            negative_prompt = "lowres, bad anatomy, blurry, multiple people, text, watermark"
 
         kit_id = str(uuid.uuid4())
 
@@ -544,7 +614,7 @@ async def scaffold_avatar_kits(db: Database, character_ids: dict) -> dict:
             "description": f"Default avatar kit for {char['name']}",
             "appearance_prompt": appearance_prompt,
             "style_prompt": style_prompt,
-            "negative_prompt": "lowres, bad anatomy, blurry, multiple people, text, watermark",
+            "negative_prompt": negative_prompt,
         })
 
         # Link kit to character
@@ -558,7 +628,8 @@ async def scaffold_avatar_kits(db: Database, character_ids: dict) -> dict:
         })
 
         kit_ids[slug] = kit_id
-        print(f"  - {char['name']}: avatar kit created (prompts ready)")
+        style_source = "override" if char.get("style_prompt") else f"world:{world_slug}" if world_style else "default"
+        print(f"  - {char['name']}: avatar kit created (style: {style_source})")
 
     return kit_ids
 
@@ -630,7 +701,7 @@ async def scaffold_all(dry_run: bool = False):
         character_ids = await scaffold_characters(db, world_ids)
         series_ids = await scaffold_series(db, world_ids)
         episode_map = await scaffold_episodes(db, series_ids, character_ids)
-        kit_ids = await scaffold_avatar_kits(db, character_ids)
+        kit_ids = await scaffold_avatar_kits(db, character_ids, world_ids)
         await update_series_episode_order(db, series_ids, episode_map)
         await verify_scaffold(db)
 
