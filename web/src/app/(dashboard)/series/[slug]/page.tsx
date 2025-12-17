@@ -55,12 +55,12 @@ export default function SeriesPage({ params }: PageProps) {
     loadData();
   }, [slug]);
 
-  const handleStartEpisode = async (episodeId: string, characterId: string) => {
-    if (startingEpisode) return;
+  const handleStartEpisode = async (episodeId: string, characterId: string | null) => {
+    if (startingEpisode || !characterId) return;
     setStartingEpisode(episodeId);
 
     try {
-      // Ensure relationship exists
+      // Ensure engagement exists
       await api.relationships.create(characterId).catch(() => {});
       router.push(`/chat/${characterId}?episode=${episodeId}`);
     } catch (err) {
@@ -171,7 +171,7 @@ export default function SeriesPage({ params }: PageProps) {
               "group",
               startingEpisode === entryEpisode.id && "pointer-events-none opacity-80"
             )}
-            onClick={() => handleStartEpisode(entryEpisode.id, series.featured_characters[0] || "")}
+            onClick={() => handleStartEpisode(entryEpisode.id, entryEpisode.character_id)}
           >
             <div className="flex flex-col sm:flex-row">
               <div className="relative w-full sm:w-64 h-40 sm:h-auto shrink-0 overflow-hidden bg-muted">
@@ -222,7 +222,7 @@ export default function SeriesPage({ params }: PageProps) {
                   "group",
                   startingEpisode === episode.id && "pointer-events-none opacity-80"
                 )}
-                onClick={() => handleStartEpisode(episode.id, series.featured_characters[0] || "")}
+                onClick={() => handleStartEpisode(episode.id, episode.character_id)}
               >
                 <div className="aspect-[16/9] relative overflow-hidden bg-muted">
                   {episode.background_image_url ? (

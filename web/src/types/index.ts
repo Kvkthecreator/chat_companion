@@ -227,6 +227,7 @@ export type EpisodeType = "entry" | "core" | "expansion" | "special";
  */
 export interface EpisodeTemplateSummary {
   id: string;
+  character_id: string | null;  // Anchor character (nullable for drafts)
   episode_number: number;
   episode_type: EpisodeType;
   title: string;

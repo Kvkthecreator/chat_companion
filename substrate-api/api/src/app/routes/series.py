@@ -118,7 +118,7 @@ async def get_series_with_episodes(
 
     # Get episodes
     episodes_query = """
-        SELECT id, episode_number, episode_type, title, slug,
+        SELECT id, character_id, episode_number, episode_type, title, slug,
                situation, opening_line, episode_frame, background_image_url,
                dramatic_question, is_default, sort_order, status
         FROM episode_templates
