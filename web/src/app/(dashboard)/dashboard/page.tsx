@@ -9,16 +9,31 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { ScrollRow } from "@/components/ui/scroll-row";
+import { SeriesDiscoveryCard, ContinueWatchingCard } from "@/components/series";
 import { cn } from "@/lib/utils";
-import { Play, Sparkles, BookOpen, ArrowRight } from "lucide-react";
-import type { RelationshipWithCharacter, User, SeriesSummary, World } from "@/types";
+import { Play, Sparkles, BookOpen } from "lucide-react";
+import type { User, SeriesSummary, ContinueWatchingItem } from "@/types";
+
+// Genre display labels
+const GENRE_LABELS: Record<string, string> = {
+  slice_of_life: "Slice of Life",
+  romance: "Romance",
+  drama: "Drama",
+  comedy: "Comedy",
+  fantasy: "Fantasy",
+  mystery: "Mystery",
+  thriller: "Thriller",
+  sci_fi: "Sci-Fi",
+  horror: "Horror",
+  action: "Action",
+};
 
 export default function DashboardPage() {
   const router = useRouter();
   const [user, setUser] = useState<User | null>(null);
-  const [relationships, setRelationships] = useState<RelationshipWithCharacter[]>([]);
-  const [series, setSeries] = useState<SeriesSummary[]>([]);
-  const [worlds, setWorlds] = useState<World[]>([]);
+  const [continueWatching, setContinueWatching] = useState<ContinueWatchingItem[]>([]);
+  const [discoverSeries, setDiscoverSeries] = useState<SeriesSummary[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const supabase = createClient();
@@ -33,17 +48,19 @@ export default function DashboardPage() {
         }
 
         // Load data in parallel
-        const [userData, relationshipsData, seriesData, worldsData] = await Promise.all([
+        const [userData, continueData, seriesData] = await Promise.all([
           api.users.me().catch(() => null),
-          api.relationships.list().catch(() => []),
+          api.series.getContinueWatching(10).catch(() => ({ items: [] })),
           api.series.list({ status: "active" }).catch(() => []),
-          api.worlds.list().catch(() => []),
         ]);
 
         setUser(userData);
-        setRelationships(relationshipsData);
-        setSeries(seriesData);
-        setWorlds(worldsData);
+        setContinueWatching(continueData.items);
+
+        // For discover: filter out series user has already started
+        const startedSeriesIds = new Set(continueData.items.map(item => item.series_id));
+        const notStarted = seriesData.filter(s => !startedSeriesIds.has(s.id));
+        setDiscoverSeries(notStarted);
       } catch (err) {
         setError(err instanceof Error ? err.message : "Failed to load data");
       } finally {
@@ -58,31 +75,24 @@ export default function DashboardPage() {
     return <DashboardSkeleton />;
   }
 
-  // Sort relationships by last interaction
-  const sortedRelationships = [...relationships].sort((a, b) => {
-    const timeA = a.last_interaction_at ? new Date(a.last_interaction_at).getTime() : 0;
-    const timeB = b.last_interaction_at ? new Date(b.last_interaction_at).getTime() : 0;
-    return timeB - timeA;
-  });
+  // Hero: most recent continue watching item
+  const heroItem = continueWatching[0];
+  const otherContinueWatching = continueWatching.slice(1);
 
-  // Hero: most recent relationship with active episode
-  const heroRelationship = sortedRelationships[0];
-
-  // Build world map
-  const worldMap = new Map(worlds.map((w) => [w.id, w]));
-
-  // Featured series for discovery
-  const featuredSeries = series.find((s) => s.is_featured) || series[0];
+  // Featured series for new users
+  const featuredSeries = discoverSeries.find(s => s.is_featured) || discoverSeries[0];
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-8 pb-8">
       {/* Header */}
       <div>
         <h1 className="text-3xl font-bold tracking-tight">
           {user?.display_name ? `Welcome back, ${user.display_name}` : "Welcome back"}
         </h1>
         <p className="text-muted-foreground">
-          Continue your stories or discover something new.
+          {continueWatching.length > 0
+            ? "Continue your stories or discover something new."
+            : "Start your first story adventure."}
         </p>
       </div>
 
@@ -93,134 +103,53 @@ export default function DashboardPage() {
         </Card>
       )}
 
-      {/* Continue Episode - Hero Card */}
-      {heroRelationship && (
-        <section>
-          <h2 className="mb-3 text-lg font-semibold text-muted-foreground flex items-center gap-2">
-            <Play className="h-4 w-4" />
-            Continue Your Story
-          </h2>
-          <Link href={`/chat/${heroRelationship.character_id}`}>
-            <Card className="overflow-hidden hover:shadow-lg transition-all group cursor-pointer ring-2 ring-primary/20 hover:ring-primary/40">
-              <div className="flex flex-col sm:flex-row">
-                <div className="relative w-full sm:w-48 h-48 sm:h-auto shrink-0 overflow-hidden bg-muted">
-                  {heroRelationship.character_avatar_url ? (
-                    <img
-                      src={heroRelationship.character_avatar_url}
-                      alt={heroRelationship.character_name}
-                      className="w-full h-full object-cover object-top group-hover:scale-105 transition-transform duration-300"
-                    />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-primary/20 to-secondary/20">
-                      <span className="text-4xl font-bold text-muted-foreground/50">
-                        {heroRelationship.character_name[0]}
-                      </span>
-                    </div>
-                  )}
-                </div>
-                <CardContent className="p-5 flex flex-col justify-between flex-1">
-                  <div>
-                    <div className="flex items-center gap-2 mb-2">
-                      <Badge variant="secondary" className="text-xs">
-                        Episode {heroRelationship.total_episodes || 0}
-                      </Badge>
-                      {heroRelationship.last_interaction_at && (
-                        <span className="text-xs text-muted-foreground">
-                          {formatRelativeTime(heroRelationship.last_interaction_at)}
-                        </span>
-                      )}
-                    </div>
-                    <h3 className="text-xl font-semibold mb-1">{heroRelationship.character_name}</h3>
-                    <p className="text-sm text-muted-foreground capitalize mb-2">
-                      {heroRelationship.character_archetype}
-                    </p>
-                    <div className="flex items-center gap-3 text-xs text-muted-foreground">
-                      <span>{heroRelationship.total_messages} messages</span>
-                      <span>•</span>
-                      <span className="capitalize">{heroRelationship.stage || "acquaintance"}</span>
-                    </div>
-                  </div>
-                  <Button className="mt-4 w-full sm:w-auto gap-2">
-                    <Play className="h-4 w-4" />
-                    Resume Episode
-                  </Button>
-                </CardContent>
+      {/* Hero Section - Resume Most Recent */}
+      {heroItem && (
+        <HeroCard item={heroItem} />
+      )}
+
+      {/* Continue Watching Row */}
+      {otherContinueWatching.length > 0 && (
+        <ScrollRow
+          title="Continue Watching"
+          icon={<Play className="h-5 w-5 text-primary" />}
+        >
+          {otherContinueWatching.map((item) => (
+            <ContinueWatchingCard key={item.series_id} item={item} />
+          ))}
+        </ScrollRow>
+      )}
+
+      {/* Discover New Series Row */}
+      {discoverSeries.length > 0 && (
+        <ScrollRow
+          title="Discover New Stories"
+          icon={<Sparkles className="h-5 w-5 text-primary" />}
+        >
+          {discoverSeries.slice(0, 10).map((series) => (
+            <div key={series.id} className="flex-shrink-0 snap-start w-[280px] sm:w-[320px]">
+              <SeriesDiscoveryCard series={series} />
+            </div>
+          ))}
+          {/* "See All" card */}
+          <Link
+            href="/discover"
+            className="flex-shrink-0 snap-start w-[280px] sm:w-[320px]"
+          >
+            <Card className="h-full aspect-[16/10] flex items-center justify-center bg-muted/50 hover:bg-muted transition-colors cursor-pointer group">
+              <div className="text-center">
+                <BookOpen className="h-8 w-8 mx-auto mb-2 text-muted-foreground group-hover:text-primary transition-colors" />
+                <span className="text-sm font-medium text-muted-foreground group-hover:text-foreground transition-colors">
+                  Browse All Stories
+                </span>
               </div>
             </Card>
           </Link>
-        </section>
+        </ScrollRow>
       )}
 
-      {/* Your Stories - Grouped by recent activity */}
-      {sortedRelationships.length > 1 && (
-        <section>
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-semibold text-muted-foreground">Your Stories</h2>
-            <Link href="/dashboard/chats" className="text-sm text-primary hover:underline flex items-center gap-1">
-              View all <ArrowRight className="h-3 w-3" />
-            </Link>
-          </div>
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
-            {sortedRelationships.slice(1, 6).map((rel) => (
-              <StoryCard key={rel.id} relationship={rel} />
-            ))}
-          </div>
-        </section>
-      )}
-
-      {/* Discover New Series */}
-      {featuredSeries && (
-        <section>
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-semibold text-muted-foreground flex items-center gap-2">
-              <Sparkles className="h-4 w-4" />
-              Discover Something New
-            </h2>
-            <Link href="/discover" className="text-sm text-primary hover:underline flex items-center gap-1">
-              Browse all <ArrowRight className="h-3 w-3" />
-            </Link>
-          </div>
-          <Link href={`/series/${featuredSeries.slug}`}>
-            <Card className="overflow-hidden hover:shadow-lg transition-all group cursor-pointer">
-              <div className="relative h-40 overflow-hidden">
-                {featuredSeries.cover_image_url ? (
-                  <img
-                    src={featuredSeries.cover_image_url}
-                    alt={featuredSeries.title}
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                  />
-                ) : (
-                  <div className="w-full h-full bg-gradient-to-br from-blue-600/40 via-purple-500/30 to-pink-500/20" />
-                )}
-                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent" />
-                <div className="absolute bottom-0 left-0 right-0 p-4">
-                  <div className="flex items-center gap-2 mb-2">
-                    {featuredSeries.world_id && worldMap.get(featuredSeries.world_id) && (
-                      <Badge variant="secondary" className="bg-black/60 text-white border-0 text-[10px]">
-                        {worldMap.get(featuredSeries.world_id)?.name}
-                      </Badge>
-                    )}
-                    <Badge variant="secondary" className="bg-primary/80 text-primary-foreground text-[10px] capitalize">
-                      {featuredSeries.series_type}
-                    </Badge>
-                  </div>
-                  <h3 className="font-semibold text-white text-lg">{featuredSeries.title}</h3>
-                  {featuredSeries.tagline && (
-                    <p className="text-white/80 text-sm italic mt-1">{featuredSeries.tagline}</p>
-                  )}
-                  <div className="flex items-center gap-2 text-white/70 text-xs mt-2">
-                    <BookOpen className="h-3 w-3" />
-                    <span>{featuredSeries.total_episodes} episodes</span>
-                  </div>
-                </div>
-              </div>
-            </Card>
-          </Link>
-        </section>
-      )}
-
-      {/* Empty state - no relationships yet */}
-      {relationships.length === 0 && (
+      {/* Empty state - no activity at all */}
+      {continueWatching.length === 0 && discoverSeries.length === 0 && (
         <Card className="py-12">
           <CardContent className="flex flex-col items-center justify-center text-center">
             <div className="w-16 h-16 rounded-full bg-gradient-to-br from-pink-400 to-purple-500 flex items-center justify-center text-white text-2xl mb-4">
@@ -236,53 +165,78 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
       )}
+
+      {/* New user with no activity but series available */}
+      {continueWatching.length === 0 && featuredSeries && (
+        <section className="space-y-4">
+          <div className="flex items-center gap-2">
+            <Sparkles className="h-5 w-5 text-primary" />
+            <h2 className="text-lg font-semibold">Start Here</h2>
+          </div>
+          <div className="max-w-2xl">
+            <SeriesDiscoveryCard series={featuredSeries} featured />
+          </div>
+        </section>
+      )}
     </div>
   );
 }
 
-interface StoryCardProps {
-  relationship: RelationshipWithCharacter;
-}
+/**
+ * Hero card for the most recent continue watching item
+ */
+function HeroCard({ item }: { item: ContinueWatchingItem }) {
+  const genreLabel = item.series_genre ? (GENRE_LABELS[item.series_genre] || item.series_genre) : null;
 
-function StoryCard({ relationship }: StoryCardProps) {
   return (
-    <Link href={`/chat/${relationship.character_id}`}>
-      <Card className="overflow-hidden hover:shadow-md transition-all duration-200 hover:-translate-y-0.5 cursor-pointer group h-full">
-        <div className="aspect-[3/4] relative overflow-hidden bg-muted">
-          {relationship.character_avatar_url ? (
+    <Link href={`/chat/${item.character_id}?episode=${item.current_episode_id}`}>
+      <Card className="overflow-hidden hover:shadow-lg transition-all group cursor-pointer ring-2 ring-primary/20 hover:ring-primary/40">
+        <div className="relative h-48 sm:h-64 overflow-hidden">
+          {item.series_cover_image_url ? (
             <img
-              src={relationship.character_avatar_url}
-              alt={relationship.character_name}
-              className="w-full h-full object-cover object-top group-hover:scale-105 transition-transform duration-300"
+              src={item.series_cover_image_url}
+              alt={item.series_title}
+              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
             />
           ) : (
-            <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-muted to-muted-foreground/20">
-              <span className="text-3xl font-bold text-muted-foreground/50">
-                {relationship.character_name[0]}
-              </span>
-            </div>
+            <div className="w-full h-full bg-gradient-to-br from-blue-600/40 via-purple-500/30 to-pink-500/20" />
           )}
 
           {/* Gradient overlay */}
-          <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/50 to-transparent" />
 
-          {/* Episode badge */}
-          <Badge
-            variant="secondary"
-            className="absolute top-2 right-2 bg-black/60 text-white border-0 text-[10px]"
-          >
-            Ep {relationship.total_episodes || 0}
-          </Badge>
+          {/* Play button overlay */}
+          <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+            <div className="h-20 w-20 rounded-full bg-white/95 flex items-center justify-center shadow-2xl">
+              <Play className="h-10 w-10 text-primary ml-1" fill="currentColor" />
+            </div>
+          </div>
 
-          {/* Name overlay */}
-          <div className="absolute bottom-0 left-0 right-0 p-2 text-white">
-            <h3 className="font-semibold text-sm leading-tight drop-shadow-md truncate">
-              {relationship.character_name}
-            </h3>
-            <p className="text-[11px] text-white/75">
-              {relationship.last_interaction_at
-                ? formatRelativeTime(relationship.last_interaction_at)
-                : "Start episode"}
+          {/* Progress bar */}
+          <div className="absolute bottom-0 left-0 right-0 h-1 bg-white/20">
+            <div
+              className="h-full bg-primary"
+              style={{ width: `${Math.min((item.current_episode_number / item.total_episodes) * 100, 100)}%` }}
+            />
+          </div>
+
+          {/* Content */}
+          <div className="absolute bottom-0 left-0 right-0 p-5">
+            <div className="flex items-center gap-2 mb-2">
+              {genreLabel && (
+                <Badge variant="secondary" className="bg-primary/80 text-primary-foreground text-xs">
+                  {genreLabel}
+                </Badge>
+              )}
+              <Badge variant="secondary" className="bg-black/60 text-white border-0 text-xs">
+                Episode {item.current_episode_number} of {item.total_episodes}
+              </Badge>
+            </div>
+            <h2 className="text-2xl font-bold text-white mb-1 drop-shadow-lg">
+              {item.series_title}
+            </h2>
+            <p className="text-white/80 text-sm">
+              Continue: {item.current_episode_title}
             </p>
           </div>
         </div>
@@ -299,34 +253,16 @@ function DashboardSkeleton() {
         <Skeleton className="h-4 w-64" />
       </div>
       {/* Hero skeleton */}
+      <Skeleton className="h-48 sm:h-64 w-full rounded-xl" />
+      {/* Row skeleton */}
       <div className="space-y-3">
-        <Skeleton className="h-5 w-24" />
-        <Skeleton className="h-48 w-full rounded-xl" />
-      </div>
-      {/* Grid skeleton */}
-      <div className="space-y-4">
         <Skeleton className="h-5 w-32" />
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
-          {[...Array(5)].map((_, i) => (
-            <Skeleton key={i} className="aspect-[3/4] rounded-xl" />
+        <div className="flex gap-3 overflow-hidden">
+          {[...Array(4)].map((_, i) => (
+            <Skeleton key={i} className="flex-shrink-0 w-[280px] sm:w-[320px] aspect-[16/9] rounded-xl" />
           ))}
         </div>
       </div>
     </div>
   );
-}
-
-function formatRelativeTime(dateString: string): string {
-  const date = new Date(dateString);
-  const now = new Date();
-  const diffMs = now.getTime() - date.getTime();
-  const diffMins = Math.floor(diffMs / 60000);
-  const diffHours = Math.floor(diffMs / 3600000);
-  const diffDays = Math.floor(diffMs / 86400000);
-
-  if (diffMins < 1) return "just now";
-  if (diffMins < 60) return `${diffMins}m ago`;
-  if (diffHours < 24) return `${diffHours}h ago`;
-  if (diffDays < 7) return `${diffDays}d ago`;
-  return date.toLocaleDateString();
 }

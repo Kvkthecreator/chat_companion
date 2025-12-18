@@ -9,8 +9,35 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
-import { Play, ArrowLeft, BookOpen } from "lucide-react";
-import type { SeriesWithEpisodes, World } from "@/types";
+import {
+  Play,
+  ArrowLeft,
+  BookOpen,
+  MessageCircle,
+  Check,
+  Clock,
+} from "lucide-react";
+import type {
+  SeriesWithEpisodes,
+  SeriesWithCharacters,
+  World,
+  EpisodeProgressItem,
+  CharacterSummary,
+} from "@/types";
+
+// Genre display labels
+const GENRE_LABELS: Record<string, string> = {
+  slice_of_life: "Slice of Life",
+  romance: "Romance",
+  drama: "Drama",
+  comedy: "Comedy",
+  fantasy: "Fantasy",
+  mystery: "Mystery",
+  thriller: "Thriller",
+  sci_fi: "Sci-Fi",
+  horror: "Horror",
+  action: "Action",
+};
 
 interface PageProps {
   params: Promise<{ slug: string }>;
@@ -20,21 +47,47 @@ export default function SeriesPage({ params }: PageProps) {
   const { slug } = use(params);
   const router = useRouter();
   const [series, setSeries] = useState<SeriesWithEpisodes | null>(null);
+  const [characters, setCharacters] = useState<CharacterSummary[]>([]);
   const [world, setWorld] = useState<World | null>(null);
+  const [progress, setProgress] = useState<Map<string, EpisodeProgressItem>>(
+    new Map()
+  );
   const [isLoading, setIsLoading] = useState(true);
   const [startingEpisode, setStartingEpisode] = useState<string | null>(null);
+  const [startingFreeChat, setStartingFreeChat] = useState<string | null>(null);
 
   useEffect(() => {
     async function loadData() {
       try {
-        // Fetch series with episodes - need to find by slug first
-        // For now, list and filter (TODO: add getBySlug endpoint)
+        // Fetch series by slug - list and filter for now
         const allSeries = await api.series.list({ status: "active" });
         const found = allSeries.find((s) => s.slug === slug);
 
         if (found) {
-          const seriesData = await api.series.getWithEpisodes(found.id);
+          // Fetch series with episodes and characters in parallel
+          const [seriesData, charactersData] = await Promise.all([
+            api.series.getWithEpisodes(found.id),
+            api.series.getWithCharacters(found.id).catch(() => ({
+              characters: [],
+            })),
+          ]);
+
           setSeries(seriesData);
+          setCharacters(
+            (charactersData as SeriesWithCharacters).characters || []
+          );
+
+          // Fetch progress
+          try {
+            const progressData = await api.series.getProgress(found.id);
+            const progressMap = new Map<string, EpisodeProgressItem>();
+            progressData.progress.forEach((p) => {
+              progressMap.set(p.episode_id, p);
+            });
+            setProgress(progressMap);
+          } catch {
+            // Progress not available
+          }
 
           // Fetch world if set
           if (seriesData.world_id) {
@@ -55,12 +108,14 @@ export default function SeriesPage({ params }: PageProps) {
     loadData();
   }, [slug]);
 
-  const handleStartEpisode = async (episodeId: string, characterId: string | null) => {
+  const handleStartEpisode = async (
+    episodeId: string,
+    characterId: string | null
+  ) => {
     if (startingEpisode || !characterId) return;
     setStartingEpisode(episodeId);
 
     try {
-      // Ensure engagement exists
       await api.relationships.create(characterId).catch(() => {});
       router.push(`/chat/${characterId}?episode=${episodeId}`);
     } catch (err) {
@@ -69,11 +124,25 @@ export default function SeriesPage({ params }: PageProps) {
     }
   };
 
+  const handleStartFreeChat = async (characterId: string) => {
+    if (startingFreeChat) return;
+    setStartingFreeChat(characterId);
+
+    try {
+      await api.relationships.create(characterId).catch(() => {});
+      // No episode parameter = free chat mode
+      router.push(`/chat/${characterId}`);
+    } catch (err) {
+      console.error("Failed to start free chat:", err);
+      setStartingFreeChat(null);
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="space-y-6">
         <Skeleton className="h-8 w-48" />
-        <Skeleton className="h-48 w-full rounded-xl" />
+        <Skeleton className="h-64 w-full rounded-xl" />
         <div className="grid gap-4 md:grid-cols-2">
           <Skeleton className="h-32 rounded-xl" />
           <Skeleton className="h-32 rounded-xl" />
@@ -93,12 +162,23 @@ export default function SeriesPage({ params }: PageProps) {
     );
   }
 
-  // Find the entry episode (Episode 0 or default)
-  const entryEpisode = series.episodes.find((e) => e.is_default) || series.episodes[0];
-  const otherEpisodes = series.episodes.filter((e) => e.id !== entryEpisode?.id);
+  const genreLabel = series.genre
+    ? GENRE_LABELS[series.genre] || series.genre
+    : null;
+
+  // Sort episodes by number
+  const sortedEpisodes = [...series.episodes].sort(
+    (a, b) => a.episode_number - b.episode_number
+  );
+
+  // Find next episode to continue or first episode
+  const nextEpisode = sortedEpisodes.find((ep) => {
+    const p = progress.get(ep.id);
+    return !p || p.status !== "completed";
+  });
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-8 pb-8">
       {/* Back navigation */}
       <Link
         href="/discover"
@@ -114,26 +194,26 @@ export default function SeriesPage({ params }: PageProps) {
           <img
             src={series.cover_image_url}
             alt={series.title}
-            className="w-full h-64 object-cover"
+            className="w-full h-64 sm:h-80 object-cover"
           />
         ) : (
-          <div className="w-full h-64 bg-gradient-to-br from-blue-600/40 via-purple-500/30 to-pink-500/20" />
+          <div className="w-full h-64 sm:h-80 bg-gradient-to-br from-blue-600/40 via-purple-500/30 to-pink-500/20" />
         )}
         <div className="absolute inset-0 bg-gradient-to-t from-background via-background/60 to-transparent" />
 
         <div className="absolute bottom-0 left-0 right-0 p-6">
           <div className="flex flex-wrap gap-2 mb-3">
+            {genreLabel && (
+              <Badge
+                variant="secondary"
+                className="bg-primary/80 text-primary-foreground"
+              >
+                {genreLabel}
+              </Badge>
+            )}
             {world && (
               <Badge variant="secondary" className="bg-background/80">
                 {world.name}
-              </Badge>
-            )}
-            <Badge variant="secondary" className="bg-primary/80 text-primary-foreground capitalize">
-              {series.series_type}
-            </Badge>
-            {series.genre && (
-              <Badge variant="outline" className="bg-background/80 capitalize">
-                {series.genre.replace("_", " ")}
               </Badge>
             )}
           </div>
@@ -141,13 +221,16 @@ export default function SeriesPage({ params }: PageProps) {
           <h1 className="text-3xl font-bold mb-2">{series.title}</h1>
 
           {series.tagline && (
-            <p className="text-lg text-muted-foreground italic mb-4">{series.tagline}</p>
+            <p className="text-lg text-muted-foreground italic mb-4">
+              {series.tagline}
+            </p>
           )}
 
           <div className="flex items-center gap-4 text-sm text-muted-foreground">
             <div className="flex items-center gap-1">
               <BookOpen className="h-4 w-4" />
-              {series.episodes.length} episode{series.episodes.length !== 1 ? "s" : ""}
+              {series.episodes.length} episode
+              {series.episodes.length !== 1 ? "s" : ""}
             </div>
           </div>
         </div>
@@ -160,90 +243,227 @@ export default function SeriesPage({ params }: PageProps) {
         </div>
       )}
 
-      {/* Entry Episode - Featured */}
-      {entryEpisode && (
+      {/* Characters Section - Free Chat */}
+      {characters.length > 0 && (
         <section className="space-y-4">
-          <h2 className="text-xl font-semibold">Start Here</h2>
-          <Card
-            className={cn(
-              "overflow-hidden cursor-pointer transition-all duration-200",
-              "hover:shadow-xl hover:-translate-y-1 hover:ring-2 hover:ring-primary/50",
-              "group",
-              startingEpisode === entryEpisode.id && "pointer-events-none opacity-80"
-            )}
-            onClick={() => handleStartEpisode(entryEpisode.id, entryEpisode.character_id)}
-          >
-            <div className="flex flex-col sm:flex-row">
-              <div className="relative w-full sm:w-64 h-40 sm:h-auto shrink-0 overflow-hidden bg-muted">
-                {entryEpisode.background_image_url ? (
-                  <img
-                    src={entryEpisode.background_image_url}
-                    alt={entryEpisode.title}
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                  />
-                ) : (
-                  <div className="w-full h-full bg-gradient-to-br from-primary/30 to-accent/20" />
-                )}
-                <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                  <div className="h-12 w-12 rounded-full bg-white/95 flex items-center justify-center shadow-lg">
-                    <Play className="h-5 w-5 text-primary ml-0.5" fill="currentColor" />
-                  </div>
-                </div>
-              </div>
-              <CardContent className="p-5 flex-1">
-                <Badge variant="secondary" className="mb-2">
-                  Episode {entryEpisode.episode_number}
-                </Badge>
-                <h3 className="text-lg font-semibold mb-2">{entryEpisode.title}</h3>
-                <p className="text-sm text-muted-foreground">
-                  Begin your journey with {series.title}
-                </p>
-                <Button className="mt-4 gap-2" disabled={!!startingEpisode}>
-                  <Play className="h-4 w-4" />
-                  {startingEpisode === entryEpisode.id ? "Starting..." : "Start Episode"}
-                </Button>
-              </CardContent>
-            </div>
-          </Card>
-        </section>
-      )}
+          <div className="flex items-center gap-2">
+            <MessageCircle className="h-5 w-5 text-primary" />
+            <h2 className="text-xl font-semibold">Meet the Characters</h2>
+          </div>
+          <p className="text-sm text-muted-foreground">
+            Chat freely without following the episode storyline.
+          </p>
 
-      {/* Other Episodes */}
-      {otherEpisodes.length > 0 && (
-        <section className="space-y-4">
-          <h2 className="text-xl font-semibold">More Episodes</h2>
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {otherEpisodes.map((episode) => (
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {characters.map((character) => (
               <Card
-                key={episode.id}
+                key={character.id}
                 className={cn(
                   "overflow-hidden cursor-pointer transition-all duration-200",
                   "hover:shadow-lg hover:-translate-y-0.5 hover:ring-1 hover:ring-primary/30",
                   "group",
-                  startingEpisode === episode.id && "pointer-events-none opacity-80"
+                  startingFreeChat === character.id &&
+                    "pointer-events-none opacity-80"
                 )}
-                onClick={() => handleStartEpisode(episode.id, episode.character_id)}
+                onClick={() => handleStartFreeChat(character.id)}
               >
-                <div className="aspect-[16/9] relative overflow-hidden bg-muted">
-                  {episode.background_image_url ? (
-                    <img
-                      src={episode.background_image_url}
-                      alt={episode.title}
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                    />
-                  ) : (
-                    <div className="w-full h-full bg-gradient-to-br from-muted to-muted-foreground/10" />
-                  )}
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent" />
-                  <div className="absolute bottom-0 left-0 right-0 p-3">
-                    <Badge variant="secondary" className="bg-black/60 text-white border-0 text-[10px] mb-1">
-                      Episode {episode.episode_number}
-                    </Badge>
-                    <h4 className="font-medium text-white text-sm line-clamp-1">{episode.title}</h4>
+                <CardContent className="p-4">
+                  <div className="flex items-center gap-4">
+                    {/* Avatar */}
+                    <div className="relative shrink-0">
+                      {character.avatar_url ? (
+                        <img
+                          src={character.avatar_url}
+                          alt={character.name}
+                          className="h-16 w-16 rounded-full object-cover border-2 border-border"
+                        />
+                      ) : (
+                        <div className="h-16 w-16 rounded-full bg-gradient-to-br from-primary/50 to-accent/50 flex items-center justify-center text-2xl font-semibold text-white">
+                          {character.name[0]}
+                        </div>
+                      )}
+                      {/* Chat indicator */}
+                      <div className="absolute -bottom-1 -right-1 h-6 w-6 rounded-full bg-primary flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                        <MessageCircle className="h-3 w-3 text-primary-foreground" />
+                      </div>
+                    </div>
+
+                    {/* Info */}
+                    <div className="flex-1 min-w-0">
+                      <h3 className="font-semibold truncate">
+                        {character.name}
+                      </h3>
+                      <p className="text-sm text-muted-foreground capitalize">
+                        {character.archetype}
+                      </p>
+                      {character.short_backstory && (
+                        <p className="text-xs text-muted-foreground mt-1 line-clamp-2">
+                          {character.short_backstory}
+                        </p>
+                      )}
+                    </div>
                   </div>
-                </div>
+
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="w-full mt-4 gap-2"
+                    disabled={!!startingFreeChat}
+                  >
+                    <MessageCircle className="h-4 w-4" />
+                    {startingFreeChat === character.id
+                      ? "Starting..."
+                      : "Free Chat"}
+                  </Button>
+                </CardContent>
               </Card>
             ))}
+          </div>
+        </section>
+      )}
+
+      {/* Episodes Section */}
+      {sortedEpisodes.length > 0 && (
+        <section className="space-y-4">
+          <div className="flex items-center gap-2">
+            <BookOpen className="h-5 w-5 text-primary" />
+            <h2 className="text-xl font-semibold">Episodes</h2>
+          </div>
+          <p className="text-sm text-muted-foreground">
+            Follow the story arc with structured episodes.
+          </p>
+
+          <div className="space-y-3">
+            {sortedEpisodes.map((episode) => {
+              const episodeProgress = progress.get(episode.id);
+              const isCompleted = episodeProgress?.status === "completed";
+              const isInProgress = episodeProgress?.status === "in_progress";
+              const isNext = nextEpisode?.id === episode.id;
+
+              return (
+                <Card
+                  key={episode.id}
+                  className={cn(
+                    "overflow-hidden cursor-pointer transition-all duration-200",
+                    "hover:shadow-lg hover:-translate-y-0.5",
+                    "group",
+                    isNext && "ring-2 ring-primary/50",
+                    isCompleted && "opacity-75",
+                    startingEpisode === episode.id &&
+                      "pointer-events-none opacity-80"
+                  )}
+                  onClick={() =>
+                    handleStartEpisode(episode.id, episode.character_id)
+                  }
+                >
+                  <div className="flex">
+                    {/* Episode image */}
+                    <div className="relative w-32 sm:w-48 h-24 sm:h-32 shrink-0 overflow-hidden bg-muted">
+                      {episode.background_image_url ? (
+                        <img
+                          src={episode.background_image_url}
+                          alt={episode.title}
+                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                        />
+                      ) : (
+                        <div className="w-full h-full bg-gradient-to-br from-primary/20 to-accent/10" />
+                      )}
+
+                      {/* Play overlay */}
+                      <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity bg-black/20">
+                        <div className="h-10 w-10 rounded-full bg-white/95 flex items-center justify-center shadow-lg">
+                          <Play
+                            className="h-4 w-4 text-primary ml-0.5"
+                            fill="currentColor"
+                          />
+                        </div>
+                      </div>
+
+                      {/* Progress indicator */}
+                      {isCompleted && (
+                        <div className="absolute top-2 right-2">
+                          <div className="h-6 w-6 rounded-full bg-green-500 flex items-center justify-center">
+                            <Check className="h-4 w-4 text-white" />
+                          </div>
+                        </div>
+                      )}
+                      {isInProgress && (
+                        <div className="absolute top-2 right-2">
+                          <div className="h-6 w-6 rounded-full bg-primary flex items-center justify-center">
+                            <Clock className="h-3 w-3 text-white" />
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Content */}
+                    <CardContent className="flex-1 p-4 flex flex-col justify-center">
+                      <div className="flex items-center gap-2 mb-1">
+                        <Badge
+                          variant="secondary"
+                          className={cn(
+                            "text-[10px]",
+                            isNext && "bg-primary text-primary-foreground"
+                          )}
+                        >
+                          Episode {episode.episode_number}
+                        </Badge>
+                        {isNext && (
+                          <Badge
+                            variant="outline"
+                            className="text-[10px] border-primary text-primary"
+                          >
+                            Up Next
+                          </Badge>
+                        )}
+                        {isCompleted && (
+                          <Badge
+                            variant="outline"
+                            className="text-[10px] border-green-500 text-green-600"
+                          >
+                            Completed
+                          </Badge>
+                        )}
+                        {isInProgress && (
+                          <Badge
+                            variant="outline"
+                            className="text-[10px] border-primary text-primary"
+                          >
+                            In Progress
+                          </Badge>
+                        )}
+                      </div>
+
+                      <h3 className="font-semibold line-clamp-1 mb-1">
+                        {episode.title}
+                      </h3>
+
+                      {episode.situation && (
+                        <p className="text-sm text-muted-foreground line-clamp-2">
+                          {episode.situation}
+                        </p>
+                      )}
+
+                      <Button
+                        variant={isNext ? "default" : "outline"}
+                        size="sm"
+                        className="mt-3 gap-2 w-fit"
+                        disabled={!!startingEpisode}
+                      >
+                        <Play className="h-4 w-4" />
+                        {startingEpisode === episode.id
+                          ? "Starting..."
+                          : isCompleted
+                            ? "Replay"
+                            : isInProgress
+                              ? "Continue"
+                              : "Start"}
+                      </Button>
+                    </CardContent>
+                  </div>
+                </Card>
+              );
+            })}
           </div>
         </section>
       )}

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { api } from "@/lib/api/client";
 import { Card, CardContent } from "@/components/ui/card";
@@ -8,33 +8,39 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { MessageCircle, Clock, BookOpen, Play } from "lucide-react";
-import type { RelationshipWithCharacter } from "@/types";
+import type { ContinueWatchingItem } from "@/types";
+
+// Genre display labels
+const GENRE_LABELS: Record<string, string> = {
+  slice_of_life: "Slice of Life",
+  romance: "Romance",
+  drama: "Drama",
+  comedy: "Comedy",
+  fantasy: "Fantasy",
+  mystery: "Mystery",
+  thriller: "Thriller",
+  sci_fi: "Sci-Fi",
+  horror: "Horror",
+  action: "Action",
+};
 
 export default function MyChatsPage() {
-  const [relationships, setRelationships] = useState<RelationshipWithCharacter[]>([]);
+  const [items, setItems] = useState<ContinueWatchingItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     async function loadData() {
       try {
-        const data = await api.relationships.list();
-        setRelationships(data);
+        const data = await api.series.getContinueWatching(50);
+        setItems(data.items);
       } catch (err) {
-        console.error("Failed to load relationships:", err);
+        console.error("Failed to load stories:", err);
       } finally {
         setIsLoading(false);
       }
     }
     loadData();
   }, []);
-
-  const sortedRelationships = useMemo(() => {
-    return [...relationships].sort((a, b) => {
-      const timeA = a.last_interaction_at ? new Date(a.last_interaction_at).getTime() : 0;
-      const timeB = b.last_interaction_at ? new Date(b.last_interaction_at).getTime() : 0;
-      return timeB - timeA;
-    });
-  }, [relationships]);
 
   if (isLoading) {
     return (
@@ -52,23 +58,16 @@ export default function MyChatsPage() {
     );
   }
 
-  const stageLabels: Record<string, string> = {
-    acquaintance: "Just Met",
-    friendly: "Friendly",
-    close: "Close",
-    intimate: "Special",
-  };
-
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-3xl font-bold tracking-tight">Your Stories</h1>
         <p className="text-muted-foreground">
-          Continue your conversations and episodes.
+          Continue your series and episodes.
         </p>
       </div>
 
-      {sortedRelationships.length === 0 ? (
+      {items.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-16 text-center">
           <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center mb-4">
             <MessageCircle className="h-8 w-8 text-muted-foreground" />
@@ -80,51 +79,78 @@ export default function MyChatsPage() {
         </div>
       ) : (
         <div className="space-y-3">
-          {sortedRelationships.map((rel) => (
-            <Link key={rel.id} href={`/chat/${rel.character_id}`}>
-              <Card className="cursor-pointer transition-all hover:-translate-y-0.5 hover:shadow-md group">
-                <CardContent className="p-4">
-                  <div className="flex items-center gap-4">
-                    <AvatarWithFallback name={rel.character_name} src={rel.character_avatar_url} />
-
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <h3 className="truncate text-base font-semibold">{rel.character_name}</h3>
-                        <Badge variant="secondary" className="text-[10px]">
-                          Episode {rel.total_episodes || 0}
-                        </Badge>
-                        {rel.stage && rel.stage !== "acquaintance" && (
-                          <Badge variant="outline" className="text-[10px]">
-                            {stageLabels[rel.stage] || rel.stage}
-                          </Badge>
-                        )}
-                      </div>
-                      <p className="text-sm text-muted-foreground capitalize">
-                        {rel.character_archetype}
-                      </p>
-                      <div className="mt-2 flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
-                        <span className="flex items-center gap-1">
-                          <MessageCircle className="h-3 w-3" />
-                          {rel.total_messages} messages
-                        </span>
-                        <span>•</span>
-                        <span className="flex items-center gap-1">
-                          <BookOpen className="h-3 w-3" />
-                          {rel.total_episodes} episodes
-                        </span>
-                        <span>•</span>
-                        <span className="flex items-center gap-1">
-                          <Clock className="h-3 w-3" />
-                          {rel.last_interaction_at
-                            ? formatRelativeTime(rel.last_interaction_at)
-                            : "Not started"}
-                        </span>
+          {items.map((item) => (
+            <Link
+              key={item.series_id}
+              href={`/chat/${item.character_id}?episode=${item.current_episode_id}`}
+            >
+              <Card className="cursor-pointer transition-all hover:-translate-y-0.5 hover:shadow-md group overflow-hidden">
+                <CardContent className="p-0">
+                  <div className="flex">
+                    {/* Series cover image */}
+                    <div className="relative h-24 w-32 sm:w-40 shrink-0 overflow-hidden">
+                      {item.series_cover_image_url ? (
+                        <img
+                          src={item.series_cover_image_url}
+                          alt={item.series_title}
+                          className="h-full w-full object-cover"
+                        />
+                      ) : (
+                        <div className="h-full w-full bg-gradient-to-br from-blue-600/40 via-purple-500/30 to-pink-500/20" />
+                      )}
+                      {/* Progress bar overlay */}
+                      <div className="absolute bottom-0 left-0 right-0 h-1 bg-black/30">
+                        <div
+                          className="h-full bg-primary"
+                          style={{
+                            width: `${Math.min((item.current_episode_number / item.total_episodes) * 100, 100)}%`,
+                          }}
+                        />
                       </div>
                     </div>
 
-                    <div className="shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <div className="h-10 w-10 rounded-full bg-primary flex items-center justify-center">
-                        <Play className="h-4 w-4 text-primary-foreground ml-0.5" fill="currentColor" />
+                    {/* Content */}
+                    <div className="flex-1 p-4 flex items-center gap-4">
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2 flex-wrap mb-1">
+                          <h3 className="truncate text-base font-semibold">
+                            {item.series_title}
+                          </h3>
+                          {item.series_genre && (
+                            <Badge
+                              variant="secondary"
+                              className="text-[10px] bg-primary/10 text-primary"
+                            >
+                              {GENRE_LABELS[item.series_genre] || item.series_genre}
+                            </Badge>
+                          )}
+                        </div>
+
+                        <p className="text-sm text-muted-foreground line-clamp-1">
+                          Episode {item.current_episode_number}: {item.current_episode_title}
+                        </p>
+
+                        <div className="mt-2 flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
+                          <span className="flex items-center gap-1">
+                            <BookOpen className="h-3 w-3" />
+                            {item.current_episode_number} of {item.total_episodes}
+                          </span>
+                          <span>•</span>
+                          <span className="flex items-center gap-1">
+                            <Clock className="h-3 w-3" />
+                            {formatRelativeTime(item.last_played_at)}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Play button */}
+                      <div className="shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <div className="h-10 w-10 rounded-full bg-primary flex items-center justify-center">
+                          <Play
+                            className="h-4 w-4 text-primary-foreground ml-0.5"
+                            fill="currentColor"
+                          />
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -151,28 +177,4 @@ function formatRelativeTime(dateString: string): string {
   if (diffHours < 24) return `${diffHours}h ago`;
   if (diffDays < 7) return `${diffDays}d ago`;
   return date.toLocaleDateString();
-}
-
-function AvatarWithFallback({ name, src }: { name: string; src: string | null }) {
-  const [errored, setErrored] = useState(false);
-  const initial = name?.[0] ?? "•";
-
-  if (!src || errored) {
-    return (
-      <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-full border border-border/60 bg-muted text-xl font-semibold text-muted-foreground">
-        {initial}
-      </div>
-    );
-  }
-
-  return (
-    <div className="h-14 w-14 shrink-0 overflow-hidden rounded-full border border-border/60 bg-muted">
-      <img
-        src={src}
-        alt={name}
-        className="h-full w-full object-cover"
-        onError={() => setErrored(true)}
-      />
-    </div>
-  );
 }

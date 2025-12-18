@@ -229,6 +229,8 @@ export const api = {
       request<import("@/types").SeriesWithCharacters>(`/series/${seriesId}/with-characters`),
     getProgress: (seriesId: string) =>
       request<import("@/types").SeriesProgressResponse>(`/series/${seriesId}/progress`),
+    getContinueWatching: (limit?: number) =>
+      request<import("@/types").ContinueWatchingResponse>(`/series/user/continue-watching${limit ? `?limit=${limit}` : ""}`),
     create: (data: {
       title: string;
       slug?: string;  // Will be auto-generated if not provided

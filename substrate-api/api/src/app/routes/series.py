@@ -514,3 +514,110 @@ async def get_series_progress(
             ))
 
     return SeriesProgressResponse(series_id=str(series_id), progress=progress)
+
+
+# =============================================================================
+# Continue Watching (User's Active Series)
+# =============================================================================
+
+class ContinueWatchingItem(BaseModel):
+    """A series the user has started with their current progress."""
+    series_id: str
+    series_title: str
+    series_slug: str
+    series_cover_image_url: Optional[str] = None
+    series_genre: Optional[str] = None
+    total_episodes: int
+
+    # Current episode info
+    current_episode_id: str
+    current_episode_title: str
+    current_episode_number: int
+    character_id: str
+    character_name: str
+
+    # Progress
+    last_played_at: str
+    session_state: str  # active, paused, faded, complete
+
+
+class ContinueWatchingResponse(BaseModel):
+    """User's continue watching list."""
+    items: List[ContinueWatchingItem]
+
+
+@router.get("/user/continue-watching", response_model=ContinueWatchingResponse)
+async def get_continue_watching(
+    request: Request,
+    limit: int = Query(10, ge=1, le=50),
+    db=Depends(get_db),
+):
+    """Get user's 'Continue Watching' list - series with active/recent sessions.
+
+    Returns series the user has interacted with, sorted by most recent activity.
+    Each item includes the current episode they're on.
+    """
+    user_id = getattr(request.state, "user_id", None)
+    if not user_id:
+        raise HTTPException(status_code=401, detail="Authentication required")
+
+    # Get user's most recent session per series, with series and episode info
+    query = """
+        WITH ranked_sessions AS (
+            SELECT
+                s.id as session_id,
+                s.series_id,
+                s.episode_template_id,
+                s.character_id,
+                s.session_state,
+                s.started_at,
+                ROW_NUMBER() OVER (PARTITION BY s.series_id ORDER BY s.started_at DESC) as rn
+            FROM sessions s
+            WHERE s.user_id = :user_id
+            AND s.series_id IS NOT NULL
+        )
+        SELECT
+            rs.session_id,
+            rs.series_id,
+            rs.episode_template_id,
+            rs.character_id,
+            rs.session_state,
+            rs.started_at,
+            ser.title as series_title,
+            ser.slug as series_slug,
+            ser.cover_image_url as series_cover_image_url,
+            ser.genre as series_genre,
+            ser.total_episodes,
+            et.title as episode_title,
+            et.episode_number,
+            c.name as character_name
+        FROM ranked_sessions rs
+        JOIN series ser ON ser.id = rs.series_id
+        LEFT JOIN episode_templates et ON et.id = rs.episode_template_id
+        LEFT JOIN characters c ON c.id = rs.character_id
+        WHERE rs.rn = 1
+        ORDER BY rs.started_at DESC
+        LIMIT :limit
+    """
+
+    rows = await db.fetch_all(query, {"user_id": user_id, "limit": limit})
+
+    items = []
+    for row in rows:
+        items.append(ContinueWatchingItem(
+            series_id=str(row["series_id"]),
+            series_title=row["series_title"],
+            series_slug=row["series_slug"],
+            series_cover_image_url=row["series_cover_image_url"],
+            series_genre=row["series_genre"],
+            total_episodes=row["total_episodes"] or 0,
+            current_episode_id=str(row["episode_template_id"]) if row["episode_template_id"] else "",
+            current_episode_title=row["episode_title"] or "Episode",
+            current_episode_number=row["episode_number"] or 1,
+            character_id=str(row["character_id"]),
+            character_name=row["character_name"] or "Character",
+            last_played_at=row["started_at"].isoformat() if row["started_at"] else "",
+            session_state=row["session_state"] or "active",
+        ))
+
+    return ContinueWatchingResponse(items=items)

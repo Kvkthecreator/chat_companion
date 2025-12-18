@@ -459,6 +459,32 @@ export interface SeriesProgressResponse {
   progress: EpisodeProgressItem[];
 }
 
+/**
+ * Continue Watching item - a series the user has interacted with
+ */
+export interface ContinueWatchingItem {
+  series_id: string;
+  series_title: string;
+  series_slug: string;
+  series_cover_image_url: string | null;
+  series_genre: string | null;
+  total_episodes: number;
+  current_episode_id: string;
+  current_episode_title: string;
+  current_episode_number: number;
+  character_id: string;
+  character_name: string;
+  last_played_at: string;
+  session_state: string;
+}
+
+/**
+ * Continue Watching response
+ */
+export interface ContinueWatchingResponse {
+  items: ContinueWatchingItem[];
+}
+
 // Scene types
 export type SceneTriggerType = "milestone" | "user_request" | "stage_change" | "episode_start";
 
