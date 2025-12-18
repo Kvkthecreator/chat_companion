@@ -295,7 +295,6 @@ Capture **specific moments** during conversation as visual memories.
 | Aspect Ratio | 16:9 (cinematic) or 1:1 (moment) |
 | Content | Character + action + setting |
 | Style | Consistent with character's established look |
-| Caption | AI-generated 1-2 sentence description |
 
 ### Generation Approach
 
