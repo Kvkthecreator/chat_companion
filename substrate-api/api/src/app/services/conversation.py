@@ -246,7 +246,7 @@ class ConversationService:
         if episode_id:
             session_query = "SELECT series_id FROM sessions WHERE id = :episode_id"
             session_row = await self.db.fetch_one(session_query, {"episode_id": str(episode_id)})
-            if session_row and session_row.get("series_id"):
+            if session_row and session_row["series_id"]:
                 series_id = session_row["series_id"]
 
         # Get recent messages from episode
@@ -343,7 +343,7 @@ class ConversationService:
             session_row = await self.db.fetch_one(session_query, {"episode_id": str(episode_id)})
 
             # Use session's scene as fallback for episode_situation
-            if session_row and session_row.get("scene"):
+            if session_row and session_row["scene"]:
                 episode_situation = session_row["scene"]
 
             if session_row and session_row["episode_template_id"]:
@@ -358,19 +358,19 @@ class ConversationService:
 
                 if template_row:
                     # situation is the primary physical grounding (overrides session.scene)
-                    if template_row.get("situation"):
+                    if template_row["situation"]:
                         episode_situation = template_row["situation"]
-                    episode_frame = template_row.get("episode_frame")
-                    dramatic_question = template_row.get("dramatic_question")
-                    beat_guidance_raw = template_row.get("beat_guidance")
+                    episode_frame = template_row["episode_frame"]
+                    dramatic_question = template_row["dramatic_question"]
+                    beat_guidance_raw = template_row["beat_guidance"]
                     if beat_guidance_raw:
                         beat_guidance = json.loads(beat_guidance_raw) if isinstance(beat_guidance_raw, str) else beat_guidance_raw
-                    resolution_types_raw = template_row.get("resolution_types")
+                    resolution_types_raw = template_row["resolution_types"]
                     if resolution_types_raw:
                         resolution_types = list(resolution_types_raw) if not isinstance(resolution_types_raw, str) else resolution_types
 
                     # If part of a series, get series context from previous episodes
-                    if template_row.get("series_id"):
+                    if template_row["series_id"]:
                         series_context = await self._get_series_context(
                             user_id, character_id, template_row["series_id"], template_id
                         )
@@ -763,7 +763,7 @@ class ConversationService:
             # Only provide series context for serial series
             return None
 
-        episode_order = series_row.get("episode_order", [])
+        episode_order = series_row["episode_order"] or []
         if not episode_order or not isinstance(episode_order, list):
             return None
 
@@ -803,8 +803,8 @@ class ConversationService:
         # Build context string
         context_parts = []
         for row in summary_rows:
-            title = row.get("title", f"Episode {row.get('episode_number', '?')}")
-            summary = row.get("summary", "")
+            title = row["title"] or f"Episode {row['episode_number'] or '?'}"
+            summary = row["summary"] or ""
             if summary:
                 context_parts.append(f"• {title}: {summary}")
 
