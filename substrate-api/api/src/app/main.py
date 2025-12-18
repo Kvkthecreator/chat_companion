@@ -8,8 +8,9 @@ import logging
 import os
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 
 from app.deps import close_db, get_db
 from middleware.auth import AuthMiddleware
@@ -85,6 +86,54 @@ app = FastAPI(
     version="0.1.0",
     lifespan=lifespan,
 )
+
+
+# =============================================================================
+# Global Exception Handler with CORS
+# =============================================================================
+# When unhandled exceptions occur, FastAPI converts them to 500 responses
+# BEFORE CORSMiddleware can add headers. This handler ensures CORS headers
+# are present on error responses so browsers can read the error details.
+
+def _add_cors_headers_to_response(response: JSONResponse, origin: str | None) -> JSONResponse:
+    """Add CORS headers to error responses."""
+    if not origin:
+        return response
+
+    # Check against allowed origins (mirrors CORS config above)
+    import fnmatch
+    cors_origins_env = os.getenv("CORS_ORIGINS", "http://localhost:3000,https://ep-0.com,https://www.ep-0.com,https://*.vercel.app")
+    allowed_origins = [o.strip() for o in cors_origins_env.split(",")]
+
+    origin_allowed = False
+    for allowed in allowed_origins:
+        if allowed == origin:
+            origin_allowed = True
+            break
+        if "*" in allowed and fnmatch.fnmatch(origin, allowed.replace("*", "*")):
+            origin_allowed = True
+            break
+
+    if origin_allowed:
+        response.headers["Access-Control-Allow-Origin"] = origin
+        response.headers["Access-Control-Allow-Credentials"] = "true"
+
+    return response
+
+
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    """Handle unhandled exceptions with CORS headers."""
+    log.error(f"Unhandled exception on {request.url.path}: {exc}", exc_info=True)
+
+    response = JSONResponse(
+        status_code=500,
+        content={"error": "internal_server_error", "detail": str(exc)},
+    )
+
+    origin = request.headers.get("origin")
+    return _add_cors_headers_to_response(response, origin)
+
 
 # CORS configuration
 # Default includes localhost and common Vercel patterns
