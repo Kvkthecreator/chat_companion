@@ -7,7 +7,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
-import { MessageCircle, Clock, BookOpen, Play } from "lucide-react";
+import { MessageCircle, Clock, BookOpen, ChevronRight } from "lucide-react";
 import type { ContinueWatchingItem } from "@/types";
 
 // Genre display labels
@@ -63,7 +63,7 @@ export default function MyChatsPage() {
       <div>
         <h1 className="text-3xl font-bold tracking-tight">Your Stories</h1>
         <p className="text-muted-foreground">
-          Continue your series and episodes.
+          View your series progress and continue where you left off.
         </p>
       </div>
 
@@ -82,7 +82,7 @@ export default function MyChatsPage() {
           {items.map((item) => (
             <Link
               key={item.series_id}
-              href={`/chat/${item.character_id}?episode=${item.current_episode_id}`}
+              href={`/series/${item.series_slug}`}
             >
               <Card className="cursor-pointer transition-all hover:-translate-y-0.5 hover:shadow-md group overflow-hidden">
                 <CardContent className="p-0">
@@ -127,13 +127,13 @@ export default function MyChatsPage() {
                         </div>
 
                         <p className="text-sm text-muted-foreground line-clamp-1">
-                          Episode {item.current_episode_number}: {item.current_episode_title}
+                          Up next: Episode {item.current_episode_number} - {item.current_episode_title}
                         </p>
 
                         <div className="mt-2 flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
                           <span className="flex items-center gap-1">
                             <BookOpen className="h-3 w-3" />
-                            {item.current_episode_number} of {item.total_episodes}
+                            {item.current_episode_number} of {item.total_episodes} episodes
                           </span>
                           <span>•</span>
                           <span className="flex items-center gap-1">
@@ -143,14 +143,9 @@ export default function MyChatsPage() {
                         </div>
                       </div>
 
-                      {/* Play button */}
-                      <div className="shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <div className="h-10 w-10 rounded-full bg-primary flex items-center justify-center">
-                          <Play
-                            className="h-4 w-4 text-primary-foreground ml-0.5"
-                            fill="currentColor"
-                          />
-                        </div>
+                      {/* Arrow indicator */}
+                      <div className="shrink-0 opacity-50 group-hover:opacity-100 transition-opacity">
+                        <ChevronRight className="h-5 w-5 text-muted-foreground" />
                       </div>
                     </div>
                   </div>

@@ -485,6 +485,40 @@ export interface ContinueWatchingResponse {
   items: ContinueWatchingItem[];
 }
 
+/**
+ * User engagement stats with a series
+ */
+export interface SeriesEngagementStats {
+  total_sessions: number;
+  total_messages: number;
+  episodes_completed: number;
+  episodes_in_progress: number;
+  first_played_at: string | null;
+  last_played_at: string | null;
+}
+
+/**
+ * Current/next episode info for user
+ */
+export interface CurrentEpisodeInfo {
+  episode_id: string;
+  episode_number: number;
+  title: string;
+  situation: string | null;
+  status: "not_started" | "in_progress" | "completed";
+}
+
+/**
+ * Full user context for a series - stats, progress, current episode
+ */
+export interface SeriesUserContextResponse {
+  series_id: string;
+  has_started: boolean;
+  engagement: SeriesEngagementStats;
+  current_episode: CurrentEpisodeInfo | null;
+  character_id: string | null;
+}
+
 // Scene types
 export type SceneTriggerType = "milestone" | "user_request" | "stage_change" | "episode_start";
 

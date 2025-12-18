@@ -16,6 +16,9 @@ import {
   MessageCircle,
   Check,
   Clock,
+  MessageSquare,
+  Calendar,
+  TrendingUp,
 } from "lucide-react";
 import type {
   SeriesWithEpisodes,
@@ -23,6 +26,7 @@ import type {
   World,
   EpisodeProgressItem,
   CharacterSummary,
+  SeriesUserContextResponse,
 } from "@/types";
 
 // Genre display labels
@@ -49,6 +53,7 @@ export default function SeriesPage({ params }: PageProps) {
   const [series, setSeries] = useState<SeriesWithEpisodes | null>(null);
   const [characters, setCharacters] = useState<CharacterSummary[]>([]);
   const [world, setWorld] = useState<World | null>(null);
+  const [userContext, setUserContext] = useState<SeriesUserContextResponse | null>(null);
   const [progress, setProgress] = useState<Map<string, EpisodeProgressItem>>(
     new Map()
   );
@@ -64,18 +69,20 @@ export default function SeriesPage({ params }: PageProps) {
         const found = allSeries.find((s) => s.slug === slug);
 
         if (found) {
-          // Fetch series with episodes and characters in parallel
-          const [seriesData, charactersData] = await Promise.all([
+          // Fetch series with episodes, characters, and user context in parallel
+          const [seriesData, charactersData, contextData] = await Promise.all([
             api.series.getWithEpisodes(found.id),
             api.series.getWithCharacters(found.id).catch(() => ({
               characters: [],
             })),
+            api.series.getUserContext(found.id).catch(() => null),
           ]);
 
           setSeries(seriesData);
           setCharacters(
             (charactersData as SeriesWithCharacters).characters || []
           );
+          setUserContext(contextData);
 
           // Fetch progress
           try {
@@ -138,6 +145,11 @@ export default function SeriesPage({ params }: PageProps) {
     }
   };
 
+  const handleContinue = () => {
+    if (!userContext?.current_episode || !userContext.character_id) return;
+    handleStartEpisode(userContext.current_episode.episode_id, userContext.character_id);
+  };
+
   if (isLoading) {
     return (
       <div className="space-y-6">
@@ -176,6 +188,11 @@ export default function SeriesPage({ params }: PageProps) {
     const p = progress.get(ep.id);
     return !p || p.status !== "completed";
   });
+
+  // Calculate progress percentage
+  const completedCount = userContext?.engagement.episodes_completed || 0;
+  const totalEpisodes = series.episodes.length;
+  const progressPercent = totalEpisodes > 0 ? Math.round((completedCount / totalEpisodes) * 100) : 0;
 
   return (
     <div className="space-y-8 pb-8">
@@ -235,6 +252,96 @@ export default function SeriesPage({ params }: PageProps) {
           </div>
         </div>
       </div>
+
+      {/* Your Progress Section - Only if user has started */}
+      {userContext?.has_started && (
+        <section className="space-y-4">
+          <div className="flex items-center gap-2">
+            <TrendingUp className="h-5 w-5 text-primary" />
+            <h2 className="text-xl font-semibold">Your Progress</h2>
+          </div>
+
+          <Card className="overflow-hidden">
+            <CardContent className="p-0">
+              <div className="flex flex-col sm:flex-row">
+                {/* Continue CTA */}
+                {userContext.current_episode && userContext.character_id && (
+                  <div className="flex-1 p-5 bg-primary/5 border-b sm:border-b-0 sm:border-r">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Badge variant="secondary" className="bg-primary text-primary-foreground">
+                        {userContext.current_episode.status === "in_progress" ? "Continue" : "Up Next"}
+                      </Badge>
+                    </div>
+                    <h3 className="font-semibold mb-1">
+                      Episode {userContext.current_episode.episode_number}: {userContext.current_episode.title}
+                    </h3>
+                    {userContext.current_episode.situation && (
+                      <p className="text-sm text-muted-foreground line-clamp-2 mb-4">
+                        {userContext.current_episode.situation}
+                      </p>
+                    )}
+                    <Button
+                      onClick={handleContinue}
+                      disabled={!!startingEpisode}
+                      className="gap-2"
+                    >
+                      <Play className="h-4 w-4" />
+                      {userContext.current_episode.status === "in_progress" ? "Continue Episode" : "Start Episode"}
+                    </Button>
+                  </div>
+                )}
+
+                {/* Stats */}
+                <div className="flex-1 p-5">
+                  <h4 className="text-sm font-medium text-muted-foreground mb-3">Your Stats</h4>
+
+                  {/* Progress bar */}
+                  <div className="mb-4">
+                    <div className="flex justify-between text-sm mb-1">
+                      <span>{completedCount} of {totalEpisodes} episodes</span>
+                      <span className="text-muted-foreground">{progressPercent}%</span>
+                    </div>
+                    <div className="h-2 bg-muted rounded-full overflow-hidden">
+                      <div
+                        className="h-full bg-primary transition-all duration-300"
+                        style={{ width: `${progressPercent}%` }}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4 text-sm">
+                    <div className="flex items-center gap-2">
+                      <MessageSquare className="h-4 w-4 text-muted-foreground" />
+                      <div>
+                        <div className="font-medium">{userContext.engagement.total_messages}</div>
+                        <div className="text-xs text-muted-foreground">Messages</div>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <BookOpen className="h-4 w-4 text-muted-foreground" />
+                      <div>
+                        <div className="font-medium">{userContext.engagement.total_sessions}</div>
+                        <div className="text-xs text-muted-foreground">Sessions</div>
+                      </div>
+                    </div>
+                    {userContext.engagement.last_played_at && (
+                      <div className="flex items-center gap-2 col-span-2">
+                        <Calendar className="h-4 w-4 text-muted-foreground" />
+                        <div>
+                          <div className="font-medium">
+                            {formatRelativeTime(userContext.engagement.last_played_at)}
+                          </div>
+                          <div className="text-xs text-muted-foreground">Last played</div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </section>
+      )}
 
       {/* Description */}
       {series.description && (
@@ -469,4 +576,19 @@ export default function SeriesPage({ params }: PageProps) {
       )}
     </div>
   );
+}
+
+function formatRelativeTime(dateString: string): string {
+  const date = new Date(dateString);
+  const now = new Date();
+  const diffMs = now.getTime() - date.getTime();
+  const diffMins = Math.floor(diffMs / 60000);
+  const diffHours = Math.floor(diffMs / 3600000);
+  const diffDays = Math.floor(diffMs / 86400000);
+
+  if (diffMins < 1) return "just now";
+  if (diffMins < 60) return `${diffMins}m ago`;
+  if (diffHours < 24) return `${diffHours}h ago`;
+  if (diffDays < 7) return `${diffDays}d ago`;
+  return date.toLocaleDateString();
 }

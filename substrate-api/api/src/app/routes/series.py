@@ -526,6 +526,171 @@ async def get_series_progress(
 
 
 # =============================================================================
+# User Engagement with Series (Stats + Current Progress)
+# =============================================================================
+
+class SeriesEngagementStats(BaseModel):
+    """User's engagement stats with a series."""
+    total_sessions: int
+    total_messages: int
+    episodes_completed: int
+    episodes_in_progress: int
+    first_played_at: Optional[str] = None
+    last_played_at: Optional[str] = None
+
+
+class CurrentEpisodeInfo(BaseModel):
+    """Info about user's current/next episode."""
+    episode_id: str
+    episode_number: int
+    title: str
+    situation: Optional[str] = None
+    status: str  # "not_started", "in_progress", "completed"
+
+
+class SeriesUserContextResponse(BaseModel):
+    """Full user context for a series - stats, progress, current episode."""
+    series_id: str
+    has_started: bool
+    engagement: SeriesEngagementStats
+    current_episode: Optional[CurrentEpisodeInfo] = None
+    character_id: Optional[str] = None
+
+
+@router.get("/{series_id}/user-context", response_model=SeriesUserContextResponse)
+async def get_series_user_context(
+    series_id: UUID,
+    request: Request,
+    db=Depends(get_db),
+):
+    """Get user's full context for a series - engagement stats and current progress.
+
+    Returns:
+    - Whether user has started the series
+    - Engagement stats (sessions, messages, episodes completed)
+    - Current/next episode to continue
+    - Character ID for the series
+    """
+    user_id = getattr(request.state, "user_id", None)
+    if not user_id:
+        raise HTTPException(status_code=401, detail="Authentication required")
+
+    series_id_str = str(series_id)
+
+    # Get all sessions for this series
+    sessions_query = """
+        SELECT
+            s.id,
+            s.episode_template_id,
+            s.character_id,
+            s.session_state,
+            s.started_at,
+            COALESCE(
+                (SELECT COUNT(*) FROM messages m WHERE m.episode_id = s.id),
+                0
+            ) as message_count
+        FROM sessions s
+        WHERE s.user_id = :user_id
+        AND s.series_id = :series_id
+        ORDER BY s.started_at DESC
+    """
+    session_rows = await db.fetch_all(sessions_query, {
+        "user_id": user_id,
+        "series_id": series_id_str,
+    })
+
+    # Calculate engagement stats
+    total_sessions = len(session_rows)
+    total_messages = sum(row["message_count"] for row in session_rows)
+
+    # Track episode statuses
+    episode_statuses: dict = {}
+    character_id = None
+    first_played_at = None
+    last_played_at = None
+
+    for row in session_rows:
+        ep_id = str(row["episode_template_id"]) if row["episode_template_id"] else None
+        state = row["session_state"]
+        started = row["started_at"]
+
+        if not character_id and row["character_id"]:
+            character_id = str(row["character_id"])
+
+        if started:
+            if not last_played_at:
+                last_played_at = started
+            first_played_at = started
+
+        if ep_id:
+            # Map session_state to progress status
+            if state in ("complete", "faded"):
+                status = "completed"
+            else:
+                status = "in_progress"
+
+            # Keep best status per episode
+            current = episode_statuses.get(ep_id, "not_started")
+            if status == "completed" or (status == "in_progress" and current == "not_started"):
+                episode_statuses[ep_id] = status
+
+    episodes_completed = sum(1 for s in episode_statuses.values() if s == "completed")
+    episodes_in_progress = sum(1 for s in episode_statuses.values() if s == "in_progress")
+
+    # Get episode templates to find current/next episode
+    episodes_query = """
+        SELECT id, episode_number, title, situation
+        FROM episode_templates
+        WHERE series_id = :series_id
+        AND status = 'active'
+        ORDER BY sort_order, episode_number
+    """
+    episode_rows = await db.fetch_all(episodes_query, {"series_id": series_id_str})
+
+    # Find current episode (first non-completed, or last if all done)
+    current_episode = None
+    for row in episode_rows:
+        ep_id = str(row["id"])
+        ep_status = episode_statuses.get(ep_id, "not_started")
+
+        if ep_status != "completed":
+            current_episode = CurrentEpisodeInfo(
+                episode_id=ep_id,
+                episode_number=row["episode_number"],
+                title=row["title"],
+                situation=row["situation"],
+                status=ep_status,
+            )
+            break
+
+    # If all completed, show the last episode
+    if not current_episode and episode_rows:
+        last_ep = episode_rows[-1]
+        current_episode = CurrentEpisodeInfo(
+            episode_id=str(last_ep["id"]),
+            episode_number=last_ep["episode_number"],
+            title=last_ep["title"],
+            situation=last_ep["situation"],
+            status="completed",
+        )
+
+    return SeriesUserContextResponse(
+        series_id=series_id_str,
+        has_started=total_sessions > 0,
+        engagement=SeriesEngagementStats(
+            total_sessions=total_sessions,
+            total_messages=total_messages,
+            episodes_completed=episodes_completed,
+            episodes_in_progress=episodes_in_progress,
+            first_played_at=first_played_at.isoformat() if first_played_at else None,
+            last_played_at=last_played_at.isoformat() if last_played_at else None,
+        ),
+        current_episode=current_episode,
+        character_id=character_id,
+    )
+
+
+# =============================================================================
 # Continue Watching (User's Active Series)
 # =============================================================================
 
