@@ -2,6 +2,7 @@
 
 > **Status**: Planning
 > **Created**: 2024-12-18
+> **Domain**: ep-0.com
 > **Purpose**: Document the strategic rationale and architectural decisions for a viral, shareable feature as a customer acquisition channel.
 
 ---
@@ -46,21 +47,21 @@ Instead of traditional marketing spend (ads → landing page → conversion funn
 
 ### 1. Domain Strategy
 
-**Decision**: Route (`fantazy.app/play/flirt-test`)
+**Decision**: Route (`ep-0.com/games/flirt-test`)
 
-**Rejected Alternative**: Subdomain (`play.fantazy.app`)
+**Rejected Alternative**: Subdomain (`games.ep-0.com`)
 
 **Reasoning**:
 - **SEO**: Routes inherit parent domain authority. Subdomains are treated as separate sites.
 - **Infrastructure**: No additional SSL/cert management, no separate deployment config.
-- **User Mental Model**: `/play/X` signals "part of Fantazy" — supports awareness goal.
-- **Future Extensibility**: `/play/` becomes games namespace naturally (`/play/mystery-challenge`, `/play/compatibility`).
+- **User Mental Model**: `/games/X` signals "part of ep-0" — supports awareness goal.
+- **Future Extensibility**: `/games/` becomes the namespace for all viral/challenge features (`/games/mystery-challenge`, `/games/compatibility`).
 - **Kill Switch**: Delete a route, done. No DNS cleanup.
 
 **URL Structure**:
 ```
-fantazy.app/play/flirt-test     → Take the test
-fantazy.app/r/abc123            → View/share result (short URL)
+ep-0.com/games/flirt-test     → Take the test
+ep-0.com/r/abc123             → View/share result (short URL)
 ```
 
 ### 2. Authentication Model
@@ -118,9 +119,20 @@ Take test → Get result → Share
 > "You talked to Mina for 2 minutes. She has more to say."
 > [Continue conversation with Mina →]
 
-**Secondary CTA**: Archetype-Matched Discovery
-> "You're a 'Slow Burn Romantic'. These characters would love that energy:"
-> [Character cards matching result]
+This leverages the relationship seed — they've already "met" the character.
+
+**Secondary CTA**: Series Discovery (Archetype-Matched)
+
+Rather than showing individual characters, surface **series** that match the user's result archetype. Series are the primary content unit in ep-0 — each has:
+- A **title** and **tagline** (hook)
+- A **genre** (romantic_tension, thriller, etc.)
+- **Cover art** for visual appeal
+- **Episode count** for depth signal
+
+> "Stories for Tension Builders like you:"
+> [Series cards with cover, title, tagline, genre badge]
+
+This aligns with the episode-first, series-based architecture and introduces users to the content model they'll engage with.
 
 **Result Screen Layout**:
 ```
@@ -134,16 +146,21 @@ Take test → Get result → Share
 │  Mina enjoyed that. Keep going?         │
 │  [Continue with Mina →]                 │
 │                                         │
-│  Or discover characters who match       │
-│  your style:                            │
-│  [Character] [Character] [Character]    │
+│  Stories for Tension Builders:          │
+│  ┌─────────┐ ┌─────────┐ ┌─────────┐   │
+│  │ Series  │ │ Series  │ │ Series  │   │
+│  │ cover   │ │ cover   │ │ cover   │   │
+│  │ +title  │ │ +title  │ │ +title  │   │
+│  │ +genre  │ │ +genre  │ │ +genre  │   │
+│  └─────────┘ └─────────┘ └─────────┘   │
 └─────────────────────────────────────────┘
 ```
 
 **Why This Works**:
-- Primary CTA is specific and emotionally warm
-- Secondary CTA catches those wanting variety
-- Both require account creation (natural gate)
+- Primary CTA is specific and emotionally warm (character continuity)
+- Secondary CTA introduces the series model naturally
+- Series cards (cover + tagline + genre) are visually compelling
+- Both require account creation to proceed (natural gate)
 - The test *was* the demo — they know what "chatting" feels like
 
 ---
@@ -208,7 +225,7 @@ This is **platform infrastructure**, not one-off work. Will be reused for:
 |-----------|---------|
 | Result artifact | Structured data (archetype, score, metadata) |
 | Result card renderer | OG image generation for social previews |
-| Share link with state | `fantazy.app/r/abc123` → resolves to result |
+| Share link with state | `ep-0.com/r/abc123` → resolves to result |
 | Comparison flow | "Take the same test to compare" |
 | Attribution | Who shared, conversion tracking |
 
@@ -269,6 +286,8 @@ This doesn't break canon — it extends the Episode Dynamics framework.
 
 ## Open Questions for Implementation
 
+> **Note**: Items 1-4 are aligned and decided. Remaining questions below.
+
 1. **Result Archetype System**: What archetypes? How scored from conversation?
 2. **Share Card Design**: OG image generation requirements, visual style
 3. **Character Selection**: Which character(s) for launch? Mina? New character?
@@ -297,7 +316,7 @@ This doesn't break canon — it extends the Episode Dynamics framework.
 4. Share link infrastructure
 5. Conversation flow design (character, prompts, turn limit)
 6. OG image generation service
-7. Frontend implementation (`/play/` routes)
+7. Frontend implementation (`/games/` routes)
 8. Analytics integration
 
 ---
