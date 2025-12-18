@@ -119,16 +119,20 @@ async def get_default_boundaries():
 
 
 @router.get("/characters", response_model=List[CharacterSummary])
-async def list_my_characters(
+async def list_all_characters(
     status_filter: Optional[str] = Query(None, pattern="^(draft|active)$"),
     user_id: UUID = Depends(get_current_user_id),
     db=Depends(get_db),
 ):
-    """List characters created by the current user."""
+    """List all characters (not filtered by creator).
+
+    Shows all characters with their creator info. Edit/delete operations
+    still require ownership validation.
+    """
     from app.services.storage import StorageService
 
-    conditions = ["c.created_by = :user_id"]
-    values = {"user_id": str(user_id)}
+    conditions = ["1=1"]  # No ownership filter - show all
+    values = {}
 
     if status_filter:
         conditions.append("c.status = :status")
@@ -138,15 +142,16 @@ async def list_my_characters(
     query = f"""
         SELECT c.id, c.name, c.slug, c.archetype, c.avatar_url,
                c.short_backstory, c.is_premium, c.genre,
+               c.status, c.created_by,
                aa.storage_path as anchor_path
         FROM characters c
-        LEFT JOIN avatar_kits ak ON ak.id = c.active_avatar_kit_id AND ak.status = 'active'
+        LEFT JOIN avatar_kits ak ON ak.id = c.active_avatar_kit_id
         LEFT JOIN avatar_assets aa ON aa.id = ak.primary_anchor_id AND aa.is_active = TRUE
         WHERE {" AND ".join(conditions)}
         ORDER BY c.created_at DESC
     """
 
-    rows = await db.fetch_all(query, values)
+    rows = await db.fetch_all(query, values if values else None)
 
     # Process rows - generate signed URLs for anchor images
     results = []
@@ -1057,6 +1062,30 @@ async def diagnose_images(
         "characters": characters,
         "series": series,
         "episodes": episodes[:20],  # Limit output
+    }
+
+
+@router.post("/admin/activate-all-kits")
+async def activate_all_kits(
+    db=Depends(get_db),
+):
+    """Activate all draft avatar kits.
+
+    This simplifies kit management - all kits are now active by default.
+    This endpoint fixes any existing draft kits.
+    """
+    result = await db.execute(
+        "UPDATE avatar_kits SET status = 'active', updated_at = NOW() WHERE status = 'draft'"
+    )
+
+    # Get count of affected rows
+    count_row = await db.fetch_one(
+        "SELECT COUNT(*) as count FROM avatar_kits WHERE status = 'active'"
+    )
+
+    return {
+        "message": "All draft kits activated",
+        "total_active_kits": count_row["count"] if count_row else 0,
     }
 
 

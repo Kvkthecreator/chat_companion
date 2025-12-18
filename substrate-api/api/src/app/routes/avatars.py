@@ -44,7 +44,7 @@ async def create_avatar_kit(
 ):
     """Create a new avatar kit for a character.
 
-    The kit starts in 'draft' status until anchors are uploaded and it's activated.
+    The kit starts in 'active' status immediately (simplified governance).
     """
     # Verify character exists
     character = await db.fetch_one(
@@ -68,7 +68,7 @@ async def create_avatar_kit(
         VALUES (
             :id, :character_id, :created_by, :name, :description,
             :appearance_prompt, :style_prompt, :negative_prompt,
-            'draft', :is_default
+            'active', :is_default
         )
         RETURNING *
     """

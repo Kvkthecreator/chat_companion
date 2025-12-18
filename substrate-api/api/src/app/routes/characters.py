@@ -45,7 +45,7 @@ async def list_characters(
                c.short_backstory, c.is_premium,
                aa.storage_path as anchor_path
         FROM characters c
-        LEFT JOIN avatar_kits ak ON ak.id = c.active_avatar_kit_id AND ak.status = 'active'
+        LEFT JOIN avatar_kits ak ON ak.id = c.active_avatar_kit_id
         LEFT JOIN avatar_assets aa ON aa.id = ak.primary_anchor_id AND aa.is_active = TRUE
         WHERE {" AND ".join(conditions)}
         ORDER BY c.sort_order, c.name
@@ -98,7 +98,7 @@ async def get_character(
     query = """
         SELECT c.*, aa.storage_path as anchor_path
         FROM characters c
-        LEFT JOIN avatar_kits ak ON ak.id = c.active_avatar_kit_id AND ak.status = 'active'
+        LEFT JOIN avatar_kits ak ON ak.id = c.active_avatar_kit_id
         LEFT JOIN avatar_assets aa ON aa.id = ak.primary_anchor_id AND aa.is_active = TRUE
         WHERE c.id = :character_id AND c.status = 'active' AND c.is_active = TRUE
     """
@@ -133,7 +133,7 @@ async def get_character_by_slug(
     query = """
         SELECT c.*, aa.storage_path as anchor_path
         FROM characters c
-        LEFT JOIN avatar_kits ak ON ak.id = c.active_avatar_kit_id AND ak.status = 'active'
+        LEFT JOIN avatar_kits ak ON ak.id = c.active_avatar_kit_id
         LEFT JOIN avatar_assets aa ON aa.id = ak.primary_anchor_id AND aa.is_active = TRUE
         WHERE c.slug = :slug AND c.status = 'active' AND c.is_active = TRUE
     """

@@ -51,6 +51,8 @@ class CharacterSummary(BaseModel):
     short_backstory: Optional[str] = None
     is_premium: bool = False
     genre: str = "romantic_tension"
+    status: Optional[str] = None  # draft/active - for studio view
+    created_by: Optional[UUID] = None  # for studio view - shows creator
 
 
 class AvatarGalleryItem(BaseModel):

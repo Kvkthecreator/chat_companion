@@ -5,9 +5,11 @@ import Link from 'next/link'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { cn } from '@/lib/utils'
 import { api } from '@/lib/api/client'
 import type { CharacterSummary, SeriesSummary, World } from '@/types'
+import { HelpCircle } from 'lucide-react'
 
 export default function StudioPage() {
   const [characters, setCharacters] = useState<CharacterSummary[]>([])
@@ -64,46 +66,78 @@ export default function StudioPage() {
   return (
     <div className="space-y-8">
       {/* Header */}
-      <div>
-        <p className="text-sm font-medium uppercase tracking-wide text-muted-foreground">Studio</p>
-        <h1 className="mt-2 text-3xl font-semibold">Content Creation Studio</h1>
-        <p className="mt-2 max-w-2xl text-muted-foreground">
-          Create and manage worlds, series, characters, and episodes. Build immersive episodic experiences.
-        </p>
-      </div>
+      <div className="flex items-start justify-between">
+        <div>
+          <p className="text-sm font-medium uppercase tracking-wide text-muted-foreground">Studio</p>
+          <h1 className="mt-2 text-3xl font-semibold">Content Creation Studio</h1>
+          <p className="mt-2 max-w-2xl text-muted-foreground">
+            Create and manage series, characters, and episodes.
+          </p>
+        </div>
 
-      {/* Content Hierarchy Overview */}
-      <Card className="border-primary/30 bg-primary/5">
-        <CardHeader>
-          <CardTitle className="text-lg">Content Architecture</CardTitle>
-          <CardDescription>
-            Hierarchical structure: World → Series → Character → Episode
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="flex items-center gap-2 text-sm">
-            <div className="flex items-center gap-1">
-              <span className="h-2 w-2 rounded-full bg-purple-500"></span>
-              <span className="text-muted-foreground">World</span>
+        {/* Tips Modal */}
+        <Dialog>
+          <DialogTrigger asChild>
+            <Button variant="ghost" size="sm" className="gap-2">
+              <HelpCircle className="h-4 w-4" />
+              Tips
+            </Button>
+          </DialogTrigger>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Content Architecture</DialogTitle>
+              <DialogDescription>
+                How content is organized in Fantazy
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div className="flex items-center gap-2 text-sm">
+                <div className="flex items-center gap-1">
+                  <span className="h-2 w-2 rounded-full bg-blue-500"></span>
+                  <span>Series</span>
+                </div>
+                <span className="text-muted-foreground">→</span>
+                <div className="flex items-center gap-1">
+                  <span className="h-2 w-2 rounded-full bg-green-500"></span>
+                  <span>Character</span>
+                </div>
+                <span className="text-muted-foreground">→</span>
+                <div className="flex items-center gap-1">
+                  <span className="h-2 w-2 rounded-full bg-amber-500"></span>
+                  <span>Episode</span>
+                </div>
+              </div>
+
+              <div className="space-y-3 text-sm">
+                <div>
+                  <p className="font-medium">Series</p>
+                  <p className="text-muted-foreground">Narrative containers that group episodes into coherent experiences.</p>
+                </div>
+                <div>
+                  <p className="font-medium">Character + Avatar</p>
+                  <p className="text-muted-foreground">Characters with their visual identity. Avatar is created as part of character setup.</p>
+                </div>
+                <div>
+                  <p className="font-medium">Episodes</p>
+                  <p className="text-muted-foreground">Individual conversation scenarios with specific situations and opening beats.</p>
+                </div>
+              </div>
+
+              <div className="border-t pt-4 space-y-2">
+                <p className="text-sm font-medium">Status Lifecycle</p>
+                <div className="flex items-center gap-3 text-sm">
+                  <span className="rounded-full bg-yellow-500/20 px-2 py-0.5 text-xs font-medium text-yellow-600">draft</span>
+                  <span className="text-muted-foreground">Work in progress, not visible to users</span>
+                </div>
+                <div className="flex items-center gap-3 text-sm">
+                  <span className="rounded-full bg-green-500/20 px-2 py-0.5 text-xs font-medium text-green-600">active</span>
+                  <span className="text-muted-foreground">Live and ready for conversations</span>
+                </div>
+              </div>
             </div>
-            <span className="text-muted-foreground">→</span>
-            <div className="flex items-center gap-1">
-              <span className="h-2 w-2 rounded-full bg-blue-500"></span>
-              <span className="text-muted-foreground">Series</span>
-            </div>
-            <span className="text-muted-foreground">→</span>
-            <div className="flex items-center gap-1">
-              <span className="h-2 w-2 rounded-full bg-green-500"></span>
-              <span className="text-muted-foreground">Character</span>
-            </div>
-            <span className="text-muted-foreground">→</span>
-            <div className="flex items-center gap-1">
-              <span className="h-2 w-2 rounded-full bg-amber-500"></span>
-              <span className="text-muted-foreground">Episode</span>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+          </DialogContent>
+        </Dialog>
+      </div>
 
       {/* Tab Navigation - Series-First */}
       <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as typeof activeTab)}>
@@ -357,37 +391,6 @@ export default function StudioPage() {
           )}
         </TabsContent>
       </Tabs>
-
-      {/* Status Legend */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Content Lifecycle</CardTitle>
-        </CardHeader>
-        <CardContent className="grid gap-4 sm:grid-cols-2">
-          <div className="flex items-start gap-3">
-            <span className="rounded-full bg-yellow-500/20 px-2 py-0.5 text-xs font-medium text-yellow-600">
-              draft
-            </span>
-            <div>
-              <p className="text-sm font-medium">Work in Progress</p>
-              <p className="text-xs text-muted-foreground">
-                Editable freely. Not visible to users. Cannot be used for chat.
-              </p>
-            </div>
-          </div>
-          <div className="flex items-start gap-3">
-            <span className="rounded-full bg-green-500/20 px-2 py-0.5 text-xs font-medium text-green-600">
-              active
-            </span>
-            <div>
-              <p className="text-sm font-medium">Chat-Ready</p>
-              <p className="text-xs text-muted-foreground">
-                Requires avatar. Visible and selectable. Ready for conversations.
-              </p>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
     </div>
   )
 }

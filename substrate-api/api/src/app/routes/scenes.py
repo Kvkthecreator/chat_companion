@@ -168,7 +168,7 @@ async def generate_scene(
             et.dramatic_question
         FROM sessions e
         JOIN characters c ON c.id = e.character_id
-        LEFT JOIN avatar_kits ak ON ak.id = c.active_avatar_kit_id AND ak.status = 'active'
+        LEFT JOIN avatar_kits ak ON ak.id = c.active_avatar_kit_id
         LEFT JOIN engagements eng ON eng.character_id = c.id AND eng.user_id = e.user_id
         LEFT JOIN episode_templates et ON et.id = e.episode_template_id
         WHERE e.id = :episode_id AND e.user_id = :user_id
