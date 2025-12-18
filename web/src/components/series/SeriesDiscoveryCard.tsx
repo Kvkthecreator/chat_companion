@@ -1,24 +1,39 @@
 "use client";
 
 import Link from "next/link";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { Play, BookOpen } from "lucide-react";
-import type { SeriesSummary, World } from "@/types";
+import type { SeriesSummary } from "@/types";
+
+// Genre display labels
+const GENRE_LABELS: Record<string, string> = {
+  slice_of_life: "Slice of Life",
+  romance: "Romance",
+  drama: "Drama",
+  comedy: "Comedy",
+  fantasy: "Fantasy",
+  mystery: "Mystery",
+  thriller: "Thriller",
+  sci_fi: "Sci-Fi",
+  horror: "Horror",
+  action: "Action",
+};
 
 interface SeriesDiscoveryCardProps {
   series: SeriesSummary;
-  world?: World;
   className?: string;
   featured?: boolean;
 }
 
 /**
  * Series card for discovery/browse UI.
- * Shows series info with episode count and entry point.
+ * Shows series info with genre and episode count.
  */
-export function SeriesDiscoveryCard({ series, world, className, featured }: SeriesDiscoveryCardProps) {
+export function SeriesDiscoveryCard({ series, className, featured }: SeriesDiscoveryCardProps) {
+  const genreLabel = series.genre ? (GENRE_LABELS[series.genre] || series.genre) : null;
+
   return (
     <Link href={`/series/${series.slug}`}>
       <Card
@@ -52,23 +67,15 @@ export function SeriesDiscoveryCard({ series, world, className, featured }: Seri
             </div>
           </div>
 
-          {/* World badge */}
-          {world && (
+          {/* Genre badge */}
+          {genreLabel && (
             <Badge
               variant="secondary"
-              className="absolute top-2 left-2 bg-black/60 text-white border-0 text-[10px]"
+              className="absolute top-2 right-2 bg-primary/80 text-primary-foreground border-0 text-[10px]"
             >
-              {world.name}
+              {genreLabel}
             </Badge>
           )}
-
-          {/* Series type badge */}
-          <Badge
-            variant="secondary"
-            className="absolute top-2 right-2 bg-primary/80 text-primary-foreground border-0 text-[10px] capitalize"
-          >
-            {series.series_type}
-          </Badge>
 
           {/* Content overlay */}
           <div className="absolute bottom-0 left-0 right-0 p-4 space-y-2">
@@ -91,12 +98,6 @@ export function SeriesDiscoveryCard({ series, world, className, featured }: Seri
             <div className="flex items-center gap-2 text-white/70 text-xs">
               <BookOpen className="h-3 w-3" />
               <span>{series.total_episodes} episode{series.total_episodes !== 1 ? 's' : ''}</span>
-              {series.genre && (
-                <>
-                  <span>·</span>
-                  <span className="capitalize">{series.genre.replace('_', ' ')}</span>
-                </>
-              )}
             </div>
           </div>
         </div>
