@@ -432,7 +432,7 @@ class ConversationService:
             if template_row:
                 effective_scene = template_row["situation"]
                 opening_line = template_row["opening_line"]
-                series_id = template_row.get("series_id")
+                series_id = template_row["series_id"]
 
         # If no series from template, try to get series from character
         if not series_id:
