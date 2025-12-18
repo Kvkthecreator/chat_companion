@@ -260,6 +260,7 @@ export const api = {
       tagline?: string;
       worldId?: string;
       seriesType?: string;
+      genre?: string;
       status?: string;
       isFeatured?: boolean;
       episodeOrder?: string[];
@@ -273,6 +274,7 @@ export const api = {
           tagline: data.tagline,
           world_id: data.worldId,
           series_type: data.seriesType,
+          genre: data.genre,
           status: data.status,
           is_featured: data.isFeatured,
           episode_order: data.episodeOrder,

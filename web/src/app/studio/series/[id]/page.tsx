@@ -17,6 +17,15 @@ interface PageProps {
   params: Promise<{ id: string }>
 }
 
+const GENRES = [
+  { value: 'romantic_tension', label: 'Romantic Tension', description: "Will-they-won't-they dynamics" },
+  { value: 'psychological_thriller', label: 'Psychological Thriller', description: 'Mind games and manipulation' },
+  { value: 'slice_of_life', label: 'Slice of Life', description: 'Everyday warmth and comfort' },
+  { value: 'dark_romance', label: 'Dark Romance', description: 'Intense, morally grey attraction' },
+  { value: 'mystery', label: 'Mystery', description: 'Secrets and investigation' },
+  { value: 'fantasy_romance', label: 'Fantasy Romance', description: 'Magic and otherworldly love' },
+] as const
+
 // Episode from the with-episodes endpoint
 interface SeriesEpisode {
   id: string
@@ -59,6 +68,7 @@ export default function SeriesDetailPage({ params }: PageProps) {
     tagline: '',
     description: '',
     series_type: 'standalone' as Series['series_type'],
+    genre: '' as string | null,
     world_id: '' as string | null,
   })
   const [hasChanges, setHasChanges] = useState(false)
@@ -80,6 +90,7 @@ export default function SeriesDetailPage({ params }: PageProps) {
         tagline: seriesData.tagline || '',
         description: seriesData.description || '',
         series_type: seriesData.series_type,
+        genre: seriesData.genre,
         world_id: seriesData.world_id,
       })
 
@@ -114,6 +125,7 @@ export default function SeriesDetailPage({ params }: PageProps) {
         tagline: editForm.tagline || undefined,
         description: editForm.description || undefined,
         seriesType: editForm.series_type,
+        genre: editForm.genre || undefined,
         worldId: editForm.world_id || undefined,
       })
       setSeries(updated)
@@ -377,7 +389,7 @@ export default function SeriesDetailPage({ params }: PageProps) {
             <Card>
               <CardHeader>
                 <CardTitle>Classification</CardTitle>
-                <CardDescription>Series type and world setting</CardDescription>
+                <CardDescription>Series type, genre, and world setting</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="space-y-2">
@@ -404,6 +416,27 @@ export default function SeriesDetailPage({ params }: PageProps) {
                     {editForm.series_type === 'anthology' && 'Themed collection, loosely connected'}
                     {editForm.series_type === 'crossover' && 'Multiple characters from different worlds'}
                   </p>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Genre</Label>
+                  <div className="grid grid-cols-2 gap-2">
+                    {GENRES.map(genre => (
+                      <button
+                        key={genre.value}
+                        onClick={() => updateForm('genre', genre.value)}
+                        className={cn(
+                          "rounded-lg border px-3 py-2 text-left text-sm transition",
+                          editForm.genre === genre.value
+                            ? "border-primary bg-primary/10"
+                            : "border-muted hover:border-foreground/30"
+                        )}
+                      >
+                        <div className="font-medium">{genre.label}</div>
+                        <div className="text-xs text-muted-foreground mt-1">{genre.description}</div>
+                      </button>
+                    ))}
+                  </div>
                 </div>
 
                 <div className="space-y-2">

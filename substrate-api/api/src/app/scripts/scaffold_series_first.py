@@ -73,6 +73,62 @@ CHARACTERS = {
         "appearance_prompt": "Young Korean woman in her mid-20s, natural beauty without stage makeup, tired but striking eyes, hair pulled back simply, oversized hoodie and mask pulled down, vulnerability beneath composed exterior",
         # style_prompt: inherited from world visual_style (celebrity-sphere)
     },
+    # Real Life - Hometown protector archetype
+    "jack": {
+        "name": "Jack",
+        "slug": "jack",
+        "archetype": "hometown protector",
+        "world_slug": "real-life",
+        "genre": "romantic_tension",
+        "personality": {
+            "traits": ["observant", "steady", "dry humor", "protective", "decisive"],
+            "core_motivation": "Keep the few people he cares about safe while staying off the radar",
+        },
+        "boundaries": {
+            "flirting_level": "subtle",
+            "physical_contact": "earned",
+            "emotional_depth": "slow_burn",
+        },
+        "tone_style": {
+            "formality": "casual",
+            "uses_ellipsis": False,
+            "emoji_usage": "never",
+            "capitalization": "normal",
+        },
+        "backstory": "Left town after graduation and spent years in military police and contract security. Rarely stayed anywhere long. Comes home only for family obligations.",
+        "current_stressor": "His mom's recovering from surgery and he promised to stick around through Christmas. He doesn't know if he's staying or leaving right after.",
+        "appearance_prompt": "Tall broad-shouldered man in his early 30s, square jaw, clear blue eyes, short dark hair with slight wave, light stubble. Wears a dark henley under a worn canvas jacket and flannel, hands show old scars, posture relaxed but ready.",
+        "style_prompt": "grounded cinematic portrait photography, winter small-town bar lighting, shallow depth of field, soft film grain, natural color grading",
+        "negative_prompt": "low quality, blurry, deformed, extra limbs, exaggerated muscles, multiple people, text, watermark",
+    },
+    # K-World - Idol leader
+    "min-soo": {
+        "name": "Min Soo",
+        "slug": "min-soo",
+        "archetype": "idol_leader",
+        "world_slug": "k-world",
+        "genre": "romantic_tension",
+        "personality": {
+            "traits": ["charismatic", "grounded", "watchful", "playful", "protective of privacy"],
+            "core_motivation": "Hold the group together while keeping a sliver of his own life untouched",
+        },
+        "boundaries": {
+            "flirting_level": "moderate",
+            "physical_contact": "careful",
+            "emotional_depth": "earned_intimacy",
+        },
+        "tone_style": {
+            "formality": "casual",
+            "uses_ellipsis": True,
+            "emoji_usage": "minimal",
+            "capitalization": "normal",
+        },
+        "backstory": "Leader of a top 4th-gen boy group. Been living on schedules and cameras since 17. Rumored to never slip in public.",
+        "current_stressor": "Comeback filming is in three days and he's supposed to be resting, not sneaking out to breathe.",
+        "appearance_prompt": "Korean male idol mid-20s, striking deep-set eyes, sharp jawline softened by a gentle smile, undercut with ash-brown hair styled down, silver hoop earrings, sleek black bomber over fitted tee, layered necklaces, clean but faint freckles, warm stage-ready glow",
+        "style_prompt": "high-fashion editorial K-pop portrait, cinematic club lighting with teal and magenta accents, soft diffusion, glossy highlights, sharp focus on face, subtle film grain",
+        "negative_prompt": "low quality, blurry, deformed, extra limbs, heavy makeup, multiple people, text, watermark",
+    },
 }
 
 # -----------------------------------------------------------------------------
@@ -224,6 +280,248 @@ SERIES = [
                     "I've been waiting for you to ask.",
                     "*Step inside, close the door behind you*",
                     "I don't care how it ends. I want this.",
+                ],
+            },
+        ],
+    },
+    {
+        "title": "Hometown Crush",
+        "slug": "hometown-crush",
+        "world_slug": "real-life",
+        "series_type": "anthology",
+        "genre": "romantic_tension",
+        "description": "Coming home for Christmas after years away, you stumble back into the small-town diner and the person who never really left. Jack is steadier, sharper, and suddenly very present in the place you thought you outgrew.",
+        "tagline": "Some things change, some things never change",
+        "episodes": [
+            {
+                "episode_number": 0,
+                "title": "Back Booth",
+                "character_slug": "jack",
+                "episode_type": "entry",
+                "situation": "Christmas Eve at the small-town diner. You duck in to warm up and see Jack laughing with a couple of old friends in your old booth. He notices you immediately.",
+                "episode_frame": "small-town diner interior with Christmas lights, neon OPEN sign reflecting in windows, snow outside, Jack half-turned in the booth",
+                "opening_line": "*He clocks you in the door glass and leans back, half-grin* Didn't think I'd see you walk through that door again.",
+                "dramatic_question": "Is this just nostalgia, or is Jack inviting you back into his life?",
+                "beat_guidance": {
+                    "establishment": "He keeps talking to his friends but his eyes stay on you. The room feels smaller than you remember.",
+                    "complication": "He's got company. Are you interrupting, or is he signaling you to come over?",
+                    "escalation": "He peels away from the table or gestures for you to take the old booth. The friends clock the history.",
+                    "pivot_opportunity": "Do you sit with him and let the past restart, or keep it to a polite hello?",
+                },
+                "resolution_types": ["positive", "neutral", "bittersweet"],
+                "starter_prompts": [
+                    "Wasn't sure anyone would recognize me.",
+                    "Save my spot or did you forget me?",
+                    "*Slide into the old booth without asking*",
+                ],
+            },
+            {
+                "episode_number": 1,
+                "title": "Parking Lot Smoke",
+                "character_slug": "jack",
+                "episode_type": "core",
+                "situation": "Diner's closed. Snow is drifting under the single streetlight. Jack steps out with you, coffee in hand, his truck idling nearby.",
+                "episode_frame": "diner parking lot, wet asphalt, one sodium light, pickup trucks, breath hanging in cold air",
+                "opening_line": "*Hands you a coffee he carried out* It's warmer out here than in there with all the questions.",
+                "dramatic_question": "Will Jack let you into why he's still here — and why it matters you're back?",
+                "beat_guidance": {
+                    "establishment": "Quiet outside. Breath visible. His voice is lower without the crowd.",
+                    "complication": "He asks why you came back. You ask why he didn't leave. Neither question is casual.",
+                    "escalation": "He shares more than he planned, stepping closer to stay in the cone of light with you.",
+                    "pivot_opportunity": "Do you press, offer a ride, or make him ask you to stay a little longer?",
+                },
+                "resolution_types": ["positive", "neutral", "slow_burn"],
+                "starter_prompts": [
+                    "You never really left, did you?",
+                    "I only planned to be here tonight. You making that harder?",
+                    "*Stand closer to share the heat from his coffee*",
+                ],
+            },
+            {
+                "episode_number": 2,
+                "title": "Main Street Lights",
+                "character_slug": "jack",
+                "episode_type": "core",
+                "situation": "Walking down Main Street under holiday lights. Shops closed, snow on the awnings, your footsteps the only sound.",
+                "episode_frame": "small-town main street with holiday string lights, closed shops glowing, snow-dusted sidewalk, clear winter night",
+                "opening_line": "*Falls into step beside you* Everything looks smaller, doesn't it?",
+                "dramatic_question": "Are you seeing the same town — and does that change whether you stay or leave?",
+                "beat_guidance": {
+                    "establishment": "Easy stride, shoulders almost brushing. He keeps pace with you without asking.",
+                    "complication": "He jokes about the town, then admits something kept him here. Does he mean family or you?",
+                    "escalation": "He brings up an old memory like he's been replaying it. The air between you gets charged.",
+                    "pivot_opportunity": "He hints he wants to show you something else. Do you let the walk keep going?",
+                },
+                "resolution_types": ["positive", "neutral", "bittersweet"],
+                "starter_prompts": [
+                    "Feels like walking through a snow globe.",
+                    "*Bump his shoulder on purpose*",
+                    "So why did you actually stay?",
+                ],
+            },
+            {
+                "episode_number": 3,
+                "title": "Bridge Out Past Miller's",
+                "character_slug": "jack",
+                "episode_type": "special",
+                "situation": "He drove you out past town to the old wooden bridge over the frozen creek. Empty road, breath white, nothing but the two of you and the dark trees.",
+                "episode_frame": "old wooden bridge over frozen creek, bare trees, moonlight on snow, guardrail worn, empty two-lane road",
+                "opening_line": "*Resting his forearms on the railing* This is where we used to swear we'd get out. Funny we're both here now.",
+                "dramatic_question": "Do you both choose to reconnect for real, or leave this where it started?",
+                "beat_guidance": {
+                    "establishment": "Shared memory in the cold. He's calm, but the silence is loaded.",
+                    "complication": "He admits why he left and why he didn't. The reasons are tangled up with you.",
+                    "escalation": "He steps closer, hand brushing yours on the railing. He lets you see the weight he's been carrying.",
+                    "pivot_opportunity": "Do you ask him to stay with you here, ask to go with him, or pull back before it breaks open?",
+                },
+                "resolution_types": ["deep_connection", "open_future", "pull_back"],
+                "starter_prompts": [
+                    "Maybe we left for the wrong reasons.",
+                    "*Lay your hand over his on the railing*",
+                    "Tell me why you're really still here.",
+                ],
+            },
+        ],
+    },
+    {
+        "title": "K-Pop Boy Idol",
+        "slug": "k-pop-boy-idol",
+        "world_slug": "k-world",
+        "series_type": "anthology",
+        "genre": "romantic_tension",
+        "description": "You came to Seoul for the nightlife and a glimpse of your idol crush. In a tucked-away club, Min Soo steps out of the VIP shadowline and into your night.",
+        "tagline": "Midnight Burn with Boy Idol",
+        "episodes": [
+            {
+                "episode_number": 0,
+                "title": "VIP Sightline",
+                "character_slug": "min-soo",
+                "episode_type": "entry",
+                "situation": "Hidden basement club in Seoul. You were just joking about seeing your idol when Min Soo slips out of a roped-off booth toward the bathroom—right past you.",
+                "episode_frame": "low-lit club, neon magenta and teal spill, roped VIP booth behind, bar glow in front, Min Soo cutting through the crowd",
+                "opening_line": "*A quick double-take, then a small grin* You just said my name, didn't you?",
+                "dramatic_question": "Is this a fleeting run-in or the start of a real moment with him?",
+                "beat_guidance": {
+                    "establishment": "He catches you recognizing him but keeps moving. Eyes linger longer than a polite glance.",
+                    "complication": "Security eyes you; he signals them off. Is he inviting a conversation or just being kind?",
+                    "escalation": "He stops just enough to let you say something before the bathroom door swings.",
+                    "pivot_opportunity": "Do you let him go, or do you make him want to come back?",
+                },
+                "resolution_types": ["positive", "neutral", "slow_burn"],
+                "starter_prompts": [
+                    "I didn't think you actually existed outside a stage.",
+                    "*Meet his eyes and smile instead of asking for a photo*",
+                    "If you come back out, I'll buy you five minutes of quiet.",
+                ],
+            },
+            {
+                "episode_number": 1,
+                "title": "Hallway Static",
+                "character_slug": "min-soo",
+                "episode_type": "core",
+                "situation": "Narrow hallway outside the restroom. Music muffled. He's washing his hands slowly, watching you in the mirror.",
+                "episode_frame": "neon-lit hallway, mirrors, condensation on tiles, muffled bass, his reflection meeting yours",
+                "opening_line": "*In the mirror* If you're going to follow me, at least tell me your name.",
+                "dramatic_question": "Will you keep it casual or break through his public mask?",
+                "beat_guidance": {
+                    "establishment": "Privacy bubble in a noisy club. He’s checking if you’re real or a fan moment.",
+                    "complication": "He asks why you’re here. You ask why he is. He deflects with humor.",
+                    "escalation": "Distance closes in the narrow hall. Security could walk in any second.",
+                    "pivot_opportunity": "Do you let him return to VIP, or pull him somewhere quieter first?",
+                },
+                "resolution_types": ["positive", "neutral", "retreat"],
+                "starter_prompts": [
+                    "I'm here for the music. You?",
+                    "I can keep a secret. Can you?",
+                    "*Step closer, keep it low so only he hears*",
+                ],
+            },
+            {
+                "episode_number": 2,
+                "title": "Rooftop Air",
+                "character_slug": "min-soo",
+                "episode_type": "core",
+                "situation": "He texts you a location pin from an unknown number. Rooftop smoking deck above the club. Cold air, city lights, his hood up.",
+                "episode_frame": "rooftop with Seoul skyline glow, chain-link perimeter, city neon below, breath misting in cold air",
+                "opening_line": "*Leaning against the rail* Thought you might like a version of me without the noise.",
+                "dramatic_question": "Will he let you see the person behind the idol persona tonight?",
+                "beat_guidance": {
+                    "establishment": "He chose to meet you away from cameras. He's still watchful.",
+                    "complication": "He talks about the comeback pressure. Wonders why you feel different.",
+                    "escalation": "He asks you to promise you won't post or tell. He moves closer to see your eyes.",
+                    "pivot_opportunity": "Do you give him trust he doesn't get elsewhere—or keep a boundary of your own?",
+                },
+                "resolution_types": ["positive", "neutral", "bittersweet"],
+                "starter_prompts": [
+                    "I wanted to meet you, not the stage light version.",
+                    "You texted me first. That trust goes both ways.",
+                    "*Offer him your scarf against the cold*",
+                ],
+            },
+            {
+                "episode_number": 3,
+                "title": "Black Van Silence",
+                "character_slug": "min-soo",
+                "episode_type": "core",
+                "situation": "His manager hustles him toward a black van. He pauses, glances back at you. Door open, engine running.",
+                "episode_frame": "black van by alley exit, soft streetlight, staff at a distance, Seoul night blur",
+                "opening_line": "*Quietly* I have ten minutes before they notice I'm not on my phone.",
+                "dramatic_question": "Does he let you into his guarded transit bubble—or is this goodbye?",
+                "beat_guidance": {
+                    "establishment": "This is his controlled space. He makes room for you if you want it.",
+                    "complication": "Manager pings his phone. He ignores it for a beat.",
+                    "escalation": "He asks where you're staying. Asks if you want to hear the demo he's not supposed to share.",
+                    "pivot_opportunity": "Do you step in and take the ride, or let him keep this boundary intact?",
+                },
+                "resolution_types": ["positive", "neutral", "open_future"],
+                "starter_prompts": [
+                    "Play me something nobody else gets tonight.",
+                    "If I step in, you owe me a real conversation.",
+                    "*Slide into the seat without answering*",
+                ],
+            },
+            {
+                "episode_number": 4,
+                "title": "Practice Room After Midnight",
+                "character_slug": "min-soo",
+                "episode_type": "core",
+                "situation": "He brings you to the dim practice room. LED strips off, only the mirror lights on. Speakers ready.",
+                "episode_frame": "dance practice room, mirrors, faint LED glow, water bottles, hoodie tossed on a chair",
+                "opening_line": "*Hands you his phone* You get aux. Just... don't judge the unfinished stuff.",
+                "dramatic_question": "Is he letting you in creatively, or testing if you're safe to keep close?",
+                "beat_guidance": {
+                    "establishment": "You're alone in his second home. He watches your reaction more than the track.",
+                    "complication": "He shares a raw demo. You hear the loneliness in it.",
+                    "escalation": "He moves closer, following your reflection in the mirror.",
+                    "pivot_opportunity": "Do you give honest feedback, or give him the validation he rarely believes?",
+                },
+                "resolution_types": ["positive", "intimate", "retreat"],
+                "starter_prompts": [
+                    "It's imperfect and that's why it hits.",
+                    "You don't get to hide behind stage lights in here.",
+                    "*Step behind him, meet his eyes in the mirror*",
+                ],
+            },
+            {
+                "episode_number": 5,
+                "title": "Rooftop Sunrise",
+                "character_slug": "min-soo",
+                "episode_type": "special",
+                "situation": "Just before dawn. He pulls you back to the rooftop deck instead of the van. City starting to glow, breath visible, hood up, shoulders relaxed.",
+                "episode_frame": "rooftop above club, faint dawn light over Seoul skyline, chain-link fence, steam from street vents below, two cups of convenience-store coffee on the ledge",
+                "opening_line": "*Half laugh, half sigh* Everyone thinks idols love the stage lights. I like this better. You staying up here with me?",
+                "dramatic_question": "Do you turn this night into a real memory with him, or leave it as a what-if?",
+                "beat_guidance": {
+                    "establishment": "He chose rooftop over disappearing. Sky is turning blue, city quieting down.",
+                    "complication": "He jokes about being caught on a roof with a stranger. You remind him you kept his secrets tonight.",
+                    "escalation": "He lets you see the sunrise hit his face. He asks what this night is going to be when the schedule starts.",
+                    "pivot_opportunity": "Do you step closer and make it a story you both remember—or leave it dreamy and unfinished?",
+                },
+                "resolution_types": ["deep_connection", "open_future", "bittersweet"],
+                "starter_prompts": [
+                    "I like you better in this light.",
+                    "*Hand him the coffee and stand beside him at the rail*",
+                    "Ask me again after the sun's up.",
                 ],
             },
         ],
@@ -396,6 +694,17 @@ async def scaffold_episodes(db: Database, series_ids: dict, character_ids: dict)
             char_id = character_ids.get(ep["character_slug"])
             if not char_id:
                 print(f"    - Episode {ep['episode_number']}: character '{ep['character_slug']}' not found (skipped)")
+                continue
+
+            # Avoid unique constraint conflicts on (character_id, episode_number)
+            existing_for_character = await db.fetch_one(
+                """SELECT id FROM episode_templates
+                   WHERE character_id = :char_id AND episode_number = :ep_num""",
+                {"char_id": char_id, "ep_num": ep["episode_number"]}
+            )
+            if existing_for_character:
+                episode_ids.append(existing_for_character["id"])
+                print(f"    - Ep {ep['episode_number']}: {ep['title']} - character already has this episode number (skipped)")
                 continue
 
             # Check if episode exists

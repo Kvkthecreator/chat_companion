@@ -131,10 +131,90 @@ WEEKEND_REGULAR_BACKGROUNDS = {
     },
 }
 
+# Hometown Crush (Real Life, grounded cinematic winter)
+HOMETOWN_CRUSH_BACKGROUNDS = {
+    "Back Booth": {
+        "location": "small-town diner interior, christmas lights strung along windows, red vinyl booths, chrome counter, coffee mugs steaming",
+        "time": "winter night, warm tungsten interior lighting, snow visible through fogged windows, neon OPEN sign glow",
+        "mood": "nostalgic pull, tension of returning home, surprised recognition",
+        "rendering": "cinematic photography, winter small-town film still, shallow depth of field, soft film grain",
+        "quality": "masterpiece, best quality, cinematic film still, high detail",
+    },
+    "Parking Lot Smoke": {
+        "location": "diner parking lot with pickup trucks, wet asphalt, single sodium streetlight, distant pine trees, breath in cold air",
+        "time": "late night after closing, light snow flurries drifting through lamplight",
+        "mood": "quiet confrontation, unspoken history, close quarters outside",
+        "rendering": "cinematic photography, moody night exterior, soft haze from warm light spilling out of diner door",
+        "quality": "masterpiece, best quality, cinematic film still, high detail",
+    },
+    "Main Street Lights": {
+        "location": "small-town main street lined with shops, holiday string lights overhead, wreaths on lamp posts, snow-dusted sidewalks",
+        "time": "evening blue hour into night, shop windows glowing, sky deep blue",
+        "mood": "slow walk, easy banter, undercurrent of what-if",
+        "rendering": "cinematic photography, gentle bokeh holiday lights, crisp winter air",
+        "quality": "masterpiece, best quality, cinematic film still, high detail",
+    },
+    "Bridge Out Past Miller's": {
+        "location": "old wooden bridge over frozen creek, bare trees, guardrail worn, empty two-lane road disappearing into dark",
+        "time": "late night, moonlight on snow, distant farmhouse light, quiet breath in cold air",
+        "mood": "final decision point, intimacy away from everyone, open sky vulnerability",
+        "rendering": "cinematic photography, moody rural nightscape, subtle mist over creek, soft film grain",
+        "quality": "masterpiece, best quality, cinematic film still, high detail",
+    },
+}
+
+# K-Pop Boy Idol (K-World, club/studio cinematic)
+KPOP_BOY_IDOL_BACKGROUNDS = {
+    "VIP Sightline": {
+        "location": "Seoul underground club interior, magenta and teal neon wash, roped-off VIP booth, bar glow, glossy black tile floor, shimmering light reflections",
+        "time": "late night, dim ambient with sharp colored light accents",
+        "mood": "electric surprise, star within arm's reach, held breath",
+        "rendering": "cinematic photography, K-pop nightlife aesthetic, shallow depth of field, subtle motion blur",
+        "quality": "masterpiece, best quality, cinematic film still, high detail",
+    },
+    "Hallway Static": {
+        "location": "narrow neon-lit hallway outside restroom, mirror panels, condensation on tiles, EXIT sign glow",
+        "time": "late night, muffled bass behind doors, cool blue and pink light mix",
+        "mood": "private bubble in public noise, charged eye contact",
+        "rendering": "cinematic photography, reflective surfaces, soft diffusion",
+        "quality": "masterpiece, best quality, cinematic film still, high detail",
+    },
+    "Rooftop Air": {
+        "location": "club rooftop deck overlooking Seoul skyline, chain-link fence, city neon below, industrial vents",
+        "time": "cold night, crisp air, distant city glow, breath visible",
+        "mood": "stolen quiet, trust test, clear sky distance",
+        "rendering": "cinematic photography, night cityscape, gentle bokeh lights",
+        "quality": "masterpiece, best quality, cinematic film still, high detail",
+    },
+    "Black Van Silence": {
+        "location": "alley exit with idling black van, soft streetlight halo, wet asphalt, faint steam",
+        "time": "late night, shadowed edges, warm interior light from van door",
+        "mood": "ten-minute sanctuary, decision at the door, moving cocoon",
+        "rendering": "cinematic photography, moody transit scene, shallow depth, soft haze",
+        "quality": "masterpiece, best quality, cinematic film still, high detail",
+    },
+    "Practice Room After Midnight": {
+        "location": "idol practice room, mirrored wall, LED strips off, only mirror lights on, water bottles and jackets on chairs",
+        "time": "after midnight, dim warm-white mirror lights, empty studio feel",
+        "mood": "creative vulnerability, raw demo space, intimate focus",
+        "rendering": "cinematic photography, minimal lighting, soft reflection glow",
+        "quality": "masterpiece, best quality, cinematic film still, high detail",
+    },
+    "Rooftop Sunrise": {
+        "location": "rooftop deck above club, chain-link fence, convenience-store coffee cups on ledge, Seoul skyline starting to glow",
+        "time": "pre-dawn into sunrise, cool blue light shifting to soft gold",
+        "mood": "rom-com dawn, shared quiet, decision to remember this",
+        "rendering": "cinematic photography, soft dawn color grade, gentle film grain",
+        "quality": "masterpiece, best quality, cinematic film still, high detail",
+    },
+}
+
 # Combined lookup for all series
 ALL_EPISODE_BACKGROUNDS = {
     **STOLEN_MOMENTS_BACKGROUNDS,
     **WEEKEND_REGULAR_BACKGROUNDS,
+    **HOMETOWN_CRUSH_BACKGROUNDS,
+    **KPOP_BOY_IDOL_BACKGROUNDS,
 }
 
 
@@ -194,12 +274,14 @@ def build_episode_background_prompt(
         time = config.get("time", "")
         mood = config.get("mood", "")
         rendering = config.get("rendering", KWORLD_ANIME_STYLE)
+        quality = config.get("quality", KWORLD_ANIME_QUALITY)
     elif fallback_situation:
         # Extract what we can from situation text (less ideal)
         location = f"anime scene, {fallback_situation[:120]}"
         time = ""
         mood = "atmospheric, emotional"
         rendering = KWORLD_ANIME_STYLE
+        quality = KWORLD_ANIME_QUALITY
     else:
         raise ValueError(f"No config found for episode '{episode_title}' and no fallback provided")
 
@@ -211,7 +293,7 @@ def build_episode_background_prompt(
         mood,                                        # 4. MOOD - emotional atmosphere
         "atmospheric depth, soft lighting, beautiful composition",  # 5. COMPOSITION
         "empty scene, no people, no characters, no figures",  # 6. CONSTRAINTS
-        KWORLD_ANIME_QUALITY,                        # 7. QUALITY
+        quality,                                     # 7. QUALITY
     ]
 
     # Filter empty parts and join
@@ -297,10 +379,34 @@ def build_weekend_regular_cover_prompt() -> tuple[str, str]:
     )
 
 
+def build_hometown_crush_cover_prompt() -> tuple[str, str]:
+    """Series cover prompt for Hometown Crush (Real Life, grounded cinematic)."""
+    return build_series_cover_prompt(
+        character_description="tall broad-shouldered man early 30s, square jaw, clear blue eyes, short dark hair with slight wave, light stubble, wearing dark henley under worn canvas jacket and flannel, strong forearms, calm watchful presence",
+        scene_description="small-town diner interior decorated for christmas, red vinyl booth, chrome counter, neon open sign glowing against snowy window, coffee steam rising",
+        pose_and_expression="leaning in the booth with a coffee mug in hand, half-smile of recognition, eyes steady and assessing, relaxed but ready to move",
+        lighting_and_time="warm interior tungsten against cold snowy night outside, window glow, soft film grain",
+        genre_style="grounded cinematic winter romance, small-town film still, natural color, soft depth of field",
+    )
+
+
+def build_kpop_boy_idol_cover_prompt() -> tuple[str, str]:
+    """Series cover prompt for K-Pop Boy Idol (K-World, club cinematic)."""
+    return build_series_cover_prompt(
+        character_description="striking Korean male idol mid-20s, deep-set eyes, sharp jaw with soft smile, ash-brown hair styled down with undercut, silver hoop earrings, layered necklaces, sleek black bomber over fitted tee, warm stage glow",
+        scene_description="underground Seoul club VIP booth with magenta and teal neon, bar glow, blurred crowd, glossy floor reflections",
+        pose_and_expression="leaning out of the roped booth with a half-smile, eyes locking with the viewer, one hand on the rope as if inviting them closer",
+        lighting_and_time="late night club lighting with teal and magenta accents, soft diffusion, cinematic contrast",
+        genre_style="cinematic K-pop nightlife portrait, editorial, shallow depth of field, soft film grain",
+    )
+
+
 # Series cover prompt lookup
 SERIES_COVER_PROMPTS = {
     "stolen-moments": build_stolen_moments_cover_prompt,
     "weekend-regular": build_weekend_regular_cover_prompt,
+    "hometown-crush": build_hometown_crush_cover_prompt,
+    "k-pop-boy-idol": build_kpop_boy_idol_cover_prompt,
 }
 
 
