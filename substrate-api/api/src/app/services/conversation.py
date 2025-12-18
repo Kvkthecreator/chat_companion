@@ -524,9 +524,10 @@ class ConversationService:
         episode_number = count_row["next_num"]
 
         # Create session with series_id for proper scoping
+        # session_state must be set explicitly to 'active' for series progress tracking
         create_query = """
-            INSERT INTO sessions (user_id, character_id, engagement_id, episode_number, scene, episode_template_id, series_id)
-            VALUES (:user_id, :character_id, :engagement_id, :episode_number, :scene, :episode_template_id, :series_id)
+            INSERT INTO sessions (user_id, character_id, engagement_id, episode_number, scene, episode_template_id, series_id, session_state)
+            VALUES (:user_id, :character_id, :engagement_id, :episode_number, :scene, :episode_template_id, :series_id, :session_state)
             RETURNING *
         """
         new_row = await self.db.fetch_one(
@@ -539,6 +540,7 @@ class ConversationService:
                 "scene": effective_scene,
                 "episode_template_id": str(episode_template_id) if episode_template_id else None,
                 "series_id": str(series_id) if series_id else None,
+                "session_state": "active",  # Explicit state for progress tracking
             },
         )
 

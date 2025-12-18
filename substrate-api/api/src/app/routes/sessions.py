@@ -79,10 +79,10 @@ async def create_session(
     count_row = await db.fetch_one(count_query, {"user_id": str(user_id), "character_id": str(data.character_id)})
     episode_number = count_row["next_num"]
 
-    # Create new session
+    # Create new session with explicit session_state for progress tracking
     query = """
-        INSERT INTO sessions (user_id, character_id, engagement_id, episode_number, title, scene)
-        VALUES (:user_id, :character_id, :engagement_id, :episode_number, :title, :scene)
+        INSERT INTO sessions (user_id, character_id, engagement_id, episode_number, title, scene, session_state)
+        VALUES (:user_id, :character_id, :engagement_id, :episode_number, :title, :scene, :session_state)
         RETURNING *
     """
     row = await db.fetch_one(
@@ -94,6 +94,7 @@ async def create_session(
             "episode_number": episode_number,
             "title": data.title,
             "scene": data.scene,
+            "session_state": "active",
         },
     )
 

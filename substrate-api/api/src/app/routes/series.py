@@ -468,15 +468,16 @@ async def get_series_progress(
         return SeriesProgressResponse(series_id=str(series_id), progress=[])
 
     # Get sessions for these episodes
+    # COALESCE handles NULL session_state (legacy data) - treat as 'active' for progress tracking
     sessions_query = """
         SELECT
             episode_template_id,
-            session_state,
+            COALESCE(session_state, 'active') as session_state,
             MAX(started_at) as last_played_at
         FROM sessions
         WHERE user_id = :user_id
         AND episode_template_id = ANY(:episode_ids)
-        GROUP BY episode_template_id, session_state
+        GROUP BY episode_template_id, COALESCE(session_state, 'active')
         ORDER BY episode_template_id, last_played_at DESC
     """
     session_rows = await db.fetch_all(sessions_query, {

@@ -52,8 +52,25 @@ export function useChat({ characterId, episodeTemplateId, enabled = true, onErro
       // Get or create active episode
       let activeEpisode = await api.episodes.getActive(characterId);
 
-      if (!activeEpisode) {
-        // Start new episode with template if provided
+      // If we have an episodeTemplateId from URL, check if the active episode matches
+      // If not, we need to get/create the correct session for that template
+      if (episodeTemplateId && activeEpisode && activeEpisode.episode_template_id !== episodeTemplateId) {
+        // The active episode doesn't match the requested template
+        // Use conversation.start which properly handles episode template scoping
+        try {
+          activeEpisode = await api.conversation.start(characterId, {
+            episodeTemplateId,
+          });
+        } catch (err) {
+          if (err instanceof APIError && err.status === 409) {
+            // Session might already exist - try fetching again
+            // Note: getActive doesn't support template filtering, so we use what start returned
+          } else {
+            throw err;
+          }
+        }
+      } else if (!activeEpisode) {
+        // No active episode at all - start new episode with template if provided
         try {
           activeEpisode = await api.conversation.start(characterId, {
             episodeTemplateId,
