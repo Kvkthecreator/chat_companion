@@ -106,6 +106,7 @@ class ConversationContext(BaseModel):
     relationship_milestones: List[str] = Field(default_factory=list)
 
     # Episode Dynamics (per EPISODE_DYNAMICS_CANON.md)
+    episode_situation: Optional[str] = None  # Physical setting/scenario (e.g., "3AM convenience store")
     episode_frame: Optional[str] = None  # Platform stage direction
     dramatic_question: Optional[str] = None  # Narrative tension to explore
     beat_guidance: Dict[str, Any] = Field(default_factory=dict)  # Soft narrative waypoints
@@ -222,8 +223,25 @@ Recent beats: {beat_flow}"""
         Reference: docs/EPISODE_DYNAMICS_CANON.md Section 6.5
         This is the "Actor/Director Model" - episode_template is director's notes,
         LLM is the actor who interprets them authentically.
+
+        CRITICAL: Physical grounding (situation) comes FIRST - this is the most
+        important context for immersive responses. Generic romantic tension
+        without physical awareness breaks immersion.
         """
         parts = []
+
+        # PHYSICAL GROUNDING FIRST - Most important for immersion
+        if self.episode_situation:
+            parts.append(f"""PHYSICAL SETTING (ground ALL responses in this reality):
+{self.episode_situation}
+
+You are HERE, right now. Reference your physical surroundings naturally:
+- What can you see, hear, smell in this space?
+- What are you doing with your body/hands?
+- How does this specific place affect the mood?""")
+
+        if self.episode_frame:
+            parts.append(f"EPISODE FRAME (director's stage direction):\n{self.episode_frame}")
 
         if self.dramatic_question:
             parts.append(f"DRAMATIC QUESTION (explore, don't resolve too quickly):\n{self.dramatic_question}")

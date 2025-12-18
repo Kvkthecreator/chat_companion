@@ -89,8 +89,10 @@ User sends message
 |--------|-------|-------|
 | Character | `SELECT * FROM characters WHERE id = :id` | 1 |
 | Engagement | `SELECT * FROM engagements WHERE user_id AND character_id` | 1 |
+| Session | `SELECT episode_template_id, scene, series_id FROM sessions WHERE id = :id` | 1 |
+| Episode Template | `SELECT situation, episode_frame, dramatic_question, beat_guidance FROM episode_templates WHERE id = :id` | 1 |
 | Messages | `SELECT role, content FROM messages WHERE episode_id ORDER BY created_at DESC` | 20 |
-| Memories | `get_relevant_memories()` - by importance + recency | 10 |
+| Memories | `get_relevant_memories()` - by importance + recency (series-scoped) | 10 |
 | Hooks | `get_active_hooks()` - untriggered, past trigger_after | 5 |
 
 ### ConversationContext Object
@@ -109,6 +111,16 @@ ConversationContext(
     relationship_stage: str,           # Always "acquaintance" (stage progression sunset)
     total_sessions: int,               # Session count (was total_episodes)
     time_since_first_met: str,         # "2 weeks", "3 days", etc.
+    relationship_dynamic: Dict,        # {tone, tension_level, recent_beats}
+    relationship_milestones: List[str], # Milestones reached
+
+    # Episode Dynamics (from episode_template) - CRITICAL for immersion
+    episode_situation: Optional[str],  # Physical setting/scenario - MOST IMPORTANT
+    episode_frame: Optional[str],      # Platform stage direction
+    dramatic_question: Optional[str],  # Narrative tension to explore
+    beat_guidance: Dict,               # Soft narrative waypoints
+    resolution_types: List[str],       # Valid resolution directions
+    series_context: Optional[str],     # Context from previous episodes (serial series)
 )
 ```
 
@@ -148,7 +160,35 @@ The `to_messages()` method builds the final system prompt:
 │  - What's weighing on you: [current_struggle]               │
 │  - Something you don't share: [secret_dream]                │
 └─────────────────────────────────────────────────────────────┘
+                           +
+┌─════════════════════════════════════════════════════════════┐
+│  EPISODE DYNAMICS (if episode_template exists)              │
+├─────────────────────────────────────────────────────────────┤
+│  PHYSICAL SETTING (ground ALL responses here):              │
+│  [situation from episode_template - e.g., "3AM convenience  │
+│   store, fluorescent lights buzzing overhead..."]           │
+│                                                             │
+│  EPISODE FRAME (director's stage direction):                │
+│  [episode_frame - narrative framing for this episode]       │
+│                                                             │
+│  DRAMATIC QUESTION (explore, don't resolve too quickly):    │
+│  [dramatic_question - the tension to explore]               │
+│                                                             │
+│  BEAT GUIDANCE (soft waypoints):                            │
+│  [beat_guidance - establishment, complication, escalation]  │
+│                                                             │
+│  SERIES CONTEXT (for serial series):                        │
+│  [summaries of previous episodes in the series]             │
+└─────────────────────────────────────────────────────────────┘
 ```
+
+**CRITICAL: Physical Grounding**
+
+The `episode_situation` field is the most important context for immersive responses.
+Without it, responses become generic romantic tension without physical awareness.
+
+Good (with situation): "I glance up from the snack aisle, the fluorescent lights humming overhead..."
+Bad (without situation): "I look at you with a mysterious smile..."
 
 ### Stage Guidelines (Hardcoded)
 

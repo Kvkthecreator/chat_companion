@@ -38,6 +38,12 @@ CRITICAL: The reference image already shows the character's appearance.
 DO NOT describe the character's face, hair, eyes, or clothing.
 ONLY describe the ACTION, SETTING, and MOOD.
 
+PHYSICAL SETTING (MOST IMPORTANT - ground the scene here):
+{episode_situation}
+
+EPISODE CONTEXT:
+{episode_frame}
+
 SETTING & MOOD:
 - Location: {scene}
 - Relationship stage: {relationship_stage}
@@ -54,16 +60,17 @@ TENSION LEVEL VISUAL GUIDE:
 - Peak (80-100): Intimate proximity, charged atmosphere, breath-close
 
 WHAT TO DESCRIBE (action/setting only, NOT appearance):
-1. What ACTION is the character doing right now?
-2. What SETTING DETAILS should be visible?
-3. What is the LIGHTING mood?
+1. What ACTION is the character doing right now in THIS specific place?
+2. What SETTING DETAILS from the physical location should be visible?
+3. What is the LIGHTING mood appropriate for this setting?
 4. What EXPRESSION/EMOTION should show?
 
 Write a prompt (40-60 words) describing ONLY the scene transformation.
+CRITICAL: Reference the PHYSICAL SETTING above - don't use generic backgrounds.
 
-FORMAT: "[action/pose], [setting details], [lighting], [expression], anime style, cinematic"
+FORMAT: "[action/pose], [specific setting details from episode], [lighting], [expression], anime style, cinematic"
 
-GOOD EXAMPLE: "leaning on café counter wiping espresso machine, dim after-hours lighting with warm lamp glow, steaming coffee cup nearby, soft knowing glance over shoulder, anime style, cinematic"
+GOOD EXAMPLE (for convenience store at 3AM): "reaching for a snack on convenience store shelf, harsh fluorescent lighting overhead, colorful packaged goods visible, glass refrigerator doors in background, soft amused smile, anime style, cinematic"
 
 BAD EXAMPLE (DO NOT DO THIS): "young woman with brown hair and amber eyes, wearing cream sweater..." ← This describes appearance which comes from the reference!
 
@@ -78,6 +85,12 @@ T2I_PROMPT_TEMPLATE = """Create an image prompt for this romantic moment. Includ
 CHARACTER:
 - Name: {character_name}
 - Appearance: {appearance_prompt}
+
+PHYSICAL SETTING (MOST IMPORTANT - ground the scene here):
+{episode_situation}
+
+EPISODE CONTEXT:
+{episode_frame}
 
 SETTING & MOOD:
 - Location: {scene}
@@ -95,10 +108,11 @@ TENSION LEVEL VISUAL GUIDE:
 - Peak (80-100): Intimate proximity, charged atmosphere, breath-close
 
 Write a prompt (50-80 words) for this specific scenario.
+CRITICAL: Reference the PHYSICAL SETTING above - don't use generic backgrounds.
 
-FORMAT: "solo, 1girl, [character appearance from above], [action], [setting], [lighting], [expression], anime style, cinematic"
+FORMAT: "solo, 1girl, [character appearance from above], [action in specific setting], [setting details], [lighting], [expression], anime style, cinematic"
 
-Example: "solo, 1girl, young woman with long wavy brown hair and warm amber eyes wearing cozy cream sweater, leaning on café counter, dim after-hours lighting, soft knowing smile, anime style, cinematic"
+Example (for convenience store at 3AM): "solo, 1girl, young woman with long dark hair and warm brown eyes wearing casual hoodie, browsing snacks at convenience store shelf, fluorescent lighting overhead, colorful packages visible, soft curious expression, anime style, cinematic"
 
 Your prompt:"""
 
@@ -136,10 +150,10 @@ async def generate_scene(
             },
         )
 
-    # Verify episode ownership and get character + avatar kit info + relationship context
+    # Verify episode ownership and get character + avatar kit info + relationship context + episode template
     episode_query = """
         SELECT
-            e.id, e.title, e.scene,
+            e.id, e.title, e.scene, e.episode_template_id,
             c.name as character_name,
             c.id as character_id,
             c.active_avatar_kit_id,
@@ -148,11 +162,15 @@ async def generate_scene(
             ak.negative_prompt,
             ak.primary_anchor_id,
             'acquaintance' as relationship_stage,
-            eng.dynamic as relationship_dynamic
+            eng.dynamic as relationship_dynamic,
+            et.situation as episode_situation,
+            et.episode_frame,
+            et.dramatic_question
         FROM sessions e
         JOIN characters c ON c.id = e.character_id
         LEFT JOIN avatar_kits ak ON ak.id = c.active_avatar_kit_id AND ak.status = 'active'
         LEFT JOIN engagements eng ON eng.character_id = c.id AND eng.user_id = e.user_id
+        LEFT JOIN episode_templates et ON et.id = e.episode_template_id
         WHERE e.id = :episode_id AND e.user_id = :user_id
     """
     episode = await db.fetch_one(
@@ -237,9 +255,16 @@ async def generate_scene(
     if not prompt:
         llm = LLMService.get_instance()
 
+        # Extract episode context (from episode_template if available)
+        # Note: Database Record uses bracket notation, with None for missing keys
+        episode_situation = episode["episode_situation"] or episode["scene"] or "A cozy setting"
+        episode_frame = episode["episode_frame"] or "A moment of connection"
+
         if use_kontext:
             # KONTEXT MODE: Prompt describes scene transformation only
             prompt_request = KONTEXT_PROMPT_TEMPLATE.format(
+                episode_situation=episode_situation,
+                episode_frame=episode_frame,
                 scene=episode["scene"] or "A cozy setting",
                 relationship_stage=relationship_stage,
                 emotional_tone=emotional_tone,
@@ -254,6 +279,7 @@ Your prompt must describe ONLY the scene/action - NOT the character's appearance
 DO NOT mention: hair color, eye color, face features, clothing details, body type
 DO describe: action, pose, setting, lighting, mood, expression
 
+MOST IMPORTANT: Use the PHYSICAL SETTING provided - this is where the scene takes place.
 The reference image handles character consistency. Your prompt handles the scene."""
 
         else:
@@ -261,6 +287,8 @@ The reference image handles character consistency. Your prompt handles the scene
             prompt_request = T2I_PROMPT_TEMPLATE.format(
                 character_name=episode["character_name"],
                 appearance_prompt=appearance_prompt,
+                episode_situation=episode_situation,
+                episode_frame=episode_frame,
                 scene=episode["scene"] or "A cozy setting",
                 relationship_stage=relationship_stage,
                 emotional_tone=emotional_tone,
@@ -274,7 +302,8 @@ CRITICAL RULES:
 2. Include the character's full appearance as described
 3. NEVER include multiple people - only the character
 4. Capture the SPECIFIC scenario from the conversation
-5. Match lighting to the location"""
+5. Use the PHYSICAL SETTING provided - this is where the scene takes place
+6. Match lighting to the specific location"""
 
         try:
             response = await llm.generate([

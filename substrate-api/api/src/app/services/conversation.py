@@ -330,6 +330,7 @@ class ConversationService:
         relationship_milestones = relationship_dynamic_data.get("milestones", []) if relationship_dynamic_data else []
 
         # Get episode dynamics from episode_template (per EPISODE_DYNAMICS_CANON.md)
+        episode_situation = None  # Physical setting/scenario - CRITICAL for grounding
         episode_frame = None
         dramatic_question = None
         beat_guidance = {}
@@ -337,21 +338,28 @@ class ConversationService:
         series_context = None
 
         if episode_id:
-            # Get episode_template_id from the session
-            session_query = "SELECT episode_template_id FROM sessions WHERE id = :episode_id"
+            # Get episode_template_id and scene from the session
+            session_query = "SELECT episode_template_id, scene FROM sessions WHERE id = :episode_id"
             session_row = await self.db.fetch_one(session_query, {"episode_id": str(episode_id)})
+
+            # Use session's scene as fallback for episode_situation
+            if session_row and session_row.get("scene"):
+                episode_situation = session_row["scene"]
 
             if session_row and session_row["episode_template_id"]:
                 template_id = session_row["episode_template_id"]
-                # Fetch episode dynamics from template
+                # Fetch episode dynamics from template (situation is the primary physical grounding)
                 template_query = """
-                    SELECT episode_frame, dramatic_question, beat_guidance, resolution_types, series_id
+                    SELECT situation, episode_frame, dramatic_question, beat_guidance, resolution_types, series_id
                     FROM episode_templates
                     WHERE id = :template_id
                 """
                 template_row = await self.db.fetch_one(template_query, {"template_id": str(template_id)})
 
                 if template_row:
+                    # situation is the primary physical grounding (overrides session.scene)
+                    if template_row.get("situation"):
+                        episode_situation = template_row["situation"]
                     episode_frame = template_row.get("episode_frame")
                     dramatic_question = template_row.get("dramatic_question")
                     beat_guidance_raw = template_row.get("beat_guidance")
@@ -382,6 +390,7 @@ class ConversationService:
             relationship_dynamic=relationship_dynamic,
             relationship_milestones=relationship_milestones,
             # Episode dynamics (per EPISODE_DYNAMICS_CANON.md)
+            episode_situation=episode_situation,  # Physical grounding - CRITICAL
             episode_frame=episode_frame,
             dramatic_question=dramatic_question,
             beat_guidance=beat_guidance,
