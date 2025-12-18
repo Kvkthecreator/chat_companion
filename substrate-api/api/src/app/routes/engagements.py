@@ -63,23 +63,11 @@ async def create_engagement(
             detail="Character not found",
         )
 
-    # Check if engagement already exists
-    existing_query = """
-        SELECT id FROM engagements
-        WHERE user_id = :user_id AND character_id = :character_id
-    """
-    existing = await db.fetch_one(existing_query, {"user_id": str(user_id), "character_id": str(data.character_id)})
-
-    if existing:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="Engagement already exists",
-        )
-
-    # Create engagement
+    # Use upsert pattern - return existing if already exists
     query = """
         INSERT INTO engagements (user_id, character_id)
         VALUES (:user_id, :character_id)
+        ON CONFLICT (user_id, character_id) DO UPDATE SET updated_at = NOW()
         RETURNING *
     """
     row = await db.fetch_one(query, {"user_id": str(user_id), "character_id": str(data.character_id)})
