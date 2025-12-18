@@ -1,24 +1,31 @@
 #!/bin/bash
-# Setup test avatar kit for Mira
+# Create avatar kit from existing storage image
 #
-# Usage: ./scripts/setup_test_avatar.sh <path_to_image.png>
+# Usage: ./scripts/create_avatar_from_storage.sh <character_id> <source_bucket> <source_path> [character_name]
 #
-# This script creates an avatar kit and uploads the anchor image
-# to Supabase Storage.
+# Example:
+#   ./scripts/create_avatar_from_storage.sh e60042ca-83c2-4861-b9f9-d24d73d4aa4d scenes series/weekend-regular/cover.png "Minji"
+#
+# This script:
+# 1. Downloads image from source bucket
+# 2. Uploads to avatars bucket
+# 3. Creates avatar_kit and avatar_asset records
+# 4. Links kit to character
 
 set -e
 
-if [ -z "$1" ]; then
-    echo "Usage: $0 <path_to_image.png>"
+if [ -z "$1" ] || [ -z "$2" ] || [ -z "$3" ]; then
+    echo "Usage: $0 <character_id> <source_bucket> <source_path> [character_name]"
+    echo ""
+    echo "Example:"
+    echo "  $0 e60042ca-83c2-4861-b9f9-d24d73d4aa4d scenes series/weekend-regular/cover.png Minji"
     exit 1
 fi
 
-IMAGE_PATH="$1"
-
-if [ ! -f "$IMAGE_PATH" ]; then
-    echo "Error: Image not found at $IMAGE_PATH"
-    exit 1
-fi
+CHARACTER_ID="$1"
+SOURCE_BUCKET="$2"
+SOURCE_PATH="$3"
+CHARACTER_NAME="${4:-Character}"
 
 # Configuration
 SUPABASE_URL="https://lfwhdzwbikyzalpbwfnd.supabase.co"
@@ -36,31 +43,45 @@ fi
 # Generate UUIDs
 KIT_ID=$(uuidgen | tr '[:upper:]' '[:lower:]')
 ASSET_ID=$(uuidgen | tr '[:upper:]' '[:lower:]')
-
-# Character ID (Mira from seed data)
-CHARACTER_ID="d4e5f6a7-b8c9-0123-def0-234567890123"
-CHARACTER_NAME="Mira"
 KIT_NAME="$CHARACTER_NAME Default"
 
-echo "Creating avatar kit..."
+echo "Creating avatar kit from storage..."
+echo "  Character: $CHARACTER_NAME ($CHARACTER_ID)"
+echo "  Source: $SOURCE_BUCKET/$SOURCE_PATH"
 echo "  Kit ID: $KIT_ID"
 echo "  Asset ID: $ASSET_ID"
-echo "  Character: $CHARACTER_NAME ($CHARACTER_ID)"
 
-# Storage path
-STORAGE_PATH="$KIT_ID/anchors/$ASSET_ID.png"
+# Create temp file
+TEMP_FILE=$(mktemp /tmp/avatar_XXXXXX.png)
+trap "rm -f $TEMP_FILE" EXIT
 
-# Upload image to Supabase Storage
+# Download from source bucket
 echo ""
-echo "Uploading to Supabase Storage..."
-curl -X POST "$SUPABASE_URL/storage/v1/object/avatars/$STORAGE_PATH" \
+echo "Downloading from $SOURCE_BUCKET/$SOURCE_PATH..."
+curl -s "$SUPABASE_URL/storage/v1/object/$SOURCE_BUCKET/$SOURCE_PATH" \
+  -H "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY" \
+  -o "$TEMP_FILE"
+
+# Check if download succeeded
+if [ ! -s "$TEMP_FILE" ]; then
+    echo "Error: Failed to download image from $SOURCE_BUCKET/$SOURCE_PATH"
+    exit 1
+fi
+
+FILE_SIZE=$(wc -c < "$TEMP_FILE" | tr -d ' ')
+echo "Downloaded: $FILE_SIZE bytes"
+
+# Upload to avatars bucket
+STORAGE_PATH="$KIT_ID/anchors/$ASSET_ID.png"
+echo ""
+echo "Uploading to avatars/$STORAGE_PATH..."
+UPLOAD_RESULT=$(curl -s -X POST "$SUPABASE_URL/storage/v1/object/avatars/$STORAGE_PATH" \
   -H "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY" \
   -H "Content-Type: image/png" \
   -H "x-upsert: true" \
-  --data-binary "@$IMAGE_PATH" \
-  --silent --show-error
+  --data-binary "@$TEMP_FILE")
 
-echo "Uploaded to: avatars/$STORAGE_PATH"
+echo "Upload result: $UPLOAD_RESULT"
 
 # Create avatar kit in database
 echo ""
@@ -82,10 +103,10 @@ INSERT INTO avatar_kits (
     '$KIT_ID'::uuid,
     '$CHARACTER_ID'::uuid,
     '$KIT_NAME',
-    'Auto-generated test kit',
-    'Young woman with long black hair, side-swept bangs, blue eyes with a hint of red, fair skin, soft features. Wearing a white button-up shirt with a red bow tie ribbon, dark pleated skirt. School uniform style.',
-    'High-quality anime illustration style, semi-realistic rendering, soft lighting with natural window light, detailed hair with shine highlights, slight blush on cheeks, warm color palette, professional digital art quality.',
-    'Low quality, blurry, deformed, extra limbs, bad anatomy, wrong proportions, multiple people, text, watermark.',
+    'Created from storage image',
+    'Anime-style character portrait, consistent with series visual identity',
+    'High-quality anime illustration, soft lighting, warm color palette',
+    'Low quality, blurry, deformed, multiple people, text, watermark',
     'active',
     false
 );
@@ -106,7 +127,7 @@ INSERT INTO avatar_assets (
     'portrait',
     'avatars',
     '$STORAGE_PATH',
-    'manual_upload',
+    'imported',
     true,
     'image/png'
 );
@@ -122,8 +143,8 @@ SET active_avatar_kit_id = '$KIT_ID'::uuid
 WHERE id = '$CHARACTER_ID'::uuid;
 
 -- Verify
-SELECT 'Avatar Kit:' as label, ak.id, ak.name, ak.status,
-       c.name as character_name, c.active_avatar_kit_id
+SELECT 'Avatar Kit Created:' as status, ak.id as kit_id, ak.name, ak.status,
+       c.name as character_name
 FROM avatar_kits ak
 JOIN characters c ON c.id = ak.character_id
 WHERE ak.id = '$KIT_ID'::uuid;
@@ -137,14 +158,5 @@ echo "Kit ID: $KIT_ID"
 echo "Asset ID: $ASSET_ID"
 echo "Storage: avatars/$STORAGE_PATH"
 echo ""
-echo "To test signed URL generation:"
-echo "  curl -X POST '$SUPABASE_URL/storage/v1/object/sign/avatars/$STORAGE_PATH' \\"
-echo "    -H 'Authorization: Bearer \$SUPABASE_SERVICE_ROLE_KEY' \\"
-echo "    -H 'Content-Type: application/json' \\"
-echo "    -d '{\"expiresIn\": 3600}'"
-echo ""
-echo "To test scene generation with this anchor:"
-echo "  1. Start an episode with Mira"
-echo "  2. POST /scenes/generate with that episode_id"
-echo "  3. The scene should use FLUX Kontext for character consistency"
+echo "Verify at: GET /characters to see avatar_url"
 echo "============================================"
