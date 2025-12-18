@@ -1,3 +1,5 @@
+"use client";
+
 export { ChatContainer } from "./ChatContainer";
 export { ChatHeader } from "./ChatHeader";
 export { MessageBubble, StreamingBubble } from "./MessageBubble";
