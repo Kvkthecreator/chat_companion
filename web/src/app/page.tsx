@@ -56,7 +56,7 @@ export default async function Home() {
               <h1 className="text-xl font-bold leading-tight text-foreground">
                 episode-0
               </h1>
-              <p className="text-xs text-muted-foreground">Interactive episodes</p>
+              <p className="text-xs text-muted-foreground">3, 2, 1... action</p>
             </div>
           </Link>
 
