@@ -12,6 +12,38 @@ from auth.integration_tokens import verify_integration_token
 
 log = logging.getLogger("uvicorn.error")
 
+# CORS origins for error responses (mirrors main.py config)
+DEFAULT_CORS_ORIGINS = "http://localhost:3000,https://ep-0.com,https://www.ep-0.com,https://*.vercel.app"
+
+
+def _add_cors_headers(response: JSONResponse, origin: str | None) -> JSONResponse:
+    """Add CORS headers to error responses so browsers can read them."""
+    if not origin:
+        return response
+
+    # Check against allowed origins
+    cors_origins_env = os.getenv("CORS_ORIGINS", DEFAULT_CORS_ORIGINS)
+    allowed_origins = [o.strip() for o in cors_origins_env.split(",")]
+
+    # Check exact match or wildcard patterns
+    origin_allowed = False
+    for allowed in allowed_origins:
+        if allowed == origin:
+            origin_allowed = True
+            break
+        # Handle wildcard like https://*.vercel.app
+        if "*" in allowed:
+            import fnmatch
+            if fnmatch.fnmatch(origin, allowed.replace("*", "*")):
+                origin_allowed = True
+                break
+
+    if origin_allowed:
+        response.headers["Access-Control-Allow-Origin"] = origin
+        response.headers["Access-Control-Allow-Credentials"] = "true"
+
+    return response
+
 
 class AuthMiddleware(BaseHTTPMiddleware):
     def __init__(
@@ -34,6 +66,7 @@ class AuthMiddleware(BaseHTTPMiddleware):
 
         path = request.url.path or "/"
         dbg = request.headers.get("x-yarnnn-debug-auth") == "1"
+        origin = request.headers.get("origin")
 
         # Check if path is exempt from auth requirement
         is_exempt = path in self.exempt_exact or any(
@@ -50,7 +83,10 @@ class AuthMiddleware(BaseHTTPMiddleware):
                 return await call_next(request)
             if not dbg:
                 log.debug("AuthMiddleware: missing bearer token for %s", path)
-            return JSONResponse(status_code=401, content={"error": "missing_token"})
+            return _add_cors_headers(
+                JSONResponse(status_code=401, content={"error": "missing_token"}),
+                origin
+            )
 
         # Verify token (even for exempt paths, so endpoints can optionally use auth)
         try:
@@ -82,19 +118,25 @@ class AuthMiddleware(BaseHTTPMiddleware):
                         jwt_error.detail,
                         token_error.detail,
                     )
-                    return JSONResponse(
-                        status_code=token_error.status_code,
-                        content={"error": "invalid_token"},
+                    return _add_cors_headers(
+                        JSONResponse(
+                            status_code=token_error.status_code,
+                            content={"error": "invalid_token"},
+                        ),
+                        origin
                     )
-                return JSONResponse(
-                    status_code=token_error.status_code,
-                    content={
-                        "error": "invalid_token",
-                        "detail": {
-                            "jwt": jwt_error.detail,
-                            "integration": token_error.detail,
+                return _add_cors_headers(
+                    JSONResponse(
+                        status_code=token_error.status_code,
+                        content={
+                            "error": "invalid_token",
+                            "detail": {
+                                "jwt": jwt_error.detail,
+                                "integration": token_error.detail,
+                            },
                         },
-                    },
+                    ),
+                    origin
                 )
 
 
