@@ -325,21 +325,21 @@ async def update_character(
     user_id: UUID = Depends(get_current_user_id),
     db=Depends(get_db),
 ):
-    """Update a character owned by the current user.
+    """Update a character.
 
     Only provided fields are updated. This supports post-creation editing
     of optional fields like backstory, tone_style, etc.
     """
-    # Verify ownership
+    # Studio editing is unrestricted; route access is enforced elsewhere.
     existing = await db.fetch_one(
-        "SELECT * FROM characters WHERE id = :id AND created_by = :user_id",
-        {"id": str(character_id), "user_id": str(user_id)}
+        "SELECT * FROM characters WHERE id = :id",
+        {"id": str(character_id)}
     )
 
     if not existing:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Character not found or not owned by you",
+            detail="Character not found",
         )
 
     # Build update query from provided fields
@@ -416,14 +416,14 @@ async def activate_character(
     """
     # Get character
     existing = await db.fetch_one(
-        "SELECT * FROM characters WHERE id = :id AND created_by = :user_id",
-        {"id": str(character_id), "user_id": str(user_id)}
+        "SELECT * FROM characters WHERE id = :id",
+        {"id": str(character_id)}
     )
 
     if not existing:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Character not found or not owned by you",
+            detail="Character not found",
         )
 
     if existing["status"] == "active":
@@ -457,14 +457,14 @@ async def deactivate_character(
 ):
     """Deactivate a character (move back to draft)."""
     existing = await db.fetch_one(
-        "SELECT * FROM characters WHERE id = :id AND created_by = :user_id",
-        {"id": str(character_id), "user_id": str(user_id)}
+        "SELECT * FROM characters WHERE id = :id",
+        {"id": str(character_id)}
     )
 
     if not existing:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Character not found or not owned by you",
+            detail="Character not found",
         )
 
     query = """
@@ -483,10 +483,10 @@ async def delete_character(
     user_id: UUID = Depends(get_current_user_id),
     db=Depends(get_db),
 ):
-    """Delete a character owned by the current user."""
+    """Delete a character."""
     result = await db.execute(
-        "DELETE FROM characters WHERE id = :id AND created_by = :user_id",
-        {"id": str(character_id), "user_id": str(user_id)}
+        "DELETE FROM characters WHERE id = :id",
+        {"id": str(character_id)}
     )
 
     # Note: result handling varies by DB driver
@@ -597,14 +597,14 @@ async def regenerate_character_opening_beat(
     """
     # Get character
     existing = await db.fetch_one(
-        "SELECT * FROM characters WHERE id = :id AND created_by = :user_id",
-        {"id": str(character_id), "user_id": str(user_id)}
+        "SELECT * FROM characters WHERE id = :id",
+        {"id": str(character_id)}
     )
 
     if not existing:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Character not found or not owned by you",
+            detail="Character not found",
         )
 
     char_dict = dict(existing)
@@ -660,14 +660,14 @@ async def apply_opening_beat(
     """
     # Get character
     existing = await db.fetch_one(
-        "SELECT * FROM characters WHERE id = :id AND created_by = :user_id",
-        {"id": str(character_id), "user_id": str(user_id)}
+        "SELECT * FROM characters WHERE id = :id",
+        {"id": str(character_id)}
     )
 
     if not existing:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Character not found or not owned by you",
+            detail="Character not found",
         )
 
     char_dict = dict(existing)
@@ -905,7 +905,7 @@ async def set_primary_avatar(
     if not success:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Asset not found or not owned by you",
+            detail="Asset not found",
         )
 
     return {"success": True}
@@ -1221,8 +1221,7 @@ async def fix_avatar_urls(
         JOIN avatar_assets aa ON aa.id = ak.primary_anchor_id
         WHERE c.avatar_url IS NULL
         AND aa.storage_path IS NOT NULL
-        AND c.created_by = :user_id
-    """, {"user_id": str(user_id)})
+    """)
 
     if not rows:
         return {"message": "No characters need fixing", "fixed": 0}
@@ -1456,14 +1455,14 @@ async def create_episode_template(
     """
     # Verify character ownership
     character = await db.fetch_one(
-        "SELECT id, slug, name FROM characters WHERE id = :id AND created_by = :user_id",
-        {"id": str(data.character_id), "user_id": str(user_id)}
+        "SELECT id, slug, name FROM characters WHERE id = :id",
+        {"id": str(data.character_id)}
     )
 
     if not character:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Character not found or not owned by you",
+            detail="Character not found",
         )
 
     # Get next episode number for this character
@@ -1597,15 +1596,14 @@ async def get_episode_template(
     """Get a single episode template."""
     row = await db.fetch_one(
         """SELECT et.* FROM episode_templates et
-           JOIN characters c ON c.id = et.character_id
-           WHERE et.id = :id AND c.created_by = :user_id""",
-        {"id": str(template_id), "user_id": str(user_id)}
+           WHERE et.id = :id""",
+        {"id": str(template_id)}
     )
 
     if not row:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Episode template not found or not owned by you",
+            detail="Episode template not found",
         )
 
     return EpisodeTemplateResponse(
@@ -1638,15 +1636,14 @@ async def update_episode_template(
     # Verify ownership
     existing = await db.fetch_one(
         """SELECT et.* FROM episode_templates et
-           JOIN characters c ON c.id = et.character_id
-           WHERE et.id = :id AND c.created_by = :user_id""",
-        {"id": str(template_id), "user_id": str(user_id)}
+           WHERE et.id = :id""",
+        {"id": str(template_id)}
     )
 
     if not existing:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Episode template not found or not owned by you",
+            detail="Episode template not found",
         )
 
     # Build update query
@@ -1736,15 +1733,14 @@ async def delete_episode_template(
     # Verify ownership and get character_id
     existing = await db.fetch_one(
         """SELECT et.id, et.character_id FROM episode_templates et
-           JOIN characters c ON c.id = et.character_id
-           WHERE et.id = :id AND c.created_by = :user_id""",
-        {"id": str(template_id), "user_id": str(user_id)}
+           WHERE et.id = :id""",
+        {"id": str(template_id)}
     )
 
     if not existing:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Episode template not found or not owned by you",
+            detail="Episode template not found",
         )
 
     # Check if it's the only template

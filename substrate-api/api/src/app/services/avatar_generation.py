@@ -475,12 +475,12 @@ class AvatarGenerationService:
                 """SELECT id, name, archetype, role_frame, boundaries, content_rating,
                           active_avatar_kit_id
                    FROM characters
-                   WHERE id = :id AND (created_by = :user_id OR created_by IS NULL)""",
-                {"id": str(character_id), "user_id": str(user_id)}
+                   WHERE id = :id""",
+                {"id": str(character_id)}
             )
 
             if not character:
-                return AvatarGenerationResult(success=False, error="Character not found or not owned by you")
+                return AvatarGenerationResult(success=False, error="Character not found")
 
             char_dict = dict(character)
             boundaries = char_dict.get("boundaries", {})
@@ -622,9 +622,8 @@ class AvatarGenerationService:
                FROM avatar_assets aa
                JOIN avatar_kits ak ON ak.id = aa.avatar_kit_id
                JOIN characters c ON c.id = ak.character_id
-               WHERE aa.id = :asset_id AND c.id = :character_id
-                 AND (c.created_by = :user_id OR c.created_by IS NULL)""",
-            {"asset_id": str(asset_id), "character_id": str(character_id), "user_id": str(user_id)}
+               WHERE aa.id = :asset_id AND c.id = :character_id""",
+            {"asset_id": str(asset_id), "character_id": str(character_id)}
         )
 
         if not asset:
@@ -670,9 +669,8 @@ class AvatarGenerationService:
                FROM avatar_assets aa
                JOIN avatar_kits ak ON ak.id = aa.avatar_kit_id
                JOIN characters c ON c.id = ak.character_id
-               WHERE aa.id = :asset_id AND c.id = :character_id
-                 AND (c.created_by = :user_id OR c.created_by IS NULL)""",
-            {"asset_id": str(asset_id), "character_id": str(character_id), "user_id": str(user_id)}
+               WHERE aa.id = :asset_id AND c.id = :character_id""",
+            {"asset_id": str(asset_id), "character_id": str(character_id)}
         )
 
         if not asset:
