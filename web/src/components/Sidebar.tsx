@@ -17,7 +17,7 @@ const navigation = [
   { name: "Memories", href: "/dashboard/memories", icon: Heart },
 ]
 
-export function Sidebar({ user }: { user: User }) {
+export function Sidebar({ user, variant = "default" }: { user: User; variant?: "default" | "immersive" }) {
   const pathname = usePathname()
   const [isCollapsed, setIsCollapsed] = useState(false)
 
@@ -26,8 +26,11 @@ export function Sidebar({ user }: { user: User }) {
     const stored = localStorage.getItem("sidebar-collapsed")
     if (stored !== null) {
       setIsCollapsed(stored === "true")
+    } else if (variant === "immersive") {
+      setIsCollapsed(true)
+      localStorage.setItem("sidebar-collapsed", "true")
     }
-  }, [])
+  }, [variant])
 
   const toggleCollapsed = () => {
     const newValue = !isCollapsed
@@ -39,7 +42,8 @@ export function Sidebar({ user }: { user: User }) {
     <aside
       className={cn(
         "relative flex shrink-0 flex-col border-r border-border transition-all duration-300",
-        isCollapsed ? "w-[72px]" : "w-72"
+        isCollapsed ? "w-[56px]" : "w-72",
+        variant === "immersive" && "hidden md:flex md:h-[100dvh] md:border-white/10 md:bg-black/20 md:backdrop-blur-xl"
       )}
     >
       {/* Toggle button */}

@@ -8,6 +8,7 @@ import { ChatHeader } from "./ChatHeader";
 import { MessageBubble, StreamingBubble } from "./MessageBubble";
 import { MessageInput, SceneGenerationMode } from "./MessageInput";
 import { SceneCard, SceneCardSkeleton } from "./SceneCard";
+import { InstructionCard } from "./InstructionCard";
 import { RateLimitModal } from "./RateLimitModal";
 import { InlineCompletionCard } from "./InlineCompletionCard";
 import { InlineSuggestionCard } from "./InlineSuggestionCard";
@@ -109,6 +110,10 @@ export function ChatContainer({ characterId, episodeTemplateId }: ChatContainerP
     isEpisodeComplete,
     evaluation,
     nextSuggestion,
+    // Director V2 visual state
+    visualPending,
+    instructionCards,
+    clearVisualPending,
     // Actions
     sendMessage,
     clearSceneSuggestion,
@@ -235,7 +240,7 @@ export function ChatContainer({ characterId, episodeTemplateId }: ChatContainerP
 
   return (
     <div className={cn(
-      "relative flex flex-col h-full w-full overflow-hidden",
+      "relative flex flex-col h-[100dvh] w-full overflow-hidden",
       !hasBackground && "bg-background"
     )}>
       {/* Full-bleed background layer - only when we have an image */}
@@ -328,6 +333,15 @@ export function ChatContainer({ characterId, episodeTemplateId }: ChatContainerP
                   <SceneCardSkeleton caption="Creating a scene from your conversation..." />
                 )}
 
+                {/* Director V2: Instruction cards (game-like hints, free) */}
+                {instructionCards.map((content, index) => (
+                  <InstructionCard
+                    key={`instruction-${index}`}
+                    content={content}
+                    hasBackground={hasBackground}
+                  />
+                ))}
+
                 {/* Inline completion card - appears after episode completes */}
                 {isEpisodeComplete && evaluation && (
                   <InlineCompletionCard
@@ -356,39 +370,9 @@ export function ChatContainer({ characterId, episodeTemplateId }: ChatContainerP
           </div>
         </div>
 
-        {/* Scene suggestion inline banner */}
-        {suggestScene && !isGeneratingScene && (
-          <div className="mx-auto max-w-2xl px-4 mb-2">
-            <div className={cn(
-              "rounded-xl border px-4 py-3 text-sm shadow-lg",
-              "backdrop-blur-xl backdrop-saturate-150",
-              hasBackground
-                ? "border-white/20 bg-white/10 text-white"
-                : "border-primary/30 bg-primary/5 text-foreground"
-            )}>
-              <div className="flex items-center justify-between gap-3">
-                <span className={cn(
-                  "text-xs font-medium",
-                  hasBackground ? "text-white/90" : "text-primary"
-                )}>
-                  This moment would make a great scene.
-                </span>
-                <button
-                  className={cn(
-                    "text-xs font-semibold hover:underline",
-                    hasBackground ? "text-white" : "text-primary"
-                  )}
-                  onClick={() => handleVisualize("t2i")}
-                >
-                  Quick capture (1✦)
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
         {/* Input bar - just input */}
         <div className={cn(
+          "pb-[calc(env(safe-area-inset-bottom)+8px)]",
           hasBackground ? "mx-3 mb-3" : "border-t border-border bg-card"
         )}>
           <div className={cn(
