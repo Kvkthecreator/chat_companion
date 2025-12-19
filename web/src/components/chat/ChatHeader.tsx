@@ -36,12 +36,11 @@ export function ChatHeader({
   const [showEpisodePicker, setShowEpisodePicker] = useState(false);
   const router = useRouter();
 
-  // Format turn display
-  const turnDisplay = directorState
-    ? directorState.turns_remaining !== null
-      ? `${directorState.turn_count}/${directorState.turn_count + directorState.turns_remaining}`
-      : `${directorState.turn_count}`
-    : null;
+  // Format turn display - always show turn count (default to 0 if no directorState yet)
+  const turnCount = directorState?.turn_count ?? 0;
+  const turnDisplay = directorState?.turns_remaining !== null && directorState?.turns_remaining !== undefined
+    ? `${turnCount}/${turnCount + directorState.turns_remaining}`
+    : `${turnCount}`;
 
   // Is approaching completion?
   const isApproachingEnd =
@@ -110,9 +109,8 @@ export function ChatHeader({
             </button>
           )}
 
-          {/* Turn Counter */}
-          {turnDisplay && (
-            <div
+          {/* Turn Counter - always visible */}
+          <div
               className={cn(
                 "flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-xs font-medium",
                 hasBackground
@@ -127,8 +125,6 @@ export function ChatHeader({
               <TurnIcon className="h-3 w-3" />
               <span>Turn {turnDisplay}</span>
             </div>
-          )}
-
         </div>
       </header>
 

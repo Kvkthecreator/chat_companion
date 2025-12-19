@@ -4,6 +4,8 @@ export { ChatContainer } from "./ChatContainer";
 export { ChatHeader } from "./ChatHeader";
 export { MessageBubble, StreamingBubble } from "./MessageBubble";
 export { MessageInput } from "./MessageInput";
+export { SceneCard, SceneCardSkeleton } from "./SceneCard";
+export { InstructionCard } from "./InstructionCard";
 export { InlineCompletionCard } from "./InlineCompletionCard";
 export { InlineSuggestionCard } from "./InlineSuggestionCard";
 // Deprecated - replaced by InlineCompletionCard
