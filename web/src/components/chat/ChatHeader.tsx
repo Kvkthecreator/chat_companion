@@ -132,7 +132,7 @@ export function ChatHeader({
         </div>
       </header>
 
-      {/* Episode Picker Overlay */}
+      {/* Episode Picker Overlay - must be outside header for z-index */}
       {showEpisodePicker && seriesProgress && (
         <EpisodePickerOverlay
           characterId={character.id}
@@ -173,7 +173,7 @@ function EpisodePickerOverlay({
   onClose,
 }: EpisodePickerOverlayProps) {
   return (
-    <div className="fixed inset-0 z-50">
+    <div className="fixed inset-0 z-[100]">
       {/* Backdrop */}
       <div
         className="absolute inset-0"
