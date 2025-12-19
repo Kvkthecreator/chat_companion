@@ -1,26 +1,27 @@
 # Director Architecture
 
-> **Status**: Draft
+> **Status**: Active
 > **Created**: 2024-12-19
-> **Purpose**: Define the Director/Observer entity for episode management, evaluation, and narrative continuity.
+> **Purpose**: Define the Director/Observer/Operator entity for episode management, evaluation, and narrative continuity.
 
 ---
 
 ## Overview
 
-The **Director** is a system entity that observes, evaluates, and guides conversations without being visible to users. It operates alongside the Character (the "actor") to enable bounded episodes, progression tracking, and derived outputs like scores and recommendations.
+The **Director** is a system entity that observes, evaluates, and operates conversations without being visible to users. It works alongside the Character (the "actor") to enable bounded episodes, progression tracking, and derived outputs like scores and recommendations.
 
 ### Metaphor
 
 | Role | Responsibility | Visibility |
 |------|----------------|------------|
 | **Character** | Acting — dialogue, emotion, persona | User sees |
-| **Director** | Observing, judging, guiding — state management | Hidden |
+| **Director** | Observing, judging, operating — state & system management | Hidden |
 
-The Director is the **brain, eyes, and ears** of the interaction:
+The Director is the **brain, eyes, ears, and hands** of the interaction:
 - **Eyes & Ears**: Observes all exchanges, user signals, character responses
 - **Brain**: Interprets state, decides beat progression, detects completion
 - **Hands**: Triggers system actions (completion, UI elements, next-episode suggestions)
+- **Operator**: Controls system levers — manages the machinery of the conversation
 
 ---
 
@@ -224,6 +225,185 @@ class DirectorService:
 
 ---
 
+## Completion Logic Details
+
+### Turn Definition
+
+One **turn** = one user message + one assistant response (a complete exchange).
+
+```python
+# Turn counting happens after each complete exchange
+async def increment_turn(self, session_id: UUID) -> int:
+    result = await self.db.fetch_one("""
+        UPDATE sessions
+        SET turn_count = turn_count + 1
+        WHERE id = :session_id
+        RETURNING turn_count
+    """, {"session_id": str(session_id)})
+    return result["turn_count"]
+```
+
+### Completion Mode: `turn_limited`
+
+Simplest mode — episode completes after N turns.
+
+```python
+async def check_turn_limited(
+    self,
+    turn_count: int,
+    turn_budget: int,
+) -> tuple[bool, str | None]:
+    if turn_count >= turn_budget:
+        return True, "turn_limit"
+    return False, None
+```
+
+**Recommended turn budgets**:
+| Content Type | Budget | Rationale |
+|--------------|--------|-----------|
+| Flirt test | 6-8 | Enough for signal, short enough for completion |
+| Quick challenge | 4-5 | Snackable, high completion rate |
+| Mini episode | 10-12 | Deeper but still bounded |
+
+### Completion Mode: `beat_gated`
+
+Episode completes when required narrative beat is reached.
+
+**Beat progression** (standard sequence):
+1. `establishment` — Scene set, characters introduced
+2. `complication` — Tension introduced, stakes raised
+3. `escalation` — Conflict peaks, pressure mounts
+4. `pivot` — Key moment, user choice matters most
+5. `resolution` — Outcome revealed (optional, can be next episode)
+
+**Beat detection** — two approaches:
+
+**Heuristic (v1)**: Infer from turn position
+```python
+def infer_beat_from_turn(turn_count: int, turn_budget: int) -> str:
+    progress = turn_count / turn_budget
+    if progress < 0.25:
+        return "establishment"
+    elif progress < 0.5:
+        return "complication"
+    elif progress < 0.75:
+        return "escalation"
+    else:
+        return "pivot"
+```
+
+**LLM-based (v2)**: Classify after each exchange
+```python
+async def detect_beat_llm(self, messages: list[dict]) -> str:
+    prompt = """Analyze this conversation exchange and classify the current narrative beat.
+
+LAST EXCHANGE:
+User: {user_message}
+Character: {character_response}
+
+Which beat best describes the current moment?
+- establishment: Setting the scene, initial dynamics
+- complication: New tension or obstacle introduced
+- escalation: Stakes raised, pressure mounting
+- pivot: Critical moment, response matters most
+
+Return only the beat name."""
+
+    return await self.llm.generate(prompt)
+```
+
+### Completion Mode: `objective`
+
+Episode completes when specific flag is set (event-driven).
+
+```python
+async def check_objective(
+    self,
+    director_state: dict,
+    objective_key: str,
+) -> tuple[bool, str | None]:
+    flags = director_state.get("flags", {})
+    if flags.get(objective_key):
+        return True, "objective_met"
+    return False, None
+```
+
+**Use cases**:
+- Mystery: `accusation_made` — user accuses a suspect
+- Choice point: `decision_selected` — user picks A or B
+- Discovery: `clue_found` — key information revealed
+
+**Setting flags**: Director sets flags based on conversation analysis
+```python
+async def check_for_objective_signals(
+    self,
+    messages: list[dict],
+    objective_key: str,
+) -> bool:
+    # LLM analyzes if objective condition was met
+    prompt = f"""Analyze if the user's last message indicates: {objective_key}
+
+    User message: {messages[-2]["content"]}
+
+    Return JSON: {{"met": true/false, "confidence": 0.0-1.0}}"""
+
+    result = await self.llm.generate_json(prompt)
+    return result.get("met", False) and result.get("confidence", 0) > 0.7
+```
+
+### Evaluation Timing
+
+**Decision**: Generate evaluation **immediately** on completion.
+
+Rationale:
+- Users expect instant result (personality test UX)
+- Evaluation LLM call is fast (~1-2s)
+- Avoids "calculating..." state and extra round-trip
+
+```python
+async def on_episode_complete(
+    self,
+    session_id: UUID,
+    trigger: str,
+    messages: list[dict],
+    director_state: dict,
+) -> dict:
+    # Generate evaluation immediately
+    evaluation = await self.generate_evaluation(
+        session_id=session_id,
+        evaluation_type="flirt_archetype",
+        messages=messages,
+        director_state=director_state,
+    )
+
+    # Persist evaluation with share_id
+    share_id = self._generate_share_id()  # e.g., "abc123"
+    await self._save_evaluation(session_id, evaluation, share_id)
+
+    # Get next suggestion
+    next_suggestion = await self.suggest_next_episode(session_id, evaluation)
+
+    return {
+        "evaluation": evaluation,
+        "share_id": share_id,
+        "next_suggestion": next_suggestion,
+    }
+```
+
+### Beat Display (User Visibility)
+
+**Decision**: Hidden by default. Optional progress indicator for certain content.
+
+| Content Type | Beat Visibility | Rationale |
+|--------------|-----------------|-----------|
+| Flirt test | Hidden | Game feel, surprise result |
+| Mystery serial | Optional progress bar | "Episode 2 of 4" |
+| Open-ended | Hidden | No defined end |
+
+If shown, display as progress dots or subtle indicator, not beat names.
+
+---
+
 ## Director Evaluation
 
 When episode completes, Director generates an evaluation based on episode type.
@@ -331,33 +511,119 @@ async def suggest_next_episode(
 
 ---
 
-## Message Parsing (Deferred)
+## Conversation Data Types
 
-Current message format mixes dialogue and actions:
+A conversation contains multiple data types flowing through different channels:
 
-```
-*She raises an eyebrow* "You're brave, I'll give you that."
-```
+### Message-Level Data Types
 
-**Current approach**: Keep as-is for display. Director reads raw text.
+| Type | Source | Storage | Display |
+|------|--------|---------|---------|
+| **User message** | User | `messages` table | Chat bubble |
+| **Character response** | Character LLM | `messages` table | Chat bubble |
+| **Director metadata** | Director | `messages.metadata` | Hidden |
 
-**Future consideration**: Parse into structured format for richer Director analysis:
+### System-Level Data Types (Stream Events)
+
+| Type | Source | Trigger | Display |
+|------|--------|---------|---------|
+| **Scene card** | Episode template | Episode start | Visual card |
+| **Beat indicator** | Director | Beat transition | Progress UI (optional) |
+| **Completion signal** | Director | Episode complete | UI transition |
+| **Evaluation result** | Director | Post-completion | Result screen |
+| **Next suggestion** | Director | Post-completion | CTA buttons |
+| **Choice prompt** | Director | Objective mode | Selection UI |
+
+### Structured Character Output
+
+Character LLM responses use **structured output** to separate content types:
 
 ```json
 {
+  "dialogue": "You're brave, I'll give you that.",
+  "action": "She raises an eyebrow, a smirk tugging at her lips",
+  "internal": "Why does he make me nervous?",
+  "mood": "intrigued",
+  "tension_shift": 0.1
+}
+```
+
+**Rendered for user** (display format):
+```
+*She raises an eyebrow, a smirk tugging at her lips*
+"You're brave, I'll give you that."
+```
+
+**Benefits of structured output**:
+- Clean separation for Director analysis
+- Consistent formatting
+- Mood/tension signals without parsing
+- Enables dialogue-only or action-only views (future)
+
+### Message Metadata Enrichment
+
+Director enriches each message with observation data:
+
+```json
+{
+  "role": "assistant",
   "content": "*She raises an eyebrow* \"You're brave, I'll give you that.\"",
-  "parsed": {
-    "action": "She raises an eyebrow",
-    "dialogue": "You're brave, I'll give you that.",
-    "internal": null
+  "metadata": {
+    "structured": {
+      "dialogue": "You're brave, I'll give you that.",
+      "action": "She raises an eyebrow",
+      "mood": "intrigued",
+      "tension_shift": 0.1
+    },
+    "director": {
+      "turn_number": 3,
+      "beat": "complication",
+      "user_signals": ["confident", "playful"],
+      "completion_eligible": false
+    }
   }
 }
 ```
 
-This is **deferred** — Director can work with raw text initially. Parsing adds value for:
-- Richer signal extraction
-- Better beat detection
-- Dialogue-only analysis
+### Stream Response Structure
+
+```python
+# Character response chunks (real-time)
+yield {"type": "chunk", "content": chunk}
+
+# Structured response complete
+yield {
+    "type": "message_complete",
+    "content": rendered_content,  # For display
+    "structured": {
+        "dialogue": "...",
+        "action": "...",
+        "mood": "intrigued"
+    },
+    "director": {
+        "turn_count": 5,
+        "beat": "escalation",
+        "completion_eligible": false
+    }
+}
+
+# Episode completion (if triggered)
+yield {
+    "type": "episode_complete",
+    "trigger": "turn_limit",
+    "evaluation": {
+        "archetype": "tension_builder",
+        "description": "You know exactly when to pause..."
+    },
+    "next_suggestion": {
+        "type": "character_continuity",
+        "character_id": "...",
+        "prompt": "Mina enjoyed that. Keep going?"
+    }
+}
+
+# Stream end
+yield {"type": "done"}
 
 ---
 
@@ -433,12 +699,23 @@ class DirectorOutput:
 
 ## Implementation Priority
 
-1. **Schema extensions** — Add columns to sessions, episode_templates
-2. **DirectorService skeleton** — Basic service with turn counting
-3. **Completion detection** — Implement for turn_limited mode (flirt test)
-4. **Flirt test evaluation** — LLM-based archetype classification
-5. **Next episode suggestion** — Basic series continuation
-6. **Beat tracking** — For mystery/thriller serials (future)
+### Phase 1: Flirt Test MVP
+1. **Schema migration** — Add columns to sessions, episode_templates; create session_evaluations
+2. **Structured character output** — Modify LLM call to return JSON with dialogue/action/mood
+3. **DirectorService** — Turn counting, completion detection (`turn_limited`)
+4. **Evaluation generation** — Flirt archetype classification
+5. **Stream events** — `message_complete`, `episode_complete` with evaluation
+6. **Share infrastructure** — `session_evaluations` with share_id, result endpoint
+
+### Phase 2: Core Integration
+7. **Next episode suggestion** — Character continuity, series matching
+8. **Message metadata enrichment** — Director state in messages.metadata
+9. **Beat tracking (heuristic)** — Turn-position-based beat inference
+
+### Phase 3: Advanced Modes (Future)
+10. **Beat tracking (LLM)** — Real-time beat classification
+11. **Objective mode** — Flag-based completion for mystery/choices
+12. **Choice prompts** — UI for A/B decision points
 
 ---
 
