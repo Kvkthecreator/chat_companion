@@ -255,6 +255,52 @@ MIDNIGHT_EVIDENCE_BACKGROUNDS = {
     },
 }
 
+# Terms of Control (Real Life, corporate noir)
+TERMS_OF_CONTROL_BACKGROUNDS = {
+    "NDA & First Command": {
+        "location": "glass-walled corner office at night, city lights reflecting, contract on table, jacket off, sleeves rolled",
+        "time": "late night, cool city glow with warm desk lamp",
+        "mood": "controlled tension, first order given",
+        "rendering": "cinematic corporate noir, soft film grain, shallow depth",
+        "quality": "masterpiece, best quality, cinematic film still, high detail",
+    },
+    "House Rules": {
+        "location": "minimalist penthouse living room, tablet with rules on low table, decanter nearby, city night beyond windows",
+        "time": "night, warm interior light against cool skyline",
+        "mood": "power negotiation, private rule-setting",
+        "rendering": "cinematic photography, crisp modern interior, soft grain",
+        "quality": "masterpiece, best quality, cinematic film still, high detail",
+    },
+    "Public Proof": {
+        "location": "upscale lounge with city view, partners in suits at nearby tables, low light, polished marble bar",
+        "time": "evening, warm ambient with cool city spill",
+        "mood": "public compliance under watch, covert signal",
+        "rendering": "cinematic photography, shallow depth, soft reflections",
+        "quality": "masterpiece, best quality, cinematic film still, high detail",
+    },
+    "Breach": {
+        "location": "office hallway with emergency lights, glass walls, his hand on the wall, close quarters",
+        "time": "late night, low emergency glow",
+        "mood": "confrontation, intimate pressure",
+        "rendering": "cinematic photography, moody lighting, soft grain",
+        "quality": "masterpiece, best quality, cinematic film still, high detail",
+    },
+    "Penalty or Gift": {
+        "location": "dark bedroom with city glow through curtains, cuffs on nightstand, contract folder half-open",
+        "time": "night, warm lamp with cool city spill",
+        "mood": "controlled intimacy, choice framed as bind",
+        "rendering": "cinematic photography, soft focus, gentle grain",
+        "quality": "masterpiece, best quality, cinematic film still, high detail",
+    },
+    "Ownership Clause": {
+        "location": "glass office at dawn, contract folder open, skyline warming, tie on the table",
+        "time": "sunrise, soft gold light mixing with cool glass reflections",
+        "mood": "final decision, possessive tenderness",
+        "rendering": "cinematic photography, soft dawn grade, crisp detail",
+        "quality": "masterpiece, best quality, cinematic film still, high detail",
+    },
+}
+
 # Combined lookup for all series
 ALL_EPISODE_BACKGROUNDS = {
     **STOLEN_MOMENTS_BACKGROUNDS,
@@ -262,6 +308,7 @@ ALL_EPISODE_BACKGROUNDS = {
     **HOMETOWN_CRUSH_BACKGROUNDS,
     **KPOP_BOY_IDOL_BACKGROUNDS,
     **MIDNIGHT_EVIDENCE_BACKGROUNDS,
+    **TERMS_OF_CONTROL_BACKGROUNDS,
 }
 
 
@@ -459,6 +506,17 @@ def build_midnight_evidence_cover_prompt() -> tuple[str, str]:
     )
 
 
+def build_terms_of_control_cover_prompt() -> tuple[str, str]:
+    """Series cover prompt for Terms of Control (real-life corporate dark romance)."""
+    return build_series_cover_prompt(
+        character_description="intense Korean lawyer late 30s, sharp jawline, short neatly styled black hair, light stubble, tailored charcoal suit with black shirt, polished watch, composed and imposing stance",
+        scene_description="glass-walled corner office at night with city lights reflecting, contract on desk, jacket draped over chair",
+        pose_and_expression="leaning slightly over the desk, one hand on the NDA, gaze steady and possessive toward the viewer",
+        lighting_and_time="night office lighting with cool city glow and warm desk lamp, soft film grain",
+        genre_style="cinematic corporate noir, sleek and moody, shallow depth of field",
+    )
+
+
 # Series cover prompt lookup
 SERIES_COVER_PROMPTS = {
     "stolen-moments": build_stolen_moments_cover_prompt,
@@ -466,6 +524,7 @@ SERIES_COVER_PROMPTS = {
     "hometown-crush": build_hometown_crush_cover_prompt,
     "k-pop-boy-idol": build_kpop_boy_idol_cover_prompt,
     "midnight-evidence": build_midnight_evidence_cover_prompt,
+    "terms-of-control": build_terms_of_control_cover_prompt,
 }
 
 
