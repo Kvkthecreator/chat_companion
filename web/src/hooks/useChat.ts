@@ -2,7 +2,14 @@
 
 import { useState, useCallback, useRef, useEffect } from "react";
 import { api, APIError } from "@/lib/api/client";
-import type { Message, Episode, Character, RateLimitError } from "@/types";
+import type {
+  Message,
+  Episode,
+  RateLimitError,
+  StreamDirectorState,
+  StreamEpisodeCompleteEvent,
+  StreamEvent,
+} from "@/types";
 
 interface UseChatOptions {
   characterId: string;
@@ -10,6 +17,7 @@ interface UseChatOptions {
   enabled?: boolean;
   onError?: (error: Error) => void;
   onRateLimitExceeded?: (error: RateLimitError) => void;
+  onEpisodeComplete?: (event: StreamEpisodeCompleteEvent) => void;
 }
 
 interface UseChatReturn {
@@ -19,20 +27,33 @@ interface UseChatReturn {
   episode: Episode | null;
   streamingContent: string;
   suggestScene: boolean;
+  // Director state (for bounded episodes)
+  directorState: StreamDirectorState | null;
+  isEpisodeComplete: boolean;
+  evaluation: StreamEpisodeCompleteEvent["evaluation"];
+  nextSuggestion: StreamEpisodeCompleteEvent["next_suggestion"];
+  // Actions
   sendMessage: (content: string) => Promise<void>;
   loadMessages: () => Promise<void>;
   startNewEpisode: () => Promise<void>;
   endEpisode: () => Promise<void>;
   clearSceneSuggestion: () => void;
+  clearCompletion: () => void;
 }
 
-export function useChat({ characterId, episodeTemplateId, enabled = true, onError, onRateLimitExceeded }: UseChatOptions): UseChatReturn {
+export function useChat({ characterId, episodeTemplateId, enabled = true, onError, onRateLimitExceeded, onEpisodeComplete }: UseChatOptions): UseChatReturn {
   const [messages, setMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSending, setIsSending] = useState(false);
   const [episode, setEpisode] = useState<Episode | null>(null);
   const [streamingContent, setStreamingContent] = useState("");
   const [suggestScene, setSuggestScene] = useState(false);
+
+  // Director state (for bounded episodes)
+  const [directorState, setDirectorState] = useState<StreamDirectorState | null>(null);
+  const [isEpisodeComplete, setIsEpisodeComplete] = useState(false);
+  const [evaluation, setEvaluation] = useState<StreamEpisodeCompleteEvent["evaluation"]>(null);
+  const [nextSuggestion, setNextSuggestion] = useState<StreamEpisodeCompleteEvent["next_suggestion"]>(null);
 
   const abortControllerRef = useRef<AbortController | null>(null);
 
@@ -41,6 +62,8 @@ export function useChat({ characterId, episodeTemplateId, enabled = true, onErro
   onErrorRef.current = onError;
   const onRateLimitExceededRef = useRef(onRateLimitExceeded);
   onRateLimitExceededRef.current = onRateLimitExceeded;
+  const onEpisodeCompleteRef = useRef(onEpisodeComplete);
+  onEpisodeCompleteRef.current = onEpisodeComplete;
 
   // Track if we've already loaded for this characterId + episodeTemplateId combo
   const loadedKeyRef = useRef<string | null>(null);
@@ -170,16 +193,33 @@ export function useChat({ characterId, episodeTemplateId, enabled = true, onErro
       let messageAdded = false;
 
       for await (const chunk of api.conversation.sendStream(characterId, content)) {
-        if (chunk.type === "chunk") {
-          fullContent += chunk.content;
+        const event = chunk as StreamEvent;
+
+        if (event.type === "chunk") {
+          fullContent += event.content;
           setStreamingContent(fullContent);
-        } else if (chunk.type === "done") {
+        } else if (event.type === "episode_complete") {
+          // Director detected episode completion
+          setIsEpisodeComplete(true);
+          setEvaluation(event.evaluation);
+          setNextSuggestion(event.next_suggestion);
+
+          // Update director state to show completion
+          setDirectorState({
+            turn_count: event.turn_count,
+            turns_remaining: 0,
+            is_complete: true,
+          });
+
+          // Call callback if provided
+          onEpisodeCompleteRef.current?.(event);
+        } else if (event.type === "done") {
           // Add complete assistant message
           const assistantMessage: Message = {
             id: `assistant-${Date.now()}`,
             episode_id: episode.id,
             role: "assistant",
-            content: chunk.content || fullContent,
+            content: event.content || fullContent,
             model_used: null,
             tokens_input: null,
             tokens_output: null,
@@ -192,8 +232,13 @@ export function useChat({ characterId, episodeTemplateId, enabled = true, onErro
           messageAdded = true;
 
           // Check if backend suggests generating a scene
-          if (chunk.suggest_scene) {
+          if (event.suggest_scene) {
             setSuggestScene(true);
+          }
+
+          // Update director state from done event (for bounded episodes)
+          if (event.director) {
+            setDirectorState(event.director);
           }
         }
       }
@@ -266,6 +311,13 @@ export function useChat({ characterId, episodeTemplateId, enabled = true, onErro
     setSuggestScene(false);
   }, []);
 
+  // Clear completion state (for dismissing the completion modal)
+  const clearCompletion = useCallback(() => {
+    setIsEpisodeComplete(false);
+    setEvaluation(null);
+    setNextSuggestion(null);
+  }, []);
+
   // Load on mount (only when enabled, and only once per characterId + episodeTemplateId combo)
   useEffect(() => {
     if (!enabled) {
@@ -296,10 +348,17 @@ export function useChat({ characterId, episodeTemplateId, enabled = true, onErro
     episode,
     streamingContent,
     suggestScene,
+    // Director state
+    directorState,
+    isEpisodeComplete,
+    evaluation,
+    nextSuggestion,
+    // Actions
     sendMessage,
     loadMessages,
     startNewEpisode,
     endEpisode,
     clearSceneSuggestion,
+    clearCompletion,
   };
 }

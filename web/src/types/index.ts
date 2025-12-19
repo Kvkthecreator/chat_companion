@@ -1039,3 +1039,63 @@ export type FlirtArchetype =
   | "playful_tease"
   | "slow_burn"
   | "mysterious_allure";
+
+// ============================================================================
+// Stream Event Types (for conversation streaming with Director integration)
+// ============================================================================
+
+/**
+ * Stream chunk event - content being streamed
+ */
+export interface StreamChunkEvent {
+  type: "chunk";
+  content: string;
+}
+
+/**
+ * Director state in stream events
+ */
+export interface StreamDirectorState {
+  turn_count: number;
+  turns_remaining: number | null;
+  is_complete: boolean;
+}
+
+/**
+ * Stream done event - message complete
+ */
+export interface StreamDoneEvent {
+  type: "done";
+  content: string;
+  suggest_scene?: boolean;
+  episode_id: string;
+  director?: StreamDirectorState;
+}
+
+/**
+ * Episode complete event - Director detected completion
+ */
+export interface StreamEpisodeCompleteEvent {
+  type: "episode_complete";
+  turn_count: number;
+  evaluation: {
+    id: string;
+    session_id: string;
+    evaluation_type: EvaluationType;
+    result: FlirtArchetypeEvaluation | Record<string, unknown>;
+    share_id: string;
+  } | null;
+  next_suggestion: {
+    episode_id: string;
+    title: string;
+    slug: string;
+    episode_number: number;
+    situation: string;
+    character_id: string | null;
+  } | null;
+}
+
+/**
+ * Union of all stream event types
+ */
+export type StreamEvent = StreamChunkEvent | StreamDoneEvent | StreamEpisodeCompleteEvent;

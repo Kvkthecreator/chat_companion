@@ -10,6 +10,7 @@ import { MessageInput, SceneGenerationMode } from "./MessageInput";
 import { SceneCard, SceneCardSkeleton } from "./SceneCard";
 import { RateLimitModal } from "./RateLimitModal";
 import { EpisodeDrawer } from "./EpisodeDrawer";
+import { EpisodeCompleteModal } from "./EpisodeCompleteModal";
 import { Skeleton } from "@/components/ui/skeleton";
 import { QuotaExceededModal } from "@/components/usage";
 import { InsufficientSparksModal } from "@/components/sparks";
@@ -107,9 +108,16 @@ export function ChatContainer({ characterId, episodeTemplateId }: ChatContainerP
     episode,
     streamingContent,
     suggestScene,
+    // Director state
+    directorState,
+    isEpisodeComplete,
+    evaluation,
+    nextSuggestion,
+    // Actions
     sendMessage,
     endEpisode,
     clearSceneSuggestion,
+    clearCompletion,
   } = useChat({
     characterId,
     episodeTemplateId,
@@ -295,6 +303,15 @@ export function ChatContainer({ characterId, episodeTemplateId }: ChatContainerP
                 hasBackground={hasBackground}
               />
             )}
+            {/* Director turn counter for bounded episodes */}
+            {directorState && directorState.turns_remaining !== null && (
+              <ContextChip
+                label="Turns"
+                value={`${directorState.turns_remaining} left`}
+                accent={directorState.turns_remaining <= 2 ? "destructive" : "primary"}
+                hasBackground={hasBackground}
+              />
+            )}
           </div>
         </div>
 
@@ -448,6 +465,16 @@ export function ChatContainer({ characterId, episodeTemplateId }: ChatContainerP
         onClose={() => setShowRateLimitModal(false)}
         resetAt={rateLimitError?.reset_at}
         cooldownSeconds={rateLimitError?.cooldown_seconds}
+      />
+
+      {/* Episode Complete Modal (Director completion) */}
+      <EpisodeCompleteModal
+        open={isEpisodeComplete}
+        onClose={clearCompletion}
+        evaluation={evaluation}
+        nextSuggestion={nextSuggestion}
+        characterId={characterId}
+        characterName={character.name}
       />
     </div>
   );
