@@ -333,7 +333,7 @@ User sends message: "I'll have the usual"
 │                                                                                │
 │  LLMService.stream()                                                           │
 │  ├── Messages: [system_prompt, ...history, user_message]                       │
-│  ├── Model: gemini-2.0-flash (default)                                         │
+│  ├── Model: gemini-3-flash-preview (default)                                   │
 │  ├── Temperature: 0.8                                                          │
 │  └── Stream response to client                                                 │
 └───────────────────────────────────────────────────────────────────────────────┘

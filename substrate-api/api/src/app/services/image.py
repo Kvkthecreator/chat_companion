@@ -579,7 +579,7 @@ class ImageService:
 
     # Default provider/model for the app
     DEFAULT_PROVIDER = "gemini"
-    DEFAULT_MODEL = "gemini-2.0-flash-exp-image-generation"
+    DEFAULT_MODEL = "gemini-3-flash-preview"
 
     # API key environment variable mapping
     API_KEY_ENV_VARS = {

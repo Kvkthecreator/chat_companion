@@ -20,7 +20,7 @@ Refactor Director from state-machine approach to semantic evaluation. Key change
 ## Implementation Decisions
 
 ### LLM Model
-- **Use**: `gemini-2.0-flash` (free tier, default)
+- **Use**: `gemini-3-flash-preview` (free tier, default)
 - **Rationale**: Simple ~200 token evaluation, <1s latency expected
 
 ### Scene Generation

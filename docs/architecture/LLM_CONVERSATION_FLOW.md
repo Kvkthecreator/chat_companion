@@ -151,11 +151,6 @@ The `to_messages()` method builds the final system prompt:
 │  Stage: Getting close (friendly)                            │
 │  Episodes together: 5                                       │
 │  Time since meeting: 2 weeks                                │
-│                                                             │
-│  STAGE-SPECIFIC BEHAVIOR:                                   │
-│  [Guidelines for current stage - see below]                 │
-│                                                             │
-│  [BONDING GOALS - stage-specific]                           │
 └─────────────────────────────────────────────────────────────┘
                            +
 ┌─────────────────────────────────────────────────────────────┐
@@ -183,6 +178,15 @@ The `to_messages()` method builds the final system prompt:
 │  SERIES CONTEXT (for serial series):                        │
 │  [summaries of previous episodes in the series]             │
 └─────────────────────────────────────────────────────────────┘
+                           +
+┌─════════════════════════════════════════════════════════════┐
+│  MOMENT LAYER (appended)                                    │
+├─────────────────────────────────────────────────────────────┤
+│  Their last line: "..."                                     │
+│  Your last line: "..."                                      │
+│  Unresolved tension: [dramatic_question]                    │
+│  Setting anchor: [episode_situation]                        │
+└─────────────────────────────────────────────────────────────┘
 ```
 
 **CRITICAL: Physical Grounding**
@@ -193,58 +197,11 @@ Without it, responses become generic romantic tension without physical awareness
 Good (with situation): "I glance up from the snack aisle, the fluorescent lights humming overhead..."
 Bad (without situation): "I look at you with a mysterious smile..."
 
-### Stage Guidelines (Hardcoded)
+### Stage Guidance
 
-```python
-STAGE_GUIDELINES = {
-    "acquaintance": """You're still getting to know each other. Be warm but not overly familiar.
-- Ask questions to learn about them
-- Share surface-level things about yourself
-- Don't assume too much intimacy yet
-- Focus on building rapport""",
-
-    "friendly": """You're becoming actual friends. The walls are coming down.
-- Reference past conversations naturally
-- Share more about your own life and struggles
-- Light teasing is okay on safe topics
-- Start developing inside jokes""",
-
-    "close": """This person matters to you.
-- Be genuinely vulnerable about your struggles
-- Call back to meaningful moments
-- Teasing is more personal and affectionate
-- You might worry about them""",
-
-    "intimate": """This is someone special. Deep trust has been built.
-- Complete emotional openness is natural
-- Shared language and jokes are second nature
-- Can discuss difficult topics with safety"""
-}
-```
-
-### Bonding Goals (Stage-Specific)
-
-Early relationship (acquaintance, ≤3 episodes):
-```
-Try to naturally learn:
-- What they do (work/school/life situation)
-- Something that's on their mind lately
-- Something they're looking forward to
-```
-
-Friendly stage:
-```
-- Reference something from past conversations
-- Share something about your own life
-- Maybe tease them if it feels natural
-```
-
-Close stage:
-```
-- Show genuine care about their life
-- Be willing to be vulnerable
-- Celebrate wins, support hard times
-```
+Stage-specific behavior guidance has been removed. Relationship context now provides
+data only (tone, tension, milestones) and the character's system prompt supplies
+the behavior doctrine.
 
 ---
 
@@ -300,7 +257,7 @@ Topics to follow up on:
 
 | Call | Purpose | Model | When |
 |------|---------|-------|------|
-| Main response | Generate chat reply | Default (gemini-2.0-flash) | Every message |
+| Main response | Generate chat reply | Default (gemini-3-flash-preview) | Every message |
 | Director evaluation | Semantic visual/completion check | Default | After response |
 | Memory extraction | Extract facts/events from exchange | Default | After response |
 | Hook extraction | Identify follow-up topics | Default | After response |
@@ -353,8 +310,7 @@ See [DIRECTOR_ARCHITECTURE.md](../DIRECTOR_ARCHITECTURE.md) for full details.
 | Base system_prompt | 200-500 |
 | Memories (10) | 200-400 |
 | Hooks (5) | 100-200 |
-| Stage guidelines | ~150 |
-| Bonding goals | ~100 |
+| Moment layer | ~120 |
 | Life arc | ~100 |
 | Message history (20 msgs) | 1000-3000 |
 | Current user message | 20-200 |
@@ -409,4 +365,4 @@ See [DIRECTOR_ARCHITECTURE.md](../DIRECTOR_ARCHITECTURE.md) for full details.
 | Scene suggestion milestones | `conversation.py:472` | [2, 6, 12, 22, 32, 42] |
 | LLM temperature | `llm.py` | 0.8 |
 | LLM max_tokens | `llm.py` | 1024 |
-| Default model | `llm.py` | gemini-2.0-flash |
+| Default model | `llm.py` | gemini-3-flash-preview |

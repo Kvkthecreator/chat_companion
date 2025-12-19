@@ -18,16 +18,16 @@ Environment variables (credentials only):
 
 Usage:
     # Get a client for a specific provider/model
-    client = LLMService.get_client("google", "gemini-2.0-flash")
+    client = LLMService.get_client("google", "gemini-3-flash-preview")
     response = await client.generate(messages)
 
-    # Use the default instance (google/gemini-2.0-flash)
+    # Use the default instance (google/gemini-3-flash-preview)
     service = LLMService.get_instance()
     response = await service.generate(messages)
 
     # In the future: user-selected provider from their preferences
     user_provider = user.preferences.get("llm_provider", "google")
-    user_model = user.preferences.get("llm_model", "gemini-2.0-flash")
+    user_model = user.preferences.get("llm_model", "gemini-3-flash-preview")
     client = LLMService.get_client(user_provider, user_model)
 """
 
@@ -558,12 +558,12 @@ class LLMService:
 
     Environment variables:
     - LLM_PROVIDER: Provider name (google, openai, anthropic, etc.) - defaults to "google"
-    - LLM_MODEL: Model name - defaults to "gemini-2.0-flash"
+    - LLM_MODEL: Model name - defaults to "gemini-3-flash-preview"
     """
 
     # Fallback defaults if env vars not set
     FALLBACK_PROVIDER = "google"
-    FALLBACK_MODEL = "gemini-2.0-flash"
+    FALLBACK_MODEL = "gemini-3-flash-preview"
 
     @classmethod
     def _get_default_provider(cls) -> str:
@@ -622,7 +622,7 @@ class LLMService:
 
         Args:
             provider: Provider name (google, openai, anthropic, etc.)
-            model: Model name (gemini-2.0-flash, gpt-4o-mini, etc.)
+            model: Model name (gemini-3-flash-preview, gpt-4o-mini, etc.)
             temperature: Default temperature for generations
             max_tokens: Default max tokens for generations
 

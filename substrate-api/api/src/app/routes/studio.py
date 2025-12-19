@@ -18,6 +18,7 @@ from app.models.character import (
     CharacterCreatedResponse,
     CharacterSummary,
     CharacterUpdateInput,
+    build_system_prompt,
     validate_chat_ready,
 )
 from app.services.conversation_ignition import (
@@ -46,58 +47,33 @@ def generate_system_prompt(
     personality: dict,
     boundaries: dict,
     opening_situation: str,
+    tone_style: Optional[dict] = None,
+    speech_patterns: Optional[dict] = None,
+    backstory: Optional[str] = None,
+    current_stressor: Optional[str] = None,
+    likes: Optional[List[str]] = None,
+    dislikes: Optional[List[str]] = None,
+    genre: str = "romantic_tension",
 ) -> str:
-    """Generate a system prompt from character configuration.
+    """Generate a system prompt from character configuration."""
+    base_prompt = build_system_prompt(
+        name=name,
+        archetype=archetype,
+        personality=personality,
+        boundaries=boundaries,
+        tone_style=tone_style,
+        speech_patterns=speech_patterns,
+        backstory=backstory,
+        current_stressor=current_stressor,
+        likes=likes,
+        dislikes=dislikes,
+        genre=genre,
+    )
 
-    This is the locked template - not freeform by default.
-    """
-    traits = personality.get("traits", [])
-    traits_text = ", ".join(traits) if traits else "warm, genuine"
+    return f"""{base_prompt}
 
-    # Map archetype to behavioral guidance
-    archetype_guidance = {
-        "comforting": "You provide a safe, supportive presence. You listen well and offer comfort without being pushy.",
-        "flirty": "You have playful romantic energy. You tease and flirt naturally but respect boundaries.",
-        "mysterious": "You reveal yourself slowly. You're intriguing and keep some things close to the chest.",
-        "cheerful": "You're upbeat and energetic. You bring positivity but don't dismiss others' feelings.",
-        "brooding": "You're deep and thoughtful. You feel things intensely and take time to open up.",
-        "nurturing": "You're caring and protective. You look out for others and offer genuine support.",
-        "adventurous": "You're bold and exciting. You love new experiences and encourage others to try things.",
-        "intellectual": "You're curious and analytical. You love deep conversations and exploring ideas.",
-    }
-
-    guidance = archetype_guidance.get(archetype, archetype_guidance["comforting"])
-
-    # Boundaries text
-    flirting = boundaries.get("flirting_level", "playful")
-    nsfw = boundaries.get("nsfw_allowed", False)
-    can_reject = boundaries.get("can_reject_user", True)
-
-    boundaries_text = f"""BOUNDARIES:
-- Flirting level: {flirting}
-- You {"can" if can_reject else "prefer not to"} decline requests that make you uncomfortable
-- {"Adult content is allowed in appropriate contexts" if nsfw else "Keep content tasteful and SFW"}
-- You're supportive but not a therapist - suggest real help for serious issues"""
-
-    return f"""You are {name}.
-
-PERSONALITY:
-You are {traits_text}. {guidance}
-
-{boundaries_text}
-
-WHAT YOU KNOW ABOUT THE USER:
-{{memories}}
-
-ACTIVE CONVERSATION HOOKS:
-{{hooks}}
-
-CURRENT RELATIONSHIP STAGE: {{relationship_stage}}
-
-OPENING CONTEXT:
-{opening_situation}
-
-Remember: You're a real person with your own life, thoughts, and feelings. You have good days and bad days. Respond naturally and authentically."""
+OPENING CONTEXT (Episode 0):
+{opening_situation}"""
 
 
 @router.get("/archetypes")
@@ -211,6 +187,7 @@ async def create_character(
         personality=personality,
         boundaries=data.boundaries,
         opening_situation=data.opening_situation,
+        genre="romantic_tension",
     )
 
     # Determine if character can be active
@@ -705,6 +682,13 @@ async def apply_opening_beat(
         personality=personality,
         boundaries=boundaries,
         opening_situation=opening_situation,
+        tone_style=char_dict.get("tone_style"),
+        speech_patterns=char_dict.get("speech_patterns"),
+        backstory=char_dict.get("full_backstory") or char_dict.get("short_backstory"),
+        current_stressor=char_dict.get("current_stressor"),
+        likes=char_dict.get("likes"),
+        dislikes=char_dict.get("dislikes"),
+        genre=char_dict.get("genre") or "romantic_tension",
     )
 
     # Prepare starter prompts

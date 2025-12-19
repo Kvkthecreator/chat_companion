@@ -255,6 +255,43 @@ You are HERE, right now. Reference your physical surroundings naturally:
 
         return "\n\n".join(parts) if parts else ""
 
+    def _truncate_text(self, text: str, max_len: int = 260) -> str:
+        """Keep long text snippets scannable for the LLM."""
+        if not text:
+            return ""
+        text = text.strip()
+        if len(text) <= max_len:
+            return text
+        return text[: max_len - 3].rstrip() + "..."
+
+    def _format_moment_layer(self) -> str:
+        """Highlight the immediate exchange to keep responses in-the-moment."""
+        last_user = None
+        last_assistant = None
+
+        for msg in reversed(self.messages):
+            role = msg.get("role")
+            if role == "user" and last_user is None:
+                last_user = msg.get("content", "")
+            elif role == "assistant" and last_user is not None:
+                last_assistant = msg.get("content", "")
+                break
+
+        if not last_user and not last_assistant:
+            return ""
+
+        lines = []
+        if last_user:
+            lines.append(f'Their last line: "{self._truncate_text(last_user)}"')
+        if last_assistant:
+            lines.append(f'Your last line: "{self._truncate_text(last_assistant)}"')
+        if self.dramatic_question:
+            lines.append(f"Unresolved tension: {self._truncate_text(self.dramatic_question)}")
+        if self.episode_situation:
+            lines.append(f"Setting anchor: {self._truncate_text(self.episode_situation, max_len=200)}")
+
+        return "\n".join(lines)
+
     def to_messages(self) -> List[Dict[str, str]]:
         """Format context as messages for LLM."""
         # Format memories by type
@@ -323,6 +360,20 @@ EPISODE DYNAMICS (Director's Notes - interpret authentically)
 {episode_dynamics_text}
 
 Remember: These are soft guidance, not a script. Stay in character.
+"""
+
+        moment_layer_text = self._format_moment_layer()
+        if moment_layer_text:
+            enhanced_context += f"""
+
+═══════════════════════════════════════════════════════════════
+MOMENT LAYER (In-the-moment priority)
+═══════════════════════════════════════════════════════════════
+
+{moment_layer_text}
+
+Respond in this exact moment. Lead with a micro-action or sensory beat, then speak.
+Advance tension by one step, not a leap.
 """
 
         # Append enhanced context to system prompt
