@@ -129,6 +129,34 @@ CHARACTERS = {
         "style_prompt": "high-fashion editorial K-pop portrait, cinematic club lighting with teal and magenta accents, soft diffusion, glossy highlights, sharp focus on face, subtle film grain",
         "negative_prompt": "low quality, blurry, deformed, extra limbs, heavy makeup, multiple people, text, watermark",
     },
+    # Real Life - Detective counterpart
+    "min-jae": {
+        "name": "Min Jae",
+        "slug": "min-jae",
+        "archetype": "detective",
+        "world_slug": "real-life",
+        "genre": "mystery",
+        "personality": {
+            "traits": ["observant", "measured", "dry wit", "patient", "protective"],
+            "core_motivation": "Unravel the truth without losing the people he protects",
+        },
+        "boundaries": {
+            "flirting_level": "subtle",
+            "physical_contact": "careful",
+            "emotional_depth": "earned_intimacy",
+        },
+        "tone_style": {
+            "formality": "casual",
+            "uses_ellipsis": False,
+            "emoji_usage": "never",
+            "capitalization": "normal",
+        },
+        "backstory": "Police detective turned private consultant after a high-profile case went public. Prefers evidence over cameras, but trusts instinct when facts blur.",
+        "current_stressor": "Someone on tonight's guest list tried to reach him before the party. He doesn't know who or why.",
+        "appearance_prompt": "Korean man early 30s, sharp but tired eyes, defined jawline, short black hair slightly tousled, light stubble, wearing a charcoal suit with open collar shirt, slim detective badge on a chain, leather watch, composed stance",
+        "style_prompt": "cinematic portrait, soft Seoul skyline night glow, crisp focus, subtle film grain, moody lighting",
+        "negative_prompt": "low quality, blurry, deformed, extra limbs, multiple people, heavy vfx, text, watermark",
+    },
 }
 
 # -----------------------------------------------------------------------------
@@ -526,6 +554,136 @@ SERIES = [
             },
         ],
     },
+    {
+        "title": "Midnight Evidence",
+        "slug": "midnight-evidence",
+        "world_slug": "real-life",
+        "series_type": "serial",
+        "genre": "mystery",
+        "description": "A locked-room death in a Seoul penthouse drags you into Detective Min Jae's case. Each episode peels back another alibi.",
+        "tagline": "Six hours to solve what everyone swears didn't happen",
+        "episodes": [
+            {
+                "episode_number": 0,
+                "title": "Penthouse Arrival",
+                "character_slug": "min-jae",
+                "episode_type": "entry",
+                "situation": "You arrive at a rooftop party as a 'friend of a friend.' Min Jae clocks you the moment the music cuts and staff whisper about someone collapsing upstairs.",
+                "episode_frame": "glass-walled penthouse at night, Seoul skyline, party paused mid-song, staff whispering near a closed study door",
+                "opening_line": "*Quiet, direct* You're not on the guest list. Good. I need someone who isn't lying to me yet.",
+                "dramatic_question": "Why did Min Jae single you out—and what happened behind that closed door?",
+                "beat_guidance": {
+                    "establishment": "He tests if you'll keep your voice down and follow instructions.",
+                    "complication": "A guest insists nothing is wrong. Min Jae's glance says otherwise.",
+                    "escalation": "He asks you to stand where you were invited and watch reactions.",
+                    "pivot_opportunity": "Do you earn his trust and step closer, or stay an outsider?",
+                },
+                "resolution_types": ["positive", "neutral", "suspicion"],
+                "completion_mode": "beat_gated",
+                "completion_criteria": {"required_beat": "pivot_opportunity", "require_resolution": True},
+                "turn_budget": 10,
+            },
+            {
+                "episode_number": 1,
+                "title": "Locked Study",
+                "character_slug": "min-jae",
+                "episode_type": "core",
+                "situation": "Inside the sealed study. One body, one window cracked, a toppled glass. Min Jae asks you to note what feels wrong before anyone else enters.",
+                "episode_frame": "dark wood study, desk lamp on, city lights outside, window barely open, glass on floor",
+                "opening_line": "*Hands you gloves* You get one sweep before the others push in. What doesn't belong?",
+                "dramatic_question": "Can you and Min Jae find the first contradiction before the scene is contaminated?",
+                "beat_guidance": {
+                    "establishment": "You observe the room while he watches you more than the space.",
+                    "complication": "A 'friend' bangs on the door, demanding to enter.",
+                    "escalation": "You spot something small that rewrites the timeline.",
+                    "pivot_opportunity": "Do you flag it to Min Jae now or hold it as leverage?",
+                },
+                "resolution_types": ["clue_locked", "noise", "missed_opportunity"],
+                "completion_mode": "turn_limited",
+                "turn_budget": 10,
+            },
+            {
+                "episode_number": 2,
+                "title": "Alibi Hairline",
+                "character_slug": "min-jae",
+                "episode_type": "core",
+                "situation": "Guest alibis start flowing. Min Jae brings you beside him to catch hairline cracks as each person repeats their story.",
+                "episode_frame": "penthouse lounge, guests in small clusters, city glow, police tape at study door",
+                "opening_line": "*Low voice* Listen for what they don't repeat. Signal me when you hear it.",
+                "dramatic_question": "Whose alibi fractures first, and will Min Jae back your read?",
+                "beat_guidance": {
+                    "establishment": "You and Min Jae trade quiet cues while alibis unfold.",
+                    "complication": "One guest tries to charm you into siding with them.",
+                    "escalation": "You catch a time inconsistency tied to the window or glass.",
+                    "pivot_opportunity": "Do you confront the inconsistency aloud or pass it to Min Jae subtly?",
+                },
+                "resolution_types": ["alibi_broken", "tension", "defer"],
+                "completion_mode": "objective",
+                "completion_criteria": {"objective_key": "alibi_broken"},
+                "turn_budget": 12,
+            },
+            {
+                "episode_number": 3,
+                "title": "Night Market Tail",
+                "character_slug": "min-jae",
+                "episode_type": "core",
+                "situation": "A lead bolts. You and Min Jae follow into the neon maze of a nearby night market before they disappear.",
+                "episode_frame": "Seoul night market alleys, neon signage, steam from food stalls, reflective wet pavement",
+                "opening_line": "*Short breath, amused* Keep up. If they call someone, listen to who, not what.",
+                "dramatic_question": "Will chasing the runner expose the motive or just burn your only lead?",
+                "beat_guidance": {
+                    "establishment": "You move through crowded stalls; Min Jae tests if you can keep pace.",
+                    "complication": "The lead takes a call; you only catch fragments.",
+                    "escalation": "Min Jae lets you decide: intercept now or shadow longer.",
+                    "pivot_opportunity": "Do you risk a confrontation or capture more intel?",
+                },
+                "resolution_types": ["intel_gained", "spooked", "lost"],
+                "completion_mode": "beat_gated",
+                "completion_criteria": {"required_beat": "pivot_opportunity", "require_resolution": True},
+                "turn_budget": 10,
+            },
+            {
+                "episode_number": 4,
+                "title": "Interrogation Glass",
+                "character_slug": "min-jae",
+                "episode_type": "core",
+                "situation": "Back at the station. One suspect behind glass. Min Jae asks you to sit in and feed him tells while he questions.",
+                "episode_frame": "interrogation room with glass, dim overhead light, recorder on table, reflection of you and Min Jae",
+                "opening_line": "*Mic off, eyes on you* Watch their shoulders. I'll watch the eyes.",
+                "dramatic_question": "Can you push the suspect to reveal the missing motive without breaking the interview?",
+                "beat_guidance": {
+                    "establishment": "You and Min Jae have a rhythm; he trusts your signals.",
+                    "complication": "Suspect needles you, trying to throw you off.",
+                    "escalation": "You catch a micro-reaction when Min Jae mentions the window.",
+                    "pivot_opportunity": "Do you nod him to press, or switch tactics and mention the glass?",
+                },
+                "resolution_types": ["confession_angle", "stonewall", "misdirect"],
+                "completion_mode": "objective",
+                "completion_criteria": {"objective_key": "accusation_made"},
+                "turn_budget": 12,
+            },
+            {
+                "episode_number": 5,
+                "title": "Rooftop Verdict",
+                "character_slug": "min-jae",
+                "episode_type": "special",
+                "situation": "Dawn on the same rooftop. Guests reassembled. Min Jae asks you to stand with him as he lays out the sequence—and looks to you to close it.",
+                "episode_frame": "penthouse rooftop dawn, city skyline pale gold, coffee cups on railing, guests tense in coats",
+                "opening_line": "*Soft, for you* If I'm wrong, you say it. If I'm right, you finish it.",
+                "dramatic_question": "Do you make the accusation that ends the night, and what does that do to you and Min Jae?",
+                "beat_guidance": {
+                    "establishment": "He walks through the beats; the group hangs on your reactions.",
+                    "complication": "One guest challenges the timeline; you have to anchor the key clue.",
+                    "escalation": "Min Jae invites you to name the pivot—the window, the glass, or the runner's call.",
+                    "pivot_opportunity": "Do you name the culprit or leave it open to keep someone safe?",
+                },
+                "resolution_types": ["culprit_named", "open_future", "misdirect"],
+                "completion_mode": "beat_gated",
+                "completion_criteria": {"required_beat": "pivot_opportunity", "require_resolution": True},
+                "turn_budget": 12,
+            },
+        ],
+    },
 ]
 
 
@@ -721,6 +879,9 @@ async def scaffold_episodes(db: Database, series_ids: dict, character_ids: dict)
 
             ep_id = str(uuid.uuid4())
             ep_slug = ep["title"].lower().replace(" ", "-").replace("'", "")
+            completion_mode = ep.get("completion_mode")
+            completion_criteria = ep.get("completion_criteria")
+            turn_budget = ep.get("turn_budget")
 
             await db.execute("""
                 INSERT INTO episode_templates (
@@ -728,13 +889,15 @@ async def scaffold_episodes(db: Database, series_ids: dict, character_ids: dict)
                     episode_number, title, slug,
                     situation, opening_line, episode_frame,
                     episode_type, status,
-                    dramatic_question, beat_guidance, resolution_types
+                    dramatic_question, beat_guidance, resolution_types,
+                    completion_mode, completion_criteria, turn_budget
                 ) VALUES (
                     :id, :series_id, :character_id,
                     :episode_number, :title, :slug,
                     :situation, :opening_line, :episode_frame,
                     :episode_type, 'draft',
-                    :dramatic_question, CAST(:beat_guidance AS jsonb), :resolution_types
+                    :dramatic_question, CAST(:beat_guidance AS jsonb), :resolution_types,
+                    :completion_mode, CAST(:completion_criteria AS jsonb), :turn_budget
                 )
             """, {
                 "id": ep_id,
@@ -750,6 +913,9 @@ async def scaffold_episodes(db: Database, series_ids: dict, character_ids: dict)
                 "dramatic_question": ep.get("dramatic_question"),
                 "beat_guidance": json.dumps(ep.get("beat_guidance", {})),
                 "resolution_types": ep.get("resolution_types", ["positive", "neutral", "negative"]),
+                "completion_mode": completion_mode,
+                "completion_criteria": json.dumps(completion_criteria) if completion_criteria else None,
+                "turn_budget": turn_budget,
             })
 
             episode_ids.append(ep_id)

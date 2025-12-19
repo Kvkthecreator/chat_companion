@@ -209,12 +209,59 @@ KPOP_BOY_IDOL_BACKGROUNDS = {
     },
 }
 
+# Midnight Evidence (Serial mystery, real-life cinematic)
+MIDNIGHT_EVIDENCE_BACKGROUNDS = {
+    "Penthouse Arrival": {
+        "location": "glass-walled penthouse interior with Seoul skyline, party paused, staff near a closed study door",
+        "time": "night, cool city glow through floor-to-ceiling windows",
+        "mood": "suspended tension, everyone waiting for direction",
+        "rendering": "cinematic photography, soft film grain, shallow depth",
+        "quality": "masterpiece, best quality, cinematic film still, high detail",
+    },
+    "Locked Study": {
+        "location": "dark wood study, desk lamp on, window cracked open, glass on floor, shelves lined with books",
+        "time": "night, warm desk lamp against cool exterior light",
+        "mood": "quiet forensic focus, something off in the stillness",
+        "rendering": "cinematic photography, controlled light pools, crisp detail",
+        "quality": "masterpiece, best quality, cinematic film still, high detail",
+    },
+    "Alibi Hairline": {
+        "location": "penthouse lounge with taped-off study door, guests in small clusters, city glow outside",
+        "time": "late night, mixed warm interior and cool city spill",
+        "mood": "social surface with investigative undercurrent",
+        "rendering": "cinematic photography, shallow depth, soft bokeh",
+        "quality": "masterpiece, best quality, cinematic film still, high detail",
+    },
+    "Night Market Tail": {
+        "location": "Seoul night market alley, neon signs, steam from food stalls, wet reflective pavement",
+        "time": "late night, saturated neon colors, light haze",
+        "mood": "moving pursuit, anonymity in the crowd",
+        "rendering": "cinematic photography, dynamic lighting, subtle motion blur",
+        "quality": "masterpiece, best quality, cinematic film still, high detail",
+    },
+    "Interrogation Glass": {
+        "location": "police interrogation room with glass, dim overhead light, recorder on table, reflections visible",
+        "time": "late night, cool fluorescent with slight warmth from table lamp",
+        "mood": "pressured stillness, controlled tension",
+        "rendering": "cinematic photography, minimal light, clear reflections",
+        "quality": "masterpiece, best quality, cinematic film still, high detail",
+    },
+    "Rooftop Verdict": {
+        "location": "penthouse rooftop at dawn, Seoul skyline turning gold, coffee cups on railing, guests in coats",
+        "time": "sunrise, soft gold and blue mix",
+        "mood": "final reveal, quiet reckoning",
+        "rendering": "cinematic photography, soft dawn grade, gentle film grain",
+        "quality": "masterpiece, best quality, cinematic film still, high detail",
+    },
+}
+
 # Combined lookup for all series
 ALL_EPISODE_BACKGROUNDS = {
     **STOLEN_MOMENTS_BACKGROUNDS,
     **WEEKEND_REGULAR_BACKGROUNDS,
     **HOMETOWN_CRUSH_BACKGROUNDS,
     **KPOP_BOY_IDOL_BACKGROUNDS,
+    **MIDNIGHT_EVIDENCE_BACKGROUNDS,
 }
 
 
@@ -401,12 +448,24 @@ def build_kpop_boy_idol_cover_prompt() -> tuple[str, str]:
     )
 
 
+def build_midnight_evidence_cover_prompt() -> tuple[str, str]:
+    """Series cover prompt for Midnight Evidence (real-life serial mystery)."""
+    return build_series_cover_prompt(
+        character_description="sharp-eyed Korean detective early 30s, defined jawline, short tousled black hair, light stubble, charcoal suit with open collar shirt, leather watch, composed stance",
+        scene_description="glass-walled penthouse at night with Seoul skyline, study door taped off, evidence case nearby, city lights reflecting on polished floor",
+        pose_and_expression="standing near the taped door, one hand holding a slim badge, gaze steady toward the viewer inviting partnership",
+        lighting_and_time="night scene with cool city glow and warm interior accent, soft film grain",
+        genre_style="grounded cinematic mystery, sleek modern thriller look, shallow depth of field",
+    )
+
+
 # Series cover prompt lookup
 SERIES_COVER_PROMPTS = {
     "stolen-moments": build_stolen_moments_cover_prompt,
     "weekend-regular": build_weekend_regular_cover_prompt,
     "hometown-crush": build_hometown_crush_cover_prompt,
     "k-pop-boy-idol": build_kpop_boy_idol_cover_prompt,
+    "midnight-evidence": build_midnight_evidence_cover_prompt,
 }
 
 
