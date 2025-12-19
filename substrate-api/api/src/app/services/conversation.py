@@ -438,7 +438,6 @@ class ConversationService:
         episode_situation = None  # Physical setting/scenario - CRITICAL for grounding
         episode_frame = None
         dramatic_question = None
-        beat_guidance = {}
         resolution_types = ["positive", "neutral", "negative"]
         series_context = None
 
@@ -455,7 +454,7 @@ class ConversationService:
                 template_id = session_row["episode_template_id"]
                 # Fetch episode dynamics from template (situation is the primary physical grounding)
                 template_query = """
-                    SELECT situation, episode_frame, dramatic_question, beat_guidance, resolution_types, series_id
+                    SELECT situation, episode_frame, dramatic_question, resolution_types, series_id
                     FROM episode_templates
                     WHERE id = :template_id
                 """
@@ -467,9 +466,6 @@ class ConversationService:
                         episode_situation = template_row["situation"]
                     episode_frame = template_row["episode_frame"]
                     dramatic_question = template_row["dramatic_question"]
-                    beat_guidance_raw = template_row["beat_guidance"]
-                    if beat_guidance_raw:
-                        beat_guidance = json.loads(beat_guidance_raw) if isinstance(beat_guidance_raw, str) else beat_guidance_raw
                     resolution_types_raw = template_row["resolution_types"]
                     if resolution_types_raw:
                         resolution_types = list(resolution_types_raw) if not isinstance(resolution_types_raw, str) else resolution_types
@@ -498,7 +494,6 @@ class ConversationService:
             episode_situation=episode_situation,  # Physical grounding - CRITICAL
             episode_frame=episode_frame,
             dramatic_question=dramatic_question,
-            beat_guidance=beat_guidance,
             resolution_types=resolution_types,
             series_context=series_context,
         )

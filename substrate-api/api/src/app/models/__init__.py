@@ -70,7 +70,7 @@ from app.models.episode_template import (
     EpisodeTemplateSummary,
     EpisodeTemplateCreate,
     EpisodeTemplateUpdate,
-    CompletionMode,
+    AutoSceneMode,
     EpisodeType,
 )
 from app.models.evaluation import (
@@ -149,7 +149,7 @@ __all__ = [
     "EpisodeTemplateSummary",
     "EpisodeTemplateCreate",
     "EpisodeTemplateUpdate",
-    "CompletionMode",
+    "AutoSceneMode",
     "EpisodeType",
     # Session Evaluation
     "SessionEvaluation",

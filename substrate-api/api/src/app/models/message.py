@@ -110,7 +110,6 @@ class ConversationContext(BaseModel):
     episode_situation: Optional[str] = None  # Physical setting/scenario (e.g., "3AM convenience store")
     episode_frame: Optional[str] = None  # Platform stage direction
     dramatic_question: Optional[str] = None  # Narrative tension to explore
-    beat_guidance: Dict[str, Any] = Field(default_factory=dict)  # Soft narrative waypoints
     resolution_types: List[str] = Field(default_factory=lambda: ["positive", "neutral", "negative"])
     series_context: Optional[str] = None  # Context from previous episodes in serial
 
@@ -246,20 +245,6 @@ You are HERE, right now. Reference your physical surroundings naturally:
 
         if self.dramatic_question:
             parts.append(f"DRAMATIC QUESTION (explore, don't resolve too quickly):\n{self.dramatic_question}")
-
-        if self.beat_guidance:
-            # Beat guidance is soft waypoints, not a script
-            beats = []
-            if self.beat_guidance.get("establishment"):
-                beats.append(f"• Establishment: {self.beat_guidance['establishment']}")
-            if self.beat_guidance.get("complication"):
-                beats.append(f"• Complication: {self.beat_guidance['complication']}")
-            if self.beat_guidance.get("escalation"):
-                beats.append(f"• Escalation: {self.beat_guidance['escalation']}")
-            if self.beat_guidance.get("pivot_opportunity"):
-                beats.append(f"• Pivot opportunity: {self.beat_guidance['pivot_opportunity']}")
-            if beats:
-                parts.append("BEAT GUIDANCE (soft waypoints, not a script):\n" + "\n".join(beats))
 
         if self.resolution_types:
             # Let LLM know valid resolution directions
