@@ -72,6 +72,44 @@ Scene: {prompt}
 
 Caption:"""
 
+# ═══════════════════════════════════════════════════════════════════════════════
+# OBJECT MODE PROMPT TEMPLATE (Director visual_type: object)
+# Used for close-up shots of significant items (letters, phones, keys, etc.)
+# No character in frame - just the object with atmospheric context.
+# ═══════════════════════════════════════════════════════════════════════════════
+OBJECT_PROMPT_TEMPLATE = """Create a close-up image prompt for a significant object in this scene.
+
+SETTING: {scene}
+OBJECT/MOMENT: {moment}
+
+Write a prompt (30-50 words) for a dramatic close-up of the object.
+Focus on: the item itself, lighting, atmosphere, emotional weight.
+
+FORMAT: "[object in detail], [setting context], [dramatic lighting], [mood], anime style, cinematic close-up"
+
+Example: "crumpled handwritten letter on mahogany desk, single desk lamp casting warm glow, rain shadows on paper, melancholic atmosphere, anime style, cinematic close-up"
+
+Your prompt:"""
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# ATMOSPHERE MODE PROMPT TEMPLATE (Director visual_type: atmosphere)
+# Used for setting/mood shots without any characters visible.
+# Establishes emotional context through environment alone.
+# ═══════════════════════════════════════════════════════════════════════════════
+ATMOSPHERE_PROMPT_TEMPLATE = """Create an atmospheric establishing shot prompt. NO characters in frame.
+
+SETTING: {scene}
+MOOD TO CONVEY: {moment}
+
+Write a prompt (40-60 words) for an empty scene that captures the mood.
+Focus on: environment details, lighting, atmospheric elements, emotional tone.
+
+FORMAT: "[setting description], [time/lighting], [atmospheric details], [mood], anime style, cinematic, no people"
+
+Example: "empty convenience store interior at 3am, harsh fluorescent lights humming, rain-streaked windows, lonely atmosphere, anime style, cinematic, no people, atmospheric depth"
+
+Your prompt:"""
+
 
 class SceneService:
     """Service for generating and managing scene cards."""
@@ -315,6 +353,276 @@ CRITICAL RULES:
         except Exception as e:
             log.error(f"Scene generation failed: {e}")
             return None
+
+    async def generate_director_visual(
+        self,
+        visual_type: str,
+        episode_id: UUID,
+        user_id: UUID,
+        character_id: UUID,
+        character_name: str,
+        scene_setting: str,
+        visual_hint: str,
+        # Avatar kit data (optional, for character visual_type)
+        appearance_prompt: Optional[str] = None,
+        style_prompt: Optional[str] = None,
+        negative_prompt: Optional[str] = None,
+        avatar_kit_id: Optional[UUID] = None,
+        anchor_image: Optional[bytes] = None,
+    ) -> Optional[Dict[str, Any]]:
+        """Generate a visual based on Director's visual_type classification.
+
+        Routes to appropriate generation pipeline based on visual_type:
+        - character: Character in scene (uses Kontext with anchor or T2I)
+        - object: Close-up of significant item (no character reference)
+        - atmosphere: Setting/mood shot (no character, empty scene)
+        - instruction: Not handled here (text card, no image generation)
+        - none: Not handled here (no visual needed)
+
+        Returns the generated scene data or None if generation fails.
+        """
+        if visual_type == "character":
+            # Use existing character scene generation
+            return await self.generate_scene_for_moment(
+                episode_id=episode_id,
+                user_id=user_id,
+                character_id=character_id,
+                character_name=character_name,
+                scene_setting=scene_setting,
+                moment_description=visual_hint,
+                trigger_type="director_auto",
+                appearance_prompt=appearance_prompt,
+                style_prompt=style_prompt,
+                negative_prompt=negative_prompt,
+                avatar_kit_id=avatar_kit_id,
+                anchor_image=anchor_image,
+            )
+
+        elif visual_type == "object":
+            return await self._generate_object_visual(
+                episode_id=episode_id,
+                user_id=user_id,
+                character_id=character_id,
+                scene_setting=scene_setting,
+                visual_hint=visual_hint,
+                style_prompt=style_prompt,
+            )
+
+        elif visual_type == "atmosphere":
+            return await self._generate_atmosphere_visual(
+                episode_id=episode_id,
+                user_id=user_id,
+                character_id=character_id,
+                scene_setting=scene_setting,
+                visual_hint=visual_hint,
+                style_prompt=style_prompt,
+            )
+
+        else:
+            log.warning(f"Unknown visual_type '{visual_type}', skipping generation")
+            return None
+
+    async def _generate_object_visual(
+        self,
+        episode_id: UUID,
+        user_id: UUID,
+        character_id: UUID,
+        scene_setting: str,
+        visual_hint: str,
+        style_prompt: Optional[str] = None,
+    ) -> Optional[Dict[str, Any]]:
+        """Generate object close-up visual (no character)."""
+        try:
+            # Generate prompt for object close-up
+            prompt_request = OBJECT_PROMPT_TEMPLATE.format(
+                scene=scene_setting or "A setting",
+                moment=visual_hint,
+            )
+            system_prompt = """You are an expert at writing cinematic close-up prompts.
+Focus on the object itself - its details, textures, lighting.
+Create atmospheric tension through the object, not characters.
+NEVER include people or faces in your prompt."""
+
+            prompt_response = await self.llm_service.generate([
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": prompt_request},
+            ], max_tokens=200)
+            scene_prompt = prompt_response.content.strip()
+
+            if style_prompt:
+                scene_prompt = f"{scene_prompt}, {style_prompt}"
+
+            log.info(f"OBJECT MODE: {scene_prompt[:100]}...")
+
+            # Generate using T2I (no character reference needed)
+            negative = "person, people, face, human, character, figure, silhouette, photorealistic, 3D render"
+            image_response = await self.image_service.generate(
+                prompt=scene_prompt,
+                negative_prompt=negative,
+                width=1024,
+                height=1024,
+            )
+
+            return await self._save_generated_image(
+                image_response=image_response,
+                episode_id=episode_id,
+                user_id=user_id,
+                character_id=character_id,
+                scene_prompt=scene_prompt,
+                trigger_type="director_auto",
+            )
+
+        except Exception as e:
+            log.error(f"Object visual generation failed: {e}")
+            return None
+
+    async def _generate_atmosphere_visual(
+        self,
+        episode_id: UUID,
+        user_id: UUID,
+        character_id: UUID,
+        scene_setting: str,
+        visual_hint: str,
+        style_prompt: Optional[str] = None,
+    ) -> Optional[Dict[str, Any]]:
+        """Generate atmospheric/setting visual (no character)."""
+        try:
+            # Generate prompt for atmosphere shot
+            prompt_request = ATMOSPHERE_PROMPT_TEMPLATE.format(
+                scene=scene_setting or "A setting",
+                moment=visual_hint,
+            )
+            system_prompt = """You are an expert at writing atmospheric establishing shot prompts.
+Create mood through environment - lighting, weather, empty spaces.
+NEVER include people, characters, or figures in your prompt.
+Focus on the feeling of the space itself."""
+
+            prompt_response = await self.llm_service.generate([
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": prompt_request},
+            ], max_tokens=200)
+            scene_prompt = prompt_response.content.strip()
+
+            if style_prompt:
+                scene_prompt = f"{scene_prompt}, {style_prompt}"
+
+            log.info(f"ATMOSPHERE MODE: {scene_prompt[:100]}...")
+
+            # Generate using T2I for backgrounds
+            negative = "person, people, face, human, character, figure, silhouette, portrait, photorealistic, 3D render"
+            image_response = await self.image_service.generate(
+                prompt=scene_prompt,
+                negative_prompt=negative,
+                width=1024,
+                height=576,  # 16:9 for atmospheric shots
+            )
+
+            return await self._save_generated_image(
+                image_response=image_response,
+                episode_id=episode_id,
+                user_id=user_id,
+                character_id=character_id,
+                scene_prompt=scene_prompt,
+                trigger_type="director_auto",
+            )
+
+        except Exception as e:
+            log.error(f"Atmosphere visual generation failed: {e}")
+            return None
+
+    async def _save_generated_image(
+        self,
+        image_response,
+        episode_id: UUID,
+        user_id: UUID,
+        character_id: UUID,
+        scene_prompt: str,
+        trigger_type: str,
+        avatar_kit_id: Optional[UUID] = None,
+    ) -> Optional[Dict[str, Any]]:
+        """Common image saving logic for all visual types."""
+        if not image_response.images:
+            log.warning("No image generated")
+            return None
+
+        image_bytes = image_response.images[0]
+        image_id = uuid.uuid4()
+
+        # Upload to storage
+        storage_path = await self.storage_service.upload_scene(
+            image_bytes=image_bytes,
+            user_id=user_id,
+            episode_id=episode_id,
+            image_id=image_id,
+        )
+
+        # Generate caption
+        caption = None
+        try:
+            caption_response = await self.llm_service.generate([
+                {"role": "user", "content": CAPTION_PROMPT.format(prompt=scene_prompt)},
+            ], max_tokens=100)
+            caption = caption_response.content.strip().strip('"')
+        except Exception as e:
+            log.warning(f"Caption generation failed: {e}")
+
+        # Get next sequence index
+        index_query = "SELECT get_next_episode_image_index(:episode_id) as idx"
+        index_row = await self.db.fetch_one(index_query, {"episode_id": str(episode_id)})
+        sequence_index = index_row["idx"] if index_row else 0
+
+        # Save to database
+        await self.db.execute("""
+            INSERT INTO image_assets (
+                id, type, user_id, character_id, storage_bucket, storage_path,
+                prompt, model_used, latency_ms, file_size_bytes
+            )
+            VALUES (
+                :id, 'scene', :user_id, :character_id, 'scenes', :storage_path,
+                :prompt, :model_used, :latency_ms, :file_size_bytes
+            )
+        """, {
+            "id": str(image_id),
+            "user_id": str(user_id),
+            "character_id": str(character_id),
+            "storage_path": storage_path,
+            "prompt": scene_prompt,
+            "model_used": image_response.model,
+            "latency_ms": image_response.latency_ms,
+            "file_size_bytes": len(image_bytes),
+        })
+
+        await self.db.execute("""
+            INSERT INTO scene_images (
+                episode_id, image_id, sequence_index, caption,
+                trigger_type, avatar_kit_id
+            )
+            VALUES (
+                :episode_id, :image_id, :sequence_index, :caption,
+                :trigger_type, :avatar_kit_id
+            )
+        """, {
+            "episode_id": str(episode_id),
+            "image_id": str(image_id),
+            "sequence_index": sequence_index,
+            "caption": caption,
+            "trigger_type": trigger_type,
+            "avatar_kit_id": str(avatar_kit_id) if avatar_kit_id else None,
+        })
+
+        supabase_url = os.getenv("SUPABASE_URL", "")
+        image_url = f"{supabase_url}/storage/v1/object/authenticated/scenes/{storage_path}"
+
+        log.info(f"Generated scene for episode {episode_id}: {caption}")
+
+        return {
+            "image_id": str(image_id),
+            "episode_id": str(episode_id),
+            "storage_path": storage_path,
+            "image_url": image_url,
+            "caption": caption,
+            "sequence_index": sequence_index,
+        }
 
     async def get_recent_conversation_summary(
         self,

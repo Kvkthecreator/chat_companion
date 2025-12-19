@@ -16,6 +16,7 @@ from app.services.memory import MemoryService
 from app.services.usage import UsageService
 from app.services.rate_limiter import MessageRateLimiter, RateLimitExceededError
 from app.services.director import DirectorService
+from app.services.scene import SceneService
 
 log = logging.getLogger(__name__)
 
@@ -33,6 +34,7 @@ class ConversationService:
         self.usage_service = UsageService.get_instance()
         self.rate_limiter = MessageRateLimiter.get_instance()
         self.director_service = DirectorService(db)
+        self.scene_service = SceneService(db)
 
     async def send_message(
         self,
@@ -264,6 +266,20 @@ class ConversationService:
                                 "visual_hint": actions.visual_hint,
                                 "sparks_deducted": actions.deduct_sparks,
                             }) + "\n"
+
+                            # Actually generate the scene image (async, fire-and-forget)
+                            if ENABLE_AUTO_SCENE_GENERATION and actions.deduct_sparks > 0:
+                                asyncio.create_task(
+                                    self._generate_auto_scene(
+                                        episode_id=episode.id,
+                                        user_id=user_id,
+                                        character_id=character_id,
+                                        character_name=context.character_name,
+                                        scene_setting=episode_template.situation if episode_template else "",
+                                        visual_hint=actions.visual_hint or "the current moment",
+                                        visual_type=actions.visual_type,
+                                    )
+                                )
 
                     # Needs sparks prompt (first time only)
                     if actions.needs_sparks:
@@ -798,6 +814,88 @@ class ConversationService:
 
         milestones = [2, 6, 12, 22, 32, 42]
         return message_count in milestones
+
+    async def _generate_auto_scene(
+        self,
+        episode_id: UUID,
+        user_id: UUID,
+        character_id: UUID,
+        character_name: str,
+        scene_setting: str,
+        visual_hint: str,
+        visual_type: str = "character",
+    ):
+        """Generate a scene image automatically (Director-triggered).
+
+        This runs as a background task and won't block the stream.
+        Routes to appropriate generation pipeline based on visual_type:
+        - character: Character in scene (Kontext with anchor or T2I)
+        - object: Close-up of item (no character)
+        - atmosphere: Setting/mood shot (no character)
+        """
+        try:
+            # Get avatar kit for character consistency (only needed for character type)
+            anchor_image = None
+            appearance_prompt = None
+            style_prompt = None
+            negative_prompt = None
+            avatar_kit_id = None
+
+            if visual_type == "character":
+                kit_row = await self.db.fetch_one(
+                    """
+                    SELECT ak.id, ak.appearance_prompt, ak.style_prompt, ak.negative_prompt,
+                           aa.storage_path
+                    FROM avatar_kits ak
+                    LEFT JOIN avatar_assets aa ON aa.avatar_kit_id = ak.id AND aa.asset_type = 'anchor'
+                    WHERE ak.character_id = :character_id
+                    ORDER BY ak.created_at DESC
+                    LIMIT 1
+                    """,
+                    {"character_id": str(character_id)}
+                )
+
+                if kit_row:
+                    avatar_kit_id = kit_row["id"]
+                    appearance_prompt = kit_row.get("appearance_prompt")
+                    style_prompt = kit_row.get("style_prompt")
+                    negative_prompt = kit_row.get("negative_prompt")
+
+                    # Load anchor image if available
+                    if kit_row.get("storage_path"):
+                        try:
+                            from app.services.storage import StorageService
+                            storage = StorageService.get_instance()
+                            anchor_image = await storage.download(
+                                bucket="avatars",
+                                path=kit_row["storage_path"]
+                            )
+                        except Exception as e:
+                            log.warning(f"Failed to load anchor image: {e}")
+
+            # Generate the visual using the Director-aware method
+            result = await self.scene_service.generate_director_visual(
+                visual_type=visual_type,
+                episode_id=episode_id,
+                user_id=user_id,
+                character_id=character_id,
+                character_name=character_name,
+                scene_setting=scene_setting,
+                visual_hint=visual_hint,
+                appearance_prompt=appearance_prompt,
+                style_prompt=style_prompt,
+                negative_prompt=negative_prompt,
+                avatar_kit_id=avatar_kit_id,
+                anchor_image=anchor_image,
+            )
+
+            if result:
+                log.info(f"Auto-generated {visual_type} scene for episode {episode_id}: {result.get('image_id')}")
+            else:
+                log.warning(f"Auto-scene generation returned no result for episode {episode_id}")
+
+        except Exception as e:
+            log.error(f"Auto-scene generation failed for episode {episode_id}: {e}")
 
     async def _process_exchange(
         self,
