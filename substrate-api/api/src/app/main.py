@@ -34,6 +34,7 @@ from app.routes import (
     studio,
     subscription,
     users,
+    games,
 )
 
 log = logging.getLogger("uvicorn.error")
@@ -153,7 +154,7 @@ app.add_middleware(
 app.add_middleware(
     AuthMiddleware,
     exempt_paths={"/", "/health", "/docs", "/openapi.json", "/redoc"},
-    exempt_prefixes={"/health/", "/characters", "/webhooks", "/studio/admin", "/episode-templates", "/series", "/worlds"},
+    exempt_prefixes={"/health/", "/characters", "/webhooks", "/studio/admin", "/episode-templates", "/series", "/worlds", "/games/r"},
 )
 
 # Include routers
@@ -176,6 +177,7 @@ app.include_router(subscription.webhook_router, tags=["Webhooks"])
 app.include_router(credits.router, tags=["Credits"])
 app.include_router(credits.topup_router, tags=["Top-Up"])
 app.include_router(studio.router, tags=["Studio"])
+app.include_router(games.router, tags=["Games"])
 
 
 @app.get("/")

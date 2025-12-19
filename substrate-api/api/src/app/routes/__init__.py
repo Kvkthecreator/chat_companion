@@ -18,6 +18,7 @@ from app.routes import (
     credits,
     avatars,
     studio,
+    games,
 )
 
 __all__ = [
@@ -38,4 +39,5 @@ __all__ = [
     "credits",
     "avatars",
     "studio",
+    "games",
 ]

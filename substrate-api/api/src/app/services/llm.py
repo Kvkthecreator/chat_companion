@@ -45,6 +45,62 @@ import httpx
 log = logging.getLogger(__name__)
 
 
+# Structured output schema for character responses in bounded episodes
+CHARACTER_RESPONSE_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "dialogue": {
+            "type": "string",
+            "description": "Character's spoken words"
+        },
+        "action": {
+            "type": ["string", "null"],
+            "description": "Physical action or expression"
+        },
+        "internal": {
+            "type": ["string", "null"],
+            "description": "Character's internal thought (not shown to user)"
+        },
+        "mood": {
+            "type": "string",
+            "description": "Current emotional state (e.g., intrigued, playful, guarded)"
+        },
+        "tension_shift": {
+            "type": "number",
+            "minimum": -1.0,
+            "maximum": 1.0,
+            "description": "How this exchange affects romantic tension"
+        }
+    },
+    "required": ["dialogue", "mood", "tension_shift"]
+}
+
+
+def render_structured_response(structured: Dict[str, Any]) -> str:
+    """Convert structured character output to display format.
+
+    Combines action and dialogue into a readable string.
+    Internal thoughts are not included (for Director use only).
+
+    Args:
+        structured: Parsed structured response with dialogue, action, mood, etc.
+
+    Returns:
+        Formatted string for display to user
+    """
+    parts = []
+
+    # Action first (in italics style)
+    if structured.get("action"):
+        parts.append(f"*{structured['action']}*")
+
+    # Then dialogue (in quotes)
+    if structured.get("dialogue"):
+        parts.append(f'"{structured["dialogue"]}"')
+
+    return " ".join(parts) if parts else structured.get("dialogue", "")
+
+
 class LLMProvider(str, Enum):
     """Supported LLM providers."""
 
@@ -669,6 +725,78 @@ Respond ONLY with the JSON, no additional text.""",
             content = "\n".join(lines[1:-1])
 
         return json.loads(content)
+
+    async def generate_structured(
+        self,
+        messages: List[Dict[str, str]],
+        response_schema: Dict[str, Any],
+        temperature: Optional[float] = None,
+    ) -> Dict[str, Any]:
+        """Generate a structured JSON response following a schema.
+
+        This is used for character responses in bounded episodes where we need
+        structured output (dialogue, action, mood, tension_shift).
+
+        Args:
+            messages: Conversation messages (system + history)
+            response_schema: JSON schema for the response
+            temperature: Generation temperature
+
+        Returns:
+            Parsed JSON response matching the schema
+        """
+        # Add structured output instructions to system message
+        system_msg = messages[0] if messages and messages[0]["role"] == "system" else None
+        other_msgs = messages[1:] if system_msg else messages
+
+        structured_system = f"""{system_msg["content"] if system_msg else "You are a helpful assistant."}
+
+═══════════════════════════════════════════════════════════════
+STRUCTURED OUTPUT REQUIRED
+═══════════════════════════════════════════════════════════════
+
+You MUST respond with valid JSON matching this schema:
+{json.dumps(response_schema, indent=2)}
+
+Example response format:
+{{
+    "dialogue": "Your character's spoken words",
+    "action": "Physical action or expression (can be null)",
+    "internal": "Character's internal thought (can be null, not shown to user)",
+    "mood": "Current emotional state (e.g., intrigued, playful, guarded)",
+    "tension_shift": 0.1  // -1.0 to 1.0, how this exchange affects romantic tension
+}}
+
+Respond ONLY with the JSON, no additional text or markdown."""
+
+        structured_messages = [
+            {"role": "system", "content": structured_system},
+            *other_msgs,
+        ]
+
+        response = await self.generate(structured_messages, temperature=temperature)
+
+        # Parse JSON from response
+        content = response.content.strip()
+
+        # Handle markdown code blocks
+        if content.startswith("```"):
+            lines = content.split("\n")
+            # Remove first and last lines (```json and ```)
+            content = "\n".join(lines[1:-1])
+
+        try:
+            return json.loads(content)
+        except json.JSONDecodeError as e:
+            log.error(f"Failed to parse structured response: {e}\nContent: {content}")
+            # Return a fallback structure
+            return {
+                "dialogue": content,  # Use raw content as dialogue
+                "action": None,
+                "internal": None,
+                "mood": "neutral",
+                "tension_shift": 0,
+            }
 
     async def close(self):
         """Close the client."""
