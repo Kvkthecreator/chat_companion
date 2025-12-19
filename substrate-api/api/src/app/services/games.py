@@ -113,7 +113,7 @@ class GamesService:
         episode_template = EpisodeTemplate(**{
             k: row[k] for k in row.keys()
             if k not in ("series_id", "character_name", "character_avatar_url")
-            and k in EpisodeTemplate.__fields__
+            and k in EpisodeTemplate.model_fields
         })
 
         # Create session
@@ -378,12 +378,12 @@ class GamesService:
             raise ValueError(f"Session not found: {session_id}")
 
         # Split row into session and template fields
-        session_fields = {k: row[k] for k in Session.__fields__ if k in row.keys()}
+        session_fields = {k: row[k] for k in Session.model_fields if k in row.keys()}
         session = Session(**session_fields)
 
         episode_template = None
         if row.get("episode_template_id"):
-            template_fields = {k: row[k] for k in EpisodeTemplate.__fields__ if k in row.keys()}
+            template_fields = {k: row[k] for k in EpisodeTemplate.model_fields if k in row.keys()}
             try:
                 episode_template = EpisodeTemplate(**template_fields)
             except Exception as e:
