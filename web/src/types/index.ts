@@ -381,8 +381,9 @@ export interface World {
 
 /**
  * Series type per GLOSSARY.md
+ * - play: Viral/game content for /play route (anonymous-first)
  */
-export type SeriesType = "standalone" | "serial" | "anthology" | "crossover";
+export type SeriesType = "standalone" | "serial" | "anthology" | "crossover" | "play";
 
 /**
  * Series Summary - for lists and cards

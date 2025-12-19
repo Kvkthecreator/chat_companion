@@ -45,11 +45,12 @@ export default function StudioPage() {
       const charData = await api.studio.listCharacters(statusFilter)
       setCharacters(charData)
 
-      // Fetch series
+      // Fetch series (include all types including 'play' for studio management)
       try {
         const seriesData = await api.series.list({
           status: filter !== 'all' ? filter : undefined,
-          worldId: worldFilter || undefined
+          worldId: worldFilter || undefined,
+          includePlay: true,  // Studio sees all series types
         })
         setSeries(seriesData)
       } catch {

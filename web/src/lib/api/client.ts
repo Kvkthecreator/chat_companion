@@ -209,12 +209,13 @@ export const api = {
 
   // Series endpoints (narrative containers - per CONTENT_ARCHITECTURE_CANON.md)
   series: {
-    list: (params?: { worldId?: string; seriesType?: string; status?: string; featured?: boolean; limit?: number }) => {
+    list: (params?: { worldId?: string; seriesType?: string; status?: string; featured?: boolean; includePlay?: boolean; limit?: number }) => {
       const searchParams = new URLSearchParams();
       if (params?.worldId) searchParams.set("world_id", params.worldId);
       if (params?.seriesType) searchParams.set("series_type", params.seriesType);
       if (params?.status) searchParams.set("status_filter", params.status);
       if (params?.featured) searchParams.set("featured", "true");
+      if (params?.includePlay) searchParams.set("include_play", "true");
       if (params?.limit) searchParams.set("limit", String(params.limit));
       const query = searchParams.toString();
       return request<import("@/types").SeriesSummary[]>(

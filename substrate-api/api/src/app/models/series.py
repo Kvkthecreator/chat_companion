@@ -17,6 +17,7 @@ class SeriesType:
     SERIAL = "serial"          # Sequential narrative, Episode 0 recommended first
     ANTHOLOGY = "anthology"    # Themed collection, loosely connected
     CROSSOVER = "crossover"    # Multiple characters from different worlds
+    PLAY = "play"              # Viral/game content for /play route (anonymous-first)
 
 
 class SeriesSummary(BaseModel):

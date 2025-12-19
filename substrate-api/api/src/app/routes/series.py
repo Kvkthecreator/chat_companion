@@ -65,10 +65,15 @@ async def list_series(
     series_type: Optional[str] = Query(None, description="Filter by series type"),
     status_filter: str = Query("active", description="Filter by status"),
     featured: bool = Query(False, description="Only return featured series"),
+    include_play: bool = Query(False, description="Include 'play' type series (excluded by default)"),
     limit: int = Query(50, ge=1, le=100),
     db=Depends(get_db),
 ):
-    """List all series with optional filters."""
+    """List all series with optional filters.
+
+    By default, excludes 'play' type series (viral/game content for /play route).
+    Use include_play=true or series_type=play to access them.
+    """
     query = """
         SELECT id, title, slug, tagline, series_type, total_episodes,
                cover_image_url, is_featured, genre
@@ -86,8 +91,12 @@ async def list_series(
         params["world_id"] = str(world_id)
 
     if series_type:
+        # If explicitly filtering by series_type, use that
         query += " AND series_type = :series_type"
         params["series_type"] = series_type
+    elif not include_play:
+        # By default, exclude 'play' type from main app queries
+        query += " AND series_type != 'play'"
 
     if featured:
         query += " AND is_featured = TRUE"
