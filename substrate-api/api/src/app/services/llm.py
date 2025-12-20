@@ -789,9 +789,23 @@ Respond ONLY with the JSON, no additional text or markdown."""
             return json.loads(content)
         except json.JSONDecodeError as e:
             log.error(f"Failed to parse structured response: {e}\nContent: {content}")
+            # Try to extract dialogue from partial JSON
+            dialogue = content
+            import re
+            dialogue_match = re.search(r'"dialogue":\s*"([^"]*)', content)
+            if dialogue_match:
+                dialogue = dialogue_match.group(1)
+            else:
+                # Strip JSON artifacts if present
+                if content.startswith("{"):
+                    dialogue = content.lstrip("{").strip()
+                    # Try to find meaningful text
+                    if "dialogue" in dialogue.lower():
+                        dialogue = re.sub(r'["\{\}:\[\],]', '', dialogue)
+                        dialogue = dialogue.replace("dialogue", "").strip()
             # Return a fallback structure
             return {
-                "dialogue": content,  # Use raw content as dialogue
+                "dialogue": dialogue,
                 "action": None,
                 "internal": None,
                 "mood": "neutral",

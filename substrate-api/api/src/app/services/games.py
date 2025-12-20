@@ -19,7 +19,7 @@ from app.models.message import MessageRole
 from app.models.evaluation import generate_share_id
 from app.services.conversation import ConversationService
 from app.services.director import DirectorService
-from app.services.llm import LLMService, CHARACTER_RESPONSE_SCHEMA, render_structured_response
+from app.services.llm import LLMService
 from app.services.memory import MemoryService
 
 log = logging.getLogger(__name__)
@@ -174,15 +174,16 @@ class GamesService:
         # Add user message to context
         context.messages.append({"role": "user", "content": content})
 
-        # Generate structured response
+        # Generate response (plain text, not structured JSON)
+        # The Flirt Test characters use prose format with *actions* inline
         formatted_messages = context.to_messages()
-        structured_response = await self.llm.generate_structured(
+        response = await self.llm.generate(
             messages=formatted_messages,
-            response_schema=CHARACTER_RESPONSE_SCHEMA,
+            max_tokens=300,  # Keep responses short and punchy
         )
 
-        # Render for display
-        display_content = render_structured_response(structured_response)
+        display_content = response.content.strip()
+        structured_response = {"dialogue": display_content, "mood": "engaged"}
 
         # Save assistant message
         await self.conversation_service._save_message(
@@ -250,15 +251,16 @@ class GamesService:
         )
         context.messages.append({"role": "user", "content": content})
 
-        # For games, generate structured response (non-streaming for now)
-        # TODO: Could implement streaming with structured postprocessing
+        # Generate response (plain text, not structured JSON)
+        # The Flirt Test characters use prose format with *actions* inline
         formatted_messages = context.to_messages()
-        structured_response = await self.llm.generate_structured(
+        response = await self.llm.generate(
             messages=formatted_messages,
-            response_schema=CHARACTER_RESPONSE_SCHEMA,
+            max_tokens=300,  # Keep responses short and punchy
         )
 
-        display_content = render_structured_response(structured_response)
+        display_content = response.content.strip()
+        structured_response = {"dialogue": display_content, "mood": "engaged"}
 
         # Stream the display content in chunks
         for i in range(0, len(display_content), 10):
