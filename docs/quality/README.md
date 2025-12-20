@@ -28,16 +28,17 @@ docs/quality/
 ├── core/                        ← Foundational specifications
 │   ├── QUALITY_FRAMEWORK.md     ← Philosophy and measurement
 │   ├── CONTEXT_LAYERS.md        ← 6-layer prompt architecture
-│   └── DIRECTOR_PROTOCOL.md     ← Director behavior specification
+│   ├── DIRECTOR_PROTOCOL.md     ← Director evaluation logic (two-phase)
+│   └── DIRECTOR_UI_TOOLKIT.md   ← Director UI/UX outputs (events, components)
 │
 ├── genres/                      ← Genre-specific quality rules
-│   ├── ROMANTIC_TENSION.md      ← Romance genre doctrine
-│   ├── PSYCHOLOGICAL_THRILLER.md← Thriller genre doctrine
+│   ├── ROMANTIC_TENSION.md      ← Romance genre doctrine (planned)
+│   ├── PSYCHOLOGICAL_THRILLER.md← Thriller genre doctrine (planned)
 │   └── _TEMPLATE.md             ← Template for new genres
 │
 ├── modalities/                  ← Output-specific quality rules
-│   ├── TEXT_RESPONSES.md        ← Character message quality
-│   ├── VISUAL_GENERATION.md     ← Scene/image generation
+│   ├── TEXT_RESPONSES.md        ← Character message quality (planned)
+│   ├── VISUAL_GENERATION.md     ← Scene/image generation (planned)
 │   └── _FUTURE.md               ← Placeholder for audio/video
 │
 └── tuning/                      ← Model-specific adjustments
@@ -52,8 +53,9 @@ docs/quality/
 ### For Engineers
 1. Read [QUALITY_FRAMEWORK.md](core/QUALITY_FRAMEWORK.md) for philosophy
 2. Read [CONTEXT_LAYERS.md](core/CONTEXT_LAYERS.md) for prompt architecture
-3. Check [DIRECTOR_PROTOCOL.md](core/DIRECTOR_PROTOCOL.md) for Director behavior
-4. Reference model-specific tuning in `/tuning/`
+3. Check [DIRECTOR_PROTOCOL.md](core/DIRECTOR_PROTOCOL.md) for Director evaluation logic
+4. Check [DIRECTOR_UI_TOOLKIT.md](core/DIRECTOR_UI_TOOLKIT.md) for Director UI outputs
+5. Reference model-specific tuning in `/tuning/`
 
 ### For Content Creators
 1. Read [QUALITY_FRAMEWORK.md](core/QUALITY_FRAMEWORK.md) for quality bar

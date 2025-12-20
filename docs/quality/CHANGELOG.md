@@ -9,9 +9,27 @@ Format: `[Document] vX.Y.Z - YYYY-MM-DD`
 ## [Unreleased]
 
 ### Proposed
-- Director pre-guidance implementation
+- Interactive instruction cards (clickable choices)
+- Pacing visualization in ChatHeader
+
+---
+
+## 2024-12-20 (Evening)
+
+### Added
+- **[DIRECTOR_UI_TOOLKIT.md]** v1.0.0 - Director UI responsibilities
+  - Complete stream event catalog
+  - Visual type taxonomy with cost model
+  - Auto-scene mode configuration
+  - Component mapping (SceneCard, InstructionCard, etc.)
+  - Frontend hook interface
+  - Data flow diagram
+
+### Implemented
+- Director pre-guidance (Phase 1) in conversation flow
 - Turn-aware pacing in conversation service
-- Genre beat injection
+- Genre beat injection via GENRE_BEATS lookup
+- Pacing field in StreamDirectorState
 
 ---
 
