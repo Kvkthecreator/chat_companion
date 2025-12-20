@@ -189,7 +189,6 @@ class GamesService:
             episode_id=session_id,
             role=MessageRole.ASSISTANT,
             content=display_content,
-            metadata={"structured": structured_response},
         )
 
         # Process with Director
@@ -263,7 +262,6 @@ class GamesService:
             episode_id=session_id,
             role=MessageRole.ASSISTANT,
             content=display_content,
-            metadata={"structured": structured_response},
         )
 
         # Process with Director
