@@ -179,7 +179,7 @@ class GamesService:
         formatted_messages = context.to_messages()
         response = await self.llm.generate(
             messages=formatted_messages,
-            max_tokens=300,  # Keep responses short and punchy
+            max_tokens=500,  # Enough for 2-3 sentences + actions
         )
 
         display_content = response.content.strip()
@@ -256,7 +256,7 @@ class GamesService:
         formatted_messages = context.to_messages()
         response = await self.llm.generate(
             messages=formatted_messages,
-            max_tokens=300,  # Keep responses short and punchy
+            max_tokens=500,  # Enough for 2-3 sentences + actions
         )
 
         display_content = response.content.strip()
