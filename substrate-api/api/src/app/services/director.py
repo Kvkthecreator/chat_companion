@@ -23,6 +23,8 @@ from app.models.evaluation import (
     EvaluationType,
     FlirtArchetype,
     FLIRT_ARCHETYPES,
+    RomanticTrope,
+    ROMANTIC_TROPES,
     generate_share_id,
 )
 from app.services.llm import LLMService
@@ -635,4 +637,280 @@ If visual is not "none", add: [hint: <description>]"""
             "episode_number": row["episode_number"],
             "situation": row["situation"],
             "character_id": str(row["character_id"]) if row["character_id"] else None,
+        }
+
+    # =========================================================================
+    # SHARE INFRASTRUCTURE
+    # =========================================================================
+
+    async def get_evaluation_by_share_id(
+        self,
+        share_id: str,
+    ) -> Optional[Dict[str, Any]]:
+        """Get a session evaluation by its share ID.
+
+        Returns the evaluation with character context for share pages.
+        Used by the public /r/{share_id} endpoint.
+        """
+        row = await self.db.fetch_one(
+            """
+            SELECT
+                se.id,
+                se.session_id,
+                se.evaluation_type,
+                se.result,
+                se.share_id,
+                se.share_count,
+                se.created_at,
+                c.id as character_id,
+                c.name as character_name,
+                s.series_id
+            FROM session_evaluations se
+            JOIN sessions s ON s.id = se.session_id
+            LEFT JOIN characters c ON c.id = s.character_id
+            WHERE se.share_id = :share_id
+            """,
+            {"share_id": share_id}
+        )
+
+        if not row:
+            return None
+
+        # Parse result if it's a JSON string
+        result = row["result"]
+        if isinstance(result, str):
+            try:
+                result = json.loads(result)
+            except (json.JSONDecodeError, TypeError):
+                result = {}
+
+        return {
+            "id": str(row["id"]),
+            "session_id": str(row["session_id"]),
+            "evaluation_type": row["evaluation_type"],
+            "result": result,
+            "share_id": row["share_id"],
+            "share_count": row["share_count"] or 0,
+            "created_at": row["created_at"],
+            "character_id": str(row["character_id"]) if row["character_id"] else None,
+            "character_name": row["character_name"],
+            "series_id": str(row["series_id"]) if row["series_id"] else None,
+        }
+
+    async def increment_share_count(self, share_id: str) -> bool:
+        """Increment the share_count for an evaluation.
+
+        Called when someone views a share page.
+        Returns True if the evaluation was found and updated.
+        """
+        result = await self.db.execute(
+            """
+            UPDATE session_evaluations
+            SET share_count = COALESCE(share_count, 0) + 1
+            WHERE share_id = :share_id
+            """,
+            {"share_id": share_id}
+        )
+        return result > 0 if result else False
+
+    async def create_evaluation(
+        self,
+        session_id: UUID,
+        evaluation_type: str,
+        result: Dict[str, Any],
+        model_used: Optional[str] = None,
+        generate_share: bool = True,
+    ) -> Dict[str, Any]:
+        """Create a session evaluation with optional share ID.
+
+        Used by GamesService to store evaluation results.
+        """
+        import uuid
+
+        evaluation_id = uuid.uuid4()
+        share_id = generate_share_id() if generate_share else None
+
+        await self.db.execute(
+            """
+            INSERT INTO session_evaluations (
+                id, session_id, evaluation_type, result, share_id, model_used, created_at
+            ) VALUES (
+                :id, :session_id, :evaluation_type, :result, :share_id, :model_used, NOW()
+            )
+            """,
+            {
+                "id": str(evaluation_id),
+                "session_id": str(session_id),
+                "evaluation_type": evaluation_type,
+                "result": json.dumps(result),
+                "share_id": share_id,
+                "model_used": model_used,
+            }
+        )
+
+        return {
+            "id": str(evaluation_id),
+            "session_id": str(session_id),
+            "evaluation_type": evaluation_type,
+            "result": result,
+            "share_id": share_id,
+        }
+
+    # =========================================================================
+    # ROMANTIC TROPE EVALUATION (Play Mode v2)
+    # =========================================================================
+
+    async def evaluate_romantic_trope(
+        self,
+        messages: List[Dict[str, str]],
+        character_name: str,
+    ) -> Dict[str, Any]:
+        """Evaluate the user's romantic trope based on their conversation.
+
+        Analyzes the full conversation to determine:
+        1. Primary trope (slow_burn, second_chance, all_in, push_pull, slow_reveal)
+        2. Confidence score (0.0-1.0)
+        3. Detected signals that led to the classification
+        4. Evidence (3 specific observations)
+        5. Callback quote (user's most trope-defining moment)
+
+        Returns data ready for RomanticTropeResult.from_trope()
+        """
+        # Format messages for analysis
+        user_messages = [m for m in messages if m.get("role") == "user"]
+        formatted = "\n".join(
+            f"USER: {m['content']}"
+            for m in user_messages
+        )
+
+        # Build trope descriptions for LLM
+        trope_descriptions = "\n".join(
+            f"- {key}: {data['title']} - {data['description']} (Signals: {', '.join(data['signals'])})"
+            for key, data in ROMANTIC_TROPES.items()
+        )
+
+        prompt = f"""You are evaluating someone's romantic communication style based on their conversation with {character_name}.
+
+THE 5 ROMANTIC TROPES:
+{trope_descriptions}
+
+USER'S MESSAGES IN THE CONVERSATION:
+{formatted}
+
+Analyze the user's romantic style. Consider:
+- How they handle silences and pauses
+- Their directness vs. playfulness
+- References to the past vs. forward focus
+- Tension: do they lean in or create distance?
+- Reveal: do they share openly or in layers?
+
+Respond with this EXACT format:
+
+TROPE: [one of: slow_burn, second_chance, all_in, push_pull, slow_reveal]
+CONFIDENCE: [0.0-1.0]
+SIGNALS: [comma-separated list of 2-4 signals detected]
+
+EVIDENCE:
+1. [First specific observation about their style, 10-15 words, active voice]
+2. [Second specific observation, 10-15 words]
+3. [Third specific observation, 10-15 words]
+
+CALLBACK_QUOTE: [Their most trope-defining phrase from the conversation, max 10 words from their actual message, or paraphrase if longer]
+CALLBACK_FRAMING: [Brief explanation of why this is peak trope energy, max 10 words]"""
+
+        try:
+            response = await self.llm.generate(
+                [{"role": "user", "content": prompt}],
+                max_tokens=500,
+                temperature=0.3,
+            )
+
+            return self._parse_trope_evaluation(response.content, character_name)
+
+        except Exception as e:
+            log.error(f"Trope evaluation failed: {e}")
+            # Fallback to slow_burn
+            return self._default_trope_result()
+
+    def _parse_trope_evaluation(self, response: str, character_name: str) -> Dict[str, Any]:
+        """Parse LLM response into structured trope result."""
+        import re
+
+        # Extract trope
+        trope_match = re.search(r'TROPE:\s*(\w+)', response, re.IGNORECASE)
+        trope = trope_match.group(1).lower() if trope_match else "slow_burn"
+
+        # Validate trope
+        valid_tropes = ["slow_burn", "second_chance", "all_in", "push_pull", "slow_reveal"]
+        if trope not in valid_tropes:
+            trope = "slow_burn"
+
+        # Extract confidence
+        conf_match = re.search(r'CONFIDENCE:\s*([\d.]+)', response, re.IGNORECASE)
+        confidence = float(conf_match.group(1)) if conf_match else 0.75
+        confidence = max(0.0, min(1.0, confidence))
+
+        # Extract signals
+        signals_match = re.search(r'SIGNALS:\s*([^\n]+)', response, re.IGNORECASE)
+        signals = []
+        if signals_match:
+            signals = [s.strip() for s in signals_match.group(1).split(",")]
+
+        # Extract evidence (3 observations)
+        evidence = []
+        evidence_section = re.search(r'EVIDENCE:\s*([\s\S]*?)(?:CALLBACK|$)', response, re.IGNORECASE)
+        if evidence_section:
+            evidence_lines = re.findall(r'\d\.\s*([^\n]+)', evidence_section.group(1))
+            evidence = [line.strip() for line in evidence_lines[:3]]
+
+        # Extract callback quote and framing
+        callback_quote = None
+        quote_match = re.search(r'CALLBACK_QUOTE:\s*([^\n]+)', response, re.IGNORECASE)
+        framing_match = re.search(r'CALLBACK_FRAMING:\s*([^\n]+)', response, re.IGNORECASE)
+
+        if quote_match and framing_match:
+            quote = quote_match.group(1).strip().strip('"\'')
+            framing = framing_match.group(1).strip()
+            callback_quote = f'When you said "{quote}" — {framing}'
+        elif quote_match:
+            callback_quote = quote_match.group(1).strip()
+
+        # Get trope metadata
+        trope_data = ROMANTIC_TROPES.get(trope, ROMANTIC_TROPES["slow_burn"])
+
+        return {
+            "trope": trope,
+            "confidence": confidence,
+            "primary_signals": signals,
+            "title": trope_data["title"],
+            "tagline": trope_data["tagline"],
+            "description": trope_data["description"],
+            "evidence": evidence,
+            "callback_quote": callback_quote,
+            "cultural_refs": [
+                {"title": ref[0], "characters": ref[1]}
+                for ref in trope_data["cultural_refs"]
+            ],
+        }
+
+    def _default_trope_result(self) -> Dict[str, Any]:
+        """Return a default trope result for error cases."""
+        trope_data = ROMANTIC_TROPES["slow_burn"]
+        return {
+            "trope": "slow_burn",
+            "confidence": 0.7,
+            "primary_signals": ["patient_pacing", "comfortable_silence"],
+            "title": trope_data["title"],
+            "tagline": trope_data["tagline"],
+            "description": trope_data["description"],
+            "evidence": [
+                "You took your time, letting moments breathe",
+                "You asked questions that went beneath the surface",
+                "You were comfortable with the pauses",
+            ],
+            "callback_quote": None,
+            "cultural_refs": [
+                {"title": ref[0], "characters": ref[1]}
+                for ref in trope_data["cultural_refs"]
+            ],
         }

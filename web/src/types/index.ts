@@ -912,6 +912,7 @@ export interface EpisodeTemplateWithDirector extends EpisodeTemplate {
  */
 export type EvaluationType =
   | "flirt_archetype"
+  | "romantic_trope"  // Play Mode v2
   | "mystery_summary"
   | "compatibility"
   | "episode_summary";
@@ -945,6 +946,123 @@ export interface FlirtArchetypeResult {
   title: string;
   description: string;
 }
+
+// ============================================================================
+// Romantic Trope Types (Play Mode v2)
+// ============================================================================
+
+/**
+ * Romantic trope constants for Play Mode v2
+ */
+export type RomanticTrope =
+  | "slow_burn"
+  | "second_chance"
+  | "all_in"
+  | "push_pull"
+  | "slow_reveal";
+
+/**
+ * Cultural reference for a romantic trope
+ */
+export interface CulturalReference {
+  title: string;
+  characters: string;
+}
+
+/**
+ * Romantic trope metadata
+ */
+export interface RomanticTropeMetadata {
+  title: string;
+  tagline: string;
+  description: string;
+  signals: string[];
+  cultural_refs: CulturalReference[];
+}
+
+/**
+ * Romantic trope result (returned by evaluation)
+ * Enhanced with personalization fields for shareable results
+ */
+export interface RomanticTropeResult {
+  trope: RomanticTrope;
+  confidence: number;
+  primary_signals: string[];
+  title: string;
+  tagline: string;
+  description: string;
+  // Personalization fields (LLM-generated)
+  evidence: string[];  // 3 specific observations
+  callback_quote: string | null;  // User's defining moment
+  // Static cultural references
+  cultural_refs: CulturalReference[];
+}
+
+/**
+ * Static trope data for display (matches ROMANTIC_TROPES in backend)
+ */
+export const ROMANTIC_TROPES: Record<RomanticTrope, RomanticTropeMetadata> = {
+  slow_burn: {
+    title: "The Slow Burn",
+    tagline: "You know the best things take time",
+    description: "Patient and deliberate. You let tension build naturally, savoring each layer of connection before moving forward. Depth over speed, always.",
+    signals: ["comfortable_silence", "deep_questions", "patient_pacing", "layered_revelation"],
+    cultural_refs: [
+      { title: "Pride & Prejudice", characters: "Darcy & Elizabeth" },
+      { title: "The Office", characters: "Jim & Pam" },
+      { title: "Normal People", characters: "Connell & Marianne" },
+      { title: "When Harry Met Sally", characters: "Harry & Sally" },
+    ],
+  },
+  second_chance: {
+    title: "The Second Chance",
+    tagline: "Some stories aren't over just because they paused",
+    description: "You believe in unfinished stories. When something real was interrupted by timing or circumstance, you're willing to see if it can be different now.",
+    signals: ["past_callbacks", "growth_acknowledgment", "timing_awareness", "hopeful_realism"],
+    cultural_refs: [
+      { title: "La La Land", characters: "Mia & Sebastian" },
+      { title: "The Notebook", characters: "Noah & Allie" },
+      { title: "Eternal Sunshine of the Spotless Mind", characters: "Joel & Clementine" },
+      { title: "Before Sunset", characters: "Jesse & Celine" },
+    ],
+  },
+  all_in: {
+    title: "The All In",
+    tagline: "When you know, you know",
+    description: "Direct and decisive. You don't play games when you feel something real. Your clarity is magnetic—you say what you mean and mean what you say.",
+    signals: ["direct_expression", "confident_moves", "emotional_clarity", "bold_honesty"],
+    cultural_refs: [
+      { title: "Crazy Rich Asians", characters: "Rachel & Nick" },
+      { title: "The Proposal", characters: "Margaret & Andrew" },
+      { title: "To All the Boys I've Loved Before", characters: "Lara Jean & Peter" },
+      { title: "Brooklyn Nine-Nine", characters: "Jake & Amy" },
+    ],
+  },
+  push_pull: {
+    title: "The Push & Pull",
+    tagline: "The tension is the point",
+    description: "You thrive in the dance—the advance, the retreat, the electricity of uncertainty. Banter is foreplay, and you never make it too easy.",
+    signals: ["playful_resistance", "witty_deflection", "tension_maintenance", "strategic_vulnerability"],
+    cultural_refs: [
+      { title: "10 Things I Hate About You", characters: "Kat & Patrick" },
+      { title: "New Girl", characters: "Jess & Nick" },
+      { title: "Gilmore Girls", characters: "Lorelai & Luke" },
+      { title: "How to Lose a Guy in 10 Days", characters: "Andie & Ben" },
+    ],
+  },
+  slow_reveal: {
+    title: "The Slow Reveal",
+    tagline: "Mystery is magnetic",
+    description: "Intriguing and deliberate. You reveal yourself in layers, rewarding attention with depth. What you hold back is as powerful as what you share.",
+    signals: ["selective_sharing", "intriguing_deflection", "earned_intimacy", "mysterious_allure"],
+    cultural_refs: [
+      { title: "Jane Eyre", characters: "Jane & Rochester" },
+      { title: "Fleabag", characters: "Fleabag & The Priest" },
+      { title: "Twilight", characters: "Bella & Edward" },
+      { title: "Mr. & Mrs. Smith", characters: "John & Jane" },
+    ],
+  },
+};
 
 /**
  * Session evaluation - shareable result
@@ -1007,8 +1125,8 @@ export interface GameMessageResponse {
  * Game result response - evaluation after completion
  */
 export interface GameResultResponse {
-  evaluation_type: string;
-  result: FlirtArchetypeEvaluation | Record<string, unknown>;
+  evaluation_type: EvaluationType;
+  result: FlirtArchetypeEvaluation | RomanticTropeResult | Record<string, unknown>;
   share_id: string;
   share_url: string;
   character_id: string;
@@ -1031,8 +1149,8 @@ export interface SharePageData {
  * Shared result response from /games/r/{share_id}
  */
 export interface SharedResultResponse {
-  evaluation_type: string;
-  result: FlirtArchetypeEvaluation | Record<string, unknown>;
+  evaluation_type: EvaluationType;
+  result: FlirtArchetypeEvaluation | RomanticTropeResult | Record<string, unknown>;
   share_id: string;
   share_count: number;
   created_at: string;

@@ -5,9 +5,15 @@ import { useRouter } from "next/navigation";
 import { api } from "@/lib/api/client";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import type { FlirtArchetype, FlirtArchetypeEvaluation, SharedResultResponse } from "@/types";
+import type {
+  FlirtArchetype,
+  FlirtArchetypeEvaluation,
+  RomanticTrope,
+  RomanticTropeResult,
+  SharedResultResponse,
+} from "@/types";
 
-// Archetype metadata for display
+// Flirt Archetype metadata for display
 const ARCHETYPE_META: Record<FlirtArchetype, { emoji: string; color: string; gradient: string }> = {
   tension_builder: {
     emoji: "🔥",
@@ -31,6 +37,35 @@ const ARCHETYPE_META: Record<FlirtArchetype, { emoji: string; color: string; gra
   },
   mysterious_allure: {
     emoji: "✨",
+    color: "text-violet-400",
+    gradient: "from-violet-500/20 to-purple-500/20",
+  },
+};
+
+// Romantic Trope metadata for display
+const TROPE_META: Record<RomanticTrope, { emoji: string; color: string; gradient: string }> = {
+  slow_burn: {
+    emoji: "🕯️",
+    color: "text-amber-400",
+    gradient: "from-amber-500/20 to-orange-500/20",
+  },
+  second_chance: {
+    emoji: "🌅",
+    color: "text-rose-400",
+    gradient: "from-rose-500/20 to-pink-500/20",
+  },
+  all_in: {
+    emoji: "💫",
+    color: "text-yellow-400",
+    gradient: "from-yellow-500/20 to-amber-500/20",
+  },
+  push_pull: {
+    emoji: "⚡",
+    color: "text-purple-400",
+    gradient: "from-purple-500/20 to-indigo-500/20",
+  },
+  slow_reveal: {
+    emoji: "🌙",
     color: "text-violet-400",
     gradient: "from-violet-500/20 to-purple-500/20",
   },
@@ -63,20 +98,27 @@ export function ShareResultClient({ shareId }: ShareResultClientProps) {
     fetchResult();
   }, [shareId]);
 
+  const isRomanticTrope = result?.evaluation_type === "romantic_trope";
+  const testName = isRomanticTrope ? "Hometown Crush" : "Flirt Test";
+  const testUrl = isRomanticTrope ? "/play/hometown-crush" : "/play/flirt-test";
+
   const handleTakeTest = () => {
-    router.push("/play/flirt-test");
+    router.push(testUrl);
   };
 
   const handleShare = async () => {
     const shareUrl = window.location.href;
-    const evaluation = result?.result as FlirtArchetypeEvaluation;
-    const shareText = `I'm ${evaluation?.title || "a flirt master"}! What's your flirt style? Take the test:`;
+    const evaluation = result?.result as FlirtArchetypeEvaluation | RomanticTropeResult;
+    const title = evaluation?.title || "a romantic type";
+    const shareText = isRomanticTrope
+      ? `I'm ${title}! What's your romantic trope? Take the test:`
+      : `I'm ${title}! What's your flirt style? Take the test:`;
 
     // Try native share API first
     if (navigator.share) {
       try {
         await navigator.share({
-          title: "Flirt Test Result",
+          title: `${testName} Result`,
           text: shareText,
           url: shareUrl,
         });
@@ -114,19 +156,39 @@ export function ShareResultClient({ shareId }: ShareResultClientProps) {
           <h1 className="text-2xl font-bold text-white mb-4">Result Not Found</h1>
           <p className="text-white/60 mb-6">{error}</p>
           <Button
-            onClick={handleTakeTest}
+            onClick={() => router.push("/play")}
             className={cn(
               "px-8 py-6 text-lg font-semibold rounded-full",
               "bg-gradient-to-r from-rose-500 to-purple-500 hover:from-rose-400 hover:to-purple-400"
             )}
           >
-            Take the Flirt Test
+            Take a Test
           </Button>
         </div>
       </div>
     );
   }
 
+  // Render based on evaluation type
+  if (isRomanticTrope) {
+    return <RomanticTropeResultCard result={result} onTakeTest={handleTakeTest} onShare={handleShare} copied={copied} />;
+  }
+
+  return <FlirtArchetypeResultCard result={result} onTakeTest={handleTakeTest} onShare={handleShare} copied={copied} />;
+}
+
+// Component for Flirt Archetype results
+function FlirtArchetypeResultCard({
+  result,
+  onTakeTest,
+  onShare,
+  copied,
+}: {
+  result: SharedResultResponse;
+  onTakeTest: () => void;
+  onShare: () => void;
+  copied: boolean;
+}) {
   const evaluation = result.result as FlirtArchetypeEvaluation;
   const archetype = evaluation.archetype;
   const meta = ARCHETYPE_META[archetype] || ARCHETYPE_META.playful_tease;
@@ -215,7 +277,7 @@ export function ShareResultClient({ shareId }: ShareResultClientProps) {
         {/* Actions */}
         <div className="mt-8 flex flex-col gap-3 w-full max-w-md">
           <Button
-            onClick={handleTakeTest}
+            onClick={onTakeTest}
             size="lg"
             className={cn(
               "w-full py-6 text-lg font-semibold rounded-full",
@@ -227,7 +289,165 @@ export function ShareResultClient({ shareId }: ShareResultClientProps) {
           </Button>
 
           <Button
-            onClick={handleShare}
+            onClick={onShare}
+            variant="outline"
+            size="lg"
+            className="w-full py-6 text-lg font-semibold rounded-full border-white/20 text-white hover:bg-white/10"
+          >
+            {copied ? "Copied!" : "Share This Result"}
+          </Button>
+        </div>
+
+        {/* Footer */}
+        <div className="mt-8 text-center">
+          <a
+            href="/"
+            className="text-white/40 hover:text-white/60 transition-colors text-sm"
+          >
+            ep-0.com — Interactive AI Episodes
+          </a>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Component for Romantic Trope results
+function RomanticTropeResultCard({
+  result,
+  onTakeTest,
+  onShare,
+  copied,
+}: {
+  result: SharedResultResponse;
+  onTakeTest: () => void;
+  onShare: () => void;
+  copied: boolean;
+}) {
+  const evaluation = result.result as RomanticTropeResult;
+  const trope = evaluation.trope;
+  const meta = TROPE_META[trope] || TROPE_META.slow_burn;
+
+  return (
+    <div className="min-h-screen bg-gradient-to-b from-amber-950 via-rose-950 to-slate-950 text-white">
+      {/* Background decoration */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-amber-500/20 rounded-full blur-3xl" />
+        <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-rose-500/20 rounded-full blur-3xl" />
+      </div>
+
+      {/* Content */}
+      <div className="relative z-10 flex flex-col items-center justify-center min-h-screen px-4 py-12">
+        {/* Header */}
+        <div className="text-center mb-6">
+          <p className="text-white/60 text-sm mb-1">Someone shared their result</p>
+          <h1 className="text-2xl font-bold bg-gradient-to-r from-amber-400 to-rose-400 bg-clip-text text-transparent">
+            Hometown Crush
+          </h1>
+        </div>
+
+        {/* Result Card */}
+        <div className={cn(
+          "w-full max-w-md p-8 rounded-3xl backdrop-blur-xl border border-white/10",
+          "bg-gradient-to-br",
+          meta.gradient
+        )}>
+          {/* Header */}
+          <p className="text-center text-white/50 text-xs uppercase tracking-wider mb-2">
+            Their Romantic Trope
+          </p>
+
+          {/* Emoji */}
+          <div className="text-6xl text-center mb-4">{meta.emoji}</div>
+
+          {/* Title */}
+          <h2 className={cn("text-3xl font-bold text-center mb-2", meta.color)}>
+            {evaluation.title}
+          </h2>
+
+          {/* Tagline */}
+          <p className="text-center text-white/70 italic mb-6">
+            &ldquo;{evaluation.tagline}&rdquo;
+          </p>
+
+          {/* Description */}
+          <p className="text-center text-white/80 leading-relaxed mb-6">
+            {evaluation.description}
+          </p>
+
+          {/* Evidence - "Why This Fits Them" */}
+          {evaluation.evidence && evaluation.evidence.length > 0 && (
+            <div className="mb-6">
+              <p className="text-xs text-white/50 mb-3 uppercase tracking-wider">
+                Why this fits them
+              </p>
+              <ul className="space-y-2">
+                {evaluation.evidence.map((observation, i) => (
+                  <li key={i} className="flex items-start gap-2 text-sm text-white/80">
+                    <span className="text-amber-400 mt-1">•</span>
+                    <span>{observation}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {/* Cultural references - "In The Wild" */}
+          {evaluation.cultural_refs && evaluation.cultural_refs.length > 0 && (
+            <div className="mb-6">
+              <p className="text-xs text-white/50 mb-3 uppercase tracking-wider">
+                {evaluation.title.replace("The ", "")} in the Wild
+              </p>
+              <div className="grid grid-cols-2 gap-2">
+                {evaluation.cultural_refs.slice(0, 4).map((ref, i) => (
+                  <div key={i} className="text-xs text-white/60">
+                    <span className="text-white/80">{ref.title}</span>
+                    <br />
+                    <span className="text-white/40">({ref.characters})</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Confidence indicator */}
+          <div>
+            <div className="flex justify-between text-xs text-white/50 mb-1">
+              <span>Match strength</span>
+              <span>{Math.round(evaluation.confidence * 100)}%</span>
+            </div>
+            <div className="h-2 bg-white/10 rounded-full overflow-hidden">
+              <div
+                className={cn("h-full rounded-full bg-gradient-to-r", "from-amber-400 to-rose-400")}
+                style={{ width: `${evaluation.confidence * 100}%` }}
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Share count */}
+        {result.share_count > 0 && (
+          <p className="mt-4 text-white/40 text-sm">
+            Shared {result.share_count} {result.share_count === 1 ? "time" : "times"}
+          </p>
+        )}
+
+        {/* Actions */}
+        <div className="mt-8 flex flex-col gap-3 w-full max-w-md">
+          <Button
+            onClick={onTakeTest}
+            size="lg"
+            className={cn(
+              "w-full py-6 text-lg font-semibold rounded-full",
+              "bg-gradient-to-r from-amber-500 to-rose-500 hover:from-amber-400 hover:to-rose-400",
+              "shadow-xl shadow-rose-500/20"
+            )}
+          >
+            What&apos;s Your Trope?
+          </Button>
+
+          <Button
+            onClick={onShare}
             variant="outline"
             size="lg"
             className="w-full py-6 text-lg font-semibold rounded-full border-white/20 text-white hover:bg-white/10"

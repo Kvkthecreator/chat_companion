@@ -19,6 +19,7 @@ from pydantic import BaseModel, Field, field_validator
 class EvaluationType:
     """Evaluation type constants."""
     FLIRT_ARCHETYPE = "flirt_archetype"
+    ROMANTIC_TROPE = "romantic_trope"  # Play Mode v2
     MYSTERY_SUMMARY = "mystery_summary"
     COMPATIBILITY = "compatibility"
     EPISODE_SUMMARY = "episode_summary"
@@ -31,6 +32,80 @@ class FlirtArchetype:
     PLAYFUL_TEASE = "playful_tease"
     SLOW_BURN = "slow_burn"
     MYSTERIOUS_ALLURE = "mysterious_allure"
+
+
+class RomanticTrope:
+    """Romantic trope constants for Play Mode v2."""
+    SLOW_BURN = "slow_burn"
+    SECOND_CHANCE = "second_chance"
+    ALL_IN = "all_in"
+    PUSH_PULL = "push_pull"
+    SLOW_REVEAL = "slow_reveal"
+
+
+# Romantic Trope metadata for display and evaluation
+ROMANTIC_TROPES = {
+    RomanticTrope.SLOW_BURN: {
+        "title": "The Slow Burn",
+        "tagline": "You know the best things take time",
+        "description": "Patient and deliberate. You let tension build naturally, savoring each layer of connection before moving forward. Depth over speed, always.",
+        "signals": ["comfortable_silence", "deep_questions", "patient_pacing", "layered_revelation"],
+        "cultural_refs": [
+            ("Pride & Prejudice", "Darcy & Elizabeth"),
+            ("The Office", "Jim & Pam"),
+            ("Normal People", "Connell & Marianne"),
+            ("When Harry Met Sally", "Harry & Sally"),
+        ],
+    },
+    RomanticTrope.SECOND_CHANCE: {
+        "title": "The Second Chance",
+        "tagline": "Some stories aren't over just because they paused",
+        "description": "You believe in unfinished stories. When something real was interrupted by timing or circumstance, you're willing to see if it can be different now.",
+        "signals": ["past_callbacks", "growth_acknowledgment", "timing_awareness", "hopeful_realism"],
+        "cultural_refs": [
+            ("La La Land", "Mia & Sebastian"),
+            ("The Notebook", "Noah & Allie"),
+            ("Eternal Sunshine of the Spotless Mind", "Joel & Clementine"),
+            ("Before Sunset", "Jesse & Celine"),
+        ],
+    },
+    RomanticTrope.ALL_IN: {
+        "title": "The All In",
+        "tagline": "When you know, you know",
+        "description": "Direct and decisive. You don't play games when you feel something real. Your clarity is magnetic—you say what you mean and mean what you say.",
+        "signals": ["direct_expression", "confident_moves", "emotional_clarity", "bold_honesty"],
+        "cultural_refs": [
+            ("Crazy Rich Asians", "Rachel & Nick"),
+            ("The Proposal", "Margaret & Andrew"),
+            ("To All the Boys I've Loved Before", "Lara Jean & Peter"),
+            ("Brooklyn Nine-Nine", "Jake & Amy"),
+        ],
+    },
+    RomanticTrope.PUSH_PULL: {
+        "title": "The Push & Pull",
+        "tagline": "The tension is the point",
+        "description": "You thrive in the dance—the advance, the retreat, the electricity of uncertainty. Banter is foreplay, and you never make it too easy.",
+        "signals": ["playful_resistance", "witty_deflection", "tension_maintenance", "strategic_vulnerability"],
+        "cultural_refs": [
+            ("10 Things I Hate About You", "Kat & Patrick"),
+            ("New Girl", "Jess & Nick"),
+            ("Gilmore Girls", "Lorelai & Luke"),
+            ("How to Lose a Guy in 10 Days", "Andie & Ben"),
+        ],
+    },
+    RomanticTrope.SLOW_REVEAL: {
+        "title": "The Slow Reveal",
+        "tagline": "Mystery is magnetic",
+        "description": "Intriguing and deliberate. You reveal yourself in layers, rewarding attention with depth. What you hold back is as powerful as what you share.",
+        "signals": ["selective_sharing", "intriguing_deflection", "earned_intimacy", "mysterious_allure"],
+        "cultural_refs": [
+            ("Jane Eyre", "Jane & Rochester"),
+            ("Fleabag", "Fleabag & The Priest"),
+            ("Twilight", "Bella & Edward"),
+            ("Mr. & Mrs. Smith", "John & Jane"),
+        ],
+    },
+}
 
 
 # Archetype metadata for display
@@ -90,6 +165,50 @@ class FlirtArchetypeResult(BaseModel):
         )
 
 
+class RomanticTropeResult(BaseModel):
+    """Structured result for romantic trope evaluation (Play Mode v2).
+
+    Enhanced with personalization fields for shareable results:
+    - evidence: 3 specific observations about user's romantic style
+    - callback_quote: User's most trope-defining moment from conversation
+    - cultural_refs: Pop culture examples of this trope
+    """
+    trope: str
+    confidence: float = Field(..., ge=0.0, le=1.0)
+    primary_signals: List[str] = Field(default_factory=list)
+    title: str
+    tagline: str
+    description: str
+    # Personalization fields (LLM-generated)
+    evidence: List[str] = Field(default_factory=list)  # 3 observations
+    callback_quote: Optional[str] = None  # User's defining moment
+    # Static cultural references
+    cultural_refs: List[tuple] = Field(default_factory=list)
+
+    @classmethod
+    def from_trope(
+        cls,
+        trope: str,
+        confidence: float,
+        signals: List[str],
+        evidence: Optional[List[str]] = None,
+        callback_quote: Optional[str] = None,
+    ) -> "RomanticTropeResult":
+        """Create result from trope key with optional personalization."""
+        metadata = ROMANTIC_TROPES.get(trope, ROMANTIC_TROPES[RomanticTrope.SLOW_BURN])
+        return cls(
+            trope=trope,
+            confidence=confidence,
+            primary_signals=signals,
+            title=metadata["title"],
+            tagline=metadata["tagline"],
+            description=metadata["description"],
+            evidence=evidence or [],
+            callback_quote=callback_quote,
+            cultural_refs=metadata["cultural_refs"],
+        )
+
+
 class SessionEvaluation(BaseModel):
     """Session evaluation model - shareable result.
 
@@ -140,6 +259,12 @@ class SessionEvaluation(BaseModel):
         if self.evaluation_type != EvaluationType.FLIRT_ARCHETYPE:
             return None
         return FlirtArchetypeResult(**self.result)
+
+    def get_trope_result(self) -> Optional[RomanticTropeResult]:
+        """Parse result as RomanticTropeResult if applicable."""
+        if self.evaluation_type != EvaluationType.ROMANTIC_TROPE:
+            return None
+        return RomanticTropeResult(**self.result)
 
 
 class SessionEvaluationCreate(BaseModel):
