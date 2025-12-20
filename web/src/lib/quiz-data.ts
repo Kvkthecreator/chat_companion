@@ -97,48 +97,119 @@ export function calculateTrope(answers: Record<number, RomanticTrope>): Romantic
 }
 
 /**
- * Trope result content - matches TROPE_CONTENT_SPEC.md
+ * Trope result content - elaborate version inspired by 16personalities/BuzzFeed
  */
 export const TROPE_CONTENT: Record<RomanticTrope, {
   title: string;
   tagline: string;
   description: string;
   shareText: string;
+  // New elaborate sections
+  inRelationships: string;
+  strengths: string[];
+  challenges: string[];
+  advice: string;
+  compatibleWith: RomanticTrope[];
   yourPeople: string[];
 }> = {
   slow_burn: {
     title: "SLOW BURN",
     tagline: "the tension is the whole point and you know it",
-    description: "You'd rather wait three seasons for a kiss than rush it. You've said \"I just think it's better when it builds\" at least once this month. Eye contact across a room? That's your whole love language. You're not playing hard to get — you genuinely believe anticipation is the best part. Other people think you're patient. You know you're just savoring it.",
+    description: "You'd rather wait three seasons for a kiss than rush it. You've said \"I just think it's better when it builds\" at least once this month. Eye contact across a room? That's your whole love language.",
     shareText: "I'm a SLOW BURN — the tension is the whole point. what's yours?",
+    inRelationships: "You're the person who makes every glance feel loaded. You don't rush because you genuinely believe the buildup is where the magic happens. Your partners often say they didn't realize they were falling until they'd already fallen.",
+    strengths: [
+      "You create anticipation that makes everything feel more meaningful",
+      "You're patient and observant — you notice the little things",
+      "When you finally commit, it's deep and considered",
+    ],
+    challenges: [
+      "Sometimes you wait so long the moment passes",
+      "Partners can misread your patience as disinterest",
+      "You might overthink instead of just feeling",
+    ],
+    advice: "Not everything needs to marinate. Sometimes the best things happen when you let yourself be surprised.",
+    compatibleWith: ["slow_reveal", "push_pull"],
     yourPeople: ["darcy & elizabeth", "jim & pam", "connell & marianne"],
   },
   second_chance: {
     title: "SECOND CHANCE",
     tagline: "you never really closed that chapter, did you",
-    description: "You still think about the one that got away. Not in a sad way — in a \"the timing was just wrong\" way. You believe some people are meant to find their way back to each other. Reunion episodes are your weakness. You've definitely stalked an ex's Instagram \"just to see how they're doing.\" You're not hung up on the past — you just think some stories deserve a second draft.",
+    description: "You still think about the one that got away. Not in a sad way — in a \"the timing was just wrong\" way. You believe some people are meant to find their way back to each other.",
     shareText: "I'm a SECOND CHANCE — some stories deserve a sequel. what's yours?",
+    inRelationships: "You're a romantic who believes in fate and timing. You see potential where others see endings. Your exes probably still have a soft spot for you because you never really burn bridges — you just... postpone crossings.",
+    strengths: [
+      "You see the best in people, even when they've let you down",
+      "You're forgiving and believe in growth",
+      "You bring depth to relationships because you understand history matters",
+    ],
+    challenges: [
+      "You might romanticize the past instead of seeing it clearly",
+      "New partners can feel like they're competing with ghosts",
+      "You risk missing what's in front of you while looking backward",
+    ],
+    advice: "Some chapters close for a reason. The best sequel might be with someone entirely new.",
+    compatibleWith: ["all_in", "slow_burn"],
     yourPeople: ["mia & sebastian", "noah & allie", "jesse & céline"],
   },
   all_in: {
     title: "ALL IN",
     tagline: "when you know, you know — and you KNEW",
-    description: "You don't do slow. You don't do games. When you feel it, you say it, and honestly? That's terrifying to most people. You've been called \"intense\" like it's a bad thing. It's not. You'd rather be rejected for being honest than liked for being careful. While everyone else is calculating their next move, you already made yours. Life's too short to pretend you don't care.",
+    description: "You don't do slow. You don't do games. When you feel it, you say it, and honestly? That's terrifying to most people. You've been called \"intense\" like it's a bad thing. It's not.",
     shareText: "I'm ALL IN — when I know, I know. what's yours?",
+    inRelationships: "You're the person who texts back immediately and doesn't apologize for it. You bring your whole heart to the table from day one. Some people find it overwhelming; the right person finds it refreshing.",
+    strengths: [
+      "You're brave — you put yourself out there when others hide",
+      "No one ever has to guess how you feel",
+      "You create deep connections fast because you're genuinely present",
+    ],
+    challenges: [
+      "Your intensity can scare people off before they get to know you",
+      "You might invest heavily in people who haven't earned it yet",
+      "Rejection hits you harder because you were never holding back",
+    ],
+    advice: "Your openness is a gift, not a flaw. But matching energy matters — save your full heart for people who show up.",
+    compatibleWith: ["second_chance", "slow_reveal"],
     yourPeople: ["rachel & nick", "lara jean & peter", "jake & amy"],
   },
   push_pull: {
     title: "PUSH & PULL",
     tagline: "you want them to work for it (and you'll work for it too)",
-    description: "Hot then cold. Close then distant. It's not games — it's tension, and you're fluent in it. You flirt by arguing. You show love by teasing. The chase is half the fun and you refuse to apologize for it. People say they want straightforward, but they keep coming back to you. You're exhausting in the best way. Boring could never be your problem.",
+    description: "Hot then cold. Close then distant. It's not games — it's tension, and you're fluent in it. You flirt by arguing. You show love by teasing. The chase is half the fun.",
     shareText: "I'm a PUSH & PULL — the chase is half the fun. what's yours?",
+    inRelationships: "You keep things interesting. Your partners never quite know what they're going to get, and that's exactly why they stick around. You need someone who can match your energy — and challenge it.",
+    strengths: [
+      "You keep the spark alive long after the honeymoon phase",
+      "You're never boring — every day feels a little different",
+      "You understand that attraction needs friction",
+    ],
+    challenges: [
+      "Some partners just want consistency, not a rollercoaster",
+      "Your signals can be genuinely confusing",
+      "You might create drama when things get too comfortable",
+    ],
+    advice: "Tension is exciting, but stability isn't the enemy. The best relationships have both.",
+    compatibleWith: ["slow_burn", "push_pull"],
     yourPeople: ["kat & patrick", "jess & nick", "lorelai & luke"],
   },
   slow_reveal: {
     title: "SLOW REVEAL",
     tagline: "they have to earn the real you",
-    description: "You're not cold — you're careful. There's a version of you that most people get, and then there's the version that only comes out when someone proves they're paying attention. You test people without them knowing. You reward curiosity and punish assumptions. People call you \"mysterious\" and you let them, because explaining yourself sounds exhausting. The right person will figure it out.",
+    description: "You're not cold — you're careful. There's a version of you that most people get, and then there's the version that only comes out when someone proves they're paying attention.",
     shareText: "I'm a SLOW REVEAL — you have to earn the real me. what's yours?",
+    inRelationships: "You're a puzzle worth solving. You test people without them knowing, rewarding curiosity and punishing assumptions. When someone finally sees the real you, they feel like they've won something.",
+    strengths: [
+      "You protect your energy — not everyone deserves access",
+      "The people who stick around really know you",
+      "You create deep intimacy through gradual trust",
+    ],
+    challenges: [
+      "People might give up before they get to the good parts",
+      "You can seem distant even when you're interested",
+      "Your walls might be protecting you from the wrong things",
+    ],
+    advice: "Mystery is magnetic, but someone has to get in eventually. Consider letting the right people see you sooner.",
+    compatibleWith: ["slow_burn", "all_in"],
     yourPeople: ["jane & rochester", "fleabag & the priest", "bella & edward"],
   },
 };

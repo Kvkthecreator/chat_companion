@@ -5,7 +5,7 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
-import { Share2, Check, RefreshCw } from "lucide-react";
+import { Share2, Check, RefreshCw, Sparkles, AlertCircle, Heart } from "lucide-react";
 import { TROPE_CONTENT } from "@/lib/quiz-data";
 import type { RomanticTrope } from "@/types";
 import { TROPE_VISUALS } from "@/types";
@@ -15,14 +15,14 @@ interface QuizResultProps {
   onPlayAgain: () => void;
 }
 
-// Episode 0 series data - static for now
+// Episode 0 series data
 const EPISODE_0_SERIES = [
   {
     id: "hometown-crush",
     title: "Hometown Crush",
     slug: "hometown-crush",
     tagline: "Running into your ex at a friend's wedding",
-    coverUrl: null, // Will use gradient fallback
+    coverUrl: null,
   },
   {
     id: "coffee-shop-crush",
@@ -55,6 +55,7 @@ export function QuizResult({ trope, onPlayAgain }: QuizResultProps) {
       }
     }
 
+    // Fallback to clipboard
     try {
       await navigator.clipboard.writeText(`${shareText}\n${shareUrl}`);
       setCopied(true);
@@ -64,51 +65,102 @@ export function QuizResult({ trope, onPlayAgain }: QuizResultProps) {
     }
   };
 
+  // Get compatible trope names
+  const compatibleNames = content.compatibleWith.map(t => TROPE_CONTENT[t].title);
+
   return (
     <div className="flex flex-col items-center min-h-screen px-4 py-8">
-      {/* Result Card */}
-      <Card className="w-full max-w-md p-6 shadow-xl">
+      {/* Hero Section */}
+      <div className="w-full max-w-lg text-center mb-8">
         {/* Emoji */}
-        <div className="text-6xl text-center mb-3">{visuals.emoji}</div>
+        <div className="text-7xl mb-4">{visuals.emoji}</div>
 
         {/* Pre-title */}
-        <p className="text-center text-muted-foreground text-sm mb-2">
+        <p className="text-muted-foreground text-sm mb-2 uppercase tracking-wider">
           your red flag is...
         </p>
 
         {/* Title */}
-        <h1
-          className={cn(
-            "text-3xl font-black text-center mb-2 tracking-tight",
-            visuals.color
-          )}
-        >
+        <h1 className={cn("text-4xl md:text-5xl font-black mb-3 tracking-tight", visuals.color)}>
           {content.title}
         </h1>
 
         {/* Tagline */}
-        <p className="text-center text-muted-foreground text-sm mb-6">
+        <p className="text-lg text-muted-foreground italic">
           {content.tagline}
         </p>
+      </div>
 
-        {/* Description */}
-        <div className="mb-6 text-sm leading-relaxed text-center">
+      {/* Main Description */}
+      <Card className="w-full max-w-lg p-6 mb-6">
+        <p className="text-base leading-relaxed">
           {content.description}
-        </div>
-
-        {/* Your People */}
-        <div className="mb-4">
-          <p className="text-xs text-muted-foreground mb-2 text-center uppercase tracking-wider">
-            your people
-          </p>
-          <p className="text-sm text-center text-muted-foreground">
-            {content.yourPeople.join(" • ")}
-          </p>
-        </div>
+        </p>
       </Card>
 
+      {/* In Relationships Section */}
+      <Card className="w-full max-w-lg p-6 mb-6">
+        <div className="flex items-center gap-2 mb-3">
+          <Heart className="h-5 w-5 text-pink-500" />
+          <h2 className="font-semibold">In Relationships</h2>
+        </div>
+        <p className="text-sm text-muted-foreground leading-relaxed">
+          {content.inRelationships}
+        </p>
+      </Card>
+
+      {/* Strengths & Challenges */}
+      <div className="w-full max-w-lg grid md:grid-cols-2 gap-4 mb-6">
+        {/* Strengths */}
+        <Card className="p-5">
+          <div className="flex items-center gap-2 mb-3">
+            <Sparkles className="h-4 w-4 text-green-500" />
+            <h3 className="font-semibold text-sm">Strengths</h3>
+          </div>
+          <ul className="space-y-2">
+            {content.strengths.map((strength, i) => (
+              <li key={i} className="text-xs text-muted-foreground leading-relaxed">
+                {strength}
+              </li>
+            ))}
+          </ul>
+        </Card>
+
+        {/* Challenges */}
+        <Card className="p-5">
+          <div className="flex items-center gap-2 mb-3">
+            <AlertCircle className="h-4 w-4 text-amber-500" />
+            <h3 className="font-semibold text-sm">Challenges</h3>
+          </div>
+          <ul className="space-y-2">
+            {content.challenges.map((challenge, i) => (
+              <li key={i} className="text-xs text-muted-foreground leading-relaxed">
+                {challenge}
+              </li>
+            ))}
+          </ul>
+        </Card>
+      </div>
+
+      {/* Advice */}
+      <Card className="w-full max-w-lg p-6 mb-6 bg-primary/5 border-primary/20">
+        <p className="text-sm text-center italic">
+          "{content.advice}"
+        </p>
+      </Card>
+
+      {/* Compatibility */}
+      <div className="w-full max-w-lg mb-8 text-center">
+        <p className="text-xs text-muted-foreground uppercase tracking-wider mb-2">
+          you vibe with
+        </p>
+        <p className="text-sm font-medium">
+          {compatibleNames.join(" & ")}
+        </p>
+      </div>
+
       {/* Primary CTA - Share */}
-      <div className="mt-6 w-full max-w-md">
+      <div className="w-full max-w-lg mb-4">
         <Button
           onClick={handleShare}
           size="lg"
@@ -129,7 +181,7 @@ export function QuizResult({ trope, onPlayAgain }: QuizResultProps) {
       </div>
 
       {/* Secondary: Play Again */}
-      <div className="mt-4 w-full max-w-md">
+      <div className="w-full max-w-lg mb-12">
         <Button
           onClick={onPlayAgain}
           variant="outline"
@@ -141,7 +193,7 @@ export function QuizResult({ trope, onPlayAgain }: QuizResultProps) {
       </div>
 
       {/* Episode 0 CTA Section */}
-      <div className="mt-12 w-full max-w-md">
+      <div className="w-full max-w-lg">
         <div className="text-center mb-6">
           <h3 className="text-lg font-semibold mb-1">ready for the real thing?</h3>
           <p className="text-sm text-muted-foreground">
@@ -157,7 +209,6 @@ export function QuizResult({ trope, onPlayAgain }: QuizResultProps) {
               className="group"
             >
               <Card className="overflow-hidden hover:ring-2 hover:ring-primary/50 transition-all">
-                {/* Cover image placeholder */}
                 <div className="aspect-[4/3] bg-gradient-to-br from-primary/20 to-accent/20 flex items-center justify-center">
                   <span className="text-3xl font-bold text-primary/30">
                     {series.title[0]}

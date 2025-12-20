@@ -1,33 +1,45 @@
 # Romantic Trope Content Specification
 
-> **Version**: 2.0.0
+> **Version**: 3.0.0
 > **Status**: Canonical
-> **Updated**: 2025-12-20
+> **Updated**: 2025-12-21
 
 ---
 
 ## Overview
 
-This document defines the content for the 5 romantic tropes used in Play Mode. The content is designed for **maximum virality** with MBTI/personality test energy - the kind of result that makes people screenshot and share.
+This document defines the content for the 5 romantic tropes used in Quiz Mode. The content is designed for **maximum virality** with MBTI/personality test energy — elaborate enough to feel insightful, shareable enough to spread.
 
-**Design Principle**: Unhinged but affectionate. Make them feel seen. Make them laugh. Make them share.
+**Design Principle**: Make them feel seen. Make them laugh. Make them share.
 
 ---
 
-## The 5 Romantic Tropes — Unhinged Edition
+## The 5 Romantic Tropes — Full Content
 
 ### 1. SLOW BURN
 
 **Tagline**: the tension is the whole point and you know it
 
 **Description**:
-You'd rather wait three seasons for a kiss than rush it. You've said "I just think it's better when it builds" at least once this month. Eye contact across a room? That's your whole love language. You're not playing hard to get — you genuinely believe anticipation is the best part. Other people think you're patient. You know you're just savoring it.
+You'd rather wait three seasons for a kiss than rush it. You've said "I just think it's better when it builds" at least once this month. Eye contact across a room? That's your whole love language.
 
-**Callback Format**:
-`You told {character}: "{quote}" ...yeah, we clocked you immediately.`
+**In Relationships**:
+You're the person who makes every glance feel loaded. You don't rush because you genuinely believe the buildup is where the magic happens. Your partners often say they didn't realize they were falling until they'd already fallen.
 
-**Your People**:
-darcy & elizabeth • jim & pam • connell & marianne
+**Strengths**:
+- You create anticipation that makes everything feel more meaningful
+- You're patient and observant — you notice the little things
+- When you finally commit, it's deep and considered
+
+**Challenges**:
+- Sometimes you wait so long the moment passes
+- Partners can misread your patience as disinterest
+- You might overthink instead of just feeling
+
+**Advice**:
+"Not everything needs to marinate. Sometimes the best things happen when you let yourself be surprised."
+
+**Compatible With**: SLOW REVEAL, PUSH & PULL
 
 **Share Text**:
 `I'm a SLOW BURN — the tension is the whole point. what's yours?`
@@ -39,13 +51,25 @@ darcy & elizabeth • jim & pam • connell & marianne
 **Tagline**: you never really closed that chapter, did you
 
 **Description**:
-You still think about the one that got away. Not in a sad way — in a "the timing was just wrong" way. You believe some people are meant to find their way back to each other. Reunion episodes are your weakness. You've definitely stalked an ex's Instagram "just to see how they're doing." You're not hung up on the past — you just think some stories deserve a second draft.
+You still think about the one that got away. Not in a sad way — in a "the timing was just wrong" way. You believe some people are meant to find their way back to each other.
 
-**Callback Format**:
-`You told {character}: "{quote}" ...you're already writing the sequel in your head.`
+**In Relationships**:
+You're a romantic who believes in fate and timing. You see potential where others see endings. Your exes probably still have a soft spot for you because you never really burn bridges — you just... postpone crossings.
 
-**Your People**:
-mia & sebastian • noah & allie • jesse & céline
+**Strengths**:
+- You see the best in people, even when they've let you down
+- You're forgiving and believe in growth
+- You bring depth to relationships because you understand history matters
+
+**Challenges**:
+- You might romanticize the past instead of seeing it clearly
+- New partners can feel like they're competing with ghosts
+- You risk missing what's in front of you while looking backward
+
+**Advice**:
+"Some chapters close for a reason. The best sequel might be with someone entirely new."
+
+**Compatible With**: ALL IN, SLOW BURN
 
 **Share Text**:
 `I'm a SECOND CHANCE — some stories deserve a sequel. what's yours?`
@@ -57,13 +81,25 @@ mia & sebastian • noah & allie • jesse & céline
 **Tagline**: when you know, you know — and you KNEW
 
 **Description**:
-You don't do slow. You don't do games. When you feel it, you say it, and honestly? That's terrifying to most people. You've been called "intense" like it's a bad thing. It's not. You'd rather be rejected for being honest than liked for being careful. While everyone else is calculating their next move, you already made yours. Life's too short to pretend you don't care.
+You don't do slow. You don't do games. When you feel it, you say it, and honestly? That's terrifying to most people. You've been called "intense" like it's a bad thing. It's not.
 
-**Callback Format**:
-`You told {character}: "{quote}" ...no hesitation. respect.`
+**In Relationships**:
+You're the person who texts back immediately and doesn't apologize for it. You bring your whole heart to the table from day one. Some people find it overwhelming; the right person finds it refreshing.
 
-**Your People**:
-rachel & nick • lara jean & peter • jake & amy
+**Strengths**:
+- You're brave — you put yourself out there when others hide
+- No one ever has to guess how you feel
+- You create deep connections fast because you're genuinely present
+
+**Challenges**:
+- Your intensity can scare people off before they get to know you
+- You might invest heavily in people who haven't earned it yet
+- Rejection hits you harder because you were never holding back
+
+**Advice**:
+"Your openness is a gift, not a flaw. But matching energy matters — save your full heart for people who show up."
+
+**Compatible With**: SECOND CHANCE, SLOW REVEAL
 
 **Share Text**:
 `I'm ALL IN — when I know, I know. what's yours?`
@@ -75,13 +111,25 @@ rachel & nick • lara jean & peter • jake & amy
 **Tagline**: you want them to work for it (and you'll work for it too)
 
 **Description**:
-Hot then cold. Close then distant. It's not games — it's tension, and you're fluent in it. You flirt by arguing. You show love by teasing. The chase is half the fun and you refuse to apologize for it. People say they want straightforward, but they keep coming back to you. You're exhausting in the best way. Boring could never be your problem.
+Hot then cold. Close then distant. It's not games — it's tension, and you're fluent in it. You flirt by arguing. You show love by teasing. The chase is half the fun.
 
-**Callback Format**:
-`You told {character}: "{quote}" ...push, pull, we see you.`
+**In Relationships**:
+You keep things interesting. Your partners never quite know what they're going to get, and that's exactly why they stick around. You need someone who can match your energy — and challenge it.
 
-**Your People**:
-kat & patrick • jess & nick • lorelai & luke
+**Strengths**:
+- You keep the spark alive long after the honeymoon phase
+- You're never boring — every day feels a little different
+- You understand that attraction needs friction
+
+**Challenges**:
+- Some partners just want consistency, not a rollercoaster
+- Your signals can be genuinely confusing
+- You might create drama when things get too comfortable
+
+**Advice**:
+"Tension is exciting, but stability isn't the enemy. The best relationships have both."
+
+**Compatible With**: SLOW BURN, PUSH & PULL
 
 **Share Text**:
 `I'm a PUSH & PULL — the chase is half the fun. what's yours?`
@@ -93,13 +141,25 @@ kat & patrick • jess & nick • lorelai & luke
 **Tagline**: they have to earn the real you
 
 **Description**:
-You're not cold — you're careful. There's a version of you that most people get, and then there's the version that only comes out when someone proves they're paying attention. You test people without them knowing. You reward curiosity and punish assumptions. People call you "mysterious" and you let them, because explaining yourself sounds exhausting. The right person will figure it out.
+You're not cold — you're careful. There's a version of you that most people get, and then there's the version that only comes out when someone proves they're paying attention.
 
-**Callback Format**:
-`You told {character}: "{quote}" ...you let that one slip, didn't you.`
+**In Relationships**:
+You're a puzzle worth solving. You test people without them knowing, rewarding curiosity and punishing assumptions. When someone finally sees the real you, they feel like they've won something.
 
-**Your People**:
-jane & rochester • fleabag & the priest • bella & edward
+**Strengths**:
+- You protect your energy — not everyone deserves access
+- The people who stick around really know you
+- You create deep intimacy through gradual trust
+
+**Challenges**:
+- People might give up before they get to the good parts
+- You can seem distant even when you're interested
+- Your walls might be protecting you from the wrong things
+
+**Advice**:
+"Mystery is magnetic, but someone has to get in eventually. Consider letting the right people see you sooner."
+
+**Compatible With**: SLOW BURN, ALL IN
 
 **Share Text**:
 `I'm a SLOW REVEAL — you have to earn the real me. what's yours?`
@@ -109,55 +169,62 @@ jane & rochester • fleabag & the priest • bella & edward
 ## Result Page Structure
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                          [emoji]                            │
-│                                                             │
-│                       SLOW BURN                             │
-│                                                             │
-│        the tension is the whole point and you know it       │
-│                                                             │
-├─────────────────────────────────────────────────────────────┤
-│  You'd rather wait three seasons for a kiss than rush it.  │
-│  You've said "I just think it's better when it builds"     │
-│  at least once this month...                                │
-├─────────────────────────────────────────────────────────────┤
-│  You told Jack: "I like taking my time"                     │
-│  ...yeah, we clocked you immediately.                       │
-├─────────────────────────────────────────────────────────────┤
-│                      your people                            │
-│        darcy & elizabeth • jim & pam • connell & marianne   │
-├─────────────────────────────────────────────────────────────┤
-│  match ─────────────────────────────────────── 87%          │
-└─────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────┐
+│                          [emoji]                                │
+│                                                                 │
+│                   your red flag is...                           │
+│                                                                 │
+│                       SLOW BURN                                 │
+│                                                                 │
+│        the tension is the whole point and you know it           │
+├─────────────────────────────────────────────────────────────────┤
+│  You'd rather wait three seasons for a kiss than rush it...    │
+├─────────────────────────────────────────────────────────────────┤
+│  💕 In Relationships                                            │
+│  You're the person who makes every glance feel loaded...       │
+├─────────────────────────────────────────────────────────────────┤
+│  ┌─────────────────────┐ ┌─────────────────────┐               │
+│  │ ✨ Strengths        │ │ ⚠️ Challenges       │               │
+│  │ • Point 1           │ │ • Point 1           │               │
+│  │ • Point 2           │ │ • Point 2           │               │
+│  │ • Point 3           │ │ • Point 3           │               │
+│  └─────────────────────┘ └─────────────────────┘               │
+├─────────────────────────────────────────────────────────────────┤
+│  "Not everything needs to marinate..."                         │
+├─────────────────────────────────────────────────────────────────┤
+│                      you vibe with                              │
+│                  SLOW REVEAL & PUSH & PULL                      │
+└─────────────────────────────────────────────────────────────────┘
 
-                    [ share result ]
+                    [ share result ]  ← Primary CTA
 
                       [ try again ]
+
+┌─────────────────────────────────────────────────────────────────┐
+│                  ready for the real thing?                      │
+│                                                                 │
+│    try episode 0 — free interactive romance stories            │
+│                                                                 │
+│  ┌─────────────────┐    ┌─────────────────┐                    │
+│  │  Hometown       │    │  Coffee Shop    │                    │
+│  │  Crush          │    │  Crush          │                    │
+│  └─────────────────┘    └─────────────────┘                    │
+└─────────────────────────────────────────────────────────────────┘
 
                       ep-0.com/play
 ```
 
 ---
 
-## Share Infrastructure
+## Trope Visual Identity
 
-### Share Text
-Pre-formatted for each trope, ready to copy/paste or share via native share sheet.
-
-### OG Image (1200x630)
-
-```
-┌─────────────────────────────────────┐
-│                                     │
-│         I'm a SLOW BURN             │
-│                                     │
-│   the tension is the whole point    │
-│                                     │
-│      what's your romantic trope?    │
-│           ep-0.com/play             │
-│                                     │
-└─────────────────────────────────────┘
-```
+| Trope | Emoji | Color |
+|-------|-------|-------|
+| slow_burn | 🕯️ | amber-500 |
+| second_chance | 🌅 | rose-500 |
+| all_in | 💫 | yellow-500 |
+| push_pull | ⚡ | purple-500 |
+| slow_reveal | 🌙 | violet-500 |
 
 ---
 
@@ -165,5 +232,6 @@ Pre-formatted for each trope, ready to copy/paste or share via native share shee
 
 | Version | Date | Changes |
 |---------|------|---------|
+| 3.0.0 | 2025-12-21 | Added elaborate result sections: In Relationships, Strengths, Challenges, Advice, Compatibility |
 | 2.0.0 | 2025-12-20 | Complete rewrite - maximum virality, MBTI energy |
 | 1.0.0 | 2025-12-20 | Initial spec (deprecated) |

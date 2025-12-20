@@ -1,14 +1,14 @@
 # Quiz Mode Specification
 
-> **Version**: 1.0.0
-> **Status**: Draft
+> **Version**: 1.1.0
+> **Status**: Implemented
 > **Updated**: 2025-12-21
 
 ---
 
 ## Overview
 
-Quiz Mode replaces the 4-turn conversation approach with a static, quiz-based experience. Users answer 5-6 multiple choice questions and receive a romantic trope result. This approach prioritizes:
+Quiz Mode is a static, quiz-based experience where users answer 5 multiple choice questions and receive a romantic trope result. This approach prioritizes:
 
 1. **Consistent quality** - No LLM variance in the experience
 2. **Proven viral format** - MBTI/BuzzFeed-style quizzes have established shareability
@@ -17,17 +17,12 @@ Quiz Mode replaces the 4-turn conversation approach with a static, quiz-based ex
 
 ---
 
-## Quiz Theme Options
+## Quiz Theme
 
-### Primary: "What's Your Red Flag?"
+### "What's Your Red Flag?"
 - Self-deprecating, funny framing
 - High shareability - people love roasting themselves
 - Maps cleanly to existing tropes
-
-### Alternative Themes (Future)
-- "How Unhinged Is Your Love Life?"
-- "Your Romantic Villain Era"
-- "What Kind of Lover Are You?"
 
 ---
 
@@ -41,17 +36,21 @@ Quiz Mode replaces the 4-turn conversation approach with a static, quiz-based ex
         └── CTA: "Find Out"
               │
               ▼
-        Question Flow (5-6 questions)
-        ├── Q1 → Q2 → Q3 → Q4 → Q5 → (Q6 optional)
-        ├── Progress indicator
+        Question Flow (5 questions)
+        ├── Q1 → Q2 → Q3 → Q4 → Q5
+        ├── Progress indicator (bar)
         └── Each question: scenario + 5 answer options (one per trope)
               │
               ▼
-        Result Page
-        ├── Trope identity (emoji, title, tagline)
-        ├── Description paragraph
-        ├── "your people" references
+        Result Page (Elaborate)
+        ├── Hero: emoji + "your red flag is..." + title + tagline
+        ├── Description card
+        ├── "In Relationships" section
+        ├── Strengths & Challenges (2-column grid)
+        ├── Advice card (highlighted)
+        ├── Compatibility ("you vibe with")
         ├── Share button (primary CTA)
+        ├── Try again button
         └── "Try Episode 0" section
               ├── Hometown Crush card
               └── Coffee Shop Crush card
@@ -74,7 +73,7 @@ Scenario-based with a casual, slightly unhinged tone.
 
 ---
 
-## Sample Questions
+## The 5 Questions
 
 ### Q1: The Text Back
 **"They finally text back after 6 hours. You:"**
@@ -131,53 +130,46 @@ Scenario-based with a casual, slightly unhinged tone.
 | Asks too many questions too soon | slow_reveal |
 | Refuses to believe people can change | second_chance |
 
-### Q6 (Optional): The Rom-Com Moment
-**"Your ideal rom-com moment:"**
-
-| Option | Trope |
-|--------|-------|
-| Running into your ex at a wedding, both single | second_chance |
-| The slow realization after years of friendship | slow_burn |
-| Confessing your feelings in the rain, no hesitation | all_in |
-| The enemies-to-lovers arc where banter becomes something more | push_pull |
-| They finally see the real you after breaking down your walls | slow_reveal |
-
 ---
 
-## Result Page Structure
+## Result Page Structure (Implemented)
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                          [emoji]                            │
-│                                                             │
-│                   your red flag is...                       │
-│                                                             │
-│                       SLOW BURN                             │
-│                                                             │
-│        the tension is the whole point and you know it       │
-│                                                             │
-├─────────────────────────────────────────────────────────────┤
-│  You'd rather wait three seasons for a kiss than rush it.  │
-│  You've said "I just think it's better when it builds"     │
-│  at least once this month...                                │
-├─────────────────────────────────────────────────────────────┤
-│                      your people                            │
-│        darcy & elizabeth • jim & pam • connell & marianne   │
-└─────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────┐
+│                          [emoji]                                │
+│                   your red flag is...                           │
+│                       SLOW BURN                                 │
+│        the tension is the whole point and you know it           │
+├─────────────────────────────────────────────────────────────────┤
+│  You'd rather wait three seasons for a kiss than rush it...    │
+├─────────────────────────────────────────────────────────────────┤
+│  💕 In Relationships                                            │
+│  You're the person who makes every glance feel loaded...       │
+├─────────────────────────────────────────────────────────────────┤
+│  ┌─────────────────────┐ ┌─────────────────────┐               │
+│  │ ✨ Strengths        │ │ ⚠️ Challenges       │               │
+│  │ • Point 1           │ │ • Point 1           │               │
+│  │ • Point 2           │ │ • Point 2           │               │
+│  │ • Point 3           │ │ • Point 3           │               │
+│  └─────────────────────┘ └─────────────────────┘               │
+├─────────────────────────────────────────────────────────────────┤
+│  "Not everything needs to marinate..."  (advice, highlighted)  │
+├─────────────────────────────────────────────────────────────────┤
+│                      you vibe with                              │
+│                  SLOW REVEAL & PUSH & PULL                      │
+└─────────────────────────────────────────────────────────────────┘
 
                     [ share result ]  ← Primary CTA
+                      [ try again ]
 
-┌─────────────────────────────────────────────────────────────┐
-│                  ready for the real thing?                  │
-│                                                             │
-│    try episode 0 — free interactive romance stories        │
-│                                                             │
-│  ┌─────────────────┐    ┌─────────────────┐                │
-│  │  Hometown       │    │  Coffee Shop    │                │
-│  │  Crush          │    │  Crush          │                │
-│  │  [image]        │    │  [image]        │                │
-│  └─────────────────┘    └─────────────────┘                │
-└─────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────┐
+│                  ready for the real thing?                      │
+│    try episode 0 — free interactive romance stories            │
+│  ┌─────────────────┐    ┌─────────────────┐                    │
+│  │  Hometown       │    │  Coffee Shop    │                    │
+│  │  Crush          │    │  Crush          │                    │
+│  └─────────────────┘    └─────────────────┘                    │
+└─────────────────────────────────────────────────────────────────┘
 
                       ep-0.com/play
 ```
@@ -186,40 +178,26 @@ Scenario-based with a casual, slightly unhinged tone.
 
 ## Technical Implementation
 
-### What We Keep
-- `/play` route structure
-- Anonymous user flow (create anon user, link on auth)
-- Result/share infrastructure
-- Trope content (ROMANTIC_TROPES in evaluation.py)
-- Share page (`/r/[shareId]`)
+### File Locations
 
-### What Changes
-- Replace conversation UI with quiz UI
-- Remove LLM calls for quiz flow (scoring is deterministic)
-- Simplify session model (just store answers, not messages)
-- Update result page layout (add Episode 0 CTA section)
+| Component | File |
+|-----------|------|
+| Quiz data & scoring | `web/src/lib/quiz-data.ts` |
+| Quiz types | `web/src/types/index.ts` |
+| Progress component | `web/src/components/quiz/QuizProgress.tsx` |
+| Question component | `web/src/components/quiz/QuizQuestion.tsx` |
+| Result component | `web/src/components/quiz/QuizResult.tsx` |
+| Main page | `web/src/app/play/page.tsx` |
 
-### New Components
-- `QuizQuestion` - Single question with 5 options
-- `QuizProgress` - Progress indicator (dots or bar)
-- `QuizResult` - Result display with share + Episode 0 CTAs
-- `SeriesCard` - Clickable card for series promotion
+### No Backend Required
 
-### Data Model
+Quiz mode is **entirely frontend**:
+- Questions stored in `quiz-data.ts`
+- Scoring calculated client-side
+- No API calls during quiz flow
+- Share via native share API or clipboard copy
 
-```typescript
-interface QuizSession {
-  id: string;
-  anonymous_id: string | null;
-  user_id: string | null;
-  answers: Record<number, RomanticTrope>;  // question_index -> selected trope
-  result_trope: RomanticTrope | null;
-  created_at: string;
-  completed_at: string | null;
-}
-```
-
-### Scoring Logic (Frontend)
+### Scoring Logic
 
 ```typescript
 function calculateTrope(answers: Record<number, RomanticTrope>): RomanticTrope {
@@ -238,7 +216,6 @@ function calculateTrope(answers: Record<number, RomanticTrope>): RomanticTrope {
     lastAnswered = trope;
   }
 
-  // Find max score
   const maxScore = Math.max(...Object.values(scores));
   const winners = Object.entries(scores)
     .filter(([_, score]) => score === maxScore)
@@ -255,36 +232,14 @@ function calculateTrope(answers: Record<number, RomanticTrope>): RomanticTrope {
 
 ---
 
-## Migration Notes
-
-### Routes
-- `/play/hometown-crush/*` → Archive or redirect to `/play`
-- `/play` → New quiz landing page
-- `/play/result` → Updated result page with Episode 0 CTAs
-
-### Backend
-- Quiz sessions can use existing `sessions` table with `series_type: 'quiz'`
-- Or create lightweight `quiz_sessions` table
-- Evaluation still saved to `session_evaluations` for share functionality
-
----
-
 ## Success Metrics
 
-1. **Completion rate** - % who finish all questions
-2. **Share rate** - % who click share after result
-3. **Episode 0 conversion** - % who click through to series
-4. **Time to complete** - Should be <60 seconds
-
----
-
-## Phase 1 Scope
-
-1. Single quiz: "What's Your Red Flag?"
-2. 5 questions (can add 6th later)
-3. Same 5 tropes with existing content
-4. Share functionality
-5. Episode 0 CTA with 2 series cards
+| Metric | Target | Notes |
+|--------|--------|-------|
+| Completion rate | 90%+ | Quiz is short (<60 seconds) |
+| Share rate | 35%+ | Primary viral mechanism |
+| Episode 0 click-through | 15%+ | Conversion to full stories |
+| Time to complete | <60s | Quick, snackable experience |
 
 ---
 
@@ -294,6 +249,7 @@ function calculateTrope(answers: Record<number, RomanticTrope>): RomanticTrope {
 - Randomize question order
 - A/B test question variations
 - Add "your match" feature (compare with friends)
+- OG image generation for share links
 
 ---
 
@@ -301,4 +257,5 @@ function calculateTrope(answers: Record<number, RomanticTrope>): RomanticTrope {
 
 | Version | Date | Changes |
 |---------|------|---------|
+| 1.1.0 | 2025-12-21 | Updated with elaborate result page structure (strengths, challenges, advice, compatibility) |
 | 1.0.0 | 2025-12-21 | Initial quiz mode spec |
