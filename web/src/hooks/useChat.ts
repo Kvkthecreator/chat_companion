@@ -45,6 +45,7 @@ interface UseChatReturn {
   directorState: StreamDirectorState | null;
   isEpisodeComplete: boolean;
   nextSuggestion: StreamEpisodeCompleteEvent["next_suggestion"];
+  evaluation: StreamEpisodeCompleteEvent["evaluation"];  // Games evaluation (optional)
   // Director V2 visual state
   visualPending: VisualPendingState | null;
   instructionCards: string[];  // Accumulated instruction cards for session
@@ -82,6 +83,7 @@ export function useChat({
   const [directorState, setDirectorState] = useState<StreamDirectorState | null>(null);
   const [isEpisodeComplete, setIsEpisodeComplete] = useState(false);
   const [nextSuggestion, setNextSuggestion] = useState<StreamEpisodeCompleteEvent["next_suggestion"]>(null);
+  const [evaluation, setEvaluation] = useState<StreamEpisodeCompleteEvent["evaluation"]>(undefined);
 
   // Director V2 visual state
   const [visualPending, setVisualPending] = useState<VisualPendingState | null>(null);
@@ -257,14 +259,19 @@ export function useChat({
           // Director detected episode completion
           setIsEpisodeComplete(true);
           setNextSuggestion(event.next_suggestion);
+          // Set evaluation if provided (Games feature)
+          if (event.evaluation) {
+            setEvaluation(event.evaluation);
+          }
 
           // Update director state to show completion
           setDirectorState((prev) => ({
-            ...(prev || { turn_count: event.turn_count, turns_remaining: 0 }),
+            ...(prev || { turn_count: event.turn_count, turns_remaining: 0, pacing: "resolve" }),
             turn_count: event.turn_count,
             turns_remaining: 0,
             is_complete: true,
             status: "done",
+            pacing: "resolve",  // Episode complete = resolve phase
           }));
 
           // Call callback if provided
@@ -417,6 +424,7 @@ export function useChat({
     directorState,
     isEpisodeComplete,
     nextSuggestion,
+    evaluation,
     // Director V2 visual state
     visualPending,
     instructionCards,

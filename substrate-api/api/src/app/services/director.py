@@ -3,7 +3,11 @@
 The Director is the system entity that observes, evaluates, and orchestrates
 episode progression through semantic understanding rather than state machines.
 
-Reference: docs/DIRECTOR_ARCHITECTURE.md
+Director Protocol v2.0:
+- PRE-GUIDANCE: Pacing, tension, physical anchors BEFORE character responds
+- POST-EVALUATION: Visual detection, completion status AFTER response
+
+Reference: docs/quality/core/DIRECTOR_PROTOCOL.md
 """
 
 import json
@@ -24,6 +28,69 @@ from app.models.evaluation import (
 from app.services.llm import LLMService
 
 log = logging.getLogger(__name__)
+
+
+# Genre-specific tension patterns for pre-guidance
+GENRE_BEATS = {
+    "romantic_tension": {
+        "establish": "set the scene, create first spark of attraction",
+        "develop": "build rapport through vulnerability, test boundaries",
+        "escalate": "unspoken tension rises, proximity matters more",
+        "peak": "the moment before something changes forever",
+        "resolve": "land the emotional payoff or create the hook for next time",
+    },
+    "psychological_thriller": {
+        "establish": "something feels off, trust is uncertain",
+        "develop": "information drip, questions multiply",
+        "escalate": "stakes become personal, escape narrows",
+        "peak": "truth or consequences, no safe exit",
+        "resolve": "revelation or cliffhanger, nothing is the same",
+    },
+    "slice_of_life": {
+        "establish": "comfortable presence, small details matter",
+        "develop": "shared moments build connection",
+        "escalate": "depth emerges from simplicity",
+        "peak": "quiet intimacy, being truly known",
+        "resolve": "warmth lingers, anticipation for next time",
+    },
+}
+
+
+@dataclass
+class DirectorGuidance:
+    """Pre-response guidance for character LLM.
+
+    This is injected into context BEFORE the character generates a response.
+    It influences pacing, tension, and genre-appropriate behavior.
+    """
+    pacing: str = "develop"  # establish/develop/escalate/peak/resolve
+    tension_note: Optional[str] = None  # Subtle direction for the actor
+    physical_anchor: Optional[str] = None  # Sensory reminder
+    genre_beat: Optional[str] = None  # Genre-specific guidance
+
+    def to_prompt_section(self) -> str:
+        """Format as prompt section for character LLM."""
+        lines = [
+            "═══════════════════════════════════════════════════════════════",
+            "DIRECTOR NOTE (internal guidance - do not mention explicitly)",
+            "═══════════════════════════════════════════════════════════════",
+            "",
+            f"Pacing: {self.pacing.upper()}",
+        ]
+
+        if self.tension_note:
+            lines.append(f"Tension: {self.tension_note}")
+
+        if self.physical_anchor:
+            lines.append(f"Ground in: {self.physical_anchor}")
+
+        if self.genre_beat:
+            lines.append(f"Beat: {self.genre_beat}")
+
+        lines.append("")
+        lines.append("Let this guide your response naturally. Don't force it.")
+
+        return "\n".join(lines)
 
 
 @dataclass
@@ -65,6 +132,19 @@ class DirectorOutput:
 class DirectorService:
     """Director service - semantic evaluation and runtime orchestration.
 
+    Director Protocol v2.0 - Two-Phase Model:
+
+    PHASE 1: PRE-GUIDANCE (before character LLM)
+    - Determines pacing based on turn count and episode budget
+    - Generates tension notes based on recent exchange
+    - Provides physical anchors from situation
+    - Adds genre-appropriate beat guidance
+
+    PHASE 2: POST-EVALUATION (after character LLM)
+    - Detects visual moments (character/object/atmosphere/instruction)
+    - Determines episode completion status
+    - Triggers memory extraction and hooks
+
     The Director is the "brain, eyes, ears, and hands" of the conversation system:
     - Eyes/Ears: Observes all exchanges
     - Brain: Evaluates semantically (not state machines)
@@ -74,6 +154,143 @@ class DirectorService:
     def __init__(self, db):
         self.db = db
         self.llm = LLMService.get_instance()
+
+    # =========================================================================
+    # PHASE 1: PRE-GUIDANCE (before character response)
+    # =========================================================================
+
+    def determine_pacing(
+        self,
+        turn_count: int,
+        turn_budget: Optional[int],
+    ) -> str:
+        """Determine pacing phase based on turn position.
+
+        Returns: establish/develop/escalate/peak/resolve
+        """
+        if turn_budget and turn_budget > 0:
+            # Bounded episode: use position in arc
+            position = turn_count / turn_budget
+            if position < 0.15:
+                return "establish"
+            elif position < 0.4:
+                return "develop"
+            elif position < 0.7:
+                return "escalate"
+            elif position < 0.9:
+                return "peak"
+            else:
+                return "resolve"
+        else:
+            # Open episode: use turn count heuristics
+            if turn_count < 2:
+                return "establish"
+            elif turn_count < 5:
+                return "develop"
+            elif turn_count < 10:
+                return "escalate"
+            elif turn_count < 15:
+                return "peak"
+            else:
+                return "resolve"
+
+    async def generate_pre_guidance(
+        self,
+        messages: List[Dict[str, str]],
+        genre: str,
+        situation: str,
+        dramatic_question: str,
+        turn_count: int,
+        turn_budget: Optional[int] = None,
+    ) -> DirectorGuidance:
+        """Generate pre-response guidance for character LLM.
+
+        This is a lightweight LLM call that provides:
+        - Pacing phase (algorithmic)
+        - Tension note (LLM-generated, contextual)
+        - Physical anchor (from situation)
+        - Genre beat (from GENRE_BEATS lookup)
+        """
+        # 1. Determine pacing algorithmically
+        pacing = self.determine_pacing(turn_count, turn_budget)
+
+        # 2. Get genre beat from lookup
+        genre_key = genre.lower().replace(" ", "_").replace("-", "_")
+        genre_beats = GENRE_BEATS.get(genre_key, GENRE_BEATS.get("romantic_tension", {}))
+        genre_beat = f"{genre_key}: {genre_beats.get(pacing, 'stay in the moment')}"
+
+        # 3. Extract physical anchor from situation (first sensory phrase)
+        physical_anchor = None
+        if situation:
+            # Take first meaningful chunk for grounding
+            physical_anchor = situation.split(".")[0].strip()[:100]
+
+        # 4. Generate tension note via lightweight LLM call
+        tension_note = await self._generate_tension_note(
+            messages=messages,
+            genre=genre,
+            dramatic_question=dramatic_question,
+            pacing=pacing,
+        )
+
+        return DirectorGuidance(
+            pacing=pacing,
+            tension_note=tension_note,
+            physical_anchor=physical_anchor,
+            genre_beat=genre_beat,
+        )
+
+    async def _generate_tension_note(
+        self,
+        messages: List[Dict[str, str]],
+        genre: str,
+        dramatic_question: str,
+        pacing: str,
+    ) -> Optional[str]:
+        """Generate a contextual tension note for the character.
+
+        This is a very short, focused LLM call (~50 tokens output).
+        """
+        # Only use last 2 exchanges for speed
+        recent = messages[-4:] if len(messages) > 4 else messages
+        formatted = "\n".join(
+            f"{m['role'].upper()}: {m['content'][:200]}"
+            for m in recent
+        )
+
+        prompt = f"""You are a director giving a one-line note to an actor in a {genre} scene.
+
+RECENT EXCHANGE:
+{formatted}
+
+DRAMATIC TENSION: {dramatic_question}
+CURRENT PACING: {pacing}
+
+Give ONE short direction (max 15 words) that helps the actor understand what to lean into for their next line. Focus on subtext, not action.
+
+Examples:
+- "She wants to stay but can't admit it—let the pause speak"
+- "He's testing you—match his energy but keep something back"
+- "The silence is louder than words right now"
+
+Your direction:"""
+
+        try:
+            response = await self.llm.generate(
+                [{"role": "user", "content": prompt}],
+                max_tokens=50,
+                temperature=0.7,
+            )
+            # Clean up response
+            note = response.content.strip().strip('"').strip("'")
+            return note[:150] if note else None
+        except Exception as e:
+            log.warning(f"Tension note generation failed: {e}")
+            return None
+
+    # =========================================================================
+    # PHASE 2: POST-EVALUATION (after character response)
+    # =========================================================================
 
     async def evaluate_exchange(
         self,

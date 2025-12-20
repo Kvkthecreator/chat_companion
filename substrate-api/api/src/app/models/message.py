@@ -113,6 +113,9 @@ class ConversationContext(BaseModel):
     resolution_types: List[str] = Field(default_factory=lambda: ["positive", "neutral", "negative"])
     series_context: Optional[str] = None  # Context from previous episodes in serial
 
+    # Director Guidance (per DIRECTOR_PROTOCOL.md v2.0)
+    director_guidance: Optional[str] = None  # Pre-formatted guidance section from Director
+
     # Stage labels for display (data only, no behavioral guidance)
     STAGE_LABELS: ClassVar[Dict[str, str]] = {
         "acquaintance": "Just met",
@@ -374,6 +377,14 @@ MOMENT LAYER (In-the-moment priority)
 
 Respond in this exact moment. Lead with a micro-action or sensory beat, then speak.
 Advance tension by one step, not a leap.
+"""
+
+        # Director Guidance (per DIRECTOR_PROTOCOL.md v2.0)
+        # This is the highest priority layer - it shapes pacing and tension
+        if self.director_guidance:
+            enhanced_context += f"""
+
+{self.director_guidance}
 """
 
         # Append enhanced context to system prompt

@@ -161,6 +161,10 @@ class ConversationService:
     ) -> AsyncIterator[str]:
         """Send a message and stream the response.
 
+        Director Protocol v2.0:
+        - PHASE 1: Pre-guidance (before LLM) - pacing, tension, genre beat
+        - PHASE 2: Post-evaluation (after LLM) - visuals, completion, memory
+
         Per DIRECTOR_ARCHITECTURE.md, Director runs for ALL episodes:
         - Open episodes: turn counting, memory, hooks, beat tracking
         - Bounded episodes: all of the above + completion detection + evaluation
@@ -205,7 +209,27 @@ class ConversationService:
         # Add user message to context
         context.messages.append({"role": "user", "content": content})
 
-        # Generate streaming response
+        # =====================================================================
+        # DIRECTOR PHASE 1: Pre-Guidance (before character LLM)
+        # =====================================================================
+        # Generate pacing and tension guidance based on turn position and genre
+        if episode_template:
+            try:
+                guidance = await self.director_service.generate_pre_guidance(
+                    messages=context.messages,
+                    genre=getattr(episode_template, 'genre', 'romantic_tension'),
+                    situation=episode_template.situation or "",
+                    dramatic_question=episode_template.dramatic_question or "",
+                    turn_count=episode.turn_count,
+                    turn_budget=getattr(episode_template, 'turn_budget', None),
+                )
+                # Inject guidance into context
+                context.director_guidance = guidance.to_prompt_section()
+                log.debug(f"Director pre-guidance: pacing={guidance.pacing}")
+            except Exception as e:
+                log.warning(f"Director pre-guidance failed: {e}")
+
+        # Generate streaming response (with Director guidance in context)
         formatted_messages = context.to_messages()
         full_response = []
 
@@ -227,7 +251,10 @@ class ConversationService:
         for hook in context.hooks:
             await self._mark_hook_triggered(hook.id)
 
-        # Director integration (per DIRECTOR_ARCHITECTURE.md)
+        # =====================================================================
+        # DIRECTOR PHASE 2: Post-Evaluation (after character LLM)
+        # =====================================================================
+        # Evaluate exchange for visuals, completion, and memory extraction
         # Director runs for ALL episodes - handles turn counting, completion detection, evaluation
         full_messages = context.messages + [{"role": "assistant", "content": response_content}]
         director_output = None
@@ -327,14 +354,20 @@ class ConversationService:
         }
 
         # ALWAYS include Director state for ALL episodes (open + bounded)
-        # This surfaces turn tracking, semantic status, etc. for every conversation
+        # This surfaces turn tracking, pacing, semantic status, etc. for every conversation
         if director_output:
             turn_budget = episode_template.turn_budget if episode_template else None
+            # Calculate pacing for frontend display
+            pacing = self.director_service.determine_pacing(
+                director_output.turn_count,
+                turn_budget,
+            )
             done_event["director"] = {
                 "turn_count": director_output.turn_count,
                 "turns_remaining": max(0, turn_budget - director_output.turn_count) if turn_budget else None,
                 "is_complete": director_output.is_complete,
                 "status": director_output.evaluation.get("status") if director_output.evaluation else "going",
+                "pacing": pacing,  # establish/develop/escalate/peak/resolve
             }
 
         yield json.dumps(done_event)

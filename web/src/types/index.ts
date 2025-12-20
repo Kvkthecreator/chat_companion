@@ -1065,6 +1065,11 @@ export interface StreamChunkEvent {
 }
 
 /**
+ * Pacing phase for Director guidance (V2.0)
+ */
+export type DirectorPacing = "establish" | "develop" | "escalate" | "peak" | "resolve";
+
+/**
  * Director state in stream events (V2)
  */
 export interface StreamDirectorState {
@@ -1072,6 +1077,7 @@ export interface StreamDirectorState {
   turns_remaining: number | null;
   is_complete: boolean;
   status: DirectorStatus;  // V2: semantic status (going/closing/done)
+  pacing: DirectorPacing;  // V2.0: narrative pacing phase
 }
 
 /**
@@ -1135,6 +1141,12 @@ export interface StreamEpisodeCompleteEvent {
     situation: string;
     character_id: string | null;
   } | null;
+  // Optional evaluation for Games (Flirt Test, etc.)
+  evaluation?: {
+    evaluation_type: string;
+    result: FlirtArchetypeEvaluation | Record<string, unknown>;
+    share_id?: string;
+  };
 }
 
 /**
