@@ -1,16 +1,74 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { api } from "@/lib/api/client";
 import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
+import { Sparkles, Heart, ArrowLeft } from "lucide-react";
+import Link from "next/link";
+
+// Character metadata with avatar URLs
+interface CharacterInfo {
+  id: string;
+  name: string;
+  description: string;
+  avatarUrl: string | null;
+}
+
+// Default character info (will be replaced with API data if available)
+const DEFAULT_CHARACTERS: Record<"m" | "f", CharacterInfo> = {
+  m: {
+    id: "jack",
+    name: "Jack",
+    description: "Your high school almost-something. You never quite figured out what you were.",
+    avatarUrl: null,
+  },
+  f: {
+    id: "emma",
+    name: "Emma",
+    description: "The one who got away. She still has that look in her eyes.",
+    avatarUrl: null,
+  },
+};
 
 export default function HometownCrushPage() {
   const router = useRouter();
   const [selectedCharacter, setSelectedCharacter] = useState<"m" | "f" | null>(null);
   const [isStarting, setIsStarting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [characters, setCharacters] = useState(DEFAULT_CHARACTERS);
+
+  // Fetch character data to get avatar URLs
+  useEffect(() => {
+    async function loadCharacters() {
+      try {
+        const [jackData, emmaData] = await Promise.all([
+          api.characters.getBySlug("jack-hometown").catch(() => null),
+          api.characters.getBySlug("emma-hometown").catch(() => null),
+        ]);
+
+        setCharacters({
+          m: {
+            id: jackData?.id || "jack",
+            name: jackData?.name || "Jack",
+            description: jackData?.personality_summary || DEFAULT_CHARACTERS.m.description,
+            avatarUrl: jackData?.avatar_url || null,
+          },
+          f: {
+            id: emmaData?.id || "emma",
+            name: emmaData?.name || "Emma",
+            description: emmaData?.personality_summary || DEFAULT_CHARACTERS.f.description,
+            avatarUrl: emmaData?.avatar_url || null,
+          },
+        });
+      } catch (err) {
+        console.error("Failed to load character data:", err);
+      }
+    }
+    loadCharacters();
+  }, []);
 
   const handleStart = async () => {
     if (!selectedCharacter) return;
@@ -20,17 +78,15 @@ export default function HometownCrushPage() {
 
     try {
       const result = await api.games.start("hometown-crush", selectedCharacter);
-      // Store game state for chat page (including anonymous_id for subsequent calls)
       sessionStorage.setItem(`hometown-crush-${result.session_id}`, JSON.stringify({
         sessionId: result.session_id,
-        anonymousId: result.anonymous_id,  // For anonymous users
+        anonymousId: result.anonymous_id,
         characterName: result.character_name,
         characterAvatarUrl: result.character_avatar_url,
         turnBudget: result.turn_budget,
         situation: result.situation,
         openingLine: result.opening_line,
       }));
-      // Navigate to chat with session ID
       router.push(`/play/hometown-crush/chat?session=${result.session_id}`);
     } catch (err) {
       console.error("Failed to start game:", err);
@@ -40,51 +96,63 @@ export default function HometownCrushPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-amber-950 via-rose-950 to-slate-950 text-white">
-      {/* Background decoration */}
+    <div className="min-h-screen bg-background text-foreground">
+      {/* Background gradient */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-amber-500/20 rounded-full blur-3xl" />
-        <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-rose-500/20 rounded-full blur-3xl" />
+        <div className="absolute inset-0 bg-gradient-to-br from-blue-600/10 via-purple-500/5 to-pink-500/10" />
       </div>
 
       {/* Content */}
-      <div className="relative z-10 flex flex-col items-center justify-center min-h-screen px-4 py-12">
-        {/* Logo/Header */}
-        <div className="text-center mb-8">
-          <h1 className="text-4xl md:text-6xl font-bold bg-gradient-to-r from-amber-400 via-rose-400 to-pink-400 bg-clip-text text-transparent mb-3">
+      <div className="relative z-10 flex flex-col items-center min-h-screen px-4 py-8">
+        {/* Back button */}
+        <div className="w-full max-w-2xl mb-6">
+          <Link
+            href="/play"
+            className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Back to Play
+          </Link>
+        </div>
+
+        {/* Header */}
+        <div className="text-center mb-8 max-w-lg">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 text-primary text-sm font-medium mb-4">
+            <Heart className="h-4 w-4" />
+            Romantic Trope Quiz
+          </div>
+          <h1 className="text-3xl md:text-4xl font-bold mb-3">
             Hometown Crush
           </h1>
-          <p className="text-lg md:text-xl text-white/70 max-w-md mx-auto">
+          <p className="text-muted-foreground">
             You&apos;re back in your hometown. You didn&apos;t expect to see them here.
           </p>
         </div>
 
         {/* Situation teaser */}
-        <div className="text-center text-white/50 text-sm max-w-md mx-auto mb-8 italic">
+        <div className="text-center text-muted-foreground text-sm max-w-md mx-auto mb-8 italic">
           A quick conversation that reveals your romantic trope. Are you a slow burn? All in? Something else?
         </div>
 
         {/* Character Selection */}
         <div className="w-full max-w-2xl mb-8">
-          <p className="text-center text-white/60 text-sm mb-4">
+          <p className="text-center text-muted-foreground text-sm mb-4">
             Who do you run into at the coffee shop?
           </p>
           <div className="grid grid-cols-2 gap-4">
             <CharacterCard
-              name="Jack"
-              description="Your high school almost-something. You never quite figured out what you were."
+              name={characters.m.name}
+              description={characters.m.description}
+              avatarUrl={characters.m.avatarUrl}
               selected={selectedCharacter === "m"}
               onClick={() => setSelectedCharacter("m")}
-              gradient="from-slate-500/20 to-blue-500/20"
-              borderColor="blue"
             />
             <CharacterCard
-              name="Emma"
-              description="The one who got away. She still has that look in her eyes."
+              name={characters.f.name}
+              description={characters.f.description}
+              avatarUrl={characters.f.avatarUrl}
               selected={selectedCharacter === "f"}
               onClick={() => setSelectedCharacter("f")}
-              gradient="from-rose-500/20 to-pink-500/20"
-              borderColor="rose"
             />
           </div>
         </div>
@@ -94,22 +162,24 @@ export default function HometownCrushPage() {
           size="lg"
           onClick={handleStart}
           disabled={!selectedCharacter || isStarting}
-          className={cn(
-            "px-12 py-6 text-lg font-semibold rounded-full transition-all",
-            "bg-gradient-to-r from-amber-500 to-rose-500 hover:from-amber-400 hover:to-rose-400",
-            "shadow-xl shadow-rose-500/20",
-            "disabled:opacity-50 disabled:cursor-not-allowed"
-          )}
+          className="px-12 py-6 text-lg font-semibold rounded-full"
         >
-          {isStarting ? "Starting..." : "Start the Conversation"}
+          {isStarting ? (
+            <>
+              <Sparkles className="h-5 w-5 mr-2 animate-pulse" />
+              Starting...
+            </>
+          ) : (
+            "Start the Conversation"
+          )}
         </Button>
 
         {error && (
-          <p className="mt-4 text-red-400 text-sm">{error}</p>
+          <p className="mt-4 text-destructive text-sm">{error}</p>
         )}
 
         {/* Info */}
-        <div className="mt-12 text-center text-white/50 text-sm max-w-md">
+        <div className="mt-12 text-center text-muted-foreground text-sm max-w-md">
           <p>
             Discover your romantic trope through a conversation with someone from your past.
           </p>
@@ -119,8 +189,8 @@ export default function HometownCrushPage() {
         </div>
 
         {/* Footer */}
-        <div className="mt-8 text-white/30 text-xs">
-          <a href="/" className="hover:text-white/50 transition-colors">
+        <div className="mt-8 text-muted-foreground/60 text-xs">
+          <a href="/" className="hover:text-foreground transition-colors">
             ep-0.com
           </a>
         </div>
@@ -132,64 +202,56 @@ export default function HometownCrushPage() {
 interface CharacterCardProps {
   name: string;
   description: string;
+  avatarUrl: string | null;
   selected: boolean;
   onClick: () => void;
-  gradient: string;
-  borderColor: "rose" | "blue";
 }
 
 function CharacterCard({
   name,
   description,
+  avatarUrl,
   selected,
   onClick,
-  gradient,
-  borderColor,
 }: CharacterCardProps) {
   return (
-    <button
+    <Card
       onClick={onClick}
       className={cn(
-        "relative p-6 rounded-2xl text-left transition-all",
-        "bg-gradient-to-br backdrop-blur-xl",
-        gradient,
-        "border-2",
+        "relative p-5 cursor-pointer transition-all duration-200",
+        "hover:shadow-lg hover:-translate-y-0.5",
         selected
-          ? borderColor === "rose"
-            ? "border-rose-400 shadow-lg shadow-rose-500/20"
-            : "border-blue-400 shadow-lg shadow-blue-500/20"
-          : "border-white/10 hover:border-white/20",
+          ? "ring-2 ring-primary shadow-lg"
+          : "hover:ring-1 hover:ring-primary/30",
         "group"
       )}
     >
       {/* Selection indicator */}
       {selected && (
-        <div
-          className={cn(
-            "absolute top-3 right-3 w-5 h-5 rounded-full flex items-center justify-center",
-            borderColor === "rose" ? "bg-rose-400" : "bg-blue-400"
-          )}
-        >
-          <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <div className="absolute top-3 right-3 w-5 h-5 rounded-full bg-primary flex items-center justify-center">
+          <svg className="w-3 h-3 text-primary-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
           </svg>
         </div>
       )}
 
-      {/* Avatar placeholder */}
-      <div
-        className={cn(
-          "w-16 h-16 rounded-full mb-4 flex items-center justify-center text-2xl font-bold",
-          borderColor === "rose"
-            ? "bg-gradient-to-br from-rose-400 to-pink-400"
-            : "bg-gradient-to-br from-slate-400 to-blue-400"
+      {/* Avatar */}
+      <div className="w-16 h-16 rounded-full mb-4 overflow-hidden bg-gradient-to-br from-primary/80 to-accent/80 flex items-center justify-center">
+        {avatarUrl ? (
+          <img
+            src={avatarUrl}
+            alt={name}
+            className="w-full h-full object-cover"
+          />
+        ) : (
+          <span className="text-2xl font-bold text-primary-foreground">
+            {name[0]}
+          </span>
         )}
-      >
-        {name[0]}
       </div>
 
-      <h3 className="text-xl font-semibold mb-1">{name}</h3>
-      <p className="text-sm text-white/60">{description}</p>
-    </button>
+      <h3 className="text-lg font-semibold mb-1">{name}</h3>
+      <p className="text-sm text-muted-foreground line-clamp-2">{description}</p>
+    </Card>
   );
 }

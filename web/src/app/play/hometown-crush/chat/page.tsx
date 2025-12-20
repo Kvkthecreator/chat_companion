@@ -4,7 +4,10 @@ import { useEffect, useState, useRef, useCallback, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { api } from "@/lib/api/client";
 import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
+import { Send, ArrowLeft } from "lucide-react";
+import Link from "next/link";
 import type { GameMessageResponse } from "@/types";
 
 interface Message {
@@ -15,7 +18,7 @@ interface Message {
 
 interface GameState {
   sessionId: string;
-  anonymousId: string | null;  // For anonymous users
+  anonymousId: string | null;
   characterName: string;
   characterAvatarUrl: string | null;
   turnBudget: number;
@@ -47,20 +50,17 @@ function HometownCrushChatContent() {
       return;
     }
 
-    // Try to get game state from session storage
     const storedState = sessionStorage.getItem(`hometown-crush-${sessionId}`);
     if (storedState) {
       const state = JSON.parse(storedState) as GameState;
       setGameState(state);
       setTurnsRemaining(state.turnBudget);
-      // Add opening line as first message
       setMessages([{
         id: "opening",
         role: "assistant",
         content: state.openingLine,
       }]);
     } else {
-      // If no stored state, redirect to start
       router.replace("/play/hometown-crush");
     }
   }, [sessionId, router]);
@@ -79,12 +79,10 @@ function HometownCrushChatContent() {
     setIsSending(true);
     setError(null);
 
-    // Optimistically add user message
     const userMsgId = `user-${Date.now()}`;
     setMessages((prev) => [...prev, { id: userMsgId, role: "user", content: userMessage }]);
 
     try {
-      // Send message to API (include anonymousId for anonymous users)
       const response: GameMessageResponse = await api.games.sendMessage(
         "hometown-crush",
         sessionId,
@@ -92,7 +90,6 @@ function HometownCrushChatContent() {
         gameState?.anonymousId || undefined
       );
 
-      // Add assistant message
       setMessages((prev) => [
         ...prev,
         { id: `assistant-${Date.now()}`, role: "assistant", content: response.message_content },
@@ -103,7 +100,6 @@ function HometownCrushChatContent() {
 
       if (response.is_complete) {
         setIsComplete(true);
-        // Wait a moment then redirect to result
         setTimeout(() => {
           router.push(`/play/hometown-crush/result?session=${sessionId}`);
         }, 1500);
@@ -111,15 +107,13 @@ function HometownCrushChatContent() {
     } catch (err) {
       console.error("Failed to send message:", err);
       setError("Failed to send message. Please try again.");
-      // Remove the optimistic user message
       setMessages((prev) => prev.filter((m) => m.id !== userMsgId));
     } finally {
       setIsSending(false);
       inputRef.current?.focus();
     }
-  }, [inputValue, sessionId, isSending, isComplete, router]);
+  }, [inputValue, sessionId, isSending, isComplete, gameState?.anonymousId, router]);
 
-  // Handle enter key
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
@@ -129,24 +123,41 @@ function HometownCrushChatContent() {
 
   if (!gameState) {
     return (
-      <div className="min-h-screen bg-gradient-to-b from-amber-950 via-rose-950 to-slate-950 flex items-center justify-center">
-        <div className="text-white/60">Loading...</div>
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-muted-foreground">Loading...</div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-amber-950 via-rose-950 to-slate-950 text-white flex flex-col">
+    <div className="min-h-screen bg-background text-foreground flex flex-col">
       {/* Header */}
-      <header className="flex items-center justify-between px-4 py-3 border-b border-white/10 backdrop-blur-sm bg-black/20">
+      <header className="flex items-center justify-between px-4 py-3 border-b bg-card">
         <div className="flex items-center gap-3">
+          {/* Back button */}
+          <Link
+            href="/play/hometown-crush"
+            className="p-2 -ml-2 text-muted-foreground hover:text-foreground transition-colors"
+          >
+            <ArrowLeft className="h-5 w-5" />
+          </Link>
           {/* Avatar */}
-          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-amber-400 to-rose-400 flex items-center justify-center text-lg font-bold">
-            {gameState.characterName[0]}
+          <div className="w-10 h-10 rounded-full overflow-hidden bg-gradient-to-br from-primary/80 to-accent/80 flex items-center justify-center">
+            {gameState.characterAvatarUrl ? (
+              <img
+                src={gameState.characterAvatarUrl}
+                alt={gameState.characterName}
+                className="w-full h-full object-cover"
+              />
+            ) : (
+              <span className="text-lg font-bold text-primary-foreground">
+                {gameState.characterName[0]}
+              </span>
+            )}
           </div>
           <div>
             <h1 className="font-semibold">{gameState.characterName}</h1>
-            <p className="text-xs text-white/50">Hometown Crush</p>
+            <p className="text-xs text-muted-foreground">Hometown Crush</p>
           </div>
         </div>
         {/* Turn counter */}
@@ -154,7 +165,7 @@ function HometownCrushChatContent() {
           <div className="text-sm font-medium">
             {turnsRemaining} {turnsRemaining === 1 ? "turn" : "turns"} left
           </div>
-          <div className="text-xs text-white/50">
+          <div className="text-xs text-muted-foreground">
             {turnCount} of {gameState.turnBudget}
           </div>
         </div>
@@ -164,7 +175,7 @@ function HometownCrushChatContent() {
       <main className="flex-1 overflow-y-auto p-4">
         <div className="max-w-2xl mx-auto space-y-4">
           {/* Situation */}
-          <div className="text-center text-white/50 text-sm italic mb-6 px-4">
+          <div className="text-center text-muted-foreground text-sm italic mb-6 px-4">
             {gameState.situation}
           </div>
 
@@ -174,30 +185,41 @@ function HometownCrushChatContent() {
               key={message.id}
               message={message}
               characterName={gameState.characterName}
+              characterAvatarUrl={gameState.characterAvatarUrl}
             />
           ))}
 
           {/* Sending indicator */}
           {isSending && (
             <div className="flex gap-2 items-end">
-              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-amber-400 to-rose-400 flex items-center justify-center text-sm font-bold">
-                {gameState.characterName[0]}
+              <div className="w-8 h-8 rounded-full overflow-hidden bg-gradient-to-br from-primary/80 to-accent/80 flex items-center justify-center flex-shrink-0">
+                {gameState.characterAvatarUrl ? (
+                  <img
+                    src={gameState.characterAvatarUrl}
+                    alt={gameState.characterName}
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <span className="text-sm font-bold text-primary-foreground">
+                    {gameState.characterName[0]}
+                  </span>
+                )}
               </div>
-              <div className="bg-white/10 rounded-2xl rounded-bl-sm px-4 py-3">
+              <Card className="px-4 py-3 rounded-2xl rounded-bl-sm">
                 <div className="flex gap-1">
-                  <span className="w-2 h-2 bg-white/50 rounded-full animate-bounce" style={{ animationDelay: "0ms" }} />
-                  <span className="w-2 h-2 bg-white/50 rounded-full animate-bounce" style={{ animationDelay: "150ms" }} />
-                  <span className="w-2 h-2 bg-white/50 rounded-full animate-bounce" style={{ animationDelay: "300ms" }} />
+                  <span className="w-2 h-2 bg-muted-foreground/50 rounded-full animate-bounce" style={{ animationDelay: "0ms" }} />
+                  <span className="w-2 h-2 bg-muted-foreground/50 rounded-full animate-bounce" style={{ animationDelay: "150ms" }} />
+                  <span className="w-2 h-2 bg-muted-foreground/50 rounded-full animate-bounce" style={{ animationDelay: "300ms" }} />
                 </div>
-              </div>
+              </Card>
             </div>
           )}
 
           {/* Complete indicator */}
           {isComplete && (
             <div className="text-center py-6">
-              <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-gradient-to-r from-amber-500/20 to-rose-500/20 border border-white/20">
-                <svg className="w-5 h-5 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 border border-primary/20">
+                <svg className="w-5 h-5 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                 </svg>
                 <span className="font-medium">Conversation complete! Revealing your trope...</span>
@@ -210,10 +232,10 @@ function HometownCrushChatContent() {
       </main>
 
       {/* Input */}
-      <footer className="p-4 border-t border-white/10 backdrop-blur-sm bg-black/20">
+      <footer className="p-4 border-t bg-card">
         <div className="max-w-2xl mx-auto">
           {error && (
-            <p className="text-red-400 text-sm text-center mb-2">{error}</p>
+            <p className="text-destructive text-sm text-center mb-2">{error}</p>
           )}
           <div className="flex gap-2">
             <input
@@ -226,24 +248,22 @@ function HometownCrushChatContent() {
               placeholder={isComplete ? "Conversation complete" : `Reply to ${gameState.characterName}...`}
               className={cn(
                 "flex-1 px-4 py-3 rounded-full",
-                "bg-white/10 border border-white/20",
-                "text-white placeholder:text-white/40",
-                "focus:outline-none focus:border-white/40",
+                "bg-muted border border-border",
+                "text-foreground placeholder:text-muted-foreground",
+                "focus:outline-none focus:ring-2 focus:ring-primary/50",
                 "disabled:opacity-50 disabled:cursor-not-allowed"
               )}
             />
             <Button
               onClick={handleSend}
               disabled={!inputValue.trim() || isSending || isComplete}
-              className={cn(
-                "px-6 rounded-full",
-                "bg-gradient-to-r from-amber-500 to-rose-500 hover:from-amber-400 hover:to-rose-400"
-              )}
+              size="icon"
+              className="h-12 w-12 rounded-full"
             >
-              Send
+              <Send className="h-5 w-5" />
             </Button>
           </div>
-          <p className="text-center text-white/30 text-xs mt-2">
+          <p className="text-center text-muted-foreground/60 text-xs mt-2">
             This is A.I. and not a real person.
           </p>
         </div>
@@ -255,29 +275,41 @@ function HometownCrushChatContent() {
 function MessageBubble({
   message,
   characterName,
+  characterAvatarUrl,
 }: {
   message: Message;
   characterName: string;
+  characterAvatarUrl: string | null;
 }) {
   const isUser = message.role === "user";
 
   return (
     <div className={cn("flex gap-2", isUser ? "flex-row-reverse" : "items-end")}>
       {!isUser && (
-        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-amber-400 to-rose-400 flex items-center justify-center text-sm font-bold flex-shrink-0">
-          {characterName[0]}
+        <div className="w-8 h-8 rounded-full overflow-hidden bg-gradient-to-br from-primary/80 to-accent/80 flex items-center justify-center flex-shrink-0">
+          {characterAvatarUrl ? (
+            <img
+              src={characterAvatarUrl}
+              alt={characterName}
+              className="w-full h-full object-cover"
+            />
+          ) : (
+            <span className="text-sm font-bold text-primary-foreground">
+              {characterName[0]}
+            </span>
+          )}
         </div>
       )}
-      <div
+      <Card
         className={cn(
           "max-w-[80%] px-4 py-3 rounded-2xl",
           isUser
-            ? "bg-gradient-to-r from-amber-500 to-rose-500 rounded-br-sm"
-            : "bg-white/10 rounded-bl-sm"
+            ? "bg-primary text-primary-foreground rounded-br-sm"
+            : "rounded-bl-sm"
         )}
       >
         <p className="text-sm leading-relaxed whitespace-pre-wrap">{message.content}</p>
-      </div>
+      </Card>
     </div>
   );
 }
@@ -285,8 +317,8 @@ function MessageBubble({
 export default function HometownCrushChatPage() {
   return (
     <Suspense fallback={
-      <div className="min-h-screen bg-gradient-to-b from-amber-950 via-rose-950 to-slate-950 flex items-center justify-center">
-        <div className="text-white/60">Loading...</div>
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-muted-foreground">Loading...</div>
       </div>
     }>
       <HometownCrushChatContent />

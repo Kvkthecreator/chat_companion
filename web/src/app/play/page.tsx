@@ -1,30 +1,35 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
+import { Play, Sparkles, Heart } from "lucide-react";
 
 export default function PlayPage() {
   const router = useRouter();
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-slate-950 via-purple-950 to-rose-950 text-white">
-      {/* Background decoration */}
+    <div className="min-h-screen bg-background text-foreground">
+      {/* Background gradient - matches series design */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-purple-500/20 rounded-full blur-3xl" />
-        <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-rose-500/20 rounded-full blur-3xl" />
-        <div className="absolute top-1/2 right-1/3 w-64 h-64 bg-amber-500/20 rounded-full blur-3xl" />
+        <div className="absolute inset-0 bg-gradient-to-br from-blue-600/10 via-purple-500/5 to-pink-500/10" />
       </div>
 
       {/* Content */}
-      <div className="relative z-10 flex flex-col items-center justify-center min-h-screen px-4 py-12">
+      <div className="relative z-10 flex flex-col items-center min-h-screen px-4 py-12">
         {/* Header */}
-        <div className="text-center mb-12">
-          <h1 className="text-4xl md:text-6xl font-bold bg-gradient-to-r from-purple-400 via-rose-400 to-amber-400 bg-clip-text text-transparent mb-4">
+        <div className="text-center mb-12 max-w-lg">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 text-primary text-sm font-medium mb-4">
+            <Sparkles className="h-4 w-4" />
             Play Mode
+          </div>
+          <h1 className="text-3xl md:text-4xl font-bold mb-4">
+            Quick, Shareable Experiences
           </h1>
-          <p className="text-lg md:text-xl text-white/70 max-w-md mx-auto">
-            Quick, shareable experiences that reveal something about you
+          <p className="text-muted-foreground">
+            Discover something about yourself through a short conversation.
+            Share your results with friends.
           </p>
         </div>
 
@@ -34,35 +39,23 @@ export default function PlayPage() {
           <GameCard
             title="Hometown Crush"
             tagline="Discover your romantic trope"
-            description="You're back in your hometown. You didn't expect to see them here. A 7-turn conversation reveals if you're a Slow Burn, All In, or something else."
-            gradient="from-amber-500/20 to-rose-500/20"
-            borderColor="amber"
+            description="You're back in your hometown. You didn't expect to see them here. A quick conversation reveals if you're a Slow Burn, All In, or something else."
             featured
             onClick={() => router.push("/play/hometown-crush")}
-          />
-
-          {/* Flirt Test */}
-          <GameCard
-            title="Flirt Test"
-            tagline="What's your flirt style?"
-            description="Chat with someone new and discover your natural flirting archetype. Are you bold, playful, or mysterious?"
-            gradient="from-rose-500/20 to-purple-500/20"
-            borderColor="rose"
-            onClick={() => router.push("/play/flirt-test")}
           />
         </div>
 
         {/* Info */}
-        <div className="mt-12 text-center text-white/50 text-sm max-w-md">
+        <div className="mt-12 text-center text-muted-foreground text-sm max-w-md">
           <p>
             Each experience takes about 2 minutes. Share your results and compare with friends.
           </p>
         </div>
 
         {/* Footer */}
-        <div className="mt-8 text-white/30 text-xs">
-          <a href="/" className="hover:text-white/50 transition-colors">
-            ep-0.com — Interactive AI Episodes
+        <div className="mt-8 text-muted-foreground/60 text-xs">
+          <a href="/" className="hover:text-foreground transition-colors">
+            ep-0.com
           </a>
         </div>
       </div>
@@ -74,8 +67,6 @@ interface GameCardProps {
   title: string;
   tagline: string;
   description: string;
-  gradient: string;
-  borderColor: "amber" | "rose" | "purple";
   featured?: boolean;
   onClick: () => void;
 }
@@ -84,58 +75,57 @@ function GameCard({
   title,
   tagline,
   description,
-  gradient,
-  borderColor,
   featured,
   onClick,
 }: GameCardProps) {
-  const borderStyles = {
-    amber: "border-amber-400/50 hover:border-amber-400",
-    rose: "border-rose-400/50 hover:border-rose-400",
-    purple: "border-purple-400/50 hover:border-purple-400",
-  };
-
-  const buttonStyles = {
-    amber: "from-amber-500 to-rose-500 hover:from-amber-400 hover:to-rose-400",
-    rose: "from-rose-500 to-purple-500 hover:from-rose-400 hover:to-purple-400",
-    purple: "from-purple-500 to-indigo-500 hover:from-purple-400 hover:to-indigo-400",
-  };
-
   return (
-    <div
-      className={cn(
-        "relative p-6 rounded-2xl backdrop-blur-xl border transition-all cursor-pointer group",
-        "bg-gradient-to-br",
-        gradient,
-        borderStyles[borderColor],
-        featured && "ring-2 ring-white/10"
-      )}
+    <Card
       onClick={onClick}
-    >
-      {featured && (
-        <div className="absolute -top-3 left-6 px-3 py-1 bg-gradient-to-r from-amber-500 to-rose-500 rounded-full text-xs font-semibold">
-          New
-        </div>
+      className={cn(
+        "relative overflow-hidden cursor-pointer transition-all duration-200",
+        "hover:shadow-xl hover:-translate-y-1 hover:ring-2 hover:ring-primary/50",
+        "group",
+        featured && "ring-2 ring-primary/30"
       )}
+    >
+      {/* Background gradient */}
+      <div className="relative overflow-hidden aspect-[21/9]">
+        <div className="absolute inset-0 bg-gradient-to-br from-blue-600/40 via-purple-500/30 to-pink-500/20" />
 
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-        <div className="flex-1">
-          <h2 className="text-2xl font-bold mb-1">{title}</h2>
-          <p className="text-white/60 text-sm mb-2">{tagline}</p>
-          <p className="text-white/80 text-sm leading-relaxed">{description}</p>
+        {/* Gradient overlay */}
+        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent" />
+
+        {/* Play indicator on hover */}
+        <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+          <div className="h-14 w-14 rounded-full bg-white/95 flex items-center justify-center shadow-xl">
+            <Play className="h-6 w-6 text-primary ml-0.5" fill="currentColor" />
+          </div>
         </div>
 
-        <Button
-          className={cn(
-            "px-6 py-5 rounded-full font-semibold transition-all",
-            "bg-gradient-to-r",
-            buttonStyles[borderColor],
-            "group-hover:shadow-lg"
-          )}
-        >
-          Play
-        </Button>
+        {/* Featured badge */}
+        {featured && (
+          <Badge
+            variant="secondary"
+            className="absolute top-3 left-3 bg-primary text-primary-foreground border-0"
+          >
+            <Heart className="h-3 w-3 mr-1" />
+            New
+          </Badge>
+        )}
+
+        {/* Content overlay */}
+        <div className="absolute bottom-0 left-0 right-0 p-5">
+          <h2 className="text-xl font-bold text-white drop-shadow-md mb-1">
+            {title}
+          </h2>
+          <p className="text-white/80 text-sm italic mb-2">
+            {tagline}
+          </p>
+          <p className="text-white/70 text-sm leading-relaxed line-clamp-2">
+            {description}
+          </p>
+        </div>
       </div>
-    </div>
+    </Card>
   );
 }

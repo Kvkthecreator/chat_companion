@@ -4,36 +4,19 @@ import { useEffect, useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { api } from "@/lib/api/client";
 import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
+import { Share2, RefreshCw, BookOpen, Check } from "lucide-react";
+import Link from "next/link";
 import type { RomanticTrope, RomanticTropeResult } from "@/types";
 
 // Trope visual metadata for display
-const TROPE_META: Record<RomanticTrope, { emoji: string; color: string; gradient: string }> = {
-  slow_burn: {
-    emoji: "🕯️",
-    color: "text-amber-400",
-    gradient: "from-amber-500/20 to-orange-500/20",
-  },
-  second_chance: {
-    emoji: "🌅",
-    color: "text-rose-400",
-    gradient: "from-rose-500/20 to-pink-500/20",
-  },
-  all_in: {
-    emoji: "💫",
-    color: "text-yellow-400",
-    gradient: "from-yellow-500/20 to-amber-500/20",
-  },
-  push_pull: {
-    emoji: "⚡",
-    color: "text-purple-400",
-    gradient: "from-purple-500/20 to-indigo-500/20",
-  },
-  slow_reveal: {
-    emoji: "🌙",
-    color: "text-violet-400",
-    gradient: "from-violet-500/20 to-purple-500/20",
-  },
+const TROPE_META: Record<RomanticTrope, { emoji: string; color: string }> = {
+  slow_burn: { emoji: "🕯️", color: "text-amber-500" },
+  second_chance: { emoji: "🌅", color: "text-rose-500" },
+  all_in: { emoji: "💫", color: "text-yellow-500" },
+  push_pull: { emoji: "⚡", color: "text-purple-500" },
+  slow_reveal: { emoji: "🌙", color: "text-violet-500" },
 };
 
 interface ResultData {
@@ -60,7 +43,6 @@ function HometownCrushResultContent() {
 
     const fetchResult = async () => {
       try {
-        // Get anonymousId from session storage for anonymous users
         const storedState = sessionStorage.getItem(`hometown-crush-${sessionId}`);
         const anonymousId = storedState ? JSON.parse(storedState).anonymousId : undefined;
 
@@ -87,7 +69,6 @@ function HometownCrushResultContent() {
     const shareUrl = `${window.location.origin}${result.shareUrl}`;
     const shareText = `I'm ${result.evaluation.title} ${TROPE_META[result.evaluation.trope]?.emoji || "💕"} - "${result.evaluation.tagline}"\n\nWhat's your romantic trope?`;
 
-    // Try native share API first
     if (navigator.share) {
       try {
         await navigator.share({
@@ -101,7 +82,6 @@ function HometownCrushResultContent() {
       }
     }
 
-    // Fallback to clipboard
     try {
       await navigator.clipboard.writeText(`${shareText}\n${shareUrl}`);
       setCopied(true);
@@ -117,10 +97,10 @@ function HometownCrushResultContent() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-gradient-to-b from-amber-950 via-rose-950 to-slate-950 flex items-center justify-center">
+      <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">
-          <div className="w-16 h-16 mx-auto mb-4 border-4 border-white/20 border-t-white/80 rounded-full animate-spin" />
-          <p className="text-white/60">Reading you for filth...</p>
+          <div className="w-12 h-12 mx-auto mb-4 border-4 border-muted border-t-primary rounded-full animate-spin" />
+          <p className="text-muted-foreground">Reading you for filth...</p>
         </div>
       </div>
     );
@@ -128,10 +108,10 @@ function HometownCrushResultContent() {
 
   if (error || !result) {
     return (
-      <div className="min-h-screen bg-gradient-to-b from-amber-950 via-rose-950 to-slate-950 flex items-center justify-center px-4">
+      <div className="min-h-screen bg-background flex items-center justify-center px-4">
         <div className="text-center">
-          <p className="text-red-400 mb-4">{error || "Something went wrong"}</p>
-          <Button onClick={handlePlayAgain} variant="outline" className="text-white border-white/20">
+          <p className="text-destructive mb-4">{error || "Something went wrong"}</p>
+          <Button onClick={handlePlayAgain} variant="outline">
             Try Again
           </Button>
         </div>
@@ -143,23 +123,18 @@ function HometownCrushResultContent() {
   const meta = TROPE_META[trope] || TROPE_META.slow_burn;
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-amber-950 via-rose-950 to-slate-950 text-white">
-      {/* Background decoration */}
+    <div className="min-h-screen bg-background text-foreground">
+      {/* Background gradient */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-amber-500/20 rounded-full blur-3xl" />
-        <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-rose-500/20 rounded-full blur-3xl" />
+        <div className="absolute inset-0 bg-gradient-to-br from-blue-600/10 via-purple-500/5 to-pink-500/10" />
       </div>
 
       {/* Content */}
       <div className="relative z-10 flex flex-col items-center min-h-screen px-4 py-8">
-        {/* Result Card - Main shareable content */}
-        <div className={cn(
-          "w-full max-w-md p-6 rounded-3xl backdrop-blur-xl border border-white/10",
-          "bg-gradient-to-br",
-          meta.gradient
-        )}>
+        {/* Result Card */}
+        <Card className="w-full max-w-md p-6 shadow-xl">
           {/* Header */}
-          <p className="text-center text-white/50 text-xs uppercase tracking-wider mb-2">
+          <p className="text-center text-muted-foreground text-xs uppercase tracking-wider mb-3">
             Your Romantic Trope
           </p>
 
@@ -170,16 +145,16 @@ function HometownCrushResultContent() {
           </h1>
 
           {/* Tagline */}
-          <p className="text-center text-white/70 italic text-sm mb-4">
+          <p className="text-center text-muted-foreground italic text-sm mb-5">
             &ldquo;{result.evaluation.tagline}&rdquo;
           </p>
 
           {/* The Read - Brutal Truth */}
-          <div className="mb-5 p-4 bg-black/20 rounded-xl border border-white/5">
-            <p className="text-xs text-white/50 mb-2 uppercase tracking-wider font-medium">
+          <div className="mb-5 p-4 bg-muted/50 rounded-xl">
+            <p className="text-xs text-muted-foreground mb-2 uppercase tracking-wider font-medium">
               The Read
             </p>
-            <p className="text-sm text-white/90 leading-relaxed">
+            <p className="text-sm leading-relaxed">
               {result.evaluation.the_read || result.evaluation.description}
             </p>
           </div>
@@ -187,12 +162,12 @@ function HometownCrushResultContent() {
           {/* Your Receipts - Evidence */}
           {result.evaluation.evidence && result.evaluation.evidence.length > 0 && (
             <div className="mb-5">
-              <p className="text-xs text-white/50 mb-2 uppercase tracking-wider font-medium">
+              <p className="text-xs text-muted-foreground mb-2 uppercase tracking-wider font-medium">
                 Your Receipts
               </p>
               <ul className="space-y-2">
                 {result.evaluation.evidence.map((observation, i) => (
-                  <li key={i} className="flex items-start gap-2 text-sm text-white/80">
+                  <li key={i} className="flex items-start gap-2 text-sm">
                     <span className={cn("mt-0.5", meta.color)}>→</span>
                     <span>{observation}</span>
                   </li>
@@ -203,11 +178,11 @@ function HometownCrushResultContent() {
 
           {/* The Moment - Callback Quote */}
           {result.evaluation.callback_quote && (
-            <div className="mb-5 p-3 bg-white/5 rounded-xl border border-white/10">
-              <p className="text-xs text-white/50 mb-1 uppercase tracking-wider">
+            <div className="mb-5 p-3 bg-primary/5 rounded-xl border border-primary/10">
+              <p className="text-xs text-muted-foreground mb-1 uppercase tracking-wider">
                 The Moment We Knew
               </p>
-              <p className="text-sm text-white/90 italic">
+              <p className="text-sm italic">
                 {result.evaluation.callback_quote}
               </p>
             </div>
@@ -216,25 +191,25 @@ function HometownCrushResultContent() {
           {/* Coaching - Do's and Don'ts */}
           {result.evaluation.coaching && (
             <div className="mb-5">
-              <p className="text-xs text-white/50 mb-2 uppercase tracking-wider font-medium">
+              <p className="text-xs text-muted-foreground mb-2 uppercase tracking-wider font-medium">
                 Friendly Advice
               </p>
               <div className="grid grid-cols-2 gap-3">
                 {/* Do's */}
-                <div className="space-y-1">
+                <div className="space-y-1.5">
                   {result.evaluation.coaching.do?.slice(0, 2).map((item, i) => (
-                    <div key={i} className="text-xs text-white/70 flex items-start gap-1">
-                      <span className="text-green-400 flex-shrink-0">✓</span>
-                      <span>{item}</span>
+                    <div key={i} className="text-xs flex items-start gap-1.5">
+                      <span className="text-green-500 flex-shrink-0">✓</span>
+                      <span className="text-muted-foreground">{item}</span>
                     </div>
                   ))}
                 </div>
                 {/* Don'ts */}
-                <div className="space-y-1">
+                <div className="space-y-1.5">
                   {result.evaluation.coaching.dont?.slice(0, 2).map((item, i) => (
-                    <div key={i} className="text-xs text-white/70 flex items-start gap-1">
-                      <span className="text-red-400 flex-shrink-0">✗</span>
-                      <span>{item}</span>
+                    <div key={i} className="text-xs flex items-start gap-1.5">
+                      <span className="text-red-500 flex-shrink-0">✗</span>
+                      <span className="text-muted-foreground">{item}</span>
                     </div>
                   ))}
                 </div>
@@ -245,17 +220,17 @@ function HometownCrushResultContent() {
           {/* Cultural Roast + Refs */}
           {result.evaluation.cultural_refs && result.evaluation.cultural_refs.length > 0 && (
             <div className="mb-4">
-              <p className="text-xs text-white/50 mb-2 uppercase tracking-wider font-medium">
+              <p className="text-xs text-muted-foreground mb-2 uppercase tracking-wider font-medium">
                 You In The Wild
               </p>
               {result.evaluation.cultural_roast && (
-                <p className="text-xs text-white/60 italic mb-2">
+                <p className="text-xs text-muted-foreground italic mb-2">
                   {result.evaluation.cultural_roast}
                 </p>
               )}
               <div className="flex flex-wrap gap-2">
                 {result.evaluation.cultural_refs.slice(0, 3).map((ref, i) => (
-                  <span key={i} className="text-xs bg-white/10 px-2 py-1 rounded-full text-white/70">
+                  <span key={i} className="text-xs bg-muted px-2 py-1 rounded-full">
                     {ref.title}
                   </span>
                 ))}
@@ -263,33 +238,39 @@ function HometownCrushResultContent() {
             </div>
           )}
 
-          {/* Match strength - smaller */}
-          <div className="pt-3 border-t border-white/10">
-            <div className="flex justify-between text-xs text-white/40 mb-1">
+          {/* Match strength */}
+          <div className="pt-3 border-t">
+            <div className="flex justify-between text-xs text-muted-foreground mb-1">
               <span>Match</span>
               <span>{Math.round(result.evaluation.confidence * 100)}%</span>
             </div>
-            <div className="h-1.5 bg-white/10 rounded-full overflow-hidden">
+            <div className="h-1.5 bg-muted rounded-full overflow-hidden">
               <div
-                className={cn("h-full rounded-full bg-gradient-to-r", "from-amber-400 to-rose-400")}
+                className="h-full rounded-full bg-primary"
                 style={{ width: `${result.evaluation.confidence * 100}%` }}
               />
             </div>
           </div>
-        </div>
+        </Card>
 
         {/* Primary CTA - Share */}
         <div className="mt-6 w-full max-w-md">
           <Button
             onClick={handleShare}
             size="lg"
-            className={cn(
-              "w-full py-6 text-lg font-semibold rounded-full",
-              "bg-gradient-to-r from-amber-500 to-rose-500 hover:from-amber-400 hover:to-rose-400",
-              "shadow-xl shadow-rose-500/20"
-            )}
+            className="w-full py-6 text-lg font-semibold rounded-full"
           >
-            {copied ? "Copied! 📋" : "Send to the Group Chat 💬"}
+            {copied ? (
+              <>
+                <Check className="h-5 w-5 mr-2" />
+                Copied!
+              </>
+            ) : (
+              <>
+                <Share2 className="h-5 w-5 mr-2" />
+                Send to the Group Chat
+              </>
+            )}
           </Button>
         </div>
 
@@ -298,24 +279,26 @@ function HometownCrushResultContent() {
           <Button
             onClick={handlePlayAgain}
             variant="outline"
-            className="flex-1 py-3 rounded-full border-white/20 text-white hover:bg-white/10 text-sm"
+            className="flex-1 py-3 rounded-full"
           >
-            Try Different Character
+            <RefreshCw className="h-4 w-4 mr-2" />
+            Try Again
           </Button>
-          <a
-            href="/series"
-            className={cn(
-              "flex-1 py-3 rounded-full border border-white/20 text-white hover:bg-white/10 text-sm",
-              "flex items-center justify-center transition-colors"
-            )}
+          <Button
+            asChild
+            variant="outline"
+            className="flex-1 py-3 rounded-full"
           >
-            More Stories →
-          </a>
+            <Link href="/series">
+              <BookOpen className="h-4 w-4 mr-2" />
+              More Stories
+            </Link>
+          </Button>
         </div>
 
         {/* Footer */}
-        <div className="mt-6 text-white/30 text-xs">
-          <a href="/" className="hover:text-white/50 transition-colors">
+        <div className="mt-8 text-muted-foreground/60 text-xs">
+          <a href="/" className="hover:text-foreground transition-colors">
             ep-0.com
           </a>
         </div>
@@ -327,10 +310,10 @@ function HometownCrushResultContent() {
 export default function HometownCrushResultPage() {
   return (
     <Suspense fallback={
-      <div className="min-h-screen bg-gradient-to-b from-amber-950 via-rose-950 to-slate-950 flex items-center justify-center">
+      <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">
-          <div className="w-16 h-16 mx-auto mb-4 border-4 border-white/20 border-t-white/80 rounded-full animate-spin" />
-          <p className="text-white/60">Reading you for filth...</p>
+          <div className="w-12 h-12 mx-auto mb-4 border-4 border-muted border-t-primary rounded-full animate-spin" />
+          <p className="text-muted-foreground">Reading you for filth...</p>
         </div>
       </div>
     }>
