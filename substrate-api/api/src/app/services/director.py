@@ -17,7 +17,7 @@ from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
 from uuid import UUID
 
-from app.models.episode_template import EpisodeTemplate, AutoSceneMode
+from app.models.episode_template import EpisodeTemplate, AutoSceneMode, VisualMode
 from app.models.session import Session
 from app.models.evaluation import (
     EvaluationType,
@@ -391,7 +391,14 @@ If visual is not "none", add: [hint: <description>]"""
         episode: Optional[EpisodeTemplate],
         session: Session,
     ) -> DirectorActions:
-        """Convert semantic evaluation into deterministic actions."""
+        """Convert semantic evaluation into deterministic actions.
+
+        Ticket + Moments Model:
+        - Episodes have a generation_budget (max auto-gens included in entry cost)
+        - visual_mode determines when to trigger: cinematic (peaks), minimal (climax only), none
+        - No spark charging here - generations are included in episode cost
+        - Track generations_used against budget
+        """
         actions = DirectorActions()
         turn = session.turn_count + 1  # New turn count after this exchange
         visual_type = evaluation.get("visual_type", "none")
@@ -399,26 +406,50 @@ If visual is not "none", add: [hint: <description>]"""
         if not episode:
             return actions
 
-        # --- Visual Generation ---
-        auto_mode = getattr(episode, 'auto_scene_mode', AutoSceneMode.OFF)
+        # --- Visual Generation (Ticket + Moments model) ---
+        visual_mode = getattr(episode, 'visual_mode', VisualMode.NONE)
+        generation_budget = getattr(episode, 'generation_budget', 0)
+        generations_used = getattr(session, 'generations_used', 0)
 
-        if auto_mode == AutoSceneMode.PEAKS:
-            # Generate on visual moments (any type except none)
-            if visual_type != "none":
+        # Check if we have budget remaining
+        budget_remaining = generation_budget - generations_used > 0
+
+        if visual_mode == VisualMode.CINEMATIC and budget_remaining:
+            # Generate on visual moments (any image type except none/instruction)
+            if visual_type in ("character", "object", "atmosphere"):
                 actions.visual_type = visual_type
                 actions.visual_hint = evaluation.get("visual_hint")
-                # Only charge sparks for image generation (not instruction cards)
+                # Mark that we're using a generation (no spark charge - included in episode)
+                actions.deduct_sparks = 0  # Included in episode cost
+
+        elif visual_mode == VisualMode.MINIMAL and budget_remaining:
+            # Only generate at episode climax (status == "done" or "closing")
+            status = evaluation.get("status", "going")
+            if status in ("done", "closing") and visual_type in ("character", "object", "atmosphere"):
+                actions.visual_type = visual_type
+                actions.visual_hint = evaluation.get("visual_hint") or "the climactic moment"
+                actions.deduct_sparks = 0  # Included in episode cost
+
+        # Instruction cards are free and don't count against budget
+        elif visual_type == "instruction":
+            actions.visual_type = "instruction"
+            actions.visual_hint = evaluation.get("visual_hint")
+
+        # Fallback: Support legacy auto_scene_mode for backward compatibility
+        if visual_mode == VisualMode.NONE:
+            auto_mode = getattr(episode, 'auto_scene_mode', AutoSceneMode.OFF)
+            if auto_mode == AutoSceneMode.PEAKS and visual_type != "none":
+                actions.visual_type = visual_type
+                actions.visual_hint = evaluation.get("visual_hint")
                 if visual_type in ("character", "object", "atmosphere"):
                     actions.deduct_sparks = getattr(episode, 'spark_cost_per_scene', 5)
-
-        elif auto_mode == AutoSceneMode.RHYTHMIC:
-            interval = getattr(episode, 'scene_interval', 3) or 3
-            if turn > 0 and turn % interval == 0:
-                # Use detected type, or default to character
-                actions.visual_type = visual_type if visual_type != "none" else "character"
-                actions.visual_hint = evaluation.get("visual_hint") or "the current moment"
-                if actions.visual_type in ("character", "object", "atmosphere"):
-                    actions.deduct_sparks = getattr(episode, 'spark_cost_per_scene', 5)
+            elif auto_mode == AutoSceneMode.RHYTHMIC:
+                interval = getattr(episode, 'scene_interval', 3) or 3
+                if turn > 0 and turn % interval == 0:
+                    actions.visual_type = visual_type if visual_type != "none" else "character"
+                    actions.visual_hint = evaluation.get("visual_hint") or "the current moment"
+                    if actions.visual_type in ("character", "object", "atmosphere"):
+                        actions.deduct_sparks = getattr(episode, 'spark_cost_per_scene', 5)
 
         # --- Episode Progression ---
         status = evaluation.get("status", "going")
@@ -441,17 +472,47 @@ If visual is not "none", add: [hint: <description>]"""
         actions: DirectorActions,
         session: Session,
         user_id: UUID,
+        episode: Optional[EpisodeTemplate] = None,
     ) -> DirectorActions:
-        """Execute actions, handling spark balance.
+        """Execute actions, handling generation budget or spark balance.
 
-        Returns potentially modified actions (e.g., if sparks insufficient).
+        Ticket + Moments Model:
+        - If visual_mode is cinematic/minimal, generations are included in episode cost
+        - We increment generations_used instead of charging sparks
+        - Legacy mode (auto_scene_mode) still charges sparks per generation
+
+        Returns potentially modified actions (e.g., if budget exhausted or sparks insufficient).
         """
         from app.services.credits import CreditsService, InsufficientSparksError
+        from app.deps import get_db
 
         credits = CreditsService.get_instance()
 
-        # Handle scene generation with spark check
-        if actions.visual_type != "none" and actions.deduct_sparks > 0:
+        # Skip if no visual action
+        if actions.visual_type == "none" or actions.visual_type == "instruction":
+            return actions
+
+        # Check if using Ticket + Moments model (generation budget) or legacy (spark per gen)
+        visual_mode = getattr(episode, 'visual_mode', VisualMode.NONE) if episode else VisualMode.NONE
+
+        if visual_mode in (VisualMode.CINEMATIC, VisualMode.MINIMAL):
+            # Ticket + Moments: Increment generations_used (no spark charge)
+            # The generation is "free" because user paid episode_cost at entry
+            db = await get_db()
+            await db.execute(
+                """
+                UPDATE sessions
+                SET generations_used = generations_used + 1
+                WHERE id = :session_id
+                """,
+                {"session_id": str(session.id)},
+            )
+            log.info(f"Session {session.id}: generation used (included in episode cost)")
+            # No spark deduction needed
+            actions.deduct_sparks = 0
+
+        elif actions.deduct_sparks > 0:
+            # Legacy mode: Charge sparks per generation
             director_state = dict(session.director_state) if session.director_state else {}
 
             try:
@@ -516,8 +577,8 @@ If visual is not "none", add: [hint: <description>]"""
         # 4. Decide actions
         actions = self.decide_actions(evaluation, episode_template, session) if episode_template else DirectorActions()
 
-        # 5. Execute actions (spark check, etc.)
-        actions = await self.execute_actions(actions, session, user_id)
+        # 5. Execute actions (generation budget or spark check)
+        actions = await self.execute_actions(actions, session, user_id, episode_template)
 
         # 6. Determine completion
         is_complete = actions.suggest_next

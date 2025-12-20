@@ -124,6 +124,11 @@ class Session(BaseModel):
     director_state: Dict[str, Any] = Field(default_factory=dict)
     completion_trigger: Optional[str] = None
 
+    # Ticket + Moments model (per MONETIZATION_v2.0)
+    entry_paid: bool = False  # Has user paid episode_cost for this episode?
+    generations_used: int = 0  # Auto-gens used (compared to generation_budget)
+    manual_generations: int = 0  # User-triggered "Capture Moment" gens
+
     created_at: datetime
 
     @field_validator("metadata", "fade_metadata", "director_state", mode="before")

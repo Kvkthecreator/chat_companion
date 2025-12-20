@@ -15,10 +15,23 @@ from pydantic import BaseModel, Field, field_validator
 
 
 class AutoSceneMode:
-    """Auto scene generation mode constants."""
+    """Auto scene generation mode constants (DEPRECATED - use VisualMode)."""
     OFF = "off"           # No auto-generation, manual only
     PEAKS = "peaks"       # Generate on visual moments (Director detects)
     RHYTHMIC = "rhythmic" # Generate every N turns
+
+
+class VisualMode:
+    """Visual generation mode constants (Ticket + Moments model).
+
+    Defines how auto-generated visuals are handled for an episode.
+    This replaces auto_scene_mode with clearer semantics.
+
+    Reference: docs/monetization/MONETIZATION_v2.0_needsupdate.md
+    """
+    CINEMATIC = "cinematic"  # 3-4 auto-gens at narrative beats (Director decides)
+    MINIMAL = "minimal"      # 1 auto-gen at climax only
+    NONE = "none"            # No auto-gen (manual "Capture Moment" still available)
 
 
 class EpisodeType:
@@ -77,11 +90,16 @@ class EpisodeTemplate(BaseModel):
 
     # Director V2 configuration (per DIRECTOR_ARCHITECTURE.md)
     genre: str = "romance"  # Story genre for semantic evaluation context
-    auto_scene_mode: str = AutoSceneMode.OFF  # off, peaks, rhythmic
+    auto_scene_mode: str = AutoSceneMode.OFF  # DEPRECATED: use visual_mode
     scene_interval: Optional[int] = None  # For rhythmic mode: every N turns
-    spark_cost_per_scene: int = 5  # Cost in sparks for auto-generated scenes
+    spark_cost_per_scene: int = 5  # DEPRECATED: use episode_cost + generation_budget
     series_finale: bool = False  # Last episode of series
     turn_budget: Optional[int] = None  # Optional turn limit
+
+    # Ticket + Moments model (per MONETIZATION_v2.0)
+    visual_mode: str = VisualMode.NONE  # cinematic, minimal, none
+    generation_budget: int = 0  # Max auto-gens included in episode cost
+    episode_cost: int = 3  # Sparks to start episode (0 for entry/play)
 
     # Status
     is_default: bool = False
