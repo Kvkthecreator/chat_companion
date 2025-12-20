@@ -14,6 +14,26 @@ Format: `[Document] vX.Y.Z - YYYY-MM-DD`
 
 ---
 
+## 2025-12-20
+
+### Added
+- **[modalities/TEXT_RESPONSES.md]** v1.0.0 - Text response quality specification
+  - Action-dialogue pattern standard
+  - Notation conventions (* vs parentheses)
+  - Length guidelines with variety principle
+  - Physical grounding requirements
+  - Anti-patterns catalog (therapist response, exposition dump, etc.)
+  - Prompt structure recommendations
+  - Quality checklist
+
+### Changed
+- **[play/]** Play Mode character prompts refined for shorter, flirtier responses
+  - Added emphatic length constraints (1-2 sentences max)
+  - Added good/bad response examples
+  - Simplified prompt structure
+
+---
+
 ## 2024-12-20 (Night)
 
 ### Added
