@@ -360,32 +360,34 @@ class GamesService:
         session_id: UUID,
         user_id: UUID,
     ) -> tuple[Session, Optional[EpisodeTemplate]]:
-        """Get session and its episode template."""
-        session_query = """
-            SELECT s.*, et.*
-            FROM sessions s
-            LEFT JOIN episode_templates et ON et.id = s.episode_template_id
-            WHERE s.id = :session_id AND s.user_id = :user_id
-        """
-        row = await self.db.fetch_one(session_query, {
-            "session_id": str(session_id),
-            "user_id": str(user_id),
-        })
+        """Get session and its episode template.
 
-        if not row:
+        Note: We fetch separately to avoid column name collisions between
+        sessions and episode_templates (both have id, title, series_id, etc.)
+        """
+        # Fetch session
+        session_row = await self.db.fetch_one(
+            "SELECT * FROM sessions WHERE id = :session_id AND user_id = :user_id",
+            {"session_id": str(session_id), "user_id": str(user_id)}
+        )
+
+        if not session_row:
             raise ValueError(f"Session not found: {session_id}")
 
-        # Split row into session and template fields
-        session_fields = {k: row[k] for k in Session.model_fields if k in row.keys()}
-        session = Session(**session_fields)
+        session = Session(**dict(session_row))
 
+        # Fetch episode template if linked
         episode_template = None
-        if row["episode_template_id"]:
-            template_fields = {k: row[k] for k in EpisodeTemplate.model_fields if k in row.keys()}
-            try:
-                episode_template = EpisodeTemplate(**template_fields)
-            except Exception as e:
-                log.warning(f"Failed to parse episode template: {e}")
+        if session.episode_template_id:
+            template_row = await self.db.fetch_one(
+                "SELECT * FROM episode_templates WHERE id = :template_id",
+                {"template_id": str(session.episode_template_id)}
+            )
+            if template_row:
+                try:
+                    episode_template = EpisodeTemplate(**dict(template_row))
+                except Exception as e:
+                    log.warning(f"Failed to parse episode template: {e}")
 
         return session, episode_template
 
