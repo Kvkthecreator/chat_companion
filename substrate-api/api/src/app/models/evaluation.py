@@ -44,11 +44,25 @@ class RomanticTrope:
 
 
 # Romantic Trope metadata for display and evaluation
+# UNHINGED EDITION - optimized for shareability and "I'm being attacked" energy
 ROMANTIC_TROPES = {
     RomanticTrope.SLOW_BURN: {
         "title": "The Slow Burn",
-        "tagline": "You know the best things take time",
-        "description": "Patient and deliberate. You let tension build naturally, savoring each layer of connection before moving forward. Depth over speed, always.",
+        "tagline": "You'll die on this hill and you know it",
+        "description": "You've planned a whole relationship in your head before they even know your last name. You call it 'taking it slow' but really you're just terrified to ruin the fantasy by asking if they're single.",
+        "the_read": "You've mass a whole relationship in your head before they even know your last name. You call it 'taking it slow' but really you're too scared to ruin the fantasy by asking if they're single.",
+        "coaching": {
+            "do": [
+                "Shoot your shot before they get engaged to someone else",
+                "Accept that 'we have a vibe' isn't a relationship",
+                "Remember that rejection is better than 8 months of wondering",
+            ],
+            "dont": [
+                "Write another unsent letter",
+                "Start your 47th draft of that 'casual' text",
+                "Stalk their Spotify activity instead of texting them",
+            ],
+        },
         "signals": ["comfortable_silence", "deep_questions", "patient_pacing", "layered_revelation"],
         "cultural_refs": [
             ("Pride & Prejudice", "Darcy & Elizabeth"),
@@ -56,11 +70,25 @@ ROMANTIC_TROPES = {
             ("Normal People", "Connell & Marianne"),
             ("When Harry Met Sally", "Harry & Sally"),
         ],
+        "cultural_roast": "Elizabeth Bennet walked so you could run... slowly. Very slowly. Dangerously slowly.",
     },
     RomanticTrope.SECOND_CHANCE: {
         "title": "The Second Chance",
-        "tagline": "Some stories aren't over just because they paused",
-        "description": "You believe in unfinished stories. When something real was interrupted by timing or circumstance, you're willing to see if it can be different now.",
+        "tagline": "The ex files",
+        "description": "You've texted 'hey' at 1am to someone you swore you were over. Your Notes app has a draft apology from 2022 you never sent. You're not hung up, you're 'hopeful.'",
+        "the_read": "You've texted 'hey' at 1am to someone you swore you were over. Your Notes app has a draft apology from 2022 you never sent. You're not hung up, you're 'hopeful.'",
+        "coaching": {
+            "do": [
+                "Ask yourself if they've actually changed (or if you just miss the idea of them)",
+                "Accept that some chapters end for a reason",
+                "Delete the ex's number (for real this time)",
+            ],
+            "dont": [
+                "Mistake nostalgia for love",
+                "Check their Instagram at 2am 'just to see'",
+                "Convince yourself Mercury retrograde is a valid reason to reconnect",
+            ],
+        },
         "signals": ["past_callbacks", "growth_acknowledgment", "timing_awareness", "hopeful_realism"],
         "cultural_refs": [
             ("La La Land", "Mia & Sebastian"),
@@ -68,11 +96,25 @@ ROMANTIC_TROPES = {
             ("Eternal Sunshine of the Spotless Mind", "Joel & Clementine"),
             ("Before Sunset", "Jesse & Celine"),
         ],
+        "cultural_roast": "You have their Spotify wrapped screenshot from 2 years ago saved. Don't lie.",
     },
     RomanticTrope.ALL_IN: {
         "title": "The All In",
-        "tagline": "When you know, you know",
-        "description": "Direct and decisive. You don't play games when you feel something real. Your clarity is magnetic—you say what you mean and mean what you say.",
+        "tagline": "No thoughts, just vibes and commitment",
+        "description": "You've said 'I love you' first in every relationship. Sometimes on the second date. You call it knowing what you want. Therapists call it something else.",
+        "the_read": "You've said 'I love you' first in every relationship. Sometimes on the second date. You call it knowing what you want. Therapists call it something else.",
+        "coaching": {
+            "do": [
+                "Let them finish their sentence before planning the wedding",
+                "Verify they're single before falling in love",
+                "Give them space to miss you occasionally",
+            ],
+            "dont": [
+                "Name the kids on date three",
+                "U-Haul it (unless they're also an All In, then godspeed)",
+                "Mistake intensity for compatibility",
+            ],
+        },
         "signals": ["direct_expression", "confident_moves", "emotional_clarity", "bold_honesty"],
         "cultural_refs": [
             ("Crazy Rich Asians", "Rachel & Nick"),
@@ -80,11 +122,25 @@ ROMANTIC_TROPES = {
             ("To All the Boys I've Loved Before", "Lara Jean & Peter"),
             ("Brooklyn Nine-Nine", "Jake & Amy"),
         ],
+        "cultural_roast": "Your friends are tired of hearing 'I just know' about someone you met Tuesday.",
     },
     RomanticTrope.PUSH_PULL: {
         "title": "The Push & Pull",
-        "tagline": "The tension is the point",
-        "description": "You thrive in the dance—the advance, the retreat, the electricity of uncertainty. Banter is foreplay, and you never make it too easy.",
+        "tagline": "Emotionally unavailable? It's called mystery",
+        "description": "You left someone on read for 6 hours to seem busy then checked if they were typing. You're not playing games, you're just 'protecting your energy.'",
+        "the_read": "You left someone on read for 6 hours to seem busy then checked if they were typing. You're not playing games, you're just 'protecting your energy.'",
+        "coaching": {
+            "do": [
+                "Reply within a reasonable time like a normal person",
+                "Say you like them instead of being 'playfully mean'",
+                "Recognize that confusion isn't the same as chemistry",
+            ],
+            "dont": [
+                "Ghost and come back with 'sorry I was in a tunnel'",
+                "Create chaos because you're bored",
+                "Mistake anxiety for butterflies",
+            ],
+        },
         "signals": ["playful_resistance", "witty_deflection", "tension_maintenance", "strategic_vulnerability"],
         "cultural_refs": [
             ("10 Things I Hate About You", "Kat & Patrick"),
@@ -92,11 +148,25 @@ ROMANTIC_TROPES = {
             ("Gilmore Girls", "Lorelai & Luke"),
             ("How to Lose a Guy in 10 Days", "Andie & Ben"),
         ],
+        "cultural_roast": "You've definitely confused someone who was genuinely interested. Multiple times.",
     },
     RomanticTrope.SLOW_REVEAL: {
         "title": "The Slow Reveal",
-        "tagline": "Mystery is magnetic",
-        "description": "Intriguing and deliberate. You reveal yourself in layers, rewarding attention with depth. What you hold back is as powerful as what you share.",
+        "tagline": "Trauma? I call it depth",
+        "description": "People think you're mysterious but really you just dissociate mid-conversation. You've been 'almost ready to open up' for 3 years. Your walls have walls.",
+        "the_read": "People think you're mysterious but really you just dissociate mid-conversation. You've been 'almost ready to open up' for 3 years. Your walls have walls.",
+        "coaching": {
+            "do": [
+                "Share ONE (1) personal thing this month",
+                "Let someone see you cry (revolutionary, I know)",
+                "Accept that vulnerability is not the same as weakness",
+            ],
+            "dont": [
+                "Deflect with humor when they ask how you're really doing",
+                "Mistake emotional unavailability for being 'low maintenance'",
+                "Disappear when things get real",
+            ],
+        },
         "signals": ["selective_sharing", "intriguing_deflection", "earned_intimacy", "mysterious_allure"],
         "cultural_refs": [
             ("Jane Eyre", "Jane & Rochester"),
@@ -104,6 +174,7 @@ ROMANTIC_TROPES = {
             ("Twilight", "Bella & Edward"),
             ("Mr. & Mrs. Smith", "John & Jane"),
         ],
+        "cultural_roast": "You've said 'I'm fine' so convincingly that even you believed it.",
     },
 }
 

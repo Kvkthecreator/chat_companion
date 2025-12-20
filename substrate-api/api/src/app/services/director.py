@@ -850,7 +850,7 @@ If visual is not "none", add: [hint: <description>]"""
             for key, data in ROMANTIC_TROPES.items()
         )
 
-        prompt = f"""You are evaluating someone's romantic communication style based on their conversation with {character_name}.
+        prompt = f"""You are a brutally honest, slightly unhinged relationship therapist evaluating someone's romantic communication style based on their conversation with {character_name}.
 
 THE 5 ROMANTIC TROPES:
 {trope_descriptions}
@@ -858,12 +858,14 @@ THE 5 ROMANTIC TROPES:
 USER'S MESSAGES IN THE CONVERSATION:
 {formatted}
 
-Analyze the user's romantic style. Consider:
-- How they handle silences and pauses
-- Their directness vs. playfulness
-- References to the past vs. forward focus
-- Tension: do they lean in or create distance?
-- Reveal: do they share openly or in layers?
+Your job: Lovingly roast them. Think "group chat energy" - the kind of observations that make friends go "WHY IS THIS SO TRUE."
+
+Analyze their romantic style. Consider:
+- How they handle silences and pauses (avoiding? savoring? panicking?)
+- Their directness vs. playfulness (bold or hiding behind humor?)
+- References to the past vs. forward focus (living in memories or moving on?)
+- Tension: do they lean in or create distance? (brave or scared?)
+- Reveal: do they share openly or in layers? (vulnerable or guarded?)
 
 Respond with this EXACT format:
 
@@ -872,12 +874,12 @@ CONFIDENCE: [0.0-1.0]
 SIGNALS: [comma-separated list of 2-4 signals detected]
 
 EVIDENCE:
-1. [First specific observation about their style, 10-15 words, active voice]
-2. [Second specific observation, 10-15 words]
-3. [Third specific observation, 10-15 words]
+1. [Spicy but affectionate observation. Be specific. Call them out lovingly. 12-18 words. Example: "You deflected with humor twice when things got real - classic defense mechanism, bestie"]
+2. [Another spicy observation based on their actual messages. Make it too real. 12-18 words]
+3. [Third observation. This one should make them screenshot it. 12-18 words]
 
-CALLBACK_QUOTE: [Their most trope-defining phrase from the conversation, max 10 words from their actual message, or paraphrase if longer]
-CALLBACK_FRAMING: [Brief explanation of why this is peak trope energy, max 10 words]"""
+CALLBACK_QUOTE: [Their most unhinged/revealing moment from the conversation - the thing that exposed them. Max 10 words, quote directly or paraphrase if longer]
+CALLBACK_FRAMING: [Why this moment is peak "I feel seen" energy, max 12 words. Be funny/cutting.]"""
 
         try:
             response = await self.llm.generate(
@@ -946,6 +948,9 @@ CALLBACK_FRAMING: [Brief explanation of why this is peak trope energy, max 10 wo
             "title": trope_data["title"],
             "tagline": trope_data["tagline"],
             "description": trope_data["description"],
+            "the_read": trope_data.get("the_read", trope_data["description"]),
+            "coaching": trope_data.get("coaching", {"do": [], "dont": []}),
+            "cultural_roast": trope_data.get("cultural_roast", ""),
             "evidence": evidence,
             "callback_quote": callback_quote,
             "cultural_refs": [
@@ -964,6 +969,9 @@ CALLBACK_FRAMING: [Brief explanation of why this is peak trope energy, max 10 wo
             "title": trope_data["title"],
             "tagline": trope_data["tagline"],
             "description": trope_data["description"],
+            "the_read": trope_data.get("the_read", trope_data["description"]),
+            "coaching": trope_data.get("coaching", {"do": [], "dont": []}),
+            "cultural_roast": trope_data.get("cultural_roast", ""),
             "evidence": [
                 "You took your time, letting moments breathe",
                 "You asked questions that went beneath the surface",

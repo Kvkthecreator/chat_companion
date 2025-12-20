@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { api } from "@/lib/api/client";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import type { RomanticTrope, RomanticTropeResult, ROMANTIC_TROPES } from "@/types";
+import type { RomanticTrope, RomanticTropeResult } from "@/types";
 
 // Trope visual metadata for display
 const TROPE_META: Record<RomanticTrope, { emoji: string; color: string; gradient: string }> = {
@@ -85,25 +85,25 @@ function HometownCrushResultContent() {
     if (!result) return;
 
     const shareUrl = `${window.location.origin}${result.shareUrl}`;
-    const shareText = `I'm ${result.evaluation.title}! What's your romantic trope? Take the test:`;
+    const shareText = `I'm ${result.evaluation.title} ${TROPE_META[result.evaluation.trope]?.emoji || "💕"} - "${result.evaluation.tagline}"\n\nWhat's your romantic trope?`;
 
     // Try native share API first
     if (navigator.share) {
       try {
         await navigator.share({
-          title: "Hometown Crush Result",
+          title: `I'm ${result.evaluation.title}!`,
           text: shareText,
           url: shareUrl,
         });
         return;
-      } catch (err) {
+      } catch {
         // User cancelled or share failed, fall through to copy
       }
     }
 
     // Fallback to clipboard
     try {
-      await navigator.clipboard.writeText(`${shareText} ${shareUrl}`);
+      await navigator.clipboard.writeText(`${shareText}\n${shareUrl}`);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch (err) {
@@ -120,7 +120,7 @@ function HometownCrushResultContent() {
       <div className="min-h-screen bg-gradient-to-b from-amber-950 via-rose-950 to-slate-950 flex items-center justify-center">
         <div className="text-center">
           <div className="w-16 h-16 mx-auto mb-4 border-4 border-white/20 border-t-white/80 rounded-full animate-spin" />
-          <p className="text-white/60">Discovering your romantic trope...</p>
+          <p className="text-white/60">Reading you for filth...</p>
         </div>
       </div>
     );
@@ -151,10 +151,10 @@ function HometownCrushResultContent() {
       </div>
 
       {/* Content */}
-      <div className="relative z-10 flex flex-col items-center justify-center min-h-screen px-4 py-12">
-        {/* Result Card */}
+      <div className="relative z-10 flex flex-col items-center min-h-screen px-4 py-8">
+        {/* Result Card - Main shareable content */}
         <div className={cn(
-          "w-full max-w-md p-8 rounded-3xl backdrop-blur-xl border border-white/10",
+          "w-full max-w-md p-6 rounded-3xl backdrop-blur-xl border border-white/10",
           "bg-gradient-to-br",
           meta.gradient
         )}>
@@ -163,34 +163,37 @@ function HometownCrushResultContent() {
             Your Romantic Trope
           </p>
 
-          {/* Emoji */}
-          <div className="text-6xl text-center mb-4">{meta.emoji}</div>
-
-          {/* Title */}
-          <h1 className={cn("text-3xl font-bold text-center mb-2", meta.color)}>
+          {/* Emoji + Title */}
+          <div className="text-5xl text-center mb-2">{meta.emoji}</div>
+          <h1 className={cn("text-2xl font-bold text-center mb-1", meta.color)}>
             {result.evaluation.title}
           </h1>
 
           {/* Tagline */}
-          <p className="text-center text-white/70 italic mb-6">
+          <p className="text-center text-white/70 italic text-sm mb-4">
             &ldquo;{result.evaluation.tagline}&rdquo;
           </p>
 
-          {/* Description */}
-          <p className="text-center text-white/80 leading-relaxed mb-6">
-            {result.evaluation.description}
-          </p>
+          {/* The Read - Brutal Truth */}
+          <div className="mb-5 p-4 bg-black/20 rounded-xl border border-white/5">
+            <p className="text-xs text-white/50 mb-2 uppercase tracking-wider font-medium">
+              The Read
+            </p>
+            <p className="text-sm text-white/90 leading-relaxed">
+              {result.evaluation.the_read || result.evaluation.description}
+            </p>
+          </div>
 
-          {/* Evidence - "Why This Fits You" */}
+          {/* Your Receipts - Evidence */}
           {result.evaluation.evidence && result.evaluation.evidence.length > 0 && (
-            <div className="mb-6">
-              <p className="text-xs text-white/50 mb-3 uppercase tracking-wider">
-                Based on your conversation with {result.characterName}
+            <div className="mb-5">
+              <p className="text-xs text-white/50 mb-2 uppercase tracking-wider font-medium">
+                Your Receipts
               </p>
               <ul className="space-y-2">
                 {result.evaluation.evidence.map((observation, i) => (
                   <li key={i} className="flex items-start gap-2 text-sm text-white/80">
-                    <span className="text-amber-400 mt-1">•</span>
+                    <span className={cn("mt-0.5", meta.color)}>→</span>
                     <span>{observation}</span>
                   </li>
                 ))}
@@ -198,11 +201,11 @@ function HometownCrushResultContent() {
             </div>
           )}
 
-          {/* Callback quote - "Your Moment" */}
+          {/* The Moment - Callback Quote */}
           {result.evaluation.callback_quote && (
-            <div className="mb-6 p-4 bg-white/5 rounded-xl border border-white/10">
-              <p className="text-xs text-white/50 mb-2 uppercase tracking-wider">
-                Your Moment
+            <div className="mb-5 p-3 bg-white/5 rounded-xl border border-white/10">
+              <p className="text-xs text-white/50 mb-1 uppercase tracking-wider">
+                The Moment We Knew
               </p>
               <p className="text-sm text-white/90 italic">
                 {result.evaluation.callback_quote}
@@ -210,31 +213,63 @@ function HometownCrushResultContent() {
             </div>
           )}
 
-          {/* Cultural references - "In The Wild" */}
-          {result.evaluation.cultural_refs && result.evaluation.cultural_refs.length > 0 && (
-            <div className="mb-6">
-              <p className="text-xs text-white/50 mb-3 uppercase tracking-wider">
-                {result.evaluation.title.replace("The ", "")} in the Wild
+          {/* Coaching - Do's and Don'ts */}
+          {result.evaluation.coaching && (
+            <div className="mb-5">
+              <p className="text-xs text-white/50 mb-2 uppercase tracking-wider font-medium">
+                Friendly Advice
               </p>
-              <div className="grid grid-cols-2 gap-2">
-                {result.evaluation.cultural_refs.slice(0, 4).map((ref, i) => (
-                  <div key={i} className="text-xs text-white/60">
-                    <span className="text-white/80">{ref.title}</span>
-                    <br />
-                    <span className="text-white/40">({ref.characters})</span>
-                  </div>
+              <div className="grid grid-cols-2 gap-3">
+                {/* Do's */}
+                <div className="space-y-1">
+                  {result.evaluation.coaching.do?.slice(0, 2).map((item, i) => (
+                    <div key={i} className="text-xs text-white/70 flex items-start gap-1">
+                      <span className="text-green-400 flex-shrink-0">✓</span>
+                      <span>{item}</span>
+                    </div>
+                  ))}
+                </div>
+                {/* Don'ts */}
+                <div className="space-y-1">
+                  {result.evaluation.coaching.dont?.slice(0, 2).map((item, i) => (
+                    <div key={i} className="text-xs text-white/70 flex items-start gap-1">
+                      <span className="text-red-400 flex-shrink-0">✗</span>
+                      <span>{item}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Cultural Roast + Refs */}
+          {result.evaluation.cultural_refs && result.evaluation.cultural_refs.length > 0 && (
+            <div className="mb-4">
+              <p className="text-xs text-white/50 mb-2 uppercase tracking-wider font-medium">
+                You In The Wild
+              </p>
+              {result.evaluation.cultural_roast && (
+                <p className="text-xs text-white/60 italic mb-2">
+                  {result.evaluation.cultural_roast}
+                </p>
+              )}
+              <div className="flex flex-wrap gap-2">
+                {result.evaluation.cultural_refs.slice(0, 3).map((ref, i) => (
+                  <span key={i} className="text-xs bg-white/10 px-2 py-1 rounded-full text-white/70">
+                    {ref.title}
+                  </span>
                 ))}
               </div>
             </div>
           )}
 
-          {/* Confidence indicator */}
-          <div>
-            <div className="flex justify-between text-xs text-white/50 mb-1">
-              <span>Match strength</span>
+          {/* Match strength - smaller */}
+          <div className="pt-3 border-t border-white/10">
+            <div className="flex justify-between text-xs text-white/40 mb-1">
+              <span>Match</span>
               <span>{Math.round(result.evaluation.confidence * 100)}%</span>
             </div>
-            <div className="h-2 bg-white/10 rounded-full overflow-hidden">
+            <div className="h-1.5 bg-white/10 rounded-full overflow-hidden">
               <div
                 className={cn("h-full rounded-full bg-gradient-to-r", "from-amber-400 to-rose-400")}
                 style={{ width: `${result.evaluation.confidence * 100}%` }}
@@ -243,8 +278,8 @@ function HometownCrushResultContent() {
           </div>
         </div>
 
-        {/* Actions */}
-        <div className="mt-8 flex flex-col gap-3 w-full max-w-md">
+        {/* Primary CTA - Share */}
+        <div className="mt-6 w-full max-w-md">
           <Button
             onClick={handleShare}
             size="lg"
@@ -254,34 +289,32 @@ function HometownCrushResultContent() {
               "shadow-xl shadow-rose-500/20"
             )}
           >
-            {copied ? "Copied!" : "Share Your Result"}
-          </Button>
-
-          <Button
-            onClick={handlePlayAgain}
-            variant="outline"
-            size="lg"
-            className="w-full py-6 text-lg font-semibold rounded-full border-white/20 text-white hover:bg-white/10"
-          >
-            Play Again
+            {copied ? "Copied! 📋" : "Send to the Group Chat 💬"}
           </Button>
         </div>
 
-        {/* CTA to main app */}
-        <div className="mt-8 text-center">
-          <p className="text-white/50 text-sm mb-2">
-            Want more conversations with {result.characterName}?
-          </p>
-          <a
-            href="/"
-            className="text-amber-400 hover:text-amber-300 transition-colors font-medium"
+        {/* Secondary: Play Again + Explore */}
+        <div className="mt-4 flex gap-3 w-full max-w-md">
+          <Button
+            onClick={handlePlayAgain}
+            variant="outline"
+            className="flex-1 py-3 rounded-full border-white/20 text-white hover:bg-white/10 text-sm"
           >
-            Explore ep-0.com →
+            Try Different Character
+          </Button>
+          <a
+            href="/series"
+            className={cn(
+              "flex-1 py-3 rounded-full border border-white/20 text-white hover:bg-white/10 text-sm",
+              "flex items-center justify-center transition-colors"
+            )}
+          >
+            More Stories →
           </a>
         </div>
 
         {/* Footer */}
-        <div className="mt-8 text-white/30 text-xs">
+        <div className="mt-6 text-white/30 text-xs">
           <a href="/" className="hover:text-white/50 transition-colors">
             ep-0.com
           </a>
@@ -297,7 +330,7 @@ export default function HometownCrushResultPage() {
       <div className="min-h-screen bg-gradient-to-b from-amber-950 via-rose-950 to-slate-950 flex items-center justify-center">
         <div className="text-center">
           <div className="w-16 h-16 mx-auto mb-4 border-4 border-white/20 border-t-white/80 rounded-full animate-spin" />
-          <p className="text-white/60">Loading result...</p>
+          <p className="text-white/60">Reading you for filth...</p>
         </div>
       </div>
     }>

@@ -1,6 +1,6 @@
 # Play Mode Architecture
 
-> **Version**: 1.2.0
+> **Version**: 1.3.0
 > **Status**: Canonical
 > **Updated**: 2025-12-20
 
@@ -107,13 +107,16 @@ Anonymous session:
 
 ### 3. Result (`/play/hometown-crush/result`)
 
-Anonymous result display:
-- Trope assignment (e.g., "The Slow Burn")
-- Personalized evidence ("Why this fits you")
-- Callback quote ("Your moment")
-- Cultural references ("Slow Burns in the wild")
-- Share CTA (primary)
-- Continue/Save CTAs (auth-gated)
+Anonymous result display with "unhinged" shareable content:
+- **The Read** - Brutal truth paragraph (e.g., "You've planned a whole relationship in your head...")
+- **Your Receipts** - 3 LLM-generated spicy observations from their conversation
+- **The Moment We Knew** - Their most revealing quote with roast-y framing
+- **Coaching** - Do's and don'ts (funny but helpful)
+- **Cultural Roast** - Spicy pop culture comparison
+- **Primary CTA**: "Send to the Group Chat" (share)
+- **Secondary CTAs**: "Try Different Character" | "More Stories →"
+
+See [TROPE_CONTENT_SPEC.md](TROPE_CONTENT_SPEC.md) for complete content copy.
 
 ### 4. Share (`/r/[share_id]`)
 
@@ -588,8 +591,8 @@ At 35% share and 25% CTR: K-factor ≈ 0.066. Meaningful organic amplification o
 
 | Document | Purpose |
 |----------|---------|
+| [TROPE_CONTENT_SPEC.md](TROPE_CONTENT_SPEC.md) | **Unhinged trope content copy (v1.0)** |
 | [TROPE_SYSTEM.md](TROPE_SYSTEM.md) | Trope taxonomy and behavioral signals |
-| [RESULT_REPORT_SPEC.md](RESULT_REPORT_SPEC.md) | Result page design spec |
 | [DIRECTOR_PROTOCOL.md](../core/DIRECTOR_PROTOCOL.md) | Director evaluation logic |
 
 ---
@@ -598,6 +601,7 @@ At 35% share and 25% CTR: K-factor ≈ 0.066. Meaningful organic amplification o
 
 | Version | Date | Changes |
 |---------|------|---------|
+| 1.3.0 | 2025-12-20 | Unhinged result content: added the_read, coaching, cultural_roast; updated result page with spicy sections; new share CTA "Send to the Group Chat" |
 | 1.2.0 | 2025-12-20 | Reduced turn_budget from 7 to 4, implemented anonymous sessions via X-Anonymous-Id header, updated opening lines to front-load tension |
 | 1.1.0 | 2024-12-20 | Added share infrastructure details |
 | 1.0.0 | 2024-12-20 | Initial Play Mode architecture |

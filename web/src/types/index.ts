@@ -987,8 +987,17 @@ export interface RomanticTropeMetadata {
 }
 
 /**
+ * Coaching do's and don'ts for a trope
+ */
+export interface TropeCoaching {
+  do: string[];
+  dont: string[];
+}
+
+/**
  * Romantic trope result (returned by evaluation)
  * Enhanced with personalization fields for shareable results
+ * UNHINGED EDITION - optimized for shareability
  */
 export interface RomanticTropeResult {
   trope: RomanticTrope;
@@ -997,9 +1006,13 @@ export interface RomanticTropeResult {
   title: string;
   tagline: string;
   description: string;
+  // Unhinged content fields
+  the_read: string;  // Brutal truth paragraph
+  coaching: TropeCoaching;  // Do's and don'ts
+  cultural_roast: string;  // Spicy cultural take
   // Personalization fields (LLM-generated)
-  evidence: string[];  // 3 specific observations
-  callback_quote: string | null;  // User's defining moment
+  evidence: string[];  // 3 specific "receipts"
+  callback_quote: string | null;  // User's most unhinged moment
   // Static cultural references
   cultural_refs: CulturalReference[];
 }
