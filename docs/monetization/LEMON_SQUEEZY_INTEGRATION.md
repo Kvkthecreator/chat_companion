@@ -506,11 +506,13 @@ The Sparks system uses one-time purchases for top-up packs in addition to subscr
 1. In Lemon Squeezy Dashboard, go to **Products** > **Create Product**
 2. Create THREE products (one for each pack):
 
-| Pack Name | Sparks | Price | Product Type |
-|-----------|--------|-------|--------------|
-| Starter | 25 | $4.99 | One-time |
-| Popular | 60 | $9.99 | One-time |
-| Best Value | 150 | $19.99 | One-time |
+| Pack Name | Sparks | Price | Product Type | Margin |
+|-----------|--------|-------|--------------|--------|
+| Starter | 25 | $4.99 | One-time | ~66% |
+| Popular | 50 | $9.99 | One-time | ~60% |
+| Best Value | 100 | $19.99 | One-time | ~60% |
+
+> **Note (Hardened Economics v2.0)**: Pack values reduced from 25/60/150 to 25/50/100 to maintain ~60% margin across all tiers.
 
 3. For each product:
    - Set **Product Type**: One-time purchase (NOT subscription)
@@ -564,27 +566,24 @@ elif event_name == "order_created":
 Packs are configured in the backend (`routes/credits.py`):
 
 ```python
+## Top-up pack configurations (Hardened Economics v2.0)
+# Margins optimized for bootstrap sustainability (~60%+ across all packs)
 TOPUP_PACKS = {
-    "starter": TopupPack(
-        pack_name="starter",
-        sparks=25,
-        price_cents=499,
-        variant_id=settings.TOPUP_VARIANT_STARTER
-    ),
-    "popular": TopupPack(
-        pack_name="popular",
-        sparks=60,
-        price_cents=999,
-        bonus_percent=20,  # 20% more Sparks vs starter rate
-        variant_id=settings.TOPUP_VARIANT_POPULAR
-    ),
-    "best_value": TopupPack(
-        pack_name="best_value",
-        sparks=150,
-        price_cents=1999,
-        bonus_percent=50,  # 50% more Sparks vs starter rate
-        variant_id=settings.TOPUP_VARIANT_BEST_VALUE
-    ),
+    "starter": {
+        "sparks": 25,
+        "price_cents": 499,
+        "variant_id": os.getenv("TOPUP_STARTER_VARIANT_ID", ""),
+    },
+    "popular": {
+        "sparks": 50,  # Reduced from 60 to maintain ~60% margin
+        "price_cents": 999,
+        "variant_id": os.getenv("TOPUP_POPULAR_VARIANT_ID", ""),
+    },
+    "best_value": {
+        "sparks": 100,  # Reduced from 150 to maintain ~60% margin
+        "price_cents": 1999,
+        "variant_id": os.getenv("TOPUP_BESTVALUE_VARIANT_ID", ""),
+    },
 }
 ```
 
@@ -609,8 +608,8 @@ The Settings page handles this by showing a success banner and reloading Spark b
 
 **Lemon Squeezy Dashboard:**
 - [ ] Create "Starter" one-time product ($4.99, 25 Sparks)
-- [ ] Create "Popular" one-time product ($9.99, 60 Sparks)
-- [ ] Create "Best Value" one-time product ($19.99, 150 Sparks)
+- [ ] Create "Popular" one-time product ($9.99, 50 Sparks)
+- [ ] Create "Best Value" one-time product ($19.99, 100 Sparks)
 - [ ] Note all three Variant IDs
 - [ ] Ensure `order_created` webhook event is enabled
 

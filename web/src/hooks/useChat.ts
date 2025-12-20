@@ -6,6 +6,7 @@ import type {
   Message,
   Episode,
   RateLimitError,
+  EpisodeAccessError,
   StreamDirectorState,
   StreamEpisodeCompleteEvent,
   StreamVisualPendingEvent,
@@ -28,6 +29,7 @@ interface UseChatOptions {
   enabled?: boolean;
   onError?: (error: Error) => void;
   onRateLimitExceeded?: (error: RateLimitError) => void;
+  onEpisodeAccessDenied?: (error: EpisodeAccessError) => void;
   onEpisodeComplete?: (event: StreamEpisodeCompleteEvent) => void;
   onVisualPending?: (event: StreamVisualPendingEvent) => void;
   onInstructionCard?: (event: StreamInstructionCardEvent) => void;
@@ -67,6 +69,7 @@ export function useChat({
   enabled = true,
   onError,
   onRateLimitExceeded,
+  onEpisodeAccessDenied,
   onEpisodeComplete,
   onVisualPending,
   onInstructionCard,
@@ -97,6 +100,8 @@ export function useChat({
   onErrorRef.current = onError;
   const onRateLimitExceededRef = useRef(onRateLimitExceeded);
   onRateLimitExceededRef.current = onRateLimitExceeded;
+  const onEpisodeAccessDeniedRef = useRef(onEpisodeAccessDenied);
+  onEpisodeAccessDeniedRef.current = onEpisodeAccessDenied;
   const onEpisodeCompleteRef = useRef(onEpisodeComplete);
   onEpisodeCompleteRef.current = onEpisodeComplete;
   const onVisualPendingRef = useRef(onVisualPending);
@@ -158,7 +163,13 @@ export function useChat({
         setMessages(msgs);
       }
     } catch (error) {
-      onErrorRef.current?.(error as Error);
+      // Check if this is an episode access error (402 - insufficient sparks for episode)
+      if (error instanceof APIError && error.status === 402) {
+        const accessError = error.data as EpisodeAccessError;
+        onEpisodeAccessDeniedRef.current?.(accessError);
+      } else {
+        onErrorRef.current?.(error as Error);
+      }
     } finally {
       setIsLoading(false);
     }

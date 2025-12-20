@@ -1,8 +1,14 @@
 # Image Generation Costs & Subscription Model
 
+> **Status**: Updated for Ticket + Moments model (v2.0)
+> **Last Updated**: 2025-12-20
+> **Related**: [MONETIZATION_v2.0.md](./MONETIZATION_v2.0.md) for episode-based pricing
+
 ## Overview
 
-This document outlines the cost structure for character image generation and the proposed subscription model for Fantazy.
+This document outlines the cost structure for character image generation and the subscription model for Fantazy.
+
+**Key Change (v2.0)**: With the Ticket + Moments model, auto-generated images are **included in episode price** (not charged per-generation). Manual "Capture Moment" costs 1 Spark.
 
 ---
 
@@ -56,29 +62,32 @@ Focus on **pre-generated library + sparse Flux moments** rather than complex ove
 
 ---
 
-## Subscription Model
+## Subscription Model (v2.0 - Ticket + Moments)
 
 ### Tier Structure
 
 #### Free Tier
-- Access to pre-generated image library
-- Basic chat functionality
-- Limited daily messages
-- **Cost to serve**: ~$0.50-1.00/active user/month
+- **0 Sparks on signup** (no onboarding giveaway)
+- Episode 0 (entry) + Play Mode = **Free** (~$0.40 cost to you)
+- Free Chat = **Free** (no images, ~$0.01-0.05 cost)
+- Episodes 1+ cost **3 Sparks each** (must purchase or subscribe)
+- **Cost to serve free-only users**: ~$0.40 one-time (Episode 0 + Play Mode)
 
 #### Premium Tier ($19/month)
-- Unlimited chat
-- **50 Flux scene generations per month**
+- **All episodes FREE** (unlimited access)
+- 100 Sparks/month for manual "Capture Moment" generations
 - Priority features
 - Custom character requests
-- **Cost to serve**: ~$5-7/active user/month
+- **Cost to serve**: ~$5-7/active user/month (depends on episode consumption)
 
 ### Margin Analysis
 
-| Tier | Revenue | Est. Cost | Gross Margin |
-|------|---------|-----------|--------------|
-| Free | $0 | ~$0.50-1.00 | Negative (acquisition) |
-| Premium | $19 | ~$7 | **~63%** |
+| Tier | Revenue | Est. Cost | Gross Margin | Notes |
+|------|---------|-----------|--------------|-------|
+| Free | $0 | ~$0.50-1.00 | Negative | Acquisition funnel |
+| Premium | $19 | ~$5-8 | **~60-75%** | Variable based on episode count |
+
+**Note**: Premium costs are less predictable than before since episodes include auto-gen images. Heavy users may consume more, but this is offset by the $19 flat rate.
 
 ---
 
@@ -97,28 +106,52 @@ Focus on **pre-generated library + sparse Flux moments** rather than complex ove
 
 ## Economic Viability
 
-### Unit Economics (Premium User)
+### Unit Economics (Premium User) - v2.0
 
 ```
 Revenue:              $19.00/month
 - Lemon Squeezy fee:  -$1.45 (~5% + $0.50)
-- Flux costs:         -$2.50 (50 images)
+- Flux costs:         -$3.00 (avg 60 auto-gen across episodes)
 - Chat API:           -$2.00 (average usage)
 - Infra/other:        -$1.00
-= Net margin:         $12.05/user/month (~63%)
+= Net margin:         $11.55/user/month (~61%)
 ```
+
+**Assumptions**:
+- Average Premium user plays ~15 episodes/month
+- Each cinematic episode generates ~4 images (capped by `generation_budget`)
+- 15 episodes × 4 images = 60 images × $0.05 = $3.00
+
+### Unit Economics (Free User with Spark Purchases)
+
+```
+Pack purchase:        $9.99 (50 Sparks)
+- Episodes played:    ~16 episodes (50 ÷ 3 Sparks)
+- Cost per episode:   ~$0.20 (3-4 auto-gen images included)
+- Our margin:         ~60% after LS fees
+```
+
+### Unit Economics (Free User - No Purchase)
+
+```
+Free content cost:    ~$0.40 (Episode 0 + Play Mode)
+- Revenue:            $0
+- Net:                -$0.40 per non-converting user
+```
+
+**Note**: Free tier burn is capped at ~$0.40/user. This is acceptable customer acquisition cost if even 10% convert to a $4.99 Starter pack.
 
 ### Scaling Considerations
 
 - **Library generation**: Fixed cost, scales with characters not users
-- **Runtime Flux**: Scales linearly with usage (capped by quota)
+- **Runtime Flux**: Scales linearly with usage (capped by `generation_budget` per episode)
 - **Chat API**: Primary variable cost, scales with engagement
 
 ### Risk Mitigation
 
-1. **Quota caps** on Flux generation prevent runaway costs
+1. **`generation_budget` caps** on auto-gen prevent runaway costs per episode
 2. **Library-first strategy** reduces runtime generation needs
-3. **Usage-based premium** tiers can capture heavy users
+3. **Episode pricing** aligns user cost with our cost (more episodes = more images, but also more revenue)
 
 ---
 
@@ -147,8 +180,11 @@ Reserve Flux generation for:
 
 ## Summary
 
-The hybrid approach (pre-generated library + selective Flux) provides:
-- **Low marginal cost** per user
-- **High-quality visuals** when they matter
-- **Sustainable margins** at $19/month pricing (~63%)
+The Ticket + Moments model (v2.0) provides:
+- **Clear value exchange** - users pay for episodes, not individual actions
+- **Predictable costs** - `generation_budget` caps auto-gen per episode
+- **Premium value** - unlimited episodes makes subscription compelling
+- **Sustainable margins** at $19/month pricing (~61%)
 - **Competitive positioning** in the AI companion market
+
+See [MONETIZATION_v2.0.md](./MONETIZATION_v2.0.md) for complete implementation details.

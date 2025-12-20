@@ -1,8 +1,14 @@
-# Credits System Proposal
+# Credits System: Sparks
+
+> **Status**: Implemented
+> **Last Updated**: 2025-12-20
+> **Related**: [MONETIZATION_v2.0.md](./MONETIZATION_v2.0.md) for Ticket + Moments model
 
 ## Overview
 
-This document proposes a virtual credits system ("Sparks") that abstracts the monetization layer from actual costs, enabling flexible pricing for current and future features.
+This document describes the Sparks virtual credits system that powers Fantazy's monetization. Sparks abstract the user-facing economy from real costs, enabling flexible pricing.
+
+**Important**: This document should be read alongside [MONETIZATION_v2.0.md](./MONETIZATION_v2.0.md) which describes the "Ticket + Moments" model where episodes cost Sparks to access (not per-image generation).
 
 ---
 
@@ -22,32 +28,39 @@ Alternative options: Credits, Gems, Essence, Mana
 
 ## 2. Core Economics
 
-### Initial Pricing (1 Spark ≈ $0.10 value)
+### Ticket + Moments Model (v2.0)
 
-| Action | Spark Cost | Real Cost | Margin | Notes |
-|--------|------------|-----------|--------|-------|
-| **Chat message** | **0 (FREE)** | ~$0.0004 | N/A | **Deliberate decision - see Section 2.1** |
-| Image generation (Flux) | 1 Spark | ~$0.05 | 50% | Primary monetization lever |
-| Video generation (future) | 15 Sparks | ~$1.00 | 33% | |
-| Voice message (future) | 1 Spark | ~$0.01 | 90% | |
-| Premium pose/scene unlock | 3 Sparks | $0 | 100% | |
+With the Ticket + Moments model, Sparks are primarily spent on **episode access**, not per-action:
+
+| Action | Spark Cost | Real Cost | Notes |
+|--------|------------|-----------|-------|
+| **Chat message** | **0 (FREE)** | ~$0.0004 | See Section 2.1 |
+| **Episode access** | **3** | ~$0.30 | Episodes 1+ (Episode 0 and Play Mode = free) |
+| Auto-gen images (in episode) | **0 (INCLUDED)** | ~$0.05 each | Included in episode price, capped by `generation_budget` |
+| Manual "Capture Moment" | 1 | ~$0.05 | User-triggered scene generation |
+| Video generation (future) | 15 | ~$1.00 | |
+| Voice message (future) | 1 | ~$0.01 | |
 
 ### Subscription Allocation
 
-| Tier | Monthly Sparks | Price | Effective $/Spark |
-|------|----------------|-------|-------------------|
-| Free | 5 | $0 | - |
-| Premium | 100 | $19.99 | $0.20 |
+| Tier | Monthly Sparks | Episode Access | Price | Use Case |
+|------|----------------|----------------|-------|----------|
+| Free | **0** (on signup) | Episode 0 + Play Mode only | $0 | Product demo |
+| Premium | 100 | **UNLIMITED** | $19.99 | All episodes free, Sparks for manual gen |
 
-Note: Premium users get 100 Sparks (vs current 50 generations) - this gives headroom for mixed usage across features.
+**Free Tier Philosophy**: Free content (Episode 0, Play Mode) is generous enough to demonstrate product value. No onboarding Sparks keeps burn near zero for bootstrapping.
+
+**Premium Value Proposition**: Episodes are free for Premium users. Their 100 Sparks are for manual "Capture Moment" generations only.
 
 ### Top-Up Packs (One-Time Purchase)
 
-| Pack | Sparks | Price | $/Spark | Bonus |
-|------|--------|-------|---------|-------|
-| Starter | 25 | $4.99 | $0.20 | - |
-| Popular | 60 | $9.99 | $0.17 | +20% |
-| Best Value | 150 | $19.99 | $0.13 | +50% |
+| Pack | Sparks | Price | $/Spark | Episodes | Margin |
+|------|--------|-------|---------|----------|--------|
+| Starter | 25 | $4.99 | $0.20 | ~8 | ~66% |
+| Popular | 50 | $9.99 | $0.20 | ~16 | ~60% |
+| Best Value | 100 | $19.99 | $0.20 | ~33 | ~60% |
+
+**Note**: All packs maintain ~60%+ margin. Pack value can be used for episode access OR manual generations (user's choice).
 
 ---
 
@@ -653,8 +666,12 @@ CREATE TABLE credit_costs (
 -- Insert default costs
 -- NOTE: chat_message is explicitly listed at 0 cost as a documented architectural decision
 -- See Section 2.1 "Message Economics: Deliberate Free Tier" for rationale
+-- NOTE: episode_access and capture_moment are part of Ticket + Moments model (v2.0)
+-- See MONETIZATION_v2.0.md for details
 INSERT INTO credit_costs (feature_key, display_name, spark_cost, description) VALUES
-    ('flux_generation', 'Image Generation', 1, 'Generate a custom scene image'),
+    ('episode_access', 'Episode Access', 3, 'Start an episode (Episode 1+)'),
+    ('capture_moment', 'Capture This Moment', 1, 'Manual scene generation'),
+    ('flux_generation', 'Image Generation', 1, 'Generate a custom scene image (legacy/free chat)'),
     ('video_generation', 'Video Generation', 15, 'Generate a short video clip'),
     ('voice_message', 'Voice Message', 1, 'Generate a voice message from companion'),
     ('chat_message', 'Chat Message', 0, 'Send a message (FREE - see Section 2.1 for rationale)');
@@ -664,6 +681,8 @@ INSERT INTO credit_costs (feature_key, display_name, spark_cost, description) VA
 
 ```sql
 -- Add to users table
+-- NOTE: Default 0 Sparks - free content (Episode 0, Play Mode) requires no Sparks
+-- Users must purchase Sparks or subscribe for Episode 1+
 ALTER TABLE users ADD COLUMN IF NOT EXISTS spark_balance INTEGER DEFAULT 0;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS lifetime_sparks_earned INTEGER DEFAULT 0;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS lifetime_sparks_spent INTEGER DEFAULT 0;
@@ -1547,15 +1566,17 @@ The implementation builds on your existing Lemon Squeezy integration and databas
 
 ---
 
-## Appendix A: Feature Cost Reference
+## Appendix A: Feature Cost Reference (v2.0)
 
 | Feature | Spark Cost | Real Cost | Enforcement | Notes |
 |---------|------------|-----------|-------------|-------|
 | **Chat Message** | **0 (FREE)** | ~$0.0004 | Rate limiting only | See Section 2.1 |
-| Image Generation | 1 | ~$0.05 | Hard limit | Primary monetization |
+| **Episode Access** | **3** | ~$0.30 | Episode start gate | Episodes 1+; Premium users bypass |
+| **Auto-gen Images** | **0 (INCLUDED)** | ~$0.05 each | `generation_budget` cap | Part of episode cost |
+| **Capture Moment** | **1** | ~$0.05 | Hard limit | User-triggered manual generation |
+| Image Generation (Free Chat) | 1 | ~$0.05 | Hard limit | Manual gen outside episodes |
 | Video Generation | 15 | ~$1.00 | Hard limit | Future feature |
 | Voice Message | 1 | ~$0.01 | Hard limit | Future feature |
-| Premium Scene Unlock | 2-3 | $0 | Hard limit | Zero marginal cost |
 
 ---
 

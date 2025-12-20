@@ -786,6 +786,12 @@ export interface InsufficientSparksError {
   upgrade_url: string;
 }
 
+export interface EpisodeAccessError {
+  error: "insufficient_sparks";
+  required: number;
+  message: string;
+}
+
 export interface RateLimitError {
   error: "rate_limit_exceeded";
   message: string;

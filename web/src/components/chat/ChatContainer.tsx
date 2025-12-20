@@ -16,7 +16,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { QuotaExceededModal } from "@/components/usage";
 import { InsufficientSparksModal } from "@/components/sparks";
 import { api } from "@/lib/api/client";
-import type { Message, EpisodeImage, EpisodeTemplate, InsufficientSparksError, RateLimitError } from "@/types";
+import type { Message, EpisodeImage, EpisodeTemplate, InsufficientSparksError, EpisodeAccessError, RateLimitError } from "@/types";
 import { cn } from "@/lib/utils";
 
 interface ChatContainerProps {
@@ -36,6 +36,8 @@ export function ChatContainer({ characterId, episodeTemplateId }: ChatContainerP
   const [showQuotaModal, setShowQuotaModal] = useState(false);
   const [showSparksModal, setShowSparksModal] = useState(false);
   const [sparksError, setSparksError] = useState<InsufficientSparksError | null>(null);
+  const [showAccessDeniedModal, setShowAccessDeniedModal] = useState(false);
+  const [accessError, setAccessError] = useState<EpisodeAccessError | null>(null);
   const [showRateLimitModal, setShowRateLimitModal] = useState(false);
   const [rateLimitError, setRateLimitError] = useState<RateLimitError | null>(null);
   const [episodeTemplate, setEpisodeTemplate] = useState<EpisodeTemplate | null>(null);
@@ -128,6 +130,10 @@ export function ChatContainer({ characterId, episodeTemplateId }: ChatContainerP
     onRateLimitExceeded: (error) => {
       setRateLimitError(error);
       setShowRateLimitModal(true);
+    },
+    onEpisodeAccessDenied: (error) => {
+      setAccessError(error);
+      setShowAccessDeniedModal(true);
     },
   });
 
@@ -414,6 +420,14 @@ export function ChatContainer({ characterId, episodeTemplateId }: ChatContainerP
         onClose={() => setShowSparksModal(false)}
         cost={sparksError?.cost ?? 1}
         featureName="image generation"
+      />
+
+      {/* Episode access denied modal (402 - insufficient sparks for episode entry) */}
+      <InsufficientSparksModal
+        open={showAccessDeniedModal}
+        onClose={() => setShowAccessDeniedModal(false)}
+        cost={accessError?.required ?? 3}
+        featureName="starting this episode"
       />
 
       <RateLimitModal

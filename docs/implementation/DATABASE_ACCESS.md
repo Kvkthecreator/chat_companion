@@ -42,7 +42,7 @@ postgresql://postgres:[PASSWORD]@db.lfwhdzwbikyzalpbwfnd.supabase.co:5432/postgr
 ### Set up environment variable
 
 ```bash
-export FANTAZY_DB_PASSWORD='your-database-password'
+export FANTAZY_DB_PASSWORD='42PJb25YJhJHJdkl'
 ```
 
 Find password at: https://supabase.com/dashboard/project/lfwhdzwbikyzalpbwfnd/settings/database

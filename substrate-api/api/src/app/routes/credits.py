@@ -165,8 +165,9 @@ async def get_feature_costs():
 
 topup_router = APIRouter(prefix="/topup", tags=["Top-Up"])
 
-# Top-up pack configurations
-# In production, variant IDs would come from Lemon Squeezy product setup
+# Top-up pack configurations (Hardened Economics v2.0)
+# Margins optimized for bootstrap sustainability (~60%+ across all packs)
+# In production, variant IDs come from Lemon Squeezy product setup
 TOPUP_PACKS = {
     "starter": {
         "sparks": 25,
@@ -174,12 +175,12 @@ TOPUP_PACKS = {
         "variant_id": os.getenv("TOPUP_STARTER_VARIANT_ID", ""),
     },
     "popular": {
-        "sparks": 60,
+        "sparks": 50,  # Reduced from 60 to maintain ~60% margin
         "price_cents": 999,
         "variant_id": os.getenv("TOPUP_POPULAR_VARIANT_ID", ""),
     },
     "best_value": {
-        "sparks": 150,
+        "sparks": 100,  # Reduced from 150 to maintain ~60% margin
         "price_cents": 1999,
         "variant_id": os.getenv("TOPUP_BESTVALUE_VARIANT_ID", ""),
     },

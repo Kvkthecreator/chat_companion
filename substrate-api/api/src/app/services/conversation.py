@@ -572,9 +572,11 @@ class ConversationService:
         effective_scene = scene
         opening_line = None
 
+        episode_cost = 0  # Default: free (for free chat or Episode 0)
+
         if episode_template_id:
             template_query = """
-                SELECT situation, title, opening_line, series_id
+                SELECT situation, title, opening_line, series_id, episode_cost
                 FROM episode_templates WHERE id = :template_id
             """
             template_row = await self.db.fetch_one(template_query, {"template_id": str(episode_template_id)})
@@ -582,6 +584,7 @@ class ConversationService:
                 effective_scene = template_row["situation"]
                 opening_line = template_row["opening_line"]
                 series_id = template_row["series_id"]
+                episode_cost = template_row["episode_cost"] or 0
 
         # If no series from template, try to get series from character
         if not series_id:
@@ -685,11 +688,55 @@ class ConversationService:
             count_row = await self.db.fetch_one(count_query, {"user_id": str(user_id), "character_id": str(character_id)})
         episode_number = count_row["next_num"]
 
+        # === EPISODE ACCESS GATE (Ticket + Moments Model) ===
+        # For paid episodes (episode_cost > 0), check user can afford and deduct sparks
+        entry_paid = False  # Will be True if user pays or episode is free
+
+        if episode_cost > 0:
+            from app.services.credits import CreditsService, InsufficientSparksError
+
+            # Check if user is premium (bypass spark cost)
+            user_query = "SELECT subscription_status FROM users WHERE id = :user_id"
+            user_row = await self.db.fetch_one(user_query, {"user_id": str(user_id)})
+            is_premium = user_row and user_row["subscription_status"] == "premium"
+
+            if is_premium:
+                # Premium users get all episodes for free
+                entry_paid = True
+                log.info(f"Premium user {user_id} accessing episode for free")
+            else:
+                # Non-premium: deduct sparks
+                credits = CreditsService.get_instance()
+                try:
+                    await credits.spend(
+                        user_id=user_id,
+                        feature_key="episode_access",
+                        explicit_cost=episode_cost,
+                        reference_id=str(episode_template_id) if episode_template_id else None,
+                        metadata={"episode_template_id": str(episode_template_id) if episode_template_id else None},
+                    )
+                    entry_paid = True
+                    log.info(f"User {user_id} paid {episode_cost} sparks to access episode")
+                except InsufficientSparksError:
+                    # Can't afford - raise HTTP 402
+                    from fastapi import HTTPException, status
+                    raise HTTPException(
+                        status_code=status.HTTP_402_PAYMENT_REQUIRED,
+                        detail={
+                            "error": "insufficient_sparks",
+                            "required": episode_cost,
+                            "message": f"This episode costs {episode_cost} Sparks to start",
+                        }
+                    )
+        else:
+            # Free episode (Episode 0, Play Mode, or free chat)
+            entry_paid = True
+
         # Create session with series_id for proper scoping
         # session_state must be set explicitly to 'active' for series progress tracking
         create_query = """
-            INSERT INTO sessions (user_id, character_id, engagement_id, episode_number, scene, episode_template_id, series_id, session_state)
-            VALUES (:user_id, :character_id, :engagement_id, :episode_number, :scene, :episode_template_id, :series_id, :session_state)
+            INSERT INTO sessions (user_id, character_id, engagement_id, episode_number, scene, episode_template_id, series_id, session_state, entry_paid)
+            VALUES (:user_id, :character_id, :engagement_id, :episode_number, :scene, :episode_template_id, :series_id, :session_state, :entry_paid)
             RETURNING *
         """
         new_row = await self.db.fetch_one(
@@ -703,6 +750,7 @@ class ConversationService:
                 "episode_template_id": str(episode_template_id) if episode_template_id else None,
                 "series_id": str(series_id) if series_id else None,
                 "session_state": "active",  # Explicit state for progress tracking
+                "entry_paid": entry_paid,
             },
         )
 
