@@ -41,9 +41,16 @@ docs/quality/
 │   ├── VISUAL_GENERATION.md     ← Scene/image generation (planned)
 │   └── _FUTURE.md               ← Placeholder for audio/video
 │
-└── tuning/                      ← Model-specific adjustments
-    ├── GEMINI_FLASH.md          ← Current production model
-    └── _MODEL_TEMPLATE.md       ← Template for new models
+├── tuning/                      ← Model-specific adjustments
+│   ├── GEMINI_FLASH.md          ← Current production model
+│   └── _MODEL_TEMPLATE.md       ← Template for new models
+│
+└── play/                        ← Play Mode (viral experiences)
+    ├── README.md                ← Play Mode overview
+    ├── PLAY_MODE_ARCHITECTURE.md← Routing, auth, flow
+    ├── TROPE_SYSTEM.md          ← Romantic Trope taxonomy
+    ├── RESULT_REPORT_SPEC.md    ← Share card and result design
+    └── IMPLEMENTATION_STATUS.md ← Current vs. target state
 ```
 
 ---

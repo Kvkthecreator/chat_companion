@@ -14,6 +14,41 @@ Format: `[Document] vX.Y.Z - YYYY-MM-DD`
 
 ---
 
+## 2024-12-20 (Night)
+
+### Added
+- **[play/README.md]** v1.0.0 - Play Mode system overview
+  - Document structure for viral experiences
+  - Decision log and current state
+
+- **[play/PLAY_MODE_ARCHITECTURE.md]** v1.1.0 - Play Mode architecture
+  - Routing specification (/play, /play/[slug], /r/[id])
+  - Anonymous-until-conversion auth flow
+  - **Content isolation via series_type: "play"**
+  - **Male + Female character variants (Jack/Emma)**
+  - **Comprehensive share infrastructure and virality spec**
+  - Post-auth flow and session linking
+  - Analytics events for viral tracking
+
+- **[play/TROPE_SYSTEM.md]** v1.0.0 - Romantic Trope taxonomy
+  - 5 Romantic Tropes (replacing Flirt Archetypes)
+  - Behavioral signals for detection
+  - LLM evaluation prompt specification
+  - Static content requirements
+
+- **[play/RESULT_REPORT_SPEC.md]** v1.0.0 - Result report design
+  - Report structure (identity, evidence, callback, cultural)
+  - Share card specification
+  - Component requirements
+
+- **[play/IMPLEMENTATION_STATUS.md]** v1.1.0 - Implementation tracking
+  - **Critical path items identified (DB constraint, missing methods)**
+  - Current state audit (Flirt Test v1)
+  - Gap analysis for Romantic Trope v2
+  - 6-phase implementation plan
+
+---
+
 ## 2024-12-20 (Evening)
 
 ### Added
