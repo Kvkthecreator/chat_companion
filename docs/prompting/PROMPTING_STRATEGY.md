@@ -1,14 +1,20 @@
 # Prompting Strategy
 
-> **Version**: 2.0
+> **Version**: 2.1
 > **Updated**: 2024-12-20
-> **Status**: Active
+> **Status**: Canonical (verified against codebase)
 
 ---
 
 ## Overview
 
 This document defines how prompts are configured and composed for the Fantazy conversation system. The system uses a **layered prompt architecture** where static configuration (character, episode) combines with dynamic runtime context (memories, conversation history, Director feedback).
+
+**Core Architecture**: Actor/Director Model
+- **Episode Template** = Director's Notes (situation, dramatic_question, frame)
+- **Character System Prompt** = Actor's Direction (genre doctrine, personality)
+- **ConversationContext** = Stage Setup (physical grounding, memories, hooks)
+- **Director Service** = Runtime Orchestrator (semantic evaluation, completion, scene generation)
 
 ---
 
@@ -17,28 +23,28 @@ This document defines how prompts are configured and composed for the Fantazy co
 ```
 ┌─────────────────────────────────────────────────────────────────┐
 │  LAYER 1: CHARACTER IDENTITY (static)                          │
-│  Source: characters.system_prompt                               │
-│  Defines: Voice, personality, boundaries, response style        │
+│  Source: characters.system_prompt + life_arc                    │
+│  Defines: Voice, personality, boundaries, current struggles     │
 ├─────────────────────────────────────────────────────────────────┤
-│  LAYER 2: SERIES/EPISODE CONTEXT (static per episode)          │
-│  Source: episode_templates, series                              │
-│  Defines: Setting, dramatic question, genre, resolution types   │
+│  LAYER 2: EPISODE CONTEXT (static per episode)                 │
+│  Source: episode_templates                                      │
+│  Defines: Situation (CRITICAL), frame, dramatic_question       │
 ├─────────────────────────────────────────────────────────────────┤
-│  LAYER 3: ENGAGEMENT CONTEXT (dynamic)                         │
-│  Source: engagements, sessions                                  │
-│  Defines: History depth, time together, dynamic (tone/tension)  │
+│  LAYER 3: ENGAGEMENT CONTEXT (dynamic per user)                │
+│  Source: engagements                                            │
+│  Defines: Session count, time together, tone/tension dynamic    │
 ├─────────────────────────────────────────────────────────────────┤
 │  LAYER 4: MEMORY & HOOKS (dynamic, retrieved)                  │
-│  Source: memory_events, hooks                                   │
-│  Defines: User facts, preferences, follow-up topics             │
+│  Source: memory_events, hooks (series-scoped)                   │
+│  Defines: User facts (10), follow-up topics (5)                │
 ├─────────────────────────────────────────────────────────────────┤
-│  LAYER 5: CONVERSATION STATE (dynamic, per-turn)               │
-│  Source: messages, Director evaluation                          │
-│  Defines: Recent exchanges, turn count, progression signals     │
+│  LAYER 5: CONVERSATION STATE (per-turn)                        │
+│  Source: messages (last 20), session.turn_count                │
+│  Defines: Recent exchanges, moment layer                        │
 ├─────────────────────────────────────────────────────────────────┤
-│  LAYER 6: DIRECTOR FEEDBACK (dynamic, per-turn)                │
-│  Source: DirectorService evaluation                             │
-│  Defines: Visual triggers, completion status, narrative pacing  │
+│  LAYER 6: DIRECTOR FEEDBACK (post-response)                    │
+│  Source: DirectorService.evaluate_exchange()                    │
+│  Defines: Visual triggers, completion status, next episode      │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
@@ -50,131 +56,282 @@ This document defines how prompts are configured and composed for the Fantazy co
 
 **Source**: `characters` table
 
-| Field | Purpose |
-|-------|---------|
-| `system_prompt` | Core character voice and behavior doctrine |
-| `baseline_personality` | Trait weights (warmth, wit, intensity) |
-| `tone_style` | Response style (formal, casual, poetic) |
-| `speech_patterns` | Linguistic quirks, catchphrases |
-| `life_arc` | Current goal, struggle, secret dream |
-| `boundaries` | Content limits for this character |
+| Field | DB Column | Purpose |
+|-------|-----------|---------|
+| System Prompt | `system_prompt` | Core voice, genre doctrine, behavior rules |
+| Life Arc | `life_arc` (JSONB) | `{current_goal, current_struggle, secret_dream}` |
+| Current Stressor | `current_stressor` | What's weighing on them now |
+| Personality | `baseline_personality` | Trait weights (warmth, wit, intensity) |
+| Tone Style | `tone_style` | Response style guidance |
+| Speech Patterns | `speech_patterns` | Linguistic quirks, catchphrases |
+| Boundaries | `boundaries` | Content limits for this character |
 
 **Placeholders in system_prompt**:
-- `{memories}` → Injected from Layer 4
-- `{hooks}` → Injected from Layer 4
-- `{relationship_stage}` → From Layer 3 (deprecated, always "acquaintance")
+- `{memories}` → Injected from Layer 4 (formatted by type)
+- `{hooks}` → Injected from Layer 4 (with suggested openers)
+- `{relationship_stage}` → Always "acquaintance" (stage progression sunset)
 
-### Layer 2: Series/Episode Context
+### Layer 2: Episode Context
 
-**Source**: `episode_templates`, `series` tables
+**Source**: `episode_templates` table (via session.episode_template_id)
 
-| Field | Purpose |
-|-------|---------|
-| `situation` | **Physical setting** - grounds ALL responses spatially |
-| `episode_frame` | Stage direction / narrative framing |
-| `dramatic_question` | Core tension to explore (not resolve quickly) |
-| `resolution_types` | Valid ways this episode can conclude |
-| `genre` | Informs Director evaluation style |
-| `series_id` | Links episodes for serial continuity |
+| Field | DB Column | Purpose |
+|-------|-----------|---------|
+| **Situation** | `situation` | **CRITICAL**: Physical grounding for ALL responses |
+| Episode Frame | `episode_frame` | Director's stage direction (platform-generated) |
+| Dramatic Question | `dramatic_question` | Core tension to explore (not resolve quickly) |
+| Resolution Types | `resolution_types[]` | `['positive', 'neutral', 'negative', 'surprise']` |
+| Genre | `genre` | Informs Director semantic evaluation |
+| Turn Budget | `turn_budget` | Optional hard limit for completion |
+| Auto Scene Mode | `auto_scene_mode` | `off`, `peaks`, `rhythmic` |
+| Scene Interval | `scene_interval` | Turns between auto-scenes (rhythmic mode) |
 
-**Critical**: `situation` is the most important field. Without physical grounding, responses become generic.
+**Physical Grounding is PRIMARY**:
 
-**Good** (with situation): "I glance up from the espresso machine, steam rising..."
-**Bad** (without): "I look at you with a mysterious smile..."
+The `situation` field is formatted FIRST in episode dynamics. The LLM is instructed to "ground ALL responses in this reality."
+
+```
+Good (with situation): "I glance up from the espresso machine, steam rising..."
+Bad (without situation): "I look at you with a mysterious smile..."
+```
 
 ### Layer 3: Engagement Context
 
-**Source**: `engagements`, `sessions` tables
+**Source**: `engagements` table
 
-| Field | Purpose |
-|-------|---------|
-| `total_sessions` | How many conversations with this character |
-| `total_messages` | Message count for depth estimation |
-| `time_since_first_met` | "2 weeks", "3 days" - temporal grounding |
-| `dynamic.tone` | Current emotional register |
-| `dynamic.tension_level` | 0-100 intensity scale |
+| Field | DB Column | Purpose |
+|-------|-----------|---------|
+| Total Sessions | `total_sessions` | How many conversations with this character |
+| Time Since First Met | calculated from `first_met_at` | "2 weeks", "3 days" - temporal grounding |
+| Dynamic | `dynamic` (JSONB) | `{tone, tension_level, recent_beats[]}` |
+| Milestones | `milestones[]` | Relationship achievements reached |
 
-**Note**: Stage progression (`acquaintance` → `intimate`) is sunset. Connection depth is implicit via session/message counts and memory richness.
+**Formatted in prompt as**:
+```
+RELATIONSHIP CONTEXT:
+- Episodes together: {total_sessions}
+- Time since meeting: {time_since_first_met}
+- Current dynamic: {tone} at intensity {tension_level}/100
+- Recent beats: {recent_beats}
+```
 
 ### Layer 4: Memory & Hooks
 
-**Source**: `memory_events`, `hooks` tables (retrieved by relevance)
+**Source**: `memory_events`, `hooks` tables
 
-| Type | Retrieval | Purpose |
-|------|-----------|---------|
-| Memories | 10 most relevant (importance + recency) | User facts, preferences, history |
-| Hooks | 5 active (untriggered, past trigger date) | Follow-up conversation topics |
+**Memory Retrieval** (series-scoped):
+```sql
+SELECT * FROM memory_events
+WHERE user_id = ? AND series_id = ?
+  AND is_active = TRUE
+ORDER BY importance_score DESC, created_at DESC
+LIMIT 10
+-- Max 3 per type via ROW_NUMBER partition
+```
 
-**Memory types**: `fact`, `preference`, `event`, `goal`, `relationship`, `emotion`
+| Memory Type | Example | Prompt Section |
+|-------------|---------|----------------|
+| `fact` | "Works as a teacher" | "About them:" |
+| `event` | "Starting new job next month" | "Recent in their life:" |
+| `preference` | "Loves indie rock" | "Their tastes:" |
+| `relationship` | "Close with their mom" | "People in their life:" |
+| `goal` | "Wants to travel to Japan" | "Goals/aspirations:" |
+| `emotion` | "Excited but nervous" | "How they've been feeling:" |
 
-**Hook types**: `reminder`, `follow_up`, `milestone`, `scheduled`
+**Hook Retrieval**:
+```sql
+SELECT * FROM hooks
+WHERE user_id = ? AND character_id = ?
+  AND is_active = TRUE
+  AND trigger_after <= NOW()
+  AND triggered_at IS NULL
+ORDER BY priority DESC
+LIMIT 5
+```
+
+| Hook Type | Example | Purpose |
+|-----------|---------|---------|
+| `reminder` | Job interview Thursday | Time-based callback |
+| `follow_up` | Their sister's wedding | Topic to revisit |
+| `milestone` | First month together | Relationship marker |
+| `scheduled` | Birthday next week | Calendar event |
 
 ### Layer 5: Conversation State
 
-**Source**: `messages` table, session state
+**Source**: `messages` table, `sessions` table
 
-| Field | Purpose |
-|-------|---------|
-| `messages` | Last 20 messages for context window |
-| `turn_count` | Exchange count this episode |
-| `session_state` | `active`, `paused`, `faded`, `complete` |
+| Field | Source | Purpose |
+|-------|--------|---------|
+| Messages | Last 20 from `messages` | Context window |
+| Turn Count | `sessions.turn_count` | Director tracking |
+| Session State | `sessions.session_state` | `active`, `paused`, `faded`, `complete` |
 
-**Turn counting**: One turn = one user message + one character response. Turn count informs:
-- Director rhythmic visual triggers
-- Episode pacing decisions
-- Conversation depth awareness
+**Moment Layer** (appended to prompt):
+```
+MOMENT LAYER (Priority - respond to THIS):
+- Their last line: "{last_user_message}"
+- Your last line: "{last_assistant_message}"
+- Unresolved tension: {dramatic_question}
+- Setting anchor: {situation}
+```
 
 ### Layer 6: Director Feedback
 
-**Source**: `DirectorService` evaluation (runs after each character response)
+**Source**: `DirectorService.evaluate_exchange()` (runs post-response)
 
-| Signal | Values | Purpose |
-|--------|--------|---------|
-| `status` | `going`, `closing`, `done` | Episode progression state |
-| `visual_type` | `character`, `object`, `atmosphere`, `instruction`, `none` | What visual (if any) to generate |
-| `visual_hint` | String description | Scene generation guidance |
+The Director receives the last 6 messages (3 exchanges) and evaluates semantically:
 
-**The Director Loop**:
+**Evaluation Input**:
+- `messages[-6:]` - Recent exchanges
+- `character_name` - For context
+- `genre` - From episode_template
+- `situation` - Physical setting
+- `dramatic_question` - Core tension
+
+**Evaluation Output**:
+```python
+{
+    "visual_type": "character|object|atmosphere|instruction|none",
+    "visual_hint": "evocative description for scene generation",
+    "status": "going|closing|done"
+}
 ```
-User message → Character responds → Director evaluates → Actions triggered
-                                           ↓
-                     [generate visual? suggest next episode? extract memory?]
+
+**Director Actions** (deterministic from evaluation):
+```python
+DirectorActions(
+    visual_type: str,           # What kind of visual
+    visual_hint: str,           # Scene prompt
+    suggest_next: bool,         # Recommend next episode
+    deduct_sparks: int,         # Cost (default 5)
+    needs_sparks: bool,         # First-time spark prompt
+)
 ```
 
 ---
 
-## Runtime Flow
+## Turn Count & Conversation Evolution
 
-### Per-Turn Sequence
+### How Turn Count Influences the Experience
+
+Turn count is tracked in `sessions.turn_count` and incremented after each exchange.
+
+**Turn Count Effects**:
+
+| Turn Range | Director Behavior | Narrative Effect |
+|------------|-------------------|------------------|
+| 0-3 | Establishment | Setting grounded, tension introduced |
+| 4-8 | Development | Relationship dynamic explored |
+| 8-15 | Escalation | Stakes raised, visual moments likely |
+| 15+ | Resolution zone | Director may signal "closing" or "done" |
+
+**Completion Triggers**:
+
+| Trigger | Condition | Result |
+|---------|-----------|--------|
+| Semantic | Director returns `status: "done"` | `completion_trigger: "semantic"` |
+| Turn Limit | `turn_count >= turn_budget` | `completion_trigger: "turn_limit"` |
+
+### Auto-Scene Generation Based on Turns
+
+**Mode: `peaks`** (default)
+- Director evaluates each exchange semantically
+- If `visual_type != "none"`, triggers scene generation
+- Happens at emotional peaks naturally
+
+**Mode: `rhythmic`**
+- Generates scene every `scene_interval` turns
+- PLUS semantic peaks
+- Creates comic-book pacing feel
+
+**Mode: `off`**
+- No auto-generation
+- User must manually request ("Visualize it")
+
+---
+
+## Director Feedback Loop
+
+The Director creates a feedback loop that influences conversation progression:
 
 ```
-1. CONTEXT BUILD
-   ├── Fetch character (Layer 1)
-   ├── Fetch episode template (Layer 2)
-   ├── Fetch engagement (Layer 3)
-   ├── Retrieve memories & hooks (Layer 4)
-   └── Fetch recent messages (Layer 5)
+┌─────────────────────────────────────────────────────────────────┐
+│                    CONVERSATION TURN                             │
+└─────────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────────┐
+│  1. BUILD CONTEXT                                                │
+│     get_context() assembles all 6 layers                        │
+└─────────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────────┐
+│  2. CHARACTER LLM                                                │
+│     to_messages() → LLM → Streamed response to user             │
+└─────────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────────┐
+│  3. DIRECTOR EVALUATION (post-response)                         │
+│     evaluate_exchange() → {visual_type, status, hint}           │
+└─────────────────────────────────────────────────────────────────┘
+                              │
+              ┌───────────────┼───────────────┐
+              ▼               ▼               ▼
+┌──────────────────┐ ┌──────────────────┐ ┌──────────────────┐
+│  VISUAL ACTION   │ │  COMPLETION      │ │  MEMORY ACTION   │
+│  if visual_type  │ │  if status=done  │ │  extract_memories│
+│  != "none"       │ │  or turn_budget  │ │  extract_hooks   │
+│  → generate_scene│ │  → suggest_next  │ │  (background)    │
+└──────────────────┘ └──────────────────┘ └──────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────────┐
+│  4. STATE UPDATE                                                 │
+│     session.turn_count++                                        │
+│     session.director_state = {last_evaluation}                  │
+│     if complete: session_state = "complete"                     │
+└─────────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+                    [NEXT TURN or COMPLETION]
+```
 
-2. PROMPT COMPOSE
-   ├── Inject memories/hooks into character system_prompt
-   ├── Append engagement context
-   ├── Append episode dynamics (situation, frame, question)
-   ├── Append moment layer (last exchange + tension)
-   └── Format message array for LLM
+**Director State Persistence**:
+```python
+session.director_state = {
+    "last_evaluation": {visual_type, status, hint},
+    "spark_prompt_shown": bool  # Avoid repeated prompts
+}
+```
 
-3. CHARACTER LLM CALL
-   └── Generate response (streamed to user)
+---
 
-4. DIRECTOR EVALUATION (post-response)
-   ├── Evaluate exchange semantically
-   ├── Determine visual_type and status
-   └── Return action signals
+## Series-Scoped Memory
 
-5. ACTION EXECUTION
-   ├── If visual_type != 'none': trigger scene generation
-   ├── If status == 'done': suggest next episode
-   ├── Extract memories (background)
-   └── Extract hooks (background)
+**Critical Architecture Decision**: Memory is scoped at the **Series level**, not Character level.
+
+```sql
+-- Memory retrieval prioritizes series_id
+SELECT * FROM memory_events
+WHERE user_id = :user_id
+  AND series_id = :series_id  -- PRIMARY SCOPE
+  AND is_active = TRUE
+```
+
+**Implications**:
+- Memory belongs to "your story with this series"
+- Same character in different series = independent memories
+- Enables future remix features without memory contamination
+
+```
+SERIES: "Stolen Moments" (Soo-ah)
+└── Session 1: Memory: "User's name is Alex"
+└── Session 2: Character: "Alex, right?"
+
+DIFFERENT SERIES: "Summer Café" (also Soo-ah)
+└── Session 1: Memory: NONE (fresh series)
 ```
 
 ---
@@ -185,10 +342,10 @@ User message → Character responds → Director evaluates → Actions triggered
 
 | Parameter | Default | Location |
 |-----------|---------|----------|
-| Message history | 20 | `conversation.py` |
-| Memory retrieval | 10 | `conversation.py` |
-| Hook retrieval | 5 | `conversation.py` |
-| Director context | 6 messages (3 exchanges) | `director.py` |
+| Message history | 20 | `conversation.py:get_context()` |
+| Memory retrieval | 10 (max 3 per type) | `memory.py:get_relevant_memories()` |
+| Hook retrieval | 5 | `conversation.py:get_context()` |
+| Director context | 6 messages (3 exchanges) | `director.py:evaluate_exchange()` |
 
 ### LLM Parameters
 
@@ -198,13 +355,19 @@ User message → Character responds → Director evaluates → Actions triggered
 | Temperature | 0.8 | Response creativity |
 | Max tokens | 1024 | Response length cap |
 
-### Director Triggers
+### Episode Template Fields
 
-| Mode | Trigger | Configuration |
-|------|---------|---------------|
-| `peaks` | Semantic (Director decides) | Default |
-| `rhythmic` | Every N turns | `scene_interval` field |
-| `off` | Manual only | `auto_scene_mode = 'off'` |
+| Field | Type | Purpose |
+|-------|------|---------|
+| `situation` | TEXT | **CRITICAL**: Physical grounding |
+| `episode_frame` | TEXT | Platform stage direction |
+| `dramatic_question` | TEXT | Core narrative tension |
+| `resolution_types` | TEXT[] | Valid endings |
+| `genre` | TEXT | Director evaluation context |
+| `auto_scene_mode` | TEXT | `off`, `peaks`, `rhythmic` |
+| `scene_interval` | INT | Turns between rhythmic scenes |
+| `turn_budget` | INT | Optional hard completion limit |
+| `spark_cost_per_scene` | INT | Cost per auto-scene (default 5) |
 
 ---
 
@@ -215,23 +378,25 @@ User message → Character responds → Director evaluates → Actions triggered
 | Component | Tokens |
 |-----------|--------|
 | Character system_prompt | 200-500 |
+| Life arc | ~100 |
 | Memories (10) | 200-400 |
 | Hooks (5) | 100-200 |
 | Episode dynamics | ~150 |
 | Engagement context | ~100 |
+| Moment layer | ~120 |
 | Message history (20) | 1000-3000 |
 | User message | 20-200 |
-| **Input Total** | **~2000-4500** |
+| **Input Total** | **~2000-4800** |
 | **Output (response)** | 100-300 |
 
 ### LLM Calls Per Turn
 
-| Call | Purpose | Blocking |
-|------|---------|----------|
-| Character response | Main dialogue | Yes (streamed) |
-| Director evaluation | Visual/progression | No (post-response) |
-| Memory extraction | Save user facts | No (background) |
-| Hook extraction | Save follow-ups | No (background) |
+| Call | Purpose | Timing |
+|------|---------|--------|
+| Character response | Main dialogue | Blocking (streamed) |
+| Director evaluation | Visual/progression | Post-response |
+| Memory extraction | Save user facts | Background |
+| Hook extraction | Save follow-ups | Background |
 
 ---
 
@@ -239,10 +404,10 @@ User message → Character responds → Director evaluates → Actions triggered
 
 | File | Purpose |
 |------|---------|
-| `services/conversation.py` | Orchestrates full flow, builds context |
-| `services/director.py` | Semantic evaluation, action decisions |
+| `services/conversation.py` | `get_context()`, `send_message_stream()` |
 | `models/message.py` | `ConversationContext`, `to_messages()` |
-| `services/memory.py` | Memory/hook extraction prompts |
+| `services/director.py` | `evaluate_exchange()`, `decide_actions()` |
+| `services/memory.py` | `extract_memories()`, `get_relevant_memories()` |
 | `services/llm.py` | LLM provider abstraction |
 
 ---
@@ -251,5 +416,6 @@ User message → Character responds → Director evaluates → Actions triggered
 
 | Version | Date | Changes |
 |---------|------|---------|
+| 2.1 | 2024-12-20 | Verified against codebase, added turn count effects, Director feedback loop |
 | 2.0 | 2024-12-20 | Director V2 semantic evaluation, visual taxonomy |
 | 1.0 | 2024-12 | Initial layered architecture |
