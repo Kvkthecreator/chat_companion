@@ -32,7 +32,7 @@ FREAK_LEVELS = {
         "description": "You're classic, comfortable, and confident in your preferences. While others are out here doing the most, you know that sometimes the original flavor hits different. You've perfected the basics and honestly? That's a skill. Not everyone can make simple feel this good.",
         "emoji": "🍦",
         "color": "text-amber-100",
-        "share_text": "I'm VANILLA BEAN - classic never goes out of style. how freaky are you?",
+        "share_text": "I'm VANILLA BEAN — classic never goes out of style. How freaky are you?",
     },
     "spicy": {
         "title": "SPICY CURIOUS",
@@ -40,7 +40,7 @@ FREAK_LEVELS = {
         "description": "You're not vanilla, but you're not fully unhinged either. You like to keep things interesting without going off the deep end. You'll try something new if the vibe is right, but you also appreciate a good classic. The perfect blend of adventurous and sensible.",
         "emoji": "🌶️",
         "color": "text-orange-400",
-        "share_text": "I'm SPICY CURIOUS - adventurous with a safety net. how freaky are you?",
+        "share_text": "I'm SPICY CURIOUS — adventurous with a safety net. How freaky are you?",
     },
     "unhinged": {
         "title": "CASUALLY UNHINGED",
@@ -48,7 +48,7 @@ FREAK_LEVELS = {
         "description": "Your browser history would make your therapist take notes. You've got stories you'll only tell after the third drink. You're not trying to shock anyone — this is just how you're wired. Normal is a setting on a washing machine, and you don't do laundry.",
         "emoji": "🔥",
         "color": "text-red-500",
-        "share_text": "I'm CASUALLY UNHINGED - my therapist takes notes. how freaky are you?",
+        "share_text": "I'm CASUALLY UNHINGED — my therapist takes notes. How freaky are you?",
     },
     "feral": {
         "title": "ABSOLUTELY FERAL",
@@ -56,7 +56,7 @@ FREAK_LEVELS = {
         "description": "You don't have intrusive thoughts — you ARE the intrusive thought. Your friends come to you for advice they're too scared to Google. You've probably been banned from something. You exist in a space beyond judgment, and honestly? We respect it.",
         "emoji": "👹",
         "color": "text-purple-500",
-        "share_text": "I'm ABSOLUTELY FERAL - I AM the intrusive thought. how freaky are you?",
+        "share_text": "I'm ABSOLUTELY FERAL — I AM the intrusive thought. How freaky are you?",
     },
     "menace": {
         "title": "CERTIFIED MENACE",
@@ -64,7 +64,7 @@ FREAK_LEVELS = {
         "description": "You're not just freaky — you're a lifestyle. Your energy could power a small city. When you walk into a room, the vibe shifts permanently. You've transcended categories entirely. At this point, you're not participating in the quiz, the quiz is studying you.",
         "emoji": "😈",
         "color": "text-fuchsia-600",
-        "share_text": "I'm a CERTIFIED MENACE - the devil takes notes from me. how freaky are you?",
+        "share_text": "I'm a CERTIFIED MENACE — the devil takes notes from me. How freaky are you?",
     },
 }
 

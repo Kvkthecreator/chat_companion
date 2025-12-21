@@ -59,8 +59,8 @@ export function QuizResult({ result, onPlayAgain }: QuizResultProps) {
   const yourPeople = result.result.your_people || staticContent.yourPeople;
 
   const handleShare = async () => {
-    // Use the share URL with share_id for unique results
-    const shareUrl = `${window.location.origin}/r/${result.share_id}`;
+    // Use clean URL format (no www., consistent branding)
+    const shareUrl = `https://ep-0.com/r/${result.share_id}`;
     const fullText = `${shareText}\n\n${shareUrl}`;
 
     // Check if we're on mobile (navigator.share works best there)

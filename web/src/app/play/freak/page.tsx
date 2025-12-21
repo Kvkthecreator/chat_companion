@@ -351,7 +351,8 @@ function FreakResult({ result, onPlayAgain }: { result: QuizEvaluateResponse; on
   const yourPeople = staticContent.yourPeople;
 
   const handleShare = async () => {
-    const shareUrl = `${window.location.origin}/r/${result.share_id}`;
+    // Use clean URL format (no www., consistent branding)
+    const shareUrl = `https://ep-0.com/r/${result.share_id}`;
     const fullText = `${shareText}\n\n${shareUrl}`;
 
     const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
