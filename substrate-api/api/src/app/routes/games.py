@@ -119,6 +119,32 @@ class ShareableResultResponse(BaseModel):
 
 
 # ============================================================================
+# Quiz Models
+# ============================================================================
+
+class QuizAnswer(BaseModel):
+    """A single quiz answer."""
+    question_id: int
+    question_text: str
+    selected_answer: str
+    selected_trope: str  # The trope this answer maps to
+
+
+class QuizEvaluateRequest(BaseModel):
+    """Request to evaluate quiz answers."""
+    quiz_type: str  # "romantic_trope" or "freak_level"
+    answers: list[QuizAnswer]
+
+
+class QuizEvaluateResponse(BaseModel):
+    """Response from quiz evaluation."""
+    evaluation_type: str
+    result: dict
+    share_id: str
+    share_url: str
+
+
+# ============================================================================
 # Game Endpoints
 # ============================================================================
 
@@ -306,6 +332,53 @@ async def get_game_result(
         character_name=result["character_name"],
         series_id=result["series_id"],
     )
+
+
+# ============================================================================
+# Quiz Endpoints (Static Quiz with LLM Evaluation)
+# ============================================================================
+
+@router.post("/quiz/evaluate", response_model=QuizEvaluateResponse)
+async def evaluate_quiz(
+    data: QuizEvaluateRequest,
+    db=Depends(get_db),
+):
+    """Evaluate a static quiz with LLM-based analysis.
+
+    Public endpoint - no authentication required.
+    Takes quiz answers and returns personalized evaluation with share ID.
+
+    Supports quiz types:
+    - romantic_trope: "What's Your Red Flag?" quiz
+    - freak_level: "How Freaky Are You?" quiz
+    """
+    from app.services.quiz import QuizService
+
+    service = QuizService(db)
+
+    try:
+        result = await service.evaluate_quiz(
+            quiz_type=data.quiz_type,
+            answers=data.answers,
+        )
+
+        return QuizEvaluateResponse(
+            evaluation_type=result["evaluation_type"],
+            result=result["result"],
+            share_id=result["share_id"],
+            share_url=f"/r/{result['share_id']}",
+        )
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e),
+        )
+    except Exception as e:
+        log.error(f"Quiz evaluation error: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to evaluate quiz",
+        )
 
 
 # ============================================================================

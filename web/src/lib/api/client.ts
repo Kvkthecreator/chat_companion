@@ -844,6 +844,19 @@ export const api = {
     },
     getSharedResult: (shareId: string) =>
       request<import("@/types").SharedResultResponse>(`/games/r/${shareId}`),
+    evaluateQuiz: async (quizType: string, answers: import("@/types").QuizAnswer[]) => {
+      const response = await fetch(`${API_BASE_URL}/games/quiz/evaluate`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ quiz_type: quizType, answers }),
+      });
+      if (!response.ok) {
+        let data;
+        try { data = await response.json(); } catch { data = null; }
+        throw new APIError(response.status, response.statusText, data);
+      }
+      return response.json() as Promise<import("@/types").QuizEvaluateResponse>;
+    },
   },
 };
 

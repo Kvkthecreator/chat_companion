@@ -6,14 +6,14 @@ import type { QuizQuestion as QuizQuestionType, RomanticTrope } from "@/types";
 
 interface QuizQuestionProps {
   question: QuizQuestionType;
-  onAnswer: (trope: RomanticTrope) => void;
+  onAnswer: (trope: RomanticTrope, answerText: string) => void;
 }
 
 export function QuizQuestion({ question, onAnswer }: QuizQuestionProps) {
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
   const [isAnimating, setIsAnimating] = useState(false);
 
-  const handleSelect = (index: number, trope: RomanticTrope) => {
+  const handleSelect = (index: number, trope: RomanticTrope, answerText: string) => {
     if (isAnimating) return;
 
     setSelectedIndex(index);
@@ -21,7 +21,7 @@ export function QuizQuestion({ question, onAnswer }: QuizQuestionProps) {
 
     // Brief delay before transitioning to next question
     setTimeout(() => {
-      onAnswer(trope);
+      onAnswer(trope, answerText);
       setSelectedIndex(null);
       setIsAnimating(false);
     }, 300);
@@ -37,7 +37,7 @@ export function QuizQuestion({ question, onAnswer }: QuizQuestionProps) {
         {question.options.map((option, index) => (
           <button
             key={index}
-            onClick={() => handleSelect(index, option.trope)}
+            onClick={() => handleSelect(index, option.trope, option.text)}
             disabled={isAnimating}
             className={cn(
               "w-full p-4 text-left rounded-xl border-2 transition-all duration-200",

@@ -1,9 +1,20 @@
 /**
- * Quiz Mode Data - "What's Your Red Flag?"
- * Per QUIZ_MODE_SPEC.md
+ * Quiz Mode Data
+ * - "What's Your Red Flag?" (Romantic Trope Quiz)
+ * - "How Freaky Are You?" (Freak Level Quiz)
  */
 
 import type { QuizQuestion, RomanticTrope } from "@/types";
+
+// Freak Level type
+export type FreakLevel = "vanilla" | "spicy" | "unhinged" | "feral" | "menace";
+
+// Freak Level question type
+export interface FreakQuizQuestion {
+  id: number;
+  question: string;
+  options: { text: string; level: FreakLevel }[];
+}
 
 export const QUIZ_QUESTIONS: QuizQuestion[] = [
   {
@@ -228,5 +239,168 @@ export const TROPE_CONTENT: Record<RomanticTrope, {
     advice: "Mystery is magnetic, but someone has to get in eventually. Consider letting the right people see you sooner.",
     compatibleWith: ["slow_burn", "all_in"],
     yourPeople: ["jane & rochester", "fleabag & the priest", "bella & edward"],
+  },
+};
+
+// =============================================================================
+// FREAK LEVEL QUIZ - "How Freaky Are You?"
+// =============================================================================
+
+export const FREAK_QUIZ_QUESTIONS: FreakQuizQuestion[] = [
+  {
+    id: 1,
+    question: "Someone cute asks what you're into. You say:",
+    options: [
+      { text: "I'm pretty normal, honestly", level: "vanilla" },
+      { text: "Depends on the vibe... why, what are YOU into?", level: "spicy" },
+      { text: "How much time do you have?", level: "unhinged" },
+      { text: "*just stares silently until they get nervous*", level: "feral" },
+      { text: "I'll show you. Clear your schedule.", level: "menace" },
+    ],
+  },
+  {
+    id: 2,
+    question: "Your browser history is:",
+    options: [
+      { text: "Recipes and weather. I'm a simple person.", level: "vanilla" },
+      { text: "Fine... mostly. We don't talk about that one tab.", level: "spicy" },
+      { text: "In incognito mode permanently for a reason", level: "unhinged" },
+      { text: "A liability in at least 3 states", level: "feral" },
+      { text: "I AM the thing people are searching for", level: "menace" },
+    ],
+  },
+  {
+    id: 3,
+    question: "Your friends come to you for advice about:",
+    options: [
+      { text: "Normal stuff. Career, relationships, life.", level: "vanilla" },
+      { text: "Slightly spicier stuff they can't ask anyone else", level: "spicy" },
+      { text: "Things they're too embarrassed to Google", level: "unhinged" },
+      { text: "Situations that require me to ask 'legally speaking, or...'", level: "feral" },
+      { text: "They don't ask. They know I'll volunteer.", level: "menace" },
+    ],
+  },
+  {
+    id: 4,
+    question: "At a party, you're the one who:",
+    options: [
+      { text: "Leaves by 10pm after good conversations", level: "vanilla" },
+      { text: "Stays until things get interesting", level: "spicy" },
+      { text: "IS the reason things got interesting", level: "unhinged" },
+      { text: "Somehow ends up in a restricted area", level: "feral" },
+      { text: "Gets invited specifically because of what happened last time", level: "menace" },
+    ],
+  },
+  {
+    id: 5,
+    question: "Your 'type' is best described as:",
+    options: [
+      { text: "Kind, stable, good communicator", level: "vanilla" },
+      { text: "A little mysterious, keeps me guessing", level: "spicy" },
+      { text: "Probably concerning if I'm being honest", level: "unhinged" },
+      { text: "Anyone my parents would hate", level: "feral" },
+      { text: "I don't have a type. Types have me.", level: "menace" },
+    ],
+  },
+  {
+    id: 6,
+    question: "When someone says 'we need to talk', you think:",
+    options: [
+      { text: "Uh oh, something's wrong", level: "vanilla" },
+      { text: "This better be about something good", level: "spicy" },
+      { text: "Which thing did they find out about?", level: "unhinged" },
+      { text: "Finally, someone ready to match my energy", level: "feral" },
+      { text: "Yes. Yes we do. *cracks knuckles*", level: "menace" },
+    ],
+  },
+];
+
+/**
+ * Freak Level result content
+ */
+export const FREAK_CONTENT: Record<FreakLevel, {
+  title: string;
+  tagline: string;
+  description: string;
+  shareText: string;
+  emoji: string;
+  color: string;
+  yourPeople: string[];
+}> = {
+  vanilla: {
+    title: "VANILLA BEAN",
+    tagline: "you like what you like and that's valid",
+    description: "You're classic, comfortable, and confident in your preferences. While others are out here doing the most, you know that sometimes the original flavor hits different. You've perfected the basics and honestly? That's a skill. Not everyone can make simple feel this good.",
+    shareText: "I'm VANILLA BEAN — classic never goes out of style. how freaky are you?",
+    emoji: "🍦",
+    color: "text-amber-100",
+    yourPeople: ["the friend who leaves parties at 10", "your most normal coworker", "someone's wholesome aunt"],
+  },
+  spicy: {
+    title: "SPICY CURIOUS",
+    tagline: "one foot in comfort, one foot in chaos",
+    description: "You're not vanilla, but you're not fully unhinged either. You like to keep things interesting without going off the deep end. You'll try something new if the vibe is right, but you also appreciate a good classic. The perfect blend of adventurous and sensible.",
+    shareText: "I'm SPICY CURIOUS — adventurous with a safety net. how freaky are you?",
+    emoji: "🌶️",
+    color: "text-orange-400",
+    yourPeople: ["the 'convince me' friend", "spicy margarita orderers", "people who say 'I'm not usually like this'"],
+  },
+  unhinged: {
+    title: "CASUALLY UNHINGED",
+    tagline: "you've seen things. you've done things.",
+    description: "Your browser history would make your therapist take notes. You've got stories you'll only tell after the third drink. You're not trying to shock anyone — this is just how you're wired. Normal is a setting on a washing machine, and you don't do laundry.",
+    shareText: "I'm CASUALLY UNHINGED — my therapist takes notes. how freaky are you?",
+    emoji: "🔥",
+    color: "text-red-500",
+    yourPeople: ["the friend with concerning stories", "that one coworker", "main characters in HBO shows"],
+  },
+  feral: {
+    title: "ABSOLUTELY FERAL",
+    tagline: "you are the intrusive thought",
+    description: "You don't have intrusive thoughts — you ARE the intrusive thought. Your friends come to you for advice they're too scared to Google. You've probably been banned from something. You exist in a space beyond judgment, and honestly? We respect it.",
+    shareText: "I'm ABSOLUTELY FERAL — I AM the intrusive thought. how freaky are you?",
+    emoji: "👹",
+    color: "text-purple-500",
+    yourPeople: ["cryptids", "people with alt accounts", "everyone's 'wild' phase personified"],
+  },
+  menace: {
+    title: "CERTIFIED MENACE",
+    tagline: "the devil takes notes from you",
+    description: "You're not just freaky — you're a lifestyle. Your energy could power a small city. When you walk into a room, the vibe shifts permanently. You've transcended categories entirely. At this point, you're not participating in the quiz, the quiz is studying you.",
+    shareText: "I'm a CERTIFIED MENACE — the devil takes notes from me. how freaky are you?",
+    emoji: "😈",
+    color: "text-fuchsia-600",
+    yourPeople: ["the devil on your shoulder", "that friend you can't take anywhere", "chaos incarnate"],
+  },
+};
+
+/**
+ * Freak Level visual metadata for UI
+ */
+export const FREAK_VISUALS: Record<FreakLevel, { emoji: string; color: string; gradient: string }> = {
+  vanilla: {
+    emoji: "🍦",
+    color: "text-amber-100",
+    gradient: "from-amber-500/20 to-yellow-500/20",
+  },
+  spicy: {
+    emoji: "🌶️",
+    color: "text-orange-400",
+    gradient: "from-orange-500/20 to-red-500/20",
+  },
+  unhinged: {
+    emoji: "🔥",
+    color: "text-red-500",
+    gradient: "from-red-500/20 to-rose-500/20",
+  },
+  feral: {
+    emoji: "👹",
+    color: "text-purple-500",
+    gradient: "from-purple-500/20 to-violet-500/20",
+  },
+  menace: {
+    emoji: "😈",
+    color: "text-fuchsia-600",
+    gradient: "from-fuchsia-500/20 to-pink-500/20",
   },
 };

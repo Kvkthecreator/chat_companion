@@ -1122,6 +1122,39 @@ export interface QuizState {
 }
 
 /**
+ * Quiz answer for API submission
+ */
+export interface QuizAnswer {
+  question_id: number;
+  question_text: string;
+  selected_answer: string;
+  selected_trope: string;
+}
+
+/**
+ * Quiz evaluation response from API
+ */
+export interface QuizEvaluateResponse {
+  evaluation_type: string;
+  result: {
+    trope?: string;
+    level?: string;
+    confidence: number;
+    title: string;
+    tagline: string;
+    description: string;
+    share_text: string;
+    evidence: string[];
+    vibe_check: string | null;
+    your_people?: string[];
+    emoji?: string;
+    color?: string;
+  };
+  share_id: string;
+  share_url: string;
+}
+
+/**
  * Series info for Episode 0 CTA
  */
 export interface SeriesCTAItem {

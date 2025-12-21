@@ -6,10 +6,11 @@ import { Button } from "@/components/ui/button";
 import { QuizProgress } from "@/components/quiz/QuizProgress";
 import { QuizQuestion } from "@/components/quiz/QuizQuestion";
 import { QuizResult } from "@/components/quiz/QuizResult";
-import { QUIZ_QUESTIONS, calculateTrope } from "@/lib/quiz-data";
-import type { RomanticTrope } from "@/types";
+import { QUIZ_QUESTIONS } from "@/lib/quiz-data";
+import { api } from "@/lib/api/client";
+import type { RomanticTrope, QuizAnswer, QuizEvaluateResponse } from "@/types";
 
-type QuizStage = "landing" | "questions" | "result";
+type QuizStage = "landing" | "questions" | "evaluating" | "result";
 
 const STORAGE_KEY = "quiz_state";
 
@@ -44,11 +45,17 @@ function PlayHeader() {
   );
 }
 
+// Store selected answer text for each question
+interface AnswerRecord {
+  trope: RomanticTrope;
+  answerText: string;
+}
+
 export default function PlayPage() {
   const [stage, setStage] = useState<QuizStage>("landing");
   const [currentQuestion, setCurrentQuestion] = useState(0);
-  const [answers, setAnswers] = useState<Record<number, RomanticTrope>>({});
-  const [resultTrope, setResultTrope] = useState<RomanticTrope | null>(null);
+  const [answers, setAnswers] = useState<Record<number, AnswerRecord>>({});
+  const [evaluationResult, setEvaluationResult] = useState<QuizEvaluateResponse | null>(null);
   const [isHydrated, setIsHydrated] = useState(false);
 
   // Restore state from sessionStorage on mount
@@ -57,10 +64,10 @@ export default function PlayPage() {
       const saved = sessionStorage.getItem(STORAGE_KEY);
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (parsed.stage) setStage(parsed.stage);
+        if (parsed.stage && parsed.stage !== "evaluating") setStage(parsed.stage);
         if (typeof parsed.currentQuestion === "number") setCurrentQuestion(parsed.currentQuestion);
         if (parsed.answers) setAnswers(parsed.answers);
-        if (parsed.resultTrope) setResultTrope(parsed.resultTrope);
+        if (parsed.evaluationResult) setEvaluationResult(parsed.evaluationResult);
       }
     } catch {
       // Ignore parsing errors
@@ -76,27 +83,48 @@ export default function PlayPage() {
         stage,
         currentQuestion,
         answers,
-        resultTrope,
+        evaluationResult,
       }));
     } catch {
       // Ignore storage errors
     }
-  }, [stage, currentQuestion, answers, resultTrope, isHydrated]);
+  }, [stage, currentQuestion, answers, evaluationResult, isHydrated]);
 
   const handleStart = () => {
     setStage("questions");
   };
 
-  const handleAnswer = (trope: RomanticTrope) => {
-    const newAnswers = { ...answers, [currentQuestion]: trope };
+  const handleAnswer = async (trope: RomanticTrope, answerText: string) => {
+    const newAnswers = { ...answers, [currentQuestion]: { trope, answerText } };
     setAnswers(newAnswers);
 
     if (currentQuestion < QUIZ_QUESTIONS.length - 1) {
       setCurrentQuestion(currentQuestion + 1);
     } else {
-      const result = calculateTrope(newAnswers);
-      setResultTrope(result);
-      setStage("result");
+      // Quiz complete - call API for LLM evaluation
+      setStage("evaluating");
+
+      try {
+        // Build quiz answers for API
+        const quizAnswers: QuizAnswer[] = Object.entries(newAnswers).map(([qIndex, record]) => {
+          const q = QUIZ_QUESTIONS[parseInt(qIndex)];
+          return {
+            question_id: q.id,
+            question_text: q.question,
+            selected_answer: record.answerText,
+            selected_trope: record.trope,
+          };
+        });
+
+        const result = await api.games.evaluateQuiz("romantic_trope", quizAnswers);
+        setEvaluationResult(result);
+        setStage("result");
+      } catch (error) {
+        console.error("Quiz evaluation failed:", error);
+        // Fallback: show result with basic data
+        setEvaluationResult(null);
+        setStage("result");
+      }
     }
   };
 
@@ -104,7 +132,7 @@ export default function PlayPage() {
     setStage("landing");
     setCurrentQuestion(0);
     setAnswers({});
-    setResultTrope(null);
+    setEvaluationResult(null);
     // Clear storage when starting over
     try {
       sessionStorage.removeItem(STORAGE_KEY);
@@ -152,8 +180,20 @@ export default function PlayPage() {
           </div>
         )}
 
-        {stage === "result" && resultTrope && (
-          <QuizResult trope={resultTrope} onPlayAgain={handlePlayAgain} />
+        {stage === "evaluating" && (
+          <div className="flex flex-col items-center justify-center min-h-[calc(100vh-73px)] px-4 py-12">
+            <div className="text-center">
+              <div className="inline-block animate-spin rounded-full h-12 w-12 border-4 border-primary border-t-transparent mb-4" />
+              <p className="text-muted-foreground">analyzing your romantic energy...</p>
+            </div>
+          </div>
+        )}
+
+        {stage === "result" && evaluationResult && (
+          <QuizResult
+            result={evaluationResult}
+            onPlayAgain={handlePlayAgain}
+          />
         )}
       </main>
     </div>
@@ -205,6 +245,16 @@ function LandingStage({ onStart }: { onStart: () => void }) {
             <span className="w-1.5 h-1.5 rounded-full bg-blue-500" />
             Who you're compatible with
           </span>
+        </div>
+
+        {/* Alternative quiz link */}
+        <div className="mt-8">
+          <Link
+            href="/play/freak"
+            className="text-sm text-muted-foreground hover:text-fuchsia-400 transition-colors"
+          >
+            or try: <span className="font-medium">How Freaky Are You?</span>
+          </Link>
         </div>
       </div>
     </div>

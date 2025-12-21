@@ -5,13 +5,13 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
-import { Share2, Check, RefreshCw, Sparkles, AlertCircle, Heart, Play } from "lucide-react";
+import { Share2, Check, RefreshCw, Sparkles, Heart, Play, Quote } from "lucide-react";
 import { TROPE_CONTENT } from "@/lib/quiz-data";
-import type { RomanticTrope } from "@/types";
+import type { RomanticTrope, QuizEvaluateResponse } from "@/types";
 import { TROPE_VISUALS } from "@/types";
 
 interface QuizResultProps {
-  trope: RomanticTrope;
+  result: QuizEvaluateResponse;
   onPlayAgain: () => void;
 }
 
@@ -33,15 +33,26 @@ const EPISODE_0_SERIES = [
   },
 ];
 
-export function QuizResult({ trope, onPlayAgain }: QuizResultProps) {
+export function QuizResult({ result, onPlayAgain }: QuizResultProps) {
   const [copied, setCopied] = useState(false);
-  const content = TROPE_CONTENT[trope];
+
+  const trope = result.result.trope as RomanticTrope;
   const visuals = TROPE_VISUALS[trope];
+  const staticContent = TROPE_CONTENT[trope];
+
+  // Use API result for personalized content, fallback to static
+  const title = result.result.title || staticContent.title;
+  const tagline = result.result.tagline || staticContent.tagline;
+  const description = result.result.description || staticContent.description;
+  const shareText = result.result.share_text || staticContent.shareText;
+  const evidence = result.result.evidence || [];
+  const vibeCheck = result.result.vibe_check;
+  const yourPeople = result.result.your_people || staticContent.yourPeople;
 
   const handleShare = async () => {
-    const shareUrl = `${window.location.origin}/play`;
-    const shareText = content.shareText;
-    const fullText = `${shareText}\n${shareUrl}`;
+    // Use the share URL with share_id for unique results
+    const shareUrl = `${window.location.origin}/r/${result.share_id}`;
+    const fullText = `${shareText}\n\n${shareUrl}`;
 
     // Check if we're on mobile (navigator.share works best there)
     const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
@@ -50,7 +61,7 @@ export function QuizResult({ trope, onPlayAgain }: QuizResultProps) {
     if (isMobile && navigator.share) {
       try {
         await navigator.share({
-          title: `I'm a ${content.title}!`,
+          title: `I'm a ${title}!`,
           text: shareText,
           url: shareUrl,
         });
@@ -84,7 +95,6 @@ export function QuizResult({ trope, onPlayAgain }: QuizResultProps) {
         setCopied(true);
         setTimeout(() => setCopied(false), 2000);
       } catch {
-        // Copy failed - could show an error message but for now just fail silently
         console.error("Failed to copy to clipboard");
       }
       document.body.removeChild(textarea);
@@ -92,7 +102,7 @@ export function QuizResult({ trope, onPlayAgain }: QuizResultProps) {
   };
 
   // Get compatible trope names
-  const compatibleNames = content.compatibleWith.map(t => TROPE_CONTENT[t].title);
+  const compatibleNames = staticContent.compatibleWith.map(t => TROPE_CONTENT[t].title);
 
   return (
     <div className="flex flex-col items-center px-4 py-8 pb-16">
@@ -108,72 +118,64 @@ export function QuizResult({ trope, onPlayAgain }: QuizResultProps) {
 
         {/* Title */}
         <h1 className={cn("text-4xl md:text-5xl font-black mb-3 tracking-tight", visuals.color)}>
-          {content.title}
+          {title}
         </h1>
 
         {/* Tagline */}
         <p className="text-lg text-muted-foreground italic">
-          {content.tagline}
+          {tagline}
         </p>
       </div>
+
+      {/* Vibe Check - The devastating one-liner */}
+      {vibeCheck && (
+        <Card className="w-full max-w-lg p-6 mb-4 bg-primary/5 border-primary/20">
+          <div className="flex items-start gap-3">
+            <Quote className="h-5 w-5 text-primary shrink-0 mt-0.5" />
+            <p className="text-base font-medium italic leading-relaxed">
+              {vibeCheck}
+            </p>
+          </div>
+        </Card>
+      )}
 
       {/* Main Description */}
       <Card className="w-full max-w-lg p-6 mb-4">
         <p className="text-base leading-relaxed">
-          {content.description}
+          {description}
         </p>
       </Card>
 
-      {/* In Relationships Section */}
-      <Card className="w-full max-w-lg p-6 mb-4">
-        <div className="flex items-center gap-2 mb-3">
-          <Heart className="h-5 w-5 text-pink-500" />
-          <h2 className="font-semibold">In Relationships</h2>
-        </div>
-        <p className="text-sm text-muted-foreground leading-relaxed">
-          {content.inRelationships}
-        </p>
-      </Card>
-
-      {/* Strengths & Challenges */}
-      <div className="w-full max-w-lg grid md:grid-cols-2 gap-4 mb-4">
-        {/* Strengths */}
-        <Card className="p-5">
-          <div className="flex items-center gap-2 mb-3">
-            <Sparkles className="h-4 w-4 text-green-500" />
-            <h3 className="font-semibold text-sm">Strengths</h3>
+      {/* LLM-Generated Evidence - The callouts */}
+      {evidence.length > 0 && (
+        <Card className="w-full max-w-lg p-6 mb-4">
+          <div className="flex items-center gap-2 mb-4">
+            <Sparkles className="h-5 w-5 text-pink-500" />
+            <h2 className="font-semibold">we noticed...</h2>
           </div>
-          <ul className="space-y-2">
-            {content.strengths.map((strength, i) => (
-              <li key={i} className="text-xs text-muted-foreground leading-relaxed">
-                • {strength}
+          <ul className="space-y-3">
+            {evidence.map((item, i) => (
+              <li key={i} className="flex items-start gap-3 text-sm text-muted-foreground leading-relaxed">
+                <span className="text-primary font-bold shrink-0">{i + 1}.</span>
+                <span>{item}</span>
               </li>
             ))}
           </ul>
         </Card>
+      )}
 
-        {/* Challenges */}
-        <Card className="p-5">
+      {/* Your People - Cultural references */}
+      {yourPeople && yourPeople.length > 0 && (
+        <Card className="w-full max-w-lg p-6 mb-4">
           <div className="flex items-center gap-2 mb-3">
-            <AlertCircle className="h-4 w-4 text-amber-500" />
-            <h3 className="font-semibold text-sm">Challenges</h3>
+            <Heart className="h-5 w-5 text-pink-500" />
+            <h2 className="font-semibold">your people</h2>
           </div>
-          <ul className="space-y-2">
-            {content.challenges.map((challenge, i) => (
-              <li key={i} className="text-xs text-muted-foreground leading-relaxed">
-                • {challenge}
-              </li>
-            ))}
-          </ul>
+          <p className="text-sm text-muted-foreground">
+            {yourPeople.join(" • ")}
+          </p>
         </Card>
-      </div>
-
-      {/* Advice */}
-      <Card className="w-full max-w-lg p-6 mb-4 bg-primary/5 border-primary/20">
-        <p className="text-sm text-center italic">
-          "{content.advice}"
-        </p>
-      </Card>
+      )}
 
       {/* Compatibility */}
       <div className="w-full max-w-lg mb-8 text-center">
