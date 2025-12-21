@@ -176,7 +176,7 @@ export function MessageInput({
             disabled={disabled}
             rows={1}
             className={cn(
-              "w-full resize-none rounded-full border-none bg-transparent px-3 py-2 pr-12 text-sm shadow-none",
+              "w-full resize-none rounded-full border-none bg-transparent px-3 py-2 pr-12 text-[16px] sm:text-sm shadow-none",
               hasBackground
                 ? "text-white placeholder:text-white/50"
                 : "text-foreground placeholder:text-muted-foreground",
