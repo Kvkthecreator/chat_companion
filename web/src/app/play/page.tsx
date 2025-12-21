@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { QuizProgress } from "@/components/quiz/QuizProgress";
 import { QuizQuestion } from "@/components/quiz/QuizQuestion";
@@ -9,6 +10,37 @@ import { QUIZ_QUESTIONS, calculateTrope } from "@/lib/quiz-data";
 import type { RomanticTrope } from "@/types";
 
 type QuizStage = "landing" | "questions" | "result";
+
+function PlayHeader() {
+  return (
+    <header className="border-b bg-background/80 backdrop-blur sticky top-0 z-50">
+      <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
+        <Link href="/" className="flex items-center gap-3">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-border/60 bg-muted/60 shadow-sm shrink-0 overflow-hidden">
+            <img
+              src="/branding/ep0-mark.svg"
+              alt="ep-0"
+              className="h-full w-full object-contain p-1"
+            />
+          </div>
+          <div>
+            <h1 className="text-xl font-bold leading-tight text-foreground">
+              episode-0
+            </h1>
+            <p className="text-xs text-muted-foreground">3, 2, 1... action</p>
+          </div>
+        </Link>
+
+        <Link
+          href="/login?next=/discover"
+          className="rounded-full bg-primary px-4 py-2 text-sm font-medium text-primary-foreground shadow-sm transition hover:bg-primary/90"
+        >
+          Sign in
+        </Link>
+      </div>
+    </header>
+  );
+}
 
 export default function PlayPage() {
   const [stage, setStage] = useState<QuizStage>("landing");
@@ -27,7 +59,6 @@ export default function PlayPage() {
     if (currentQuestion < QUIZ_QUESTIONS.length - 1) {
       setCurrentQuestion(currentQuestion + 1);
     } else {
-      // Quiz complete - calculate result
       const result = calculateTrope(newAnswers);
       setResultTrope(result);
       setStage("result");
@@ -43,19 +74,21 @@ export default function PlayPage() {
 
   return (
     <div className="min-h-screen bg-background text-foreground">
-      {/* Background gradient */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute inset-0 bg-gradient-to-br from-blue-600/10 via-purple-500/5 to-pink-500/10" />
+      <PlayHeader />
+
+      {/* Subtle background gradient */}
+      <div className="fixed inset-0 -z-10 pointer-events-none">
+        <div className="absolute inset-0 bg-gradient-to-br from-blue-600/5 via-purple-500/3 to-pink-500/5" />
       </div>
 
       {/* Content */}
-      <div className="relative z-10 min-h-screen">
+      <main className="relative">
         {stage === "landing" && (
           <LandingStage onStart={handleStart} />
         )}
 
         {stage === "questions" && (
-          <div className="flex flex-col items-center min-h-screen px-4 py-12">
+          <div className="flex flex-col items-center min-h-[calc(100vh-73px)] px-4 py-12">
             <div className="w-full max-w-md">
               {/* Progress */}
               <div className="mb-8">
@@ -81,15 +114,21 @@ export default function PlayPage() {
         {stage === "result" && resultTrope && (
           <QuizResult trope={resultTrope} onPlayAgain={handlePlayAgain} />
         )}
-      </div>
+      </main>
     </div>
   );
 }
 
 function LandingStage({ onStart }: { onStart: () => void }) {
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen px-4 py-12">
+    <div className="flex flex-col items-center justify-center min-h-[calc(100vh-73px)] px-4 py-12">
       <div className="text-center max-w-md">
+        {/* Badge */}
+        <div className="inline-flex items-center gap-2 rounded-full bg-muted px-3 py-1 text-xs text-muted-foreground mb-6">
+          <span className="inline-block w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+          takes less than 60 seconds
+        </div>
+
         {/* Title */}
         <h1 className="text-4xl md:text-5xl font-black mb-4 tracking-tight">
           What's Your
@@ -98,27 +137,25 @@ function LandingStage({ onStart }: { onStart: () => void }) {
         </h1>
 
         {/* Subtitle */}
-        <p className="text-muted-foreground mb-8">
-          5 questions. brutal honesty.
+        <p className="text-muted-foreground mb-8 text-lg">
+          6 questions. brutal honesty.
           <br />
-          no judgment (ok maybe a little)
+          no judgment <span className="text-xs">(ok maybe a little)</span>
         </p>
 
         {/* CTA */}
         <Button
           onClick={onStart}
           size="lg"
-          className="px-12 py-6 text-lg font-semibold rounded-full"
+          className="px-12 py-6 text-lg font-semibold rounded-full shadow-lg hover:shadow-xl transition-shadow"
         >
           Find Out
         </Button>
 
-        {/* Footer */}
-        <div className="mt-12 text-muted-foreground/60 text-xs">
-          <a href="/" className="hover:text-foreground transition-colors">
-            ep-0.com
-          </a>
-        </div>
+        {/* Social proof hint */}
+        <p className="mt-8 text-xs text-muted-foreground/60">
+          join 10,000+ people who discovered their romantic red flag
+        </p>
       </div>
     </div>
   );

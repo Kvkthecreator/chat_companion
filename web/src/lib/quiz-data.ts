@@ -61,6 +61,17 @@ export const QUIZ_QUESTIONS: QuizQuestion[] = [
       { text: "Refuses to believe people can change", trope: "second_chance" },
     ],
   },
+  {
+    id: 6,
+    question: "Your ideal rom-com moment:",
+    options: [
+      { text: "Running into your ex at a wedding, both single", trope: "second_chance" },
+      { text: "The slow realization after years of friendship", trope: "slow_burn" },
+      { text: "Confessing your feelings in the rain, no hesitation", trope: "all_in" },
+      { text: "The enemies-to-lovers arc where banter becomes more", trope: "push_pull" },
+      { text: "They finally see the real you after breaking down your walls", trope: "slow_reveal" },
+    ],
+  },
 ];
 
 /**
