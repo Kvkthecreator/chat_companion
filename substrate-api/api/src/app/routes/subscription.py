@@ -530,6 +530,27 @@ async def handle_topup_purchase(db, user_id: str, custom_data: dict, attrs: dict
         log.warning(f"Topup purchase with no sparks_amount for user {user_id}")
         return
 
+    if not order_id:
+        log.warning(f"Topup purchase with no order_id for user {user_id}")
+        return
+
+    # IDEMPOTENCY CHECK: Check if sparks already granted for this order
+    existing_grant = await db.fetch_one(
+        """
+        SELECT id FROM credit_transactions
+        WHERE user_id = :user_id
+          AND reference_type = 'purchase'
+          AND reference_id = :order_id
+          AND transaction_type = 'topup_purchase'
+        LIMIT 1
+        """,
+        {"user_id": user_id, "order_id": order_id},
+    )
+
+    if existing_grant:
+        log.info(f"Sparks already granted for order {order_id}, skipping duplicate")
+        return
+
     # Record the purchase in topup_purchases table
     await db.execute(
         """
