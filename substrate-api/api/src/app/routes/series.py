@@ -1048,7 +1048,9 @@ async def get_series_genre_settings(
         raise HTTPException(status_code=404, detail="Series not found")
 
     genre = row["genre"] or "romantic_tension"
-    genre_settings_raw = row.get("genre_settings") or {}
+    # Use dict() to convert Record, then safely get genre_settings
+    row_dict = dict(row)
+    genre_settings_raw = row_dict.get("genre_settings") or {}
 
     if isinstance(genre_settings_raw, str):
         genre_settings_raw = json.loads(genre_settings_raw)
