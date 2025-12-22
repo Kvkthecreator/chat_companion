@@ -2025,16 +2025,17 @@ async def generate_episode_backgrounds(
                 episode_number=ep["episode_number"],
             )
 
-            # Get signed URL
-            image_url = await storage.create_signed_url("scenes", storage_path)
-
-            # Update database
+            # Store the STORAGE PATH (not signed URL) in database
+            # Signed URLs expire after 1 hour - paths are converted to signed URLs on fetch
             await db.execute(
                 """UPDATE episode_templates
-                   SET background_image_url = :url, updated_at = NOW()
+                   SET background_image_url = :path, updated_at = NOW()
                    WHERE id = :id""",
-                {"url": image_url, "id": str(ep["id"])}
+                {"path": storage_path, "id": str(ep["id"])}
             )
+
+            # Generate signed URL for the response only
+            image_url = await storage.create_signed_url("scenes", storage_path)
 
             results.append({
                 "character": ep["character_name"],
@@ -2042,6 +2043,7 @@ async def generate_episode_backgrounds(
                 "title": ep["title"],
                 "status": "generated",
                 "image_url": image_url,
+                "storage_path": storage_path,
                 "latency_ms": response.latency_ms,
             })
 

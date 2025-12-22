@@ -454,6 +454,119 @@ async def delete_series(
 
 
 # =============================================================================
+# Series Cover Generation
+# =============================================================================
+
+class GenerateCoverResponse(BaseModel):
+    """Response from cover generation."""
+    success: bool
+    storage_path: Optional[str] = None
+    image_url: Optional[str] = None
+    error: Optional[str] = None
+
+
+@router.post("/{series_id}/generate-cover", response_model=GenerateCoverResponse)
+async def generate_series_cover(
+    series_id: UUID,
+    force: bool = Query(False, description="Force regenerate even if cover exists"),
+    db=Depends(get_db),
+):
+    """Generate or regenerate the series cover image.
+
+    Uses pre-defined cover prompt if available for the series slug.
+    Stores the storage path (not signed URL) in the database.
+    """
+    import logging
+    from app.services.image import ImageService
+
+    log = logging.getLogger(__name__)
+
+    # Get series data
+    query = "SELECT id, title, slug, cover_image_url FROM series WHERE id = :id"
+    row = await db.fetch_one(query, {"id": str(series_id)})
+
+    if not row:
+        raise HTTPException(status_code=404, detail="Series not found")
+
+    series_data = dict(row)
+    series_slug = series_data["slug"]
+
+    # Check if already has cover and not forcing
+    if series_data.get("cover_image_url") and not force:
+        return GenerateCoverResponse(
+            success=False,
+            error="Series already has a cover. Use force=true to regenerate."
+        )
+
+    # Import cover prompt builders
+    try:
+        from app.services.content_image_generation import (
+            SERIES_COVER_PROMPTS,
+            ASPECT_RATIOS,
+            ImageType,
+        )
+    except ImportError as e:
+        return GenerateCoverResponse(success=False, error=f"Import error: {e}")
+
+    # Get series-specific cover prompt builder
+    cover_builder = SERIES_COVER_PROMPTS.get(series_slug)
+    if not cover_builder:
+        return GenerateCoverResponse(
+            success=False,
+            error=f"No cover prompt configured for series '{series_slug}'. Add one to SERIES_COVER_PROMPTS."
+        )
+
+    # Build prompt
+    prompt, negative = cover_builder()
+
+    log.info(f"Generating cover for series '{series_slug}'")
+    log.info(f"Prompt: {prompt[:200]}...")
+
+    try:
+        # Generate image
+        image_service = ImageService.get_client("replicate", "black-forest-labs/flux-1.1-pro")
+        width, height = ASPECT_RATIOS[ImageType.SERIES_COVER]
+
+        result = await image_service.generate(
+            prompt=prompt,
+            negative_prompt=negative,
+            width=width,
+            height=height,
+        )
+
+        if not result.images:
+            return GenerateCoverResponse(success=False, error="No image returned from generation")
+
+        # Upload to storage
+        storage = StorageService.get_instance()
+        storage_path = f"series/{series_slug}/cover.png"
+
+        # Upload to Supabase
+        await storage._upload("scenes", storage_path, result.images[0], "image/png")
+
+        # Store storage path (not signed URL) in database
+        await db.execute(
+            "UPDATE series SET cover_image_url = :path, updated_at = NOW() WHERE id = :id",
+            {"path": storage_path, "id": str(series_id)}
+        )
+
+        # Generate signed URL for immediate response
+        image_url = await storage.create_signed_url("scenes", storage_path)
+
+        log.info(f"Series cover generated and saved to: {storage_path}")
+
+        return GenerateCoverResponse(
+            success=True,
+            storage_path=storage_path,
+            image_url=image_url,
+        )
+
+    except Exception as e:
+        log.error(f"Cover generation failed: {e}")
+        return GenerateCoverResponse(success=False, error=str(e))
+
+
+# =============================================================================
 # Episode Progress (User-specific)
 # =============================================================================
 

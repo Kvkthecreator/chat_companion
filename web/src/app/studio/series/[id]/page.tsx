@@ -61,6 +61,8 @@ export default function SeriesDetailPage({ params }: PageProps) {
   // Episode editing state
   const [editingEpisode, setEditingEpisode] = useState<SeriesEpisode | null>(null)
   const [generatingBackground, setGeneratingBackground] = useState<string | null>(null)
+  const [expandedImage, setExpandedImage] = useState<{ url: string; title: string } | null>(null)
+  const [generatingCover, setGeneratingCover] = useState(false)
 
   // Edit form state
   const [editForm, setEditForm] = useState({
@@ -76,6 +78,17 @@ export default function SeriesDetailPage({ params }: PageProps) {
   useEffect(() => {
     fetchData()
   }, [id])
+
+  // ESC key to close lightbox
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && expandedImage) {
+        setExpandedImage(null)
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [expandedImage])
 
   const fetchData = async () => {
     try {
@@ -230,6 +243,28 @@ export default function SeriesDetailPage({ params }: PageProps) {
     setHasChanges(true)
   }
 
+  const handleGenerateCover = async () => {
+    if (!series) return
+
+    setGeneratingCover(true)
+    setError(null)
+    try {
+      const result = await api.series.generateCover(id, true) // force=true to regenerate
+      if (result.success) {
+        await fetchData()
+        setSaveMessage('Cover generated!')
+        setTimeout(() => setSaveMessage(null), 3000)
+      } else {
+        setError(result.error || 'Failed to generate cover')
+      }
+    } catch (err) {
+      console.error('Failed to generate cover:', err)
+      setError('Failed to generate cover')
+    } finally {
+      setGeneratingCover(false)
+    }
+  }
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
@@ -325,24 +360,47 @@ export default function SeriesDetailPage({ params }: PageProps) {
         {/* Overview Tab */}
         <TabsContent value="overview" className="space-y-6 mt-6">
           {/* Series Cover Image */}
-          {series.cover_image_url && (
-            <Card className="overflow-hidden">
-              <div className="relative aspect-video w-full max-h-64">
-                <img
-                  src={series.cover_image_url}
-                  alt={series.title}
-                  className="w-full h-full object-cover"
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
-                <div className="absolute bottom-4 left-4 right-4">
-                  <h2 className="text-white text-xl font-semibold">{series.title}</h2>
-                  {series.tagline && (
-                    <p className="text-white/80 text-sm mt-1">{series.tagline}</p>
-                  )}
-                </div>
+          <Card className="overflow-hidden">
+            <CardHeader className="pb-2">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-base">Series Cover</CardTitle>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleGenerateCover}
+                  disabled={generatingCover}
+                >
+                  {generatingCover ? 'Generating...' : series.cover_image_url ? 'Regenerate Cover' : 'Generate Cover'}
+                </Button>
               </div>
-            </Card>
-          )}
+            </CardHeader>
+            <CardContent className="pt-2">
+              {series.cover_image_url ? (
+                <button
+                  type="button"
+                  className="relative w-full aspect-video rounded-lg overflow-hidden bg-muted hover:ring-2 hover:ring-primary/50 transition-all cursor-pointer"
+                  onClick={() => setExpandedImage({ url: series.cover_image_url!, title: series.title })}
+                >
+                  <img
+                    src={series.cover_image_url}
+                    alt={series.title}
+                    className="w-full h-full object-cover"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
+                  <div className="absolute bottom-4 left-4 right-4">
+                    <h2 className="text-white text-xl font-semibold">{series.title}</h2>
+                    {series.tagline && (
+                      <p className="text-white/80 text-sm mt-1">{series.tagline}</p>
+                    )}
+                  </div>
+                </button>
+              ) : (
+                <div className="aspect-video rounded-lg bg-muted flex items-center justify-center">
+                  <p className="text-muted-foreground text-sm">No cover image yet. Click &quot;Generate Cover&quot; to create one.</p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
 
           <div className="grid gap-6 md:grid-cols-2">
             {/* Series Info Card */}
@@ -527,8 +585,13 @@ export default function SeriesDetailPage({ params }: PageProps) {
                       {/* Episode Header */}
                       <div className="flex items-start justify-between">
                         <div className="flex items-center gap-3">
-                          {/* Background thumbnail */}
-                          <div className="h-16 w-24 rounded-lg bg-muted overflow-hidden flex-shrink-0">
+                          {/* Background thumbnail (clickable to expand) */}
+                          <button
+                            type="button"
+                            className="h-16 w-24 rounded-lg bg-muted overflow-hidden flex-shrink-0 hover:ring-2 hover:ring-primary/50 transition-all cursor-pointer disabled:cursor-default disabled:hover:ring-0"
+                            onClick={() => episode.background_image_url && setExpandedImage({ url: episode.background_image_url, title: episode.title })}
+                            disabled={!episode.background_image_url}
+                          >
                             {episode.background_image_url ? (
                               <img
                                 src={episode.background_image_url}
@@ -540,7 +603,7 @@ export default function SeriesDetailPage({ params }: PageProps) {
                                 No image
                               </div>
                             )}
-                          </div>
+                          </button>
                           <div>
                             <div className="flex items-center gap-2">
                               <span className="text-xs bg-muted px-2 py-0.5 rounded">
@@ -648,6 +711,29 @@ export default function SeriesDetailPage({ params }: PageProps) {
                             />
                           </div>
 
+                          {/* Current Background Preview (expanded view) */}
+                          {episode.background_image_url && (
+                            <div className="space-y-2">
+                              <Label>Current Background</Label>
+                              <button
+                                type="button"
+                                className="relative w-full aspect-video rounded-lg overflow-hidden bg-muted hover:ring-2 hover:ring-primary/50 transition-all cursor-pointer"
+                                onClick={() => setExpandedImage({ url: episode.background_image_url!, title: episode.title })}
+                              >
+                                <img
+                                  src={episode.background_image_url}
+                                  alt={`${episode.title} background`}
+                                  className="w-full h-full object-cover"
+                                />
+                                <div className="absolute inset-0 bg-black/0 hover:bg-black/10 transition-colors flex items-center justify-center">
+                                  <span className="opacity-0 hover:opacity-100 text-white text-sm bg-black/50 px-2 py-1 rounded">
+                                    Click to expand
+                                  </span>
+                                </div>
+                              </button>
+                            </div>
+                          )}
+
                           <div className="flex items-center gap-3">
                             <Button
                               onClick={() => handleSaveEpisode(editingEpisode)}
@@ -746,6 +832,31 @@ export default function SeriesDetailPage({ params }: PageProps) {
           </Card>
         </TabsContent>
       </Tabs>
+
+      {/* Image Lightbox Modal */}
+      {expandedImage && (
+        <div
+          className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4"
+          onClick={() => setExpandedImage(null)}
+        >
+          <div className="relative max-w-5xl w-full max-h-[90vh]">
+            <button
+              type="button"
+              className="absolute -top-10 right-0 text-white hover:text-gray-300 text-sm"
+              onClick={() => setExpandedImage(null)}
+            >
+              Press ESC or click to close
+            </button>
+            <img
+              src={expandedImage.url}
+              alt={expandedImage.title}
+              className="w-full h-auto max-h-[85vh] object-contain rounded-lg"
+              onClick={(e) => e.stopPropagation()}
+            />
+            <p className="text-white text-center mt-2 text-sm">{expandedImage.title}</p>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

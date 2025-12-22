@@ -61,7 +61,8 @@ async def generate_background(
         dry_run: If True, only log what would happen
 
     Returns:
-        Background image URL if successful, None otherwise
+        Storage path if successful, None otherwise.
+        Note: Returns storage path (not signed URL) to avoid expiration issues.
     """
     # Build prompt for atmospheric background (no characters)
     full_prompt = f"{episode_frame}, {BACKGROUND_STYLE}"
@@ -94,11 +95,10 @@ async def generate_background(
             episode_number=episode_number,
         )
 
-        # Get signed URL
-        image_url = await storage.create_signed_url("scenes", storage_path)
-
+        # Return storage path (not signed URL) - signed URLs expire after 1 hour
+        # Paths are converted to signed URLs on fetch
         log.info(f"  Generated background: {storage_path}")
-        return image_url
+        return storage_path
 
     except Exception as e:
         log.error(f"  Failed to generate episode {episode_number}: {e}")
@@ -172,8 +172,8 @@ async def main(dry_run: bool = False, episode_id: str = None, character_name: st
             skipped += 1
             continue
 
-        # Generate background
-        image_url = await generate_background(
+        # Generate background (returns storage path, not signed URL)
+        storage_path = await generate_background(
             episode_frame=ep["episode_frame"],
             character_id=UUID(ep["character_id"]),
             episode_number=ep["episode_number"],
@@ -183,13 +183,13 @@ async def main(dry_run: bool = False, episode_id: str = None, character_name: st
             dry_run=dry_run,
         )
 
-        if image_url:
-            # Update database
+        if storage_path:
+            # Update database with storage path (not signed URL)
             await db.execute(
                 """UPDATE episode_templates
-                   SET background_image_url = :url, updated_at = NOW()
+                   SET background_image_url = :path, updated_at = NOW()
                    WHERE id = :id""",
-                {"url": image_url, "id": str(ep["id"])}
+                {"path": storage_path, "id": str(ep["id"])}
             )
             generated += 1
         elif not dry_run:

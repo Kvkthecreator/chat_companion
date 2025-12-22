@@ -307,6 +307,11 @@ export const api = {
         `/series/${seriesId}/reset`,
         { method: "DELETE" }
       ),
+    generateCover: (seriesId: string, force: boolean = false) =>
+      request<{ success: boolean; storage_path?: string; image_url?: string; error?: string }>(
+        `/series/${seriesId}/generate-cover${force ? '?force=true' : ''}`,
+        { method: "POST" }
+      ),
   },
 
   // Message endpoints
