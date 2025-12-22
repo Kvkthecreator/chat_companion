@@ -13,7 +13,6 @@ import {
   Play,
   ArrowLeft,
   BookOpen,
-  MessageCircle,
   Check,
   Clock,
   MessageSquare,
@@ -22,10 +21,8 @@ import {
 } from "lucide-react";
 import type {
   SeriesWithEpisodes,
-  SeriesWithCharacters,
   World,
   EpisodeProgressItem,
-  CharacterSummary,
   SeriesUserContextResponse,
 } from "@/types";
 
@@ -51,7 +48,6 @@ export default function SeriesPage({ params }: PageProps) {
   const { slug } = use(params);
   const router = useRouter();
   const [series, setSeries] = useState<SeriesWithEpisodes | null>(null);
-  const [characters, setCharacters] = useState<CharacterSummary[]>([]);
   const [world, setWorld] = useState<World | null>(null);
   const [userContext, setUserContext] = useState<SeriesUserContextResponse | null>(null);
   const [progress, setProgress] = useState<Map<string, EpisodeProgressItem>>(
@@ -59,7 +55,6 @@ export default function SeriesPage({ params }: PageProps) {
   );
   const [isLoading, setIsLoading] = useState(true);
   const [startingEpisode, setStartingEpisode] = useState<string | null>(null);
-  const [startingFreeChat, setStartingFreeChat] = useState<string | null>(null);
 
   useEffect(() => {
     async function loadData() {
@@ -69,19 +64,13 @@ export default function SeriesPage({ params }: PageProps) {
         const found = allSeries.find((s) => s.slug === slug);
 
         if (found) {
-          // Fetch series with episodes, characters, and user context in parallel
-          const [seriesData, charactersData, contextData] = await Promise.all([
+          // Fetch series with episodes and user context in parallel
+          const [seriesData, contextData] = await Promise.all([
             api.series.getWithEpisodes(found.id),
-            api.series.getWithCharacters(found.id).catch(() => ({
-              characters: [],
-            })),
             api.series.getUserContext(found.id).catch(() => null),
           ]);
 
           setSeries(seriesData);
-          setCharacters(
-            (charactersData as SeriesWithCharacters).characters || []
-          );
           setUserContext(contextData);
 
           // Fetch progress
@@ -131,20 +120,6 @@ export default function SeriesPage({ params }: PageProps) {
     }
   };
 
-  const handleStartFreeChat = async (characterId: string) => {
-    if (startingFreeChat) return;
-    setStartingFreeChat(characterId);
-
-    try {
-      await api.relationships.create(characterId).catch(() => {});
-      // No episode parameter = free chat mode
-      router.push(`/chat/${characterId}`);
-    } catch (err) {
-      console.error("Failed to start free chat:", err);
-      setStartingFreeChat(null);
-    }
-  };
-
   const handleContinue = () => {
     if (!userContext?.current_episode || !userContext.character_id) return;
     handleStartEpisode(userContext.current_episode.episode_id, userContext.character_id);
@@ -189,10 +164,12 @@ export default function SeriesPage({ params }: PageProps) {
     return !p || p.status !== "completed";
   });
 
-  // Calculate progress percentage
-  const completedCount = userContext?.engagement.episodes_completed || 0;
+  // Calculate progress from the progress Map (same source as episode badges)
+  const completedCount = Array.from(progress.values()).filter(p => p.status === "completed").length;
+  const inProgressCount = Array.from(progress.values()).filter(p => p.status === "in_progress").length;
   const totalEpisodes = series.episodes.length;
   const progressPercent = totalEpisodes > 0 ? Math.round((completedCount / totalEpisodes) * 100) : 0;
+  const hasStarted = completedCount > 0 || inProgressCount > 0;
 
   return (
     <div className="space-y-8 pb-8">
@@ -254,7 +231,7 @@ export default function SeriesPage({ params }: PageProps) {
       </div>
 
       {/* Your Progress Section - Only if user has started */}
-      {userContext?.has_started && (
+      {hasStarted && (
         <section className="space-y-4">
           <div className="flex items-center gap-2">
             <TrendingUp className="h-5 w-5 text-primary" />
@@ -493,45 +470,6 @@ export default function SeriesPage({ params }: PageProps) {
         </section>
       )}
 
-      {/* Free Chat Section - De-emphasized at bottom */}
-      {characters.length > 0 && (
-        <section className="pt-4 border-t border-border/50">
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <h3 className="text-base font-medium text-muted-foreground">Free Chat</h3>
-              <p className="text-xs text-muted-foreground/70">
-                Chat without episode storylines
-              </p>
-            </div>
-          </div>
-
-          <div className="flex flex-wrap gap-3">
-            {characters.map((character) => (
-              <Button
-                key={character.id}
-                variant="outline"
-                size="sm"
-                className="gap-2"
-                disabled={!!startingFreeChat}
-                onClick={() => handleStartFreeChat(character.id)}
-              >
-                {character.avatar_url ? (
-                  <img
-                    src={character.avatar_url}
-                    alt={character.name}
-                    className="h-5 w-5 rounded-full object-cover"
-                  />
-                ) : (
-                  <div className="h-5 w-5 rounded-full bg-primary/20 flex items-center justify-center text-[10px] font-medium">
-                    {character.name[0]}
-                  </div>
-                )}
-                {startingFreeChat === character.id ? "Starting..." : character.name}
-              </Button>
-            ))}
-          </div>
-        </section>
-      )}
     </div>
   );
 }

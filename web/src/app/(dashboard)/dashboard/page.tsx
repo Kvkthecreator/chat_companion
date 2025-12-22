@@ -79,6 +79,14 @@ export default function DashboardPage() {
   const heroItem = continueWatching[0];
   const otherContinueWatching = continueWatching.slice(1);
 
+  // Group continue watching by genre
+  const continueByGenre = otherContinueWatching.reduce((acc, item) => {
+    const genre = item.series_genre || "other";
+    if (!acc[genre]) acc[genre] = [];
+    acc[genre].push(item);
+    return acc;
+  }, {} as Record<string, ContinueWatchingItem[]>);
+
   // Featured series for new users
   const featuredSeries = discoverSeries.find(s => s.is_featured) || discoverSeries[0];
 
@@ -108,16 +116,29 @@ export default function DashboardPage() {
         <HeroCard item={heroItem} />
       )}
 
-      {/* Continue Watching Row */}
-      {otherContinueWatching.length > 0 && (
-        <ScrollRow
-          title="Continue Watching"
-          icon={<Play className="h-5 w-5 text-primary" />}
-        >
-          {otherContinueWatching.map((item) => (
-            <ContinueWatchingCard key={item.series_id} item={item} />
-          ))}
-        </ScrollRow>
+      {/* Continue Watching - Grouped by Genre */}
+      {Object.keys(continueByGenre).length > 0 && (
+        <section className="space-y-4">
+          <div className="flex items-center gap-2">
+            <Play className="h-5 w-5 text-primary" />
+            <h2 className="text-lg font-semibold">Continue Watching</h2>
+          </div>
+
+          <div className="space-y-6">
+            {Object.entries(continueByGenre).map(([genre, items]) => (
+              <div key={genre} className="space-y-3">
+                <Badge variant="secondary" className="text-xs">
+                  {GENRE_LABELS[genre] || genre}
+                </Badge>
+                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                  {items.map((item) => (
+                    <ContinueWatchingCard key={item.series_id} item={item} compact />
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
       )}
 
       {/* Discover New Series Row */}
