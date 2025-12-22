@@ -610,7 +610,7 @@ async def get_series_user_context(
 
     series_id_str = str(series_id)
 
-    # Get all sessions for this series
+    # Get all episode-based sessions for this series (excludes free chat)
     sessions_query = """
         SELECT
             s.id,
@@ -625,6 +625,7 @@ async def get_series_user_context(
         FROM sessions s
         WHERE s.user_id = :user_id
         AND s.series_id = :series_id
+        AND s.episode_template_id IS NOT NULL
         ORDER BY s.started_at DESC
     """
     session_rows = await db.fetch_all(sessions_query, {
