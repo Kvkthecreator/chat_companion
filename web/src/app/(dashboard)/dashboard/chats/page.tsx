@@ -4,10 +4,9 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { api } from "@/lib/api/client";
 import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
-import { MessageCircle, Clock, ChevronRight, Sparkles } from "lucide-react";
+import { MessageCircle, Clock, ChevronRight } from "lucide-react";
 import type { ChatItem } from "@/types";
 
 export default function MyChatsPage() {
@@ -53,7 +52,7 @@ export default function MyChatsPage() {
       <div>
         <h1 className="text-3xl font-bold tracking-tight">My Chats</h1>
         <p className="text-muted-foreground">
-          Your conversations with characters.
+          Free conversations with characters.
         </p>
       </div>
 
@@ -62,9 +61,12 @@ export default function MyChatsPage() {
           <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center mb-4">
             <MessageCircle className="h-8 w-8 text-muted-foreground" />
           </div>
-          <p className="text-muted-foreground mb-4">No chats yet</p>
+          <p className="text-muted-foreground mb-4">No free chats yet</p>
+          <p className="text-sm text-muted-foreground/70 mb-4">
+            Start a free chat from any series page
+          </p>
           <Button asChild>
-            <Link href="/discover">Start a Conversation</Link>
+            <Link href="/discover">Discover Series</Link>
           </Button>
         </div>
       ) : (
@@ -103,8 +105,7 @@ export default function MyChatsPage() {
 }
 
 function ChatCard({ item }: { item: ChatItem }) {
-  // Build the chat URL - both free chat and episode go to /chat/[characterId]
-  // The chat page will load the appropriate active session
+  // Free chat goes to /chat/[characterId] without episode param
   const chatUrl = `/chat/${item.character_id}`;
 
   return (
@@ -133,27 +134,9 @@ function ChatCard({ item }: { item: ChatItem }) {
 
             {/* Content */}
             <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2 mb-0.5">
-                <h3 className="font-semibold truncate">{item.character_name}</h3>
-                {item.is_free_chat ? (
-                  <Badge variant="secondary" className="text-[10px] shrink-0">
-                    <Sparkles className="h-2.5 w-2.5 mr-1" />
-                    Free Chat
-                  </Badge>
-                ) : (
-                  <Badge variant="outline" className="text-[10px] shrink-0">
-                    Ep {item.episode_number}
-                  </Badge>
-                )}
-              </div>
-
-              <p className="text-sm text-muted-foreground truncate">
-                {item.is_free_chat
-                  ? item.character_archetype || "Character"
-                  : item.episode_title || `Episode ${item.episode_number}`}
-                {item.series_title && !item.is_free_chat && (
-                  <span className="text-muted-foreground/60"> • {item.series_title}</span>
-                )}
+              <h3 className="font-semibold truncate">{item.character_name}</h3>
+              <p className="text-sm text-muted-foreground truncate capitalize">
+                {item.character_archetype || "Character"}
               </p>
 
               <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">

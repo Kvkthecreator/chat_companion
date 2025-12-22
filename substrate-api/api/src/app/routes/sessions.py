@@ -46,10 +46,10 @@ async def get_user_chats(
     limit: int = Query(50, ge=1, le=100),
     db=Depends(get_db),
 ):
-    """Get user's chat sessions with character info.
+    """Get user's free chat sessions with character info.
 
-    Returns sessions grouped by most recent activity, with character details.
-    Includes both free chats (no episode) and episode-based chats.
+    Returns free chat sessions only (episode_template_id IS NULL).
+    Sorted by most recent activity.
     """
     user_id = getattr(request.state, "user_id", None)
     if not user_id:
@@ -62,9 +62,9 @@ async def get_user_chats(
             c.name as character_name,
             c.avatar_url as character_avatar_url,
             c.archetype as character_archetype,
-            s.episode_template_id IS NULL as is_free_chat,
+            TRUE as is_free_chat,
             s.episode_number,
-            et.title as episode_title,
+            NULL as episode_title,
             s.series_id,
             ser.title as series_title,
             s.message_count,
@@ -73,9 +73,9 @@ async def get_user_chats(
             s.is_active
         FROM sessions s
         JOIN characters c ON c.id = s.character_id
-        LEFT JOIN episode_templates et ON et.id = s.episode_template_id
         LEFT JOIN series ser ON ser.id = s.series_id
         WHERE s.user_id = :user_id
+        AND s.episode_template_id IS NULL
         ORDER BY s.started_at DESC
         LIMIT :limit
     """
