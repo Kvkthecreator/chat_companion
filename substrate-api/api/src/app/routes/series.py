@@ -346,7 +346,8 @@ async def update_series(
             current_query = "SELECT genre_settings FROM series WHERE id = :id"
             current_row = await db.fetch_one(current_query, {"id": str(series_id)})
             if current_row:
-                current_settings = current_row.get("genre_settings") or {}
+                current_dict = dict(current_row)
+                current_settings = current_dict.get("genre_settings") or {}
                 if isinstance(current_settings, str):
                     current_settings = json.loads(current_settings)
                 # Merge new settings on top of existing

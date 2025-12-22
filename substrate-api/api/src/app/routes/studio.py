@@ -1713,23 +1713,24 @@ async def list_character_episode_templates(
 
     return [
         EpisodeTemplateResponse(
-            id=str(row["id"]),
-            character_id=str(row["character_id"]),
-            episode_number=row["episode_number"],
-            title=row["title"],
-            slug=row["slug"],
-            situation=row["situation"],
-            episode_frame=row.get("episode_frame"),
-            opening_line=row["opening_line"],
-            episode_type=row["episode_type"],
-            is_default=row["is_default"],
-            background_image_url=row.get("background_image_url"),
-            starter_prompts=row.get("starter_prompts") or [],
-            status=row["status"],
-            created_at=str(row["created_at"]),
-            updated_at=str(row["updated_at"]) if row.get("updated_at") else None,
+            id=str(r["id"]),
+            character_id=str(r["character_id"]),
+            episode_number=r["episode_number"],
+            title=r["title"],
+            slug=r["slug"],
+            situation=r["situation"],
+            episode_frame=r.get("episode_frame"),
+            opening_line=r["opening_line"],
+            episode_type=r["episode_type"],
+            is_default=r["is_default"],
+            background_image_url=r.get("background_image_url"),
+            starter_prompts=r.get("starter_prompts") or [],
+            status=r["status"],
+            created_at=str(r["created_at"]),
+            updated_at=str(r["updated_at"]) if r.get("updated_at") else None,
         )
         for row in rows
+        for r in [dict(row)]  # Convert Record to dict for .get() access
     ]
 
 
@@ -1752,22 +1753,23 @@ async def get_episode_template(
             detail="Episode template not found",
         )
 
+    r = dict(row)  # Convert Record to dict for .get() access
     return EpisodeTemplateResponse(
-        id=str(row["id"]),
-        character_id=str(row["character_id"]),
-        episode_number=row["episode_number"],
-        title=row["title"],
-        slug=row["slug"],
-        situation=row["situation"],
-        episode_frame=row.get("episode_frame"),
-        opening_line=row["opening_line"],
-        episode_type=row["episode_type"],
-        is_default=row["is_default"],
-        background_image_url=row.get("background_image_url"),
-        starter_prompts=row.get("starter_prompts") or [],
-        status=row["status"],
-        created_at=str(row["created_at"]),
-        updated_at=str(row["updated_at"]) if row.get("updated_at") else None,
+        id=str(r["id"]),
+        character_id=str(r["character_id"]),
+        episode_number=r["episode_number"],
+        title=r["title"],
+        slug=r["slug"],
+        situation=r["situation"],
+        episode_frame=r.get("episode_frame"),
+        opening_line=r["opening_line"],
+        episode_type=r["episode_type"],
+        is_default=r["is_default"],
+        background_image_url=r.get("background_image_url"),
+        starter_prompts=r.get("starter_prompts") or [],
+        status=r["status"],
+        created_at=str(r["created_at"]),
+        updated_at=str(r["updated_at"]) if r.get("updated_at") else None,
     )
 
 
@@ -1847,22 +1849,23 @@ async def update_episode_template(
 
     row = await db.fetch_one(query, values)
 
+    r = dict(row)  # Convert Record to dict for .get() access
     return EpisodeTemplateResponse(
-        id=str(row["id"]),
-        character_id=str(row["character_id"]),
-        episode_number=row["episode_number"],
-        title=row["title"],
-        slug=row["slug"],
-        situation=row["situation"],
-        episode_frame=row.get("episode_frame"),
-        opening_line=row["opening_line"],
-        episode_type=row["episode_type"],
-        is_default=row["is_default"],
-        background_image_url=row.get("background_image_url"),
-        starter_prompts=row.get("starter_prompts") or [],
-        status=row["status"],
-        created_at=str(row["created_at"]),
-        updated_at=str(row["updated_at"]) if row.get("updated_at") else None,
+        id=str(r["id"]),
+        character_id=str(r["character_id"]),
+        episode_number=r["episode_number"],
+        title=r["title"],
+        slug=r["slug"],
+        situation=r["situation"],
+        episode_frame=r.get("episode_frame"),
+        opening_line=r["opening_line"],
+        episode_type=r["episode_type"],
+        is_default=r["is_default"],
+        background_image_url=r.get("background_image_url"),
+        starter_prompts=r.get("starter_prompts") or [],
+        status=r["status"],
+        created_at=str(r["created_at"]),
+        updated_at=str(r["updated_at"]) if r.get("updated_at") else None,
     )
 
 

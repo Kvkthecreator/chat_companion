@@ -415,9 +415,11 @@ class ConversationService:
                     series_row = await self.db.fetch_one(series_query, {"series_id": str(series_id)})
 
                 if series_row:
+                    # Convert Record to dict for safe .get() access
+                    series_dict = dict(series_row)
                     genre_prompt = await self._format_genre_settings(
-                        series_row["genre"],
-                        series_row.get("genre_settings")  # Use .get() for safety
+                        series_dict["genre"],
+                        series_dict.get("genre_settings")  # Now .get() works on dict
                     )
                     if genre_prompt:
                         series_genre_prompt = genre_prompt
@@ -958,19 +960,21 @@ class ConversationService:
                 )
 
                 if kit_row:
-                    avatar_kit_id = kit_row["id"]
-                    appearance_prompt = kit_row.get("appearance_prompt")
-                    style_prompt = kit_row.get("style_prompt")
-                    negative_prompt = kit_row.get("negative_prompt")
+                    # Convert Record to dict for safe .get() access
+                    kit_dict = dict(kit_row)
+                    avatar_kit_id = kit_dict["id"]
+                    appearance_prompt = kit_dict.get("appearance_prompt")
+                    style_prompt = kit_dict.get("style_prompt")
+                    negative_prompt = kit_dict.get("negative_prompt")
 
                     # Load anchor image if available
-                    if kit_row.get("storage_path"):
+                    if kit_dict.get("storage_path"):
                         try:
                             from app.services.storage import StorageService
                             storage = StorageService.get_instance()
                             anchor_image = await storage.download(
                                 bucket="avatars",
-                                path=kit_row["storage_path"]
+                                path=kit_dict["storage_path"]
                             )
                         except Exception as e:
                             log.warning(f"Failed to load anchor image: {e}")

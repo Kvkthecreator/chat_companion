@@ -304,8 +304,10 @@ class MemoryService:
         if not series_id:
             session_query = "SELECT series_id FROM sessions WHERE id = :episode_id"
             session_row = await self.db.fetch_one(session_query, {"episode_id": str(episode_id)})
-            if session_row and session_row.get("series_id"):
-                series_id = session_row["series_id"]
+            if session_row:
+                session_dict = dict(session_row)
+                if session_dict.get("series_id"):
+                    series_id = session_dict["series_id"]
 
         for memory in memories:
             query = """
