@@ -293,6 +293,11 @@ export const api = {
       request<import("@/types").Series>(`/series/${seriesId}/feature`, { method: "POST" }),
     delete: (seriesId: string) =>
       request<null>(`/series/${seriesId}`, { method: "DELETE" }),
+    reset: (seriesId: string) =>
+      request<{ status: string; series_id: string }>(
+        `/series/${seriesId}/reset`,
+        { method: "DELETE" }
+      ),
   },
 
   // Message endpoints

@@ -13,7 +13,7 @@ import { useState, useEffect } from "react"
 const navigation = [
   { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
   { name: "Discover", href: "/discover", icon: Compass },
-  { name: "My Chats", href: "/dashboard/chats", icon: MessageCircle },
+  { name: "My Series", href: "/dashboard/chats", icon: MessageCircle },
   { name: "Our Story", href: "/dashboard/story", icon: Images },
   { name: "Memories", href: "/dashboard/memories", icon: Heart },
 ]

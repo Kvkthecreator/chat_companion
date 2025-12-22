@@ -350,95 +350,13 @@ export default function SeriesPage({ params }: PageProps) {
         </div>
       )}
 
-      {/* Characters Section - Free Chat */}
-      {characters.length > 0 && (
-        <section className="space-y-4">
-          <div className="flex items-center gap-2">
-            <MessageCircle className="h-5 w-5 text-primary" />
-            <h2 className="text-xl font-semibold">Meet the Characters</h2>
-          </div>
-          <p className="text-sm text-muted-foreground">
-            Chat freely without following the episode storyline.
-          </p>
-
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {characters.map((character) => (
-              <Card
-                key={character.id}
-                className={cn(
-                  "overflow-hidden cursor-pointer transition-all duration-200",
-                  "hover:shadow-lg hover:-translate-y-0.5 hover:ring-1 hover:ring-primary/30",
-                  "group",
-                  startingFreeChat === character.id &&
-                    "pointer-events-none opacity-80"
-                )}
-                onClick={() => handleStartFreeChat(character.id)}
-              >
-                <CardContent className="p-4">
-                  <div className="flex items-center gap-4">
-                    {/* Avatar */}
-                    <div className="relative shrink-0">
-                      {character.avatar_url ? (
-                        <img
-                          src={character.avatar_url}
-                          alt={character.name}
-                          className="h-16 w-16 rounded-full object-cover border-2 border-border"
-                        />
-                      ) : (
-                        <div className="h-16 w-16 rounded-full bg-gradient-to-br from-primary/50 to-accent/50 flex items-center justify-center text-2xl font-semibold text-white">
-                          {character.name[0]}
-                        </div>
-                      )}
-                      {/* Chat indicator */}
-                      <div className="absolute -bottom-1 -right-1 h-6 w-6 rounded-full bg-primary flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                        <MessageCircle className="h-3 w-3 text-primary-foreground" />
-                      </div>
-                    </div>
-
-                    {/* Info */}
-                    <div className="flex-1 min-w-0">
-                      <h3 className="font-semibold truncate">
-                        {character.name}
-                      </h3>
-                      <p className="text-sm text-muted-foreground capitalize">
-                        {character.archetype}
-                      </p>
-                      {character.short_backstory && (
-                        <p className="text-xs text-muted-foreground mt-1 line-clamp-2">
-                          {character.short_backstory}
-                        </p>
-                      )}
-                    </div>
-                  </div>
-
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="w-full mt-4 gap-2"
-                    disabled={!!startingFreeChat}
-                  >
-                    <MessageCircle className="h-4 w-4" />
-                    {startingFreeChat === character.id
-                      ? "Starting..."
-                      : "Free Chat"}
-                  </Button>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        </section>
-      )}
-
-      {/* Episodes Section */}
+      {/* Episodes Section - Primary content */}
       {sortedEpisodes.length > 0 && (
         <section className="space-y-4">
           <div className="flex items-center gap-2">
             <BookOpen className="h-5 w-5 text-primary" />
             <h2 className="text-xl font-semibold">Episodes</h2>
           </div>
-          <p className="text-sm text-muted-foreground">
-            Follow the story arc with structured episodes.
-          </p>
 
           <div className="space-y-3">
             {sortedEpisodes.map((episode) => {
@@ -571,6 +489,46 @@ export default function SeriesPage({ params }: PageProps) {
                 </Card>
               );
             })}
+          </div>
+        </section>
+      )}
+
+      {/* Free Chat Section - De-emphasized at bottom */}
+      {characters.length > 0 && (
+        <section className="pt-4 border-t border-border/50">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h3 className="text-base font-medium text-muted-foreground">Free Chat</h3>
+              <p className="text-xs text-muted-foreground/70">
+                Chat without episode storylines
+              </p>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap gap-3">
+            {characters.map((character) => (
+              <Button
+                key={character.id}
+                variant="outline"
+                size="sm"
+                className="gap-2"
+                disabled={!!startingFreeChat}
+                onClick={() => handleStartFreeChat(character.id)}
+              >
+                {character.avatar_url ? (
+                  <img
+                    src={character.avatar_url}
+                    alt={character.name}
+                    className="h-5 w-5 rounded-full object-cover"
+                  />
+                ) : (
+                  <div className="h-5 w-5 rounded-full bg-primary/20 flex items-center justify-center text-[10px] font-medium">
+                    {character.name[0]}
+                  </div>
+                )}
+                {startingFreeChat === character.id ? "Starting..." : character.name}
+              </Button>
+            ))}
           </div>
         </section>
       )}

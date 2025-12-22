@@ -838,3 +838,61 @@ async def get_continue_watching(
         ))
 
     return ContinueWatchingResponse(items=items)
+
+
+@router.delete("/{series_id}/reset", status_code=status.HTTP_200_OK)
+async def reset_series_progress(
+    series_id: UUID,
+    request: Request,
+    db=Depends(get_db),
+):
+    """
+    Reset all progress for a series.
+
+    This performs a series-scoped purge:
+    - Deletes all sessions for this series (and their messages via CASCADE)
+    - Soft-deletes all memories from episodes in this series
+
+    This action is irreversible.
+    """
+    user_id = getattr(request.state, "user_id", None)
+    if not user_id:
+        raise HTTPException(status_code=401, detail="Authentication required")
+
+    # Verify series exists
+    check_query = """
+        SELECT id FROM series WHERE id = :series_id
+    """
+    series = await db.fetch_one(check_query, {"series_id": str(series_id)})
+
+    if not series:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Series not found",
+        )
+
+    # 1. Delete all sessions for this series (messages cascade automatically)
+    delete_sessions_query = """
+        DELETE FROM sessions
+        WHERE user_id = :user_id AND series_id = :series_id
+    """
+    result = await db.execute(
+        delete_sessions_query, {"user_id": user_id, "series_id": str(series_id)}
+    )
+
+    # 2. Soft-delete memories scoped to episodes in this series
+    # Memory events are linked to characters, but we can identify them via episode_id
+    # which references episode_templates that belong to this series
+    delete_memories_query = """
+        UPDATE memory_events
+        SET is_active = FALSE
+        WHERE user_id = :user_id
+        AND episode_id IN (
+            SELECT id FROM episode_templates WHERE series_id = :series_id
+        )
+    """
+    await db.execute(
+        delete_memories_query, {"user_id": user_id, "series_id": str(series_id)}
+    )
+
+    return {"status": "reset", "series_id": str(series_id)}
