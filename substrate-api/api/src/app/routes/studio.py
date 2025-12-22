@@ -340,10 +340,10 @@ async def update_character(
 
     for field, value in update_data.items():
         if value is not None:
-            # Handle JSONB fields
+            # Handle JSONB fields - use CAST() instead of :: to avoid parameter parsing issues
             if field in ["baseline_personality", "tone_style", "speech_patterns",
                          "boundaries", "life_arc", "example_messages"]:
-                updates.append(f"{field} = :{field}::jsonb")
+                updates.append(f"{field} = CAST(:{field} AS jsonb)")
                 values[field] = json.dumps(value)
             # Handle array fields
             elif field in ["likes", "dislikes", "starter_prompts", "categories"]:
