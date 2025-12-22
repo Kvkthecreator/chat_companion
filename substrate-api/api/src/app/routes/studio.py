@@ -28,6 +28,7 @@ from app.services.conversation_ignition import (
     get_archetype_rules,
 )
 from app.services.avatar_generation import get_avatar_generation_service
+from app.services.storage import StorageService
 
 router = APIRouter(prefix="/studio", tags=["Studio"])
 
