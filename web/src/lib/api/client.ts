@@ -649,6 +649,7 @@ export const api = {
         stylePreset?: string
         expressionPreset?: string
         posePreset?: string
+        styleNotes?: string
       }
     ) =>
       request<import("@/types").AvatarGenerationResponse>(
@@ -661,6 +662,7 @@ export const api = {
             style_preset: options?.stylePreset,
             expression_preset: options?.expressionPreset,
             pose_preset: options?.posePreset,
+            style_notes: options?.styleNotes,
           }),
         }
       ),

@@ -395,6 +395,7 @@ def assemble_avatar_prompt(
     style_preset: Optional[str] = None,
     expression_preset: Optional[str] = None,
     pose_preset: Optional[str] = None,
+    style_notes: Optional[str] = None,
 ) -> PromptAssembly:
     """Assemble complete avatar generation prompt from character data.
 
@@ -408,6 +409,7 @@ def assemble_avatar_prompt(
         style_preset: Visual style ('anime', 'semi_realistic', 'painterly', 'webtoon')
         expression_preset: Expression ('warm', 'intense', 'playful', 'mysterious', 'confident')
         pose_preset: Pose ('portrait', 'casual', 'dramatic', 'candid')
+        style_notes: Free-text additional style/atmosphere notes (e.g., "sunset lighting", "wearing glasses")
     """
     effective_role = role_frame or archetype
     role_visual = ROLE_FRAME_VISUALS.get(effective_role, DEFAULT_ROLE_VISUAL)
@@ -456,7 +458,10 @@ def assemble_avatar_prompt(
     if content_rating == "sfw":
         negative_prompt += ", nsfw, nude, explicit, revealing, suggestive"
 
+    # Build full prompt, appending style_notes if provided
     full_prompt = f"{appearance_prompt}, {composition_prompt}, {style_prompt}"
+    if style_notes and style_notes.strip():
+        full_prompt = f"{full_prompt}, {style_notes.strip()}"
 
     return PromptAssembly(
         appearance_prompt=appearance_prompt,
@@ -524,6 +529,7 @@ class AvatarGenerationService:
         style_preset: Optional[str] = None,
         expression_preset: Optional[str] = None,
         pose_preset: Optional[str] = None,
+        style_notes: Optional[str] = None,
     ) -> AvatarGenerationResult:
         """Generate a portrait for a character's avatar gallery.
 
@@ -534,6 +540,7 @@ class AvatarGenerationService:
             style_preset: Visual style ('anime', 'semi_realistic', 'painterly', 'webtoon')
             expression_preset: Expression ('warm', 'intense', 'playful', 'mysterious', 'confident')
             pose_preset: Pose ('portrait', 'casual', 'dramatic', 'candid')
+            style_notes: Free-text additional style/atmosphere notes
         """
         try:
             # 1. Get character data
@@ -565,6 +572,7 @@ class AvatarGenerationService:
                 style_preset=style_preset,
                 expression_preset=expression_preset,
                 pose_preset=pose_preset,
+                style_notes=style_notes,
             )
 
             # 3. Ensure avatar kit exists

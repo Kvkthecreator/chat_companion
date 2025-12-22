@@ -924,6 +924,11 @@ class GeneratePortraitRequest(BaseModel):
         None,
         description="Pose: 'portrait', 'casual', 'dramatic', 'candid'"
     )
+    style_notes: Optional[str] = Field(
+        None,
+        max_length=200,
+        description="Free-text style notes (e.g., 'sunset lighting', 'wearing glasses', 'rainy atmosphere')"
+    )
 
 
 class PortraitGenerationResponse(BaseModel):
@@ -977,6 +982,7 @@ async def generate_portrait(
         style_preset=data.style_preset,
         expression_preset=data.expression_preset,
         pose_preset=data.pose_preset,
+        style_notes=data.style_notes,
     )
 
     return PortraitGenerationResponse(

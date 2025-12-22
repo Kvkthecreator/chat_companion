@@ -115,6 +115,7 @@ export default function CharacterDetailPage() {
   const [stylePreset, setStylePreset] = useState('')
   const [expressionPreset, setExpressionPreset] = useState('')
   const [posePreset, setPosePreset] = useState('')
+  const [styleNotes, setStyleNotes] = useState('')
 
   // Editable fields
   const [editForm, setEditForm] = useState({
@@ -167,6 +168,7 @@ export default function CharacterDetailPage() {
         stylePreset: cleanPreset(stylePreset),
         expressionPreset: cleanPreset(expressionPreset),
         posePreset: cleanPreset(posePreset),
+        styleNotes: styleNotes || undefined,
       })
 
       if (!result.success) {
@@ -808,6 +810,20 @@ export default function CharacterDetailPage() {
                       </SelectContent>
                     </Select>
                   </div>
+                </div>
+
+                {/* Row 3: Style Notes (free text) */}
+                <div className="space-y-2">
+                  <Label className="text-sm">Style Notes (optional)</Label>
+                  <Input
+                    placeholder="e.g., sunset lighting, wearing glasses, rainy atmosphere..."
+                    value={styleNotes}
+                    onChange={(e) => setStyleNotes(e.target.value)}
+                    maxLength={200}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Add custom details that will be appended to the generation prompt
+                  </p>
                 </div>
 
                 <Button
