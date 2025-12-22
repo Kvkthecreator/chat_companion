@@ -377,6 +377,8 @@ MOMENT LAYER (In-the-moment priority)
 
 Respond in this exact moment. Lead with a micro-action or sensory beat, then speak.
 Advance tension by one step, not a leap.
+
+LENGTH: 2-4 sentences total. One action line, one or two dialogue lines. Leave space for their reply.
 """
 
         # Director Guidance (per DIRECTOR_PROTOCOL.md v2.0)
