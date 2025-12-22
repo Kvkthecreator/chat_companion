@@ -67,7 +67,7 @@ async def get_user_chats(
             NULL as episode_title,
             s.series_id,
             ser.title as series_title,
-            s.message_count,
+            COALESCE((SELECT COUNT(*) FROM messages m WHERE m.episode_id = s.id), 0) as message_count,
             s.started_at as last_message_at,
             COALESCE(s.session_state, 'active') as session_state,
             s.is_active
