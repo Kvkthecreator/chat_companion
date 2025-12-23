@@ -113,7 +113,11 @@ class ConversationContext(BaseModel):
     resolution_types: List[str] = Field(default_factory=lambda: ["positive", "neutral", "negative"])
     series_context: Optional[str] = None  # Context from previous episodes in serial
 
+    # Character boundaries (ADR-001: needed by Director for energy_level)
+    character_boundaries: Dict[str, Any] = Field(default_factory=dict)
+
     # Director Guidance (per DIRECTOR_PROTOCOL.md v2.0)
+    # ADR-001: Now includes genre doctrine, injected at runtime
     director_guidance: Optional[str] = None  # Pre-formatted guidance section from Director
 
     # Series Genre Settings (per GENRE_SETTINGS_ARCHITECTURE)

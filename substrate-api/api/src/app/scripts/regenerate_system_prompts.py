@@ -79,10 +79,8 @@ async def regenerate_all_prompts():
             if isinstance(dislikes, str):
                 dislikes = json.loads(dislikes) if dislikes else []
 
-            # Get genre (default to romantic_tension for existing characters)
-            genre = char.get("genre") or "romantic_tension"
-
-            # Build new system prompt with genre-appropriate doctrine
+            # ADR-001: Genre removed from character - now on Series/Episode
+            # Build new system prompt (genre-agnostic, Director injects doctrine)
             new_prompt = build_system_prompt(
                 name=name,
                 archetype=char["archetype"],
@@ -93,7 +91,6 @@ async def regenerate_all_prompts():
                 backstory=char.get("backstory"),
                 likes=likes,
                 dislikes=dislikes,
-                genre=genre,
             )
 
             # Update in database
@@ -102,7 +99,7 @@ async def regenerate_all_prompts():
                 {"id": str(char_id), "prompt": new_prompt}
             )
 
-            print(f"  Updated {name} ({char['archetype']}) - {genre}")
+            print(f"  Updated {name} ({char['archetype']})")
             print(f"    - Prompt length: {len(new_prompt)} chars")
             print(f"    - Energy level: {boundaries.get('flirting_level', 'playful')}")
 

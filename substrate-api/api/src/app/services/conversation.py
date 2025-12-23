@@ -212,9 +212,14 @@ class ConversationService:
         # =====================================================================
         # DIRECTOR PHASE 1: Pre-Guidance (before character LLM)
         # =====================================================================
-        # Generate pacing and tension guidance based on turn position and genre
+        # ADR-001: Genre doctrine is injected here by Director, not baked into
+        # character system_prompt. Genre comes from episode_template/series.
         if episode_template:
             try:
+                # Get character's energy level for genre-specific guidance
+                char_boundaries = context.character_boundaries or {}
+                energy_level = char_boundaries.get("flirting_level", "playful")
+
                 guidance = await self.director_service.generate_pre_guidance(
                     messages=context.messages,
                     genre=getattr(episode_template, 'genre', 'romantic_tension'),
@@ -222,10 +227,11 @@ class ConversationService:
                     dramatic_question=episode_template.dramatic_question or "",
                     turn_count=episode.turn_count,
                     turn_budget=getattr(episode_template, 'turn_budget', None),
+                    energy_level=energy_level,
                 )
-                # Inject guidance into context
+                # Inject guidance into context (includes genre doctrine)
                 context.director_guidance = guidance.to_prompt_section()
-                log.debug(f"Director pre-guidance: pacing={guidance.pacing}")
+                log.debug(f"Director pre-guidance: pacing={guidance.pacing}, genre={guidance.genre}")
             except Exception as e:
                 log.warning(f"Director pre-guidance failed: {e}")
 
@@ -560,6 +566,8 @@ class ConversationService:
             dramatic_question=dramatic_question,
             resolution_types=resolution_types,
             series_context=series_context,
+            # Character boundaries (ADR-001: needed by Director for energy_level)
+            character_boundaries=character.boundaries,
             # Series genre settings (per GENRE_SETTINGS_ARCHITECTURE)
             series_genre_prompt=series_genre_prompt,
         )

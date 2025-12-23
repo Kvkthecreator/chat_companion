@@ -53,12 +53,11 @@ def generate_system_prompt(
     backstory: Optional[str] = None,
     likes: Optional[List[str]] = None,
     dislikes: Optional[List[str]] = None,
-    genre: str = "romantic_tension",
 ) -> str:
     """Generate a system prompt from character configuration.
 
-    NOTE: current_stressor and life_arc removed - episode situation conveys emotional state,
-    backstory + archetype + genre doctrine provide character depth.
+    ADR-001: Genre is no longer passed here - it belongs to Series/Episode.
+    Genre doctrine is injected by Director at runtime.
     """
     base_prompt = build_system_prompt(
         name=name,
@@ -70,7 +69,6 @@ def generate_system_prompt(
         backstory=backstory,
         likes=likes,
         dislikes=dislikes,
-        genre=genre,
     )
 
     return f"""{base_prompt}

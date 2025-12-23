@@ -902,7 +902,7 @@ async def scaffold_characters(db: Database, world_ids: dict) -> dict:
             print(f"  - {char['name']}: exists (skipped)")
             continue
 
-        # Build system prompt
+        # Build system prompt (ADR-001: genre removed from character)
         system_prompt = build_system_prompt(
             name=char["name"],
             archetype=char["archetype"],
@@ -910,8 +910,6 @@ async def scaffold_characters(db: Database, world_ids: dict) -> dict:
             boundaries=char["boundaries"],
             tone_style=char.get("tone_style"),
             backstory=char.get("backstory"),
-            current_stressor=char.get("current_stressor"),
-            genre=char["genre"],
         )
 
         char_id = str(uuid.uuid4())

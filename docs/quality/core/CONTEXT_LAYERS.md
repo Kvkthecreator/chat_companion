@@ -90,19 +90,26 @@ This document defines the 6-layer context architecture that composes every chara
 
 > **Removed**: `series_finale` - never used in prompt generation or Director logic
 
-### Genre Architecture (Needs Consolidation)
+### Genre Architecture (ADR-001 - DECIDED)
 
-Genre currently exists at 3 independent levels:
+**Genre belongs to Story (Series/Episode), not Character.**
 
-| Level | Field | Usage |
-|-------|-------|-------|
-| **Character** | `character.genre` | `build_system_prompt()` doctrine selection |
-| **Episode** | `episode_template.genre` | Director evaluation context |
-| **Series** | `series.genre` + `genre_settings` | Context prompt injection |
+| Domain | Owns | Does NOT Own |
+|--------|------|--------------|
+| **Character** | Personality, voice, boundaries | ~~Genre~~ (removed) |
+| **Series** | `genre`, `genre_settings` | - |
+| **Episode** | `genre` (inherits from Series) | - |
+| **Director** | Genre doctrine injection | - |
 
-**Current behavior**: Character genre determines doctrine in system prompt. Episode genre is passed to Director for semantic evaluation. Series genre_settings can override specific doctrine values.
+**Implementation**:
+- `character.genre` field **removed** (ADR-001)
+- `GENRE_DOCTRINES` moved from `build_system_prompt()` to Director
+- Genre doctrine injected via `DirectorGuidance.to_prompt_section()` at runtime
+- Director reads genre from `episode_template.genre` → falls back to `series.genre`
 
-**Recommended consolidation**: Series should be the single source of genre truth, with episode and character inheriting. This is a larger architectural change for a future session.
+**Rationale**: Characters are *people* with personality and voice. Genre is the *type of story* they're in. The same character can authentically exist in romance, thriller, or drama contexts. Genre-specific guidance (mandatory behaviors, forbidden patterns) is scene direction, not character identity.
+
+See: [ADR-001: Genre Architecture](../../decisions/ADR-001-genre-architecture.md)
 
 ### The Situation Imperative
 

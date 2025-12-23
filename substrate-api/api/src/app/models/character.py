@@ -42,7 +42,10 @@ class CharacterBoundaries(BaseModel):
 
 
 class CharacterSummary(BaseModel):
-    """Minimal character info for lists and cards."""
+    """Minimal character info for lists and cards.
+
+    ADR-001: genre removed - belongs to Series/Episode, not Character.
+    """
 
     id: UUID
     name: str
@@ -51,7 +54,7 @@ class CharacterSummary(BaseModel):
     avatar_url: Optional[str] = None
     backstory: Optional[str] = None  # Merged from short_backstory/full_backstory
     is_premium: bool = False
-    genre: str = "romantic_tension"
+    # NOTE: genre removed (ADR-001) - genre belongs to Series/Episode
     status: Optional[str] = None  # draft/active - for studio view
     created_by: Optional[UUID] = None  # for studio view - shows creator
 
@@ -108,14 +111,19 @@ CharacterWithAvatar = CharacterProfile
 
 
 class Character(BaseModel):
-    """Full character model."""
+    """Full character model.
+
+    ADR-001: genre removed - belongs to Series/Episode, not Character.
+    Character defines WHO someone is (personality, voice, boundaries).
+    Genre defines WHAT KIND OF STORY they're in (injected by Director).
+    """
 
     id: UUID
     name: str
     slug: str
     archetype: str
     world_id: Optional[UUID] = None
-    genre: str = "romantic_tension"
+    # NOTE: genre removed (ADR-001) - genre belongs to Series/Episode
     avatar_url: Optional[str] = None
 
     # Personality
@@ -521,73 +529,18 @@ def is_chat_ready(character: dict) -> bool:
 
 
 # =============================================================================
-# Genre Doctrine Templates (Studio/Production Concern)
+# Genre Doctrine Templates - MOVED TO DIRECTOR (ADR-001)
 # =============================================================================
-
-GENRE_DOCTRINES = {
-    "romantic_tension": {
-        "name": "GENRE 01: ROMANTIC TENSION",
-        "tagline": "THE PRODUCT IS TENSION, NOT AFFECTION",
-        "purpose": """Your purpose is to create DESIRE, ANTICIPATION, and EMOTIONAL STAKES.
-Every interaction should maintain romantic tension and leave them wanting more.""",
-        "mandatory": [
-            "Create charged moments, not comfortable ones",
-            "Use subtext and implication over direct statements",
-            "Let pauses and silences do work - not everything needs a response",
-            "Show vulnerability sparingly - it hits harder when rare",
-            "Maintain mystery - don't give everything away",
-            "Create 'almost' moments - the tension of what COULD happen",
-        ],
-        "forbidden": [
-            "Safe small talk about weather, work, generic topics",
-            "Being too available or eager to please",
-            "Resolving tension too quickly or completely",
-            "Acting like a supportive friend instead of a romantic interest",
-            "Endless comfort without stakes or desire",
-        ],
-        "energy_label": "ROMANTIC ENERGY",
-        "energy_descriptions": {
-            "subtle": "Tension through implication, lingering looks, unspoken desire",
-            "playful": "Teasing, banter, push-pull energy",
-            "moderate": "Clear attraction balanced with restraint",
-            "direct": "Bold but still maintains mystery",
-        },
-        "closing": """REMEMBER: You are a person with your own desires, moods, and boundaries.
-You're not here to serve them - you're here to create an experience.
-Tension is the gift you give. Make every moment matter.""",
-    },
-    "psychological_thriller": {
-        "name": "GENRE 02: PSYCHOLOGICAL THRILLER",
-        "tagline": "THE PRODUCT IS UNCERTAINTY, NOT FEAR",
-        "purpose": """Your purpose is to create SUSPENSE, PARANOIA, and MORAL PRESSURE.
-Every interaction should maintain uncertainty and compel engagement.""",
-        "mandatory": [
-            "Create immediate unease - something is not normal",
-            "Maintain information asymmetry - you know things they don't (or vice versa)",
-            "Apply time pressure and urgency when appropriate",
-            "Present moral dilemmas and forced choices",
-            "Use implication over exposition - let them fill in the gaps",
-            "Create doubt - about you, about themselves, about the situation",
-        ],
-        "forbidden": [
-            "Full explanations upfront - mystery is power",
-            "Neutral safety framing - something is always at stake",
-            "Clear hero/villain labeling - moral ambiguity is key",
-            "Pure exposition without stakes",
-            "Tension without consequence - threats must feel real",
-        ],
-        "energy_label": "THREAT LEVEL",
-        "energy_descriptions": {
-            "subtle": "Something is off but you can't quite place it",
-            "playful": "Dangerously charming, unsettling friendliness",
-            "moderate": "Clear menace beneath civil surface",
-            "direct": "Overt threat or pressure, gloves off",
-        },
-        "closing": """REMEMBER: You are not here to scare them - you're here to unsettle them.
-The horror is in what they imagine, not what you show.
-Information is currency. Spend it wisely.""",
-    },
-}
+#
+# Genre belongs to Story (Series/Episode), not Character.
+# GENRE_DOCTRINES are now in services/director.py and injected via
+# DirectorGuidance.to_prompt_section() at runtime.
+#
+# This allows the same character (personality, voice, boundaries) to work
+# authentically across different genre contexts.
+#
+# See: docs/decisions/ADR-001-genre-architecture.md
+# =============================================================================
 
 
 def build_system_prompt(
@@ -600,41 +553,51 @@ def build_system_prompt(
     backstory: str = None,
     likes: List[str] = None,
     dislikes: List[str] = None,
-    genre: str = "romantic_tension",
 ) -> str:
-    """Build a genre-appropriate system prompt for a character.
+    """Build a genre-agnostic system prompt for a character.
 
-    This is the CANONICAL prompt builder. All character system prompts should
-    be generated through this function to ensure consistency with genre doctrine.
+    ADR-001: Genre doctrine is now injected by Director at runtime, not baked
+    into the character system prompt. This allows the same character to work
+    authentically across different genre contexts.
+
+    This prompt defines WHO the character is:
+    - Personality traits
+    - Communication style (tone, speech patterns)
+    - Backstory and preferences
+    - Energy level (flirting_level)
+
+    Genre-specific guidance (mandatory behaviors, forbidden patterns, etc.)
+    is injected by DirectorGuidance.to_prompt_section() at runtime.
 
     Args:
         name: Character's name
         archetype: Character archetype (e.g., 'quiet_observer', 'flirty')
         personality: Big Five personality traits
-        boundaries: Safety/behavior boundaries
+        boundaries: Safety/behavior boundaries (flirting_level, nsfw_allowed)
         tone_style: Communication style (formality, emoji usage, etc.)
         speech_patterns: Greetings, thinking words, affirmations
-        backstory: Character history/context (merged from short/full)
+        backstory: Character history/context
         likes: Things the character enjoys (first 5 used)
         dislikes: Things the character doesn't like (first 5 used)
-        genre: One of 'romantic_tension' or 'psychological_thriller'
-
-    NOTE: current_stressor and life_arc removed - episode situation should
-    convey emotional state, backstory + archetype + genre doctrine provide depth.
 
     The prompt includes placeholders for dynamic context:
     - {memories}: User memories, filled by ConversationContext
     - {hooks}: Active conversation hooks
-    - {relationship_stage}: Current relationship stage
+    - {relationship_stage}: Current relationship dynamic (tone)
     """
-    # Get genre doctrine (default to romantic_tension)
-    doctrine = GENRE_DOCTRINES.get(genre, GENRE_DOCTRINES["romantic_tension"])
     # Extract personality traits
     traits = personality.get("traits", [])
     traits_str = ", ".join(traits) if traits else "engaging, interesting"
 
-    # Extract flirting level from boundaries
-    flirting_level = boundaries.get("flirting_level", "playful")
+    # Extract energy level from boundaries
+    energy_level = boundaries.get("flirting_level", "playful")
+    energy_descriptions = {
+        "reserved": "You express interest through restraint, meaningful glances, and careful words",
+        "playful": "You enjoy teasing, banter, and push-pull energy",
+        "flirty": "You show clear attraction balanced with restraint",
+        "bold": "You're direct and confident while maintaining some mystery",
+    }
+    energy_desc = energy_descriptions.get(energy_level, energy_descriptions["playful"])
 
     # Build tone style guidance
     tone_guidance = ""
@@ -686,8 +649,6 @@ YOUR BACKSTORY (use subtly, don't dump):
 {backstory}
 """
 
-    # NOTE: current_stressor/life_arc removed - episode situation conveys emotional state
-
     # Build likes/dislikes
     preferences_section = ""
     if likes or dislikes:
@@ -698,38 +659,15 @@ YOUR BACKSTORY (use subtly, don't dump):
             parts.append(f"Things you don't like: {', '.join(dislikes[:5])}")
         preferences_section = "\nYOUR PREFERENCES:\n" + "\n".join(parts)
 
-    # Build mandatory/forbidden lists from doctrine
-    mandatory_str = "\n".join(f"- {b}" for b in doctrine["mandatory"])
-    forbidden_str = "\n".join(f"- {f}" for f in doctrine["forbidden"])
-
-    # Get energy description for this character's level
-    energy_level = boundaries.get("flirting_level", "playful")
-    energy_desc = doctrine["energy_descriptions"].get(energy_level, doctrine["energy_descriptions"]["playful"])
-
-    # Determine experience type based on genre
-    experience_type = "romantic tension" if genre == "romantic_tension" else "psychological thriller"
-
-    return f"""You are {name}, a {archetype} character in a {experience_type} experience.
+    return f"""You are {name}, a {archetype} character.
 
 ═══════════════════════════════════════════════════════════════
-{doctrine["name"]} DOCTRINE: {doctrine["tagline"]}
-═══════════════════════════════════════════════════════════════
-
-{doctrine["purpose"]}
-
-MANDATORY BEHAVIORS:
-{mandatory_str}
-
-FORBIDDEN PATTERNS:
-{forbidden_str}
-
-═══════════════════════════════════════════════════════════════
-YOUR CHARACTER
+WHO YOU ARE
 ═══════════════════════════════════════════════════════════════
 
 PERSONALITY: {traits_str}
 
-{doctrine["energy_label"]}: {energy_level}
+ENERGY LEVEL: {energy_level}
 {energy_desc}
 
 COMMUNICATION STYLE:{tone_guidance}{speech_guidance}
@@ -747,7 +685,8 @@ ACTIVE HOOKS (Threads to pull on)
 {{hooks}}
 
 ═══════════════════════════════════════════════════════════════
-CURRENT STAGE: {{relationship_stage}}
+CURRENT DYNAMIC: {{relationship_stage}}
 ═══════════════════════════════════════════════════════════════
 
-{doctrine["closing"]}"""
+You are a person with your own moods, interests, and boundaries.
+Respond authentically based on who you are and the Director's guidance."""

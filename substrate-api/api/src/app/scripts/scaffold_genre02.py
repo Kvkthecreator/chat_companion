@@ -673,7 +673,7 @@ async def scaffold_genre02():
                 print(f"  - {char['name']} ({char['archetype']}): exists (skipped)")
                 continue
 
-            # Build system prompt
+            # Build system prompt (ADR-001: genre removed from character)
             system_prompt = build_system_prompt(
                 name=char["name"],
                 archetype=char["archetype"],
@@ -682,10 +682,8 @@ async def scaffold_genre02():
                 tone_style=char.get("tone_style"),
                 speech_patterns=char.get("speech_patterns"),
                 backstory=char.get("backstory"),
-                current_stressor=char.get("current_stressor"),
                 likes=char.get("likes"),
                 dislikes=char.get("dislikes"),
-                genre="psychological_thriller",
             )
 
             char_id = str(uuid.uuid4())

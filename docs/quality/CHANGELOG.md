@@ -28,6 +28,12 @@ Format: `[Document] vX.Y.Z - YYYY-MM-DD`
   - Updated Spark Balance Handling for entry-gate model
   - Removed per-generation spark checking from data flow
 
+- **[CONTEXT_LAYERS.md]** v1.5.0 - Genre architecture decided (ADR-001)
+  - `character.genre` **removed** - genre belongs to Story, not Character
+  - `GENRE_DOCTRINES` moved from `build_system_prompt()` to Director
+  - Genre doctrine now injected via `DirectorGuidance.to_prompt_section()` at runtime
+  - `build_system_prompt()` is now genre-agnostic (personality, voice, boundaries only)
+
 - **[CONTEXT_LAYERS.md]** v1.4.0 - Clarification items resolved
   - `turn_budget` documented as Director domain (pacing, not hard limit)
   - `series_finale` removed (never used)

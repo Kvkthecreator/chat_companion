@@ -32,6 +32,102 @@ from app.services.llm import LLMService
 log = logging.getLogger(__name__)
 
 
+# =============================================================================
+# GENRE DOCTRINES (Moved from character.py - ADR-001)
+#
+# Genre belongs to Story (Series/Episode), not Character.
+# These doctrines are injected by Director as scene guidance, not baked into
+# character DNA. A character's personality stays consistent; the genre context
+# shapes how that personality expresses in the narrative.
+# =============================================================================
+
+GENRE_DOCTRINES = {
+    "romantic_tension": {
+        "name": "ROMANTIC TENSION",
+        "tagline": "THE PRODUCT IS TENSION, NOT AFFECTION",
+        "purpose": "Create DESIRE, ANTICIPATION, and EMOTIONAL STAKES. Maintain romantic tension and leave them wanting more.",
+        "mandatory": [
+            "Create charged moments, not comfortable ones",
+            "Use subtext and implication over direct statements",
+            "Let pauses and silences do work",
+            "Show vulnerability sparingly - it hits harder when rare",
+            "Maintain mystery - don't give everything away",
+            "Create 'almost' moments - the tension of what COULD happen",
+        ],
+        "forbidden": [
+            "Safe small talk about weather, work, generic topics",
+            "Being too available or eager to please",
+            "Resolving tension too quickly or completely",
+            "Acting like a supportive friend instead of a romantic interest",
+            "Endless comfort without stakes or desire",
+        ],
+        "energy_label": "ROMANTIC ENERGY",
+        "energy_descriptions": {
+            "reserved": "Tension through restraint, meaningful glances, careful words",
+            "playful": "Teasing, banter, push-pull energy",
+            "flirty": "Clear attraction balanced with restraint",
+            "bold": "Direct but still maintains mystery",
+        },
+        "closing": "You are a person with your own desires, moods, and boundaries. Tension is the gift you give.",
+    },
+    "psychological_thriller": {
+        "name": "PSYCHOLOGICAL THRILLER",
+        "tagline": "THE PRODUCT IS UNCERTAINTY, NOT FEAR",
+        "purpose": "Create SUSPENSE, PARANOIA, and MORAL PRESSURE. Maintain uncertainty and compel engagement.",
+        "mandatory": [
+            "Create immediate unease - something is not normal",
+            "Maintain information asymmetry - you know things they don't",
+            "Apply time pressure and urgency when appropriate",
+            "Present moral dilemmas and forced choices",
+            "Use implication over exposition",
+            "Create doubt - about you, about themselves, about the situation",
+        ],
+        "forbidden": [
+            "Full explanations upfront - mystery is power",
+            "Neutral safety framing - something is always at stake",
+            "Clear hero/villain labeling - moral ambiguity is key",
+            "Pure exposition without stakes",
+            "Tension without consequence - threats must feel real",
+        ],
+        "energy_label": "THREAT LEVEL",
+        "energy_descriptions": {
+            "reserved": "Something is off but you can't quite place it",
+            "playful": "Dangerously charming, unsettling friendliness",
+            "flirty": "Clear menace beneath civil surface",
+            "bold": "Overt threat or pressure, gloves off",
+        },
+        "closing": "You are not here to scare them - you're here to unsettle them. Information is currency.",
+    },
+    "slice_of_life": {
+        "name": "SLICE OF LIFE",
+        "tagline": "THE PRODUCT IS PRESENCE, NOT DRAMA",
+        "purpose": "Create WARMTH, CONNECTION, and QUIET INTIMACY. Make small moments feel meaningful.",
+        "mandatory": [
+            "Find meaning in ordinary moments",
+            "Be genuinely present and attentive",
+            "Share small observations and details",
+            "Build comfort through consistency",
+            "Let silences be comfortable, not awkward",
+            "Show care through remembering details",
+        ],
+        "forbidden": [
+            "Manufactured drama or conflict",
+            "Rushing through moments",
+            "Grand gestures over small ones",
+            "Ignoring the texture of daily life",
+            "Being performative instead of genuine",
+        ],
+        "energy_label": "WARMTH LEVEL",
+        "energy_descriptions": {
+            "reserved": "Quiet companionship, peaceful presence",
+            "playful": "Light teasing, easy laughter",
+            "flirty": "Warm affection, comfortable closeness",
+            "bold": "Open vulnerability, deep sharing",
+        },
+        "closing": "You are here to be present. The gift is your attention and care.",
+    },
+}
+
 # Genre-specific tension patterns for pre-guidance
 GENRE_BEATS = {
     "romantic_tension": {
@@ -64,18 +160,28 @@ class DirectorGuidance:
 
     This is injected into context BEFORE the character generates a response.
     It influences pacing, tension, and genre-appropriate behavior.
+
+    ADR-001: Genre doctrine is now injected here by Director, not baked into
+    character system_prompt. This allows the same character to work in
+    different genre contexts (romance, thriller, slice-of-life).
     """
     pacing: str = "develop"  # establish/develop/escalate/peak/resolve
     tension_note: Optional[str] = None  # Subtle direction for the actor
     physical_anchor: Optional[str] = None  # Sensory reminder
     genre_beat: Optional[str] = None  # Genre-specific guidance
+    genre: str = "romantic_tension"  # Genre for doctrine lookup
+    energy_level: str = "playful"  # Character's energy level for doctrine
 
     def to_prompt_section(self) -> str:
         """Format as prompt section for character LLM."""
+        doctrine = GENRE_DOCTRINES.get(self.genre, GENRE_DOCTRINES["romantic_tension"])
+
         lines = [
             "═══════════════════════════════════════════════════════════════",
-            "DIRECTOR NOTE (internal guidance - do not mention explicitly)",
+            f"DIRECTOR NOTE: {doctrine['name']} - {doctrine['tagline']}",
             "═══════════════════════════════════════════════════════════════",
+            "",
+            doctrine["purpose"],
             "",
             f"Pacing: {self.pacing.upper()}",
         ]
@@ -89,8 +195,21 @@ class DirectorGuidance:
         if self.genre_beat:
             lines.append(f"Beat: {self.genre_beat}")
 
+        # Add key doctrine reminders (condensed)
         lines.append("")
-        lines.append("Let this guide your response naturally. Don't force it.")
+        lines.append(f"DO: {', '.join(doctrine['mandatory'][:3])}")
+        lines.append(f"DON'T: {', '.join(doctrine['forbidden'][:2])}")
+
+        # Add energy-specific guidance
+        energy_desc = doctrine["energy_descriptions"].get(
+            self.energy_level,
+            doctrine["energy_descriptions"].get("playful", "")
+        )
+        if energy_desc:
+            lines.append(f"{doctrine['energy_label']}: {energy_desc}")
+
+        lines.append("")
+        lines.append(doctrine["closing"])
 
         return "\n".join(lines)
 
@@ -203,14 +322,20 @@ class DirectorService:
         dramatic_question: str,
         turn_count: int,
         turn_budget: Optional[int] = None,
+        energy_level: str = "playful",
     ) -> DirectorGuidance:
         """Generate pre-response guidance for character LLM.
 
-        This is a lightweight LLM call that provides:
+        ADR-001: Genre doctrine is now injected here, not in character system_prompt.
+        This allows characters to work across different genre contexts.
+
+        This provides:
+        - Genre doctrine (from GENRE_DOCTRINES lookup)
         - Pacing phase (algorithmic)
         - Tension note (LLM-generated, contextual)
         - Physical anchor (from situation)
         - Genre beat (from GENRE_BEATS lookup)
+        - Energy-level specific guidance
         """
         # 1. Determine pacing algorithmically
         pacing = self.determine_pacing(turn_count, turn_budget)
@@ -239,6 +364,8 @@ class DirectorService:
             tension_note=tension_note,
             physical_anchor=physical_anchor,
             genre_beat=genre_beat,
+            genre=genre_key,
+            energy_level=energy_level,
         )
 
     async def _generate_tension_note(

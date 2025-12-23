@@ -1,22 +1,46 @@
 # ADR-001: Genre Architecture
 
-**Status**: On Hold
+**Status**: DECIDED
 **Date**: 2024-12-23
 **Deciders**: Product/Engineering
 
 ---
 
-## Context
+## Decision
 
-Genre currently exists at three independent levels in the architecture:
+**Genre belongs to the Story (Series/Episode), not the Character.**
 
-| Level | Field | Purpose |
+Characters are *people* with personality, voice, and boundaries. Genre is the *type of story* they're in. These are orthogonal concerns that were incorrectly conflated.
+
+### New Architecture
+
+| Domain | Owns | Does NOT Own |
+|--------|------|--------------|
+| **Character** | Personality, voice, boundaries, memory | ~~Genre~~ |
+| **Series** | Genre, genre_settings (tonal knobs) | - |
+| **Episode** | Inherits genre from Series | - |
+| **Director** | Genre-aware guidance, beats, evaluation | - |
+
+### Implementation
+
+1. **Remove** `character.genre` field
+2. **Move** `GENRE_DOCTRINES` from `build_system_prompt()` to Director pre-guidance
+3. **Director** reads genre from `episode_template.genre` → falls back to `series.genre`
+4. **Character system_prompt** becomes genre-agnostic (personality + voice + boundaries only)
+
+---
+
+## Historical Context
+
+Genre previously existed at three independent levels:
+
+| Level | Field | Original Purpose |
 |-------|-------|---------|
 | Character | `character.genre` | Doctrine selection in `build_system_prompt()` |
 | Episode | `episode_template.genre` | Director semantic evaluation context |
 | Series | `series.genre` + `genre_settings` | Runtime prompt injection, override system |
 
-This scatter is not a technical bug—it's **archaeological evidence of product exploration**.
+This scatter was **archaeological evidence of product exploration**.
 
 ---
 
@@ -141,43 +165,41 @@ This mismatch degrades experience quality. The LLM receives conflicting signals.
 
 ---
 
-## Recommendation Options
+## Why This Decision
 
-### Option A: Genre Monism (Romantic Focus)
+### The Core Insight
 
-**If we're a romantic AI companion product:**
+We were conflating two orthogonal concepts:
 
-1. Remove `episode_template.genre` (Director inherits from character)
-2. Keep `series.genre_settings` as tonal knobs only (not genre switching)
-3. Character genre remains the single source of behavioral doctrine
-4. Series `genre` field becomes informational/filtering only
+- **Character**: WHO someone is (personality, voice, boundaries)
+- **Genre**: WHAT KIND OF STORY they're in (romance, thriller, drama)
 
-**Pros**: Simplest, matches current successful path
-**Cons**: Closes door on non-romantic content
+Emma (warm, playful, uses ellipses) could authentically exist in:
+- A **romantic story** → flirting, tension, charged moments
+- A **thriller** → charming but unsettling, knows something
+- A **drama** → supportive friend, emotional depth
 
-### Option B: Series-Level Genre Authority
+Her personality stays consistent. The genre context shapes how that personality expresses in the narrative.
 
-**If we're a content platform for multiple genres:**
+### What GENRE_DOCTRINES Actually Are
 
-1. Series `genre` becomes authoritative
-2. Character creation requires matching series genre (or inherits)
-3. Episode inherits from series
-4. `genre_settings` provides per-series customization
+Looking at the content:
+```
+romantic_tension:
+  - "Create charged moments, not comfortable ones"
+  - "Use subtext and implication"
+  - "Show vulnerability sparingly"
+```
 
-**Pros**: Clean hierarchy, enables multi-genre platform
-**Cons**: Requires character-series coupling, more complex creation flow
+These aren't character traits—they're **director notes for how to play a scene**. They belong with the Director, not baked into character DNA at creation time.
 
-### Option C: Dual-Track Architecture
+### Clean Separation of Concerns
 
-**If romantic and non-romantic are different products:**
-
-1. Keep current architecture
-2. Formalize that `series_type: play` uses one genre system
-3. `series_type: serial/standalone` uses another
-4. Document the split explicitly
-
-**Pros**: Preserves optionality, recognizes product differences
-**Cons**: Maintains complexity, requires clear documentation
+| Before (Conflated) | After (Separated) |
+|--------------------|-------------------|
+| Character = personality + genre doctrine | Character = personality only |
+| Director = evaluation only | Director = genre doctrine + evaluation |
+| Genre scattered across 3 levels | Genre owned by Series, inherited by Episode |
 
 ---
 
@@ -193,4 +215,5 @@ This mismatch degrades experience quality. The LLM receives conflicting signals.
 
 | Date | Change |
 |------|--------|
+| 2024-12-23 | **DECIDED**: Genre belongs to Story, not Character |
 | 2024-12-23 | Initial ADR created during data model audit |
