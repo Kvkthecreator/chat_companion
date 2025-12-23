@@ -116,9 +116,10 @@ async def list_all_characters(
         values["status"] = status_filter
 
     # Join with avatar_kits to get primary anchor path for fresh signed URLs
+    # NOTE: genre removed from Character (ADR-001) - genre belongs to Series/Episode
     query = f"""
         SELECT c.id, c.name, c.slug, c.archetype, c.avatar_url,
-               c.backstory, c.is_premium, c.genre,
+               c.backstory, c.is_premium,
                c.status, c.created_by,
                aa.storage_path as anchor_path
         FROM characters c
@@ -182,13 +183,13 @@ async def create_character(
     personality = data.get_resolved_personality()
 
     # Generate system prompt from locked template
+    # NOTE: genre is no longer passed (ADR-001) - genre doctrine injected by Director
     system_prompt = generate_system_prompt(
         name=data.name,
         archetype=data.archetype,
         personality=personality,
         boundaries=data.boundaries,
         opening_situation=data.opening_situation,
-        genre="romantic_tension",
     )
 
     # Determine if character can be active
@@ -393,9 +394,10 @@ async def update_character(
     # Check if we need to regenerate system_prompt (core fields changed)
     # NOTE: short_backstory/full_backstory merged into backstory
     # NOTE: current_stressor removed - episode situation conveys emotional state
+    # NOTE: genre removed (ADR-001) - genre belongs to Series/Episode, not Character
     prompt_affecting_fields = {"name", "archetype", "baseline_personality", "boundaries",
                                "tone_style", "speech_patterns", "backstory",
-                               "likes", "dislikes", "genre"}
+                               "likes", "dislikes"}
     if prompt_affecting_fields & set(update_data.keys()):
         # Regenerate system prompt with updated character data
         char_dict = dict(row)
@@ -431,7 +433,6 @@ async def update_character(
             backstory=char_dict.get("backstory"),
             likes=char_dict.get("likes"),
             dislikes=char_dict.get("dislikes"),
-            genre=char_dict.get("genre") or "romantic_tension",
         )
 
         # Update the system prompt
@@ -456,8 +457,11 @@ async def regenerate_system_prompt_endpoint(
     - name, archetype, personality, boundaries
     - tone_style, speech_patterns
     - backstory
-    - likes, dislikes, genre
+    - likes, dislikes
     - opening_situation from default episode template
+
+    NOTE: genre is no longer included (ADR-001) - genre doctrine is injected
+    by Director at runtime based on Series/Episode genre.
     """
     # Get character
     existing = await db.fetch_one(
@@ -506,7 +510,6 @@ async def regenerate_system_prompt_endpoint(
         backstory=char_dict.get("backstory"),
         likes=char_dict.get("likes"),
         dislikes=char_dict.get("dislikes"),
-        genre=char_dict.get("genre") or "romantic_tension",
     )
 
     # Update the system prompt
@@ -828,7 +831,6 @@ async def apply_opening_beat(
         backstory=char_dict.get("backstory"),
         likes=char_dict.get("likes"),
         dislikes=char_dict.get("dislikes"),
-        genre=char_dict.get("genre") or "romantic_tension",
     )
 
     # Update character system_prompt only (starter_prompts now on episode_template)
