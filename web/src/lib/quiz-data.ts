@@ -1,86 +1,91 @@
 /**
- * Quiz Mode Data
- * - "What's Your Red Flag?" (Romantic Trope Quiz)
- * - "How Freaky Are You?" (Freak Level Quiz)
+ * Quiz Mode Data v3.0
+ *
+ * Two distinct quiz types optimized for different viral mechanics:
+ *
+ * 1. Dating Personality Test (romantic_trope)
+ *    - Primary mechanic: Identity validation ("this is so me")
+ *    - Reveals patterns, not preferences
+ *    - Tone: Therapist who said something uncomfortable
+ *
+ * 2. The Unhinged Test (freak_level)
+ *    - Primary mechanic: Social comparison ("what did you get?")
+ *    - Pure entertainment, spectrum ranking
+ *    - Tone: Chaotic friend with no filter
  */
 
 import type { QuizQuestion, RomanticTrope } from "@/types";
 
-// Freak Level type
-export type FreakLevel = "vanilla" | "spicy" | "unhinged" | "feral" | "menace";
-
-// Freak Level question type
-export interface FreakQuizQuestion {
-  id: number;
-  question: string;
-  options: { text: string; level: FreakLevel }[];
-}
+// =============================================================================
+// DATING PERSONALITY TEST - Identity Validation
+// "What's Your Dating Pattern?"
+// =============================================================================
 
 export const QUIZ_QUESTIONS: QuizQuestion[] = [
   {
     id: 1,
-    question: "They finally text back after 6 hours. You:",
+    question: "You pull away when things get good because:",
     options: [
-      { text: "Wait exactly 6 hours and 1 minute to respond. Balance.", trope: "push_pull" },
-      { text: "Already drafted 4 versions of your reply in Notes", trope: "slow_burn" },
-      { text: '"Finally! I was starting to spiral" (send immediately)', trope: "all_in" },
-      { text: "Check if they've been active elsewhere first", trope: "slow_reveal" },
-      { text: "Wonder if this is the universe giving you a second chance", trope: "second_chance" },
+      { text: "If I don't expect much, I can't be disappointed", trope: "slow_burn" },
+      { text: "What if this isn't as good as what I had before?", trope: "second_chance" },
+      { text: "I'd rather leave than be left", trope: "all_in" },
+      { text: "I need to know they'll chase me", trope: "push_pull" },
+      { text: "They don't really know me yet — what if they won't like what they find?", trope: "slow_reveal" },
     ],
   },
   {
     id: 2,
-    question: "Your ex likes your Instagram story. You:",
+    question: "When someone says 'I love you' first, your honest reaction is:",
     options: [
-      { text: "Screenshot it and send to the group chat for analysis", trope: "slow_burn" },
-      { text: "Already know what it means. Time to have The Talk.", trope: "all_in" },
-      { text: "Like something of theirs back. The game is on.", trope: "push_pull" },
-      { text: "Ignore it but check their profile 3 times that day", trope: "slow_reveal" },
-      { text: "Feel a flutter. Maybe the timing is finally right?", trope: "second_chance" },
+      { text: "Finally. I've been waiting to say it too.", trope: "all_in" },
+      { text: "I need to think about what this means", trope: "slow_burn" },
+      { text: "Do they mean it the way my ex meant it?", trope: "second_chance" },
+      { text: "Now I feel like I have to say it back and I hate that", trope: "push_pull" },
+      { text: "Do they even know who they're saying it to?", trope: "slow_reveal" },
     ],
   },
   {
     id: 3,
-    question: "On a first date, you're most likely to:",
+    question: "You've sabotaged something good because:",
     options: [
-      { text: "Ask about their last relationship (for research purposes)", trope: "second_chance" },
-      { text: "Tell them you're having a great time. Out loud. With words.", trope: "all_in" },
-      { text: "Tease them until they're slightly confused but intrigued", trope: "push_pull" },
-      { text: "Give them just enough to want a second date", trope: "slow_reveal" },
-      { text: "Enjoy the tension of not knowing where this is going", trope: "slow_burn" },
+      { text: "I got scared of how much I wanted it", trope: "slow_burn" },
+      { text: "I kept comparing them to someone from my past", trope: "second_chance" },
+      { text: "I showed too much too fast and it felt unsafe", trope: "all_in" },
+      { text: "It was getting too predictable", trope: "push_pull" },
+      { text: "They started asking questions I wasn't ready to answer", trope: "slow_reveal" },
     ],
   },
   {
     id: 4,
-    question: "When you catch feelings, you:",
+    question: "The real reason you're single (be honest):",
     options: [
-      { text: "Tell them. Life's too short for games.", trope: "all_in" },
-      { text: "Create situations to see if they feel it too", trope: "push_pull" },
-      { text: "Sit with it for weeks before doing anything", trope: "slow_burn" },
-      { text: "Drop hints and see if they're paying attention", trope: "slow_reveal" },
-      { text: "Wonder if this is fate correcting a past mistake", trope: "second_chance" },
+      { text: "I'd rather be alone than settle for less than the real thing", trope: "slow_burn" },
+      { text: "I'm not over someone I probably should be over by now", trope: "second_chance" },
+      { text: "My 'all or nothing' approach scares people off", trope: "all_in" },
+      { text: "I lose interest once someone actually likes me back", trope: "push_pull" },
+      { text: "I haven't met someone I trust enough to really let in", trope: "slow_reveal" },
     ],
   },
   {
     id: 5,
-    question: "Your biggest dating dealbreaker is someone who:",
+    question: "What you want people to think vs. what's actually true:",
     options: [
-      { text: "Rushes things before the tension has time to build", trope: "slow_burn" },
-      { text: "Plays too hard to get (that's YOUR move)", trope: "push_pull" },
-      { text: "Can't handle emotional honesty", trope: "all_in" },
-      { text: "Asks too many questions too soon", trope: "slow_reveal" },
-      { text: "Refuses to believe people can change", trope: "second_chance" },
+      { text: "They think I'm patient. Actually, I'm terrified of wanting something I might not get.", trope: "slow_burn" },
+      { text: "They think I'm romantic. Actually, I'm stuck on someone who wasn't right.", trope: "second_chance" },
+      { text: "They think I'm intense. Actually, I'm just tired of pretending I don't care.", trope: "all_in" },
+      { text: "They think I'm playing games. Actually, I'm testing if they'll stay.", trope: "push_pull" },
+      { text: "They think I'm mysterious. Actually, I'm scared of being fully known.", trope: "slow_reveal" },
     ],
   },
   {
     id: 6,
-    question: "Your ideal rom-com moment:",
+    question: "The pattern you keep repeating even though you know better:",
     options: [
-      { text: "Running into your ex at a wedding, both single", trope: "second_chance" },
-      { text: "The slow realization after years of friendship", trope: "slow_burn" },
-      { text: "Confessing your feelings in the rain, no hesitation", trope: "all_in" },
-      { text: "The enemies-to-lovers arc where banter becomes more", trope: "push_pull" },
-      { text: "They finally see the real you after breaking down your walls", trope: "slow_reveal" },
+      { text: "Waiting until I'm 'sure' — and by then, they've moved on", trope: "slow_burn" },
+      { text: "Reaching out to exes when I'm lonely", trope: "second_chance" },
+      { text: "Going all in before I know if they're worth it", trope: "all_in" },
+      { text: "Creating problems when things get too comfortable", trope: "push_pull" },
+      { text: "Shutting down whenever someone gets too close", trope: "slow_reveal" },
     ],
   },
 ];
@@ -104,219 +109,187 @@ export function calculateTrope(answers: Record<number, RomanticTrope>): Romantic
     lastAnswered = trope;
   }
 
-  // Find max score
   const maxScore = Math.max(...Object.values(scores));
   const winners = Object.entries(scores)
     .filter(([, score]) => score === maxScore)
     .map(([trope]) => trope as RomanticTrope);
 
-  // Single winner - return it
   if (winners.length === 1) {
     return winners[0];
   }
 
-  // Tie-breaker 1: last answered wins if it's among the winners
   if (winners.includes(lastAnswered)) {
     return lastAnswered;
   }
 
-  // Tie-breaker 2: random selection among winners (for fairness)
   return winners[Math.floor(Math.random() * winners.length)];
 }
 
 /**
- * Trope result content - elaborate version inspired by 16personalities/BuzzFeed
+ * Dating Personality Test - v3.0 Content
+ * Focus: Identity validation, psychological insight
+ * Tone: Therapist who said something uncomfortable
  */
 export const TROPE_CONTENT: Record<RomanticTrope, {
   title: string;
   tagline: string;
-  description: string;
+  pattern: string;
+  theTruth: string;
+  youTellYourself: string;
+  butActually: string;
+  whatYouNeed: string;
   shareText: string;
-  // New elaborate sections
-  inRelationships: string;
-  strengths: string[];
-  challenges: string[];
-  advice: string;
-  compatibleWith: RomanticTrope[];
-  yourPeople: string[];
 }> = {
   slow_burn: {
     title: "SLOW BURN",
-    tagline: "the tension is the whole point and you know it",
-    description: "You'd rather wait three seasons for a kiss than rush it. You've said \"I just think it's better when it builds\" at least once this month. Eye contact across a room? That's your whole love language.",
-    shareText: "I'm a SLOW BURN — the tension is the whole point. What's yours?",
-    inRelationships: "You're the person who makes every glance feel loaded. You don't rush because you genuinely believe the buildup is where the magic happens. Your partners often say they didn't realize they were falling until they'd already fallen.",
-    strengths: [
-      "You create anticipation that makes everything feel more meaningful",
-      "You're patient and observant — you notice the little things",
-      "When you finally commit, it's deep and considered",
-    ],
-    challenges: [
-      "Sometimes you wait so long the moment passes",
-      "Partners can misread your patience as disinterest",
-      "You might overthink instead of just feeling",
-    ],
-    advice: "Not everything needs to marinate. Sometimes the best things happen when you let yourself be surprised.",
-    compatibleWith: ["slow_reveal", "push_pull"],
-    yourPeople: ["darcy & elizabeth", "jim & pam", "connell & marianne"],
+    tagline: "you use patience as protection",
+    pattern: "You've made waiting into an art form — but it's not patience. It's armor.",
+    theTruth: "You're not 'taking it slow' because you value the buildup. You're taking it slow because wanting something terrifies you. Every time you say 'I just want to be sure,' what you mean is 'I can't handle being the one who wanted it more.' You've convinced yourself that hesitation is wisdom. It's not. It's fear dressed up as standards.",
+    youTellYourself: "I just like when things develop naturally.",
+    butActually: "You're terrified of wanting something you might not get. So you've made 'patience' your whole personality.",
+    whatYouNeed: "To risk wanting something before you know if it's safe.",
+    shareText: "I'm a SLOW BURN — apparently I use patience as protection. What's your dating pattern?",
   },
   second_chance: {
     title: "SECOND CHANCE",
-    tagline: "you never really closed that chapter, did you",
-    description: "You still think about the one that got away. Not in a sad way — in a \"the timing was just wrong\" way. You believe some people are meant to find their way back to each other.",
-    shareText: "I'm a SECOND CHANCE — some stories deserve a sequel. What's yours?",
-    inRelationships: "You're a romantic who believes in fate and timing. You see potential where others see endings. Your exes probably still have a soft spot for you because you never really burn bridges — you just... postpone crossings.",
-    strengths: [
-      "You see the best in people, even when they've let you down",
-      "You're forgiving and believe in growth",
-      "You bring depth to relationships because you understand history matters",
-    ],
-    challenges: [
-      "You might romanticize the past instead of seeing it clearly",
-      "New partners can feel like they're competing with ghosts",
-      "You risk missing what's in front of you while looking backward",
-    ],
-    advice: "Some chapters close for a reason. The best sequel might be with someone entirely new.",
-    compatibleWith: ["all_in", "slow_burn"],
-    yourPeople: ["mia & sebastian", "noah & allie", "jesse & céline"],
+    tagline: "you romanticize potential over reality",
+    pattern: "You're not holding out for the right person — you're holding onto the wrong one.",
+    theTruth: "You say you 'believe in timing' but what you actually believe in is avoiding closure. The person you keep thinking about? They're not unfinished business — they're a safe place to put your feelings so you never have to risk them on someone new. You're not romantic. You're stuck. And you're using the past as an excuse to not show up for the present.",
+    youTellYourself: "Some love stories just take time to get right.",
+    butActually: "You'd rather stay loyal to a memory than risk being disappointed by reality.",
+    whatYouNeed: "To grieve it properly so you can actually move on.",
+    shareText: "I'm a SECOND CHANCE — I romanticize potential over reality. What's your dating pattern?",
   },
   all_in: {
     title: "ALL IN",
-    tagline: "when you know, you know — and you KNEW",
-    description: "You don't do slow. You don't do games. When you feel it, you say it, and honestly? That's terrifying to most people. You've been called \"intense\" like it's a bad thing. It's not.",
-    shareText: "I'm ALL IN — when I know, I know. What's yours?",
-    inRelationships: "You're the person who texts back immediately and doesn't apologize for it. You bring your whole heart to the table from day one. Some people find it overwhelming; the right person finds it refreshing.",
-    strengths: [
-      "You're brave — you put yourself out there when others hide",
-      "No one ever has to guess how you feel",
-      "You create deep connections fast because you're genuinely present",
-    ],
-    challenges: [
-      "Your intensity can scare people off before they get to know you",
-      "You might invest heavily in people who haven't earned it yet",
-      "Rejection hits you harder because you were never holding back",
-    ],
-    advice: "Your openness is a gift, not a flaw. But matching energy matters — save your full heart for people who show up.",
-    compatibleWith: ["second_chance", "slow_reveal"],
-    yourPeople: ["rachel & nick", "lara jean & peter", "jake & amy"],
+    tagline: "you use vulnerability as armor",
+    pattern: "You show everything upfront — not because you're brave, but because rejection early hurts less than rejection later.",
+    theTruth: "You call it 'being authentic' but it's actually a defense mechanism. By going all in immediately, you control the rejection. If they leave, at least it was on your terms. If they stay, they can't say they didn't know what they were getting into. You've weaponized honesty so you never have to feel blindsided. That's not intimacy — it's a preemptive strike.",
+    youTellYourself: "I just don't believe in playing games.",
+    butActually: "You go all in early because if they reject you, you can tell yourself they never had a chance to really hurt you.",
+    whatYouNeed: "To let someone earn your vulnerability instead of handing it over like a test.",
+    shareText: "I'm ALL IN — I use vulnerability as armor. What's your dating pattern?",
   },
   push_pull: {
     title: "PUSH & PULL",
-    tagline: "you want them to work for it (and you'll work for it too)",
-    description: "Hot then cold. Close then distant. It's not games — it's tension, and you're fluent in it. You flirt by arguing. You show love by teasing. The chase is half the fun.",
-    shareText: "I'm PUSH & PULL — the chase is half the fun. What's yours?",
-    inRelationships: "You keep things interesting. Your partners never quite know what they're going to get, and that's exactly why they stick around. You need someone who can match your energy — and challenge it.",
-    strengths: [
-      "You keep the spark alive long after the honeymoon phase",
-      "You're never boring — every day feels a little different",
-      "You understand that attraction needs friction",
-    ],
-    challenges: [
-      "Some partners just want consistency, not a rollercoaster",
-      "Your signals can be genuinely confusing",
-      "You might create drama when things get too comfortable",
-    ],
-    advice: "Tension is exciting, but stability isn't the enemy. The best relationships have both.",
-    compatibleWith: ["slow_burn", "push_pull"],
-    yourPeople: ["kat & patrick", "jess & nick", "lorelai & luke"],
+    tagline: "you create distance to test closeness",
+    pattern: "You call it 'keeping things interesting.' It's actually a loyalty test nobody signed up for.",
+    theTruth: "Every time you pull away, you're checking if they'll follow. Every time you push, you're seeing if they'll stay. You've turned relationships into an obstacle course and you're keeping score. The problem? Even when they pass your tests, you don't trust it. You just design a harder one. You're not afraid of boredom — you're afraid of what happens when there's nothing left to hide behind.",
+    youTellYourself: "I need someone who can handle me.",
+    butActually: "You create chaos because stability feels like a trap — or worse, like they've stopped caring.",
+    whatYouNeed: "To learn that someone staying without drama doesn't mean they're not trying.",
+    shareText: "I'm PUSH & PULL — I create distance to test closeness. What's your dating pattern?",
   },
   slow_reveal: {
     title: "SLOW REVEAL",
-    tagline: "they have to earn the real you",
-    description: "You're not cold — you're careful. There's a version of you that most people get, and then there's the version that only comes out when someone proves they're paying attention.",
-    shareText: "I'm a SLOW REVEAL — you have to earn the real me. What's yours?",
-    inRelationships: "You're a puzzle worth solving. You test people without them knowing, rewarding curiosity and punishing assumptions. When someone finally sees the real you, they feel like they've won something.",
-    strengths: [
-      "You protect your energy — not everyone deserves access",
-      "The people who stick around really know you",
-      "You create deep intimacy through gradual trust",
-    ],
-    challenges: [
-      "People might give up before they get to the good parts",
-      "You can seem distant even when you're interested",
-      "Your walls might be protecting you from the wrong things",
-    ],
-    advice: "Mystery is magnetic, but someone has to get in eventually. Consider letting the right people see you sooner.",
-    compatibleWith: ["slow_burn", "all_in"],
-    yourPeople: ["jane & rochester", "fleabag & the priest", "bella & edward"],
+    tagline: "you make people earn access as a defense",
+    pattern: "You're not mysterious. You're scared of what happens when someone actually sees you.",
+    theTruth: "You tell yourself that you're 'selective' about who gets the real you. But the truth is, you've decided that being fully known is the same as being fully vulnerable — and vulnerability feels like handing someone a weapon. So you parcel yourself out in pieces, testing each time to see if they'll use it against you. By the time someone finally 'earns' the real you, you've already exhausted them.",
+    youTellYourself: "The right person will be patient enough to wait.",
+    butActually: "You withhold yourself because you've decided that being truly known means being truly rejected.",
+    whatYouNeed: "To risk being seen before you're sure it's safe.",
+    shareText: "I'm a SLOW REVEAL — I make people earn access as a defense. What's your dating pattern?",
   },
 };
 
+
 // =============================================================================
-// FREAK LEVEL QUIZ - "How Freaky Are You?"
+// THE UNHINGED TEST - Social Comparison
+// "How Unhinged Are You?"
 // =============================================================================
+
+export type FreakLevel = "vanilla" | "spicy" | "unhinged" | "feral" | "menace";
+
+export interface FreakQuizQuestion {
+  id: number;
+  question: string;
+  options: { text: string; level: FreakLevel }[];
+}
 
 export const FREAK_QUIZ_QUESTIONS: FreakQuizQuestion[] = [
   {
     id: 1,
-    question: "Someone cute asks what you're into. You say:",
+    question: "It's 2am and you can't sleep. You:",
     options: [
-      { text: "I'm pretty normal, honestly", level: "vanilla" },
-      { text: "Depends on the vibe... why, what are YOU into?", level: "spicy" },
-      { text: "How much time do you have?", level: "unhinged" },
-      { text: "*just stares silently until they get nervous*", level: "feral" },
-      { text: "I'll show you. Clear your schedule.", level: "menace" },
+      { text: "Read a book until you're tired", level: "vanilla" },
+      { text: "Scroll through your ex's LinkedIn", level: "spicy" },
+      { text: "Send a risky text you'll regret", level: "unhinged" },
+      { text: "Reorganize your entire room then order food", level: "feral" },
+      { text: "Start a group chat argument about nothing", level: "menace" },
     ],
   },
   {
     id: 2,
-    question: "Your browser history is:",
+    question: "Your ex's new partner follows you. You:",
     options: [
-      { text: "Recipes and weather. I'm a simple person.", level: "vanilla" },
-      { text: "Fine... mostly. We don't talk about that one tab.", level: "spicy" },
-      { text: "In incognito mode permanently for a reason", level: "unhinged" },
-      { text: "A liability in at least 3 states", level: "feral" },
-      { text: "I AM the thing people are searching for", level: "menace" },
+      { text: "Ignore it and move on", level: "vanilla" },
+      { text: "Check their profile once (okay, twice)", level: "spicy" },
+      { text: "Follow them back and like a strategic post", level: "unhinged" },
+      { text: "Screenshot and send to the group chat immediately", level: "feral" },
+      { text: "Post your best content for the next 72 hours straight", level: "menace" },
     ],
   },
   {
     id: 3,
-    question: "Your friends come to you for advice about:",
+    question: "The group chat has been quiet for 3 hours. You:",
     options: [
-      { text: "Normal stuff. Career, relationships, life.", level: "vanilla" },
-      { text: "Slightly spicier stuff they can't ask anyone else", level: "spicy" },
-      { text: "Things they're too embarrassed to Google", level: "unhinged" },
-      { text: "Situations that require me to ask 'legally speaking, or...'", level: "feral" },
-      { text: "They don't ask. They know I'll volunteer.", level: "menace" },
+      { text: "Enjoy the peace", level: "vanilla" },
+      { text: "Send a meme to test the waters", level: "spicy" },
+      { text: "Drop a controversial take to start chaos", level: "unhinged" },
+      { text: "Send 'we need to talk' with no context", level: "feral" },
+      { text: "Create a poll ranking everyone in the chat", level: "menace" },
     ],
   },
   {
     id: 4,
-    question: "At a party, you're the one who:",
+    question: "You're slightly tipsy and have your phone. You:",
     options: [
-      { text: "Leaves by 10pm after good conversations", level: "vanilla" },
-      { text: "Stays until things get interesting", level: "spicy" },
-      { text: "IS the reason things got interesting", level: "unhinged" },
-      { text: "Somehow ends up in a restricted area", level: "feral" },
-      { text: "Gets invited specifically because of what happened last time", level: "menace" },
+      { text: "Put it away to avoid mistakes", level: "vanilla" },
+      { text: "Text your crush something flirty", level: "spicy" },
+      { text: "Post a story you'll delete by morning", level: "unhinged" },
+      { text: "Send voice notes to everyone you know", level: "feral" },
+      { text: "Start planning a trip nobody asked for", level: "menace" },
     ],
   },
   {
     id: 5,
-    question: "Your 'type' is best described as:",
+    question: "Someone says 'I have tea.' You:",
     options: [
-      { text: "Kind, stable, good communicator", level: "vanilla" },
-      { text: "A little mysterious, keeps me guessing", level: "spicy" },
-      { text: "Probably concerning if I'm being honest", level: "unhinged" },
-      { text: "Anyone my parents would hate", level: "feral" },
-      { text: "I don't have a type. Types have me.", level: "menace" },
+      { text: "Wait for them to share when ready", level: "vanilla" },
+      { text: "Ask 'who is it about' immediately", level: "spicy" },
+      { text: "Guess every possible scenario out loud", level: "unhinged" },
+      { text: "Demand voice note evidence NOW", level: "feral" },
+      { text: "Already have more tea than they do somehow", level: "menace" },
     ],
   },
   {
     id: 6,
-    question: "When someone says 'we need to talk', you think:",
+    question: "Your screen time report comes in. You:",
     options: [
-      { text: "Uh oh, something's wrong", level: "vanilla" },
-      { text: "This better be about something good", level: "spicy" },
-      { text: "Which thing did they find out about?", level: "unhinged" },
-      { text: "Finally, someone ready to match my energy", level: "feral" },
-      { text: "Yes. Yes we do. *cracks knuckles*", level: "menace" },
+      { text: "Feel good about your balance", level: "vanilla" },
+      { text: "Hide it and pretend you didn't see it", level: "spicy" },
+      { text: "Screenshot it for content", level: "unhinged" },
+      { text: "Get competitive about how high it is", level: "feral" },
+      { text: "Your phone is scared to send it", level: "menace" },
+    ],
+  },
+  {
+    id: 7,
+    question: "Your Notes app contains:",
+    options: [
+      { text: "Grocery lists and passwords", level: "vanilla" },
+      { text: "A few unsent texts to exes", level: "spicy" },
+      { text: "Unhinged drafts and hot takes saved for later", level: "unhinged" },
+      { text: "Full investigation dossiers on people", level: "feral" },
+      { text: "Things that could end friendships if leaked", level: "menace" },
     ],
   },
 ];
 
 /**
- * Freak Level result content
+ * The Unhinged Test - v3.0 Content
+ * Focus: Social comparison, quotable roasts, screenshot-worthy
+ * Tone: Chaotic friend with no filter
  */
 export const FREAK_CONTENT: Record<FreakLevel, {
   title: string;
@@ -325,52 +298,52 @@ export const FREAK_CONTENT: Record<FreakLevel, {
   shareText: string;
   emoji: string;
   color: string;
-  yourPeople: string[];
+  levelNumber: number;
 }> = {
   vanilla: {
     title: "VANILLA BEAN",
-    tagline: "you like what you like and that's valid",
-    description: "You're classic, comfortable, and confident in your preferences. While others are out here doing the most, you know that sometimes the original flavor hits different. You've perfected the basics and honestly? That's a skill. Not everyone can make simple feel this good.",
-    shareText: "I'm VANILLA BEAN — classic never goes out of style. How freaky are you?",
+    tagline: "you read terms and conditions for fun",
+    description: "You're the friend who leaves parties at 10pm and actually means it when you say 'let me know you got home safe.' Your screen time is reasonable. Your Notes app is just grocery lists. Honestly? We need you to balance out the chaos.",
+    shareText: "I'm VANILLA BEAN — I read terms and conditions for fun. How unhinged are you?",
     emoji: "🍦",
-    color: "text-amber-100",
-    yourPeople: ["the friend who leaves parties at 10", "your most normal coworker", "someone's wholesome aunt"],
+    color: "text-amber-200",
+    levelNumber: 1,
   },
   spicy: {
     title: "SPICY CURIOUS",
-    tagline: "one foot in comfort, one foot in chaos",
-    description: "You're not vanilla, but you're not fully unhinged either. You like to keep things interesting without going off the deep end. You'll try something new if the vibe is right, but you also appreciate a good classic. The perfect blend of adventurous and sensible.",
-    shareText: "I'm SPICY CURIOUS — adventurous with a safety net. How freaky are you?",
+    tagline: "one foot in, one foot ready to run",
+    description: "You'll do something unhinged but you'll think about it for three days first. You've drafted texts you never sent. You've stalked but felt guilty about it. You're chaos-adjacent. Chaos-curious. The training wheels are still on but you're wobbling.",
+    shareText: "I'm SPICY CURIOUS — chaos-adjacent and wobbling. How unhinged are you?",
     emoji: "🌶️",
     color: "text-orange-400",
-    yourPeople: ["the 'convince me' friend", "spicy margarita orderers", "people who say 'I'm not usually like this'"],
+    levelNumber: 2,
   },
   unhinged: {
     title: "CASUALLY UNHINGED",
-    tagline: "you've seen things. you've done things.",
-    description: "Your browser history would make your therapist take notes. You've got stories you'll only tell after the third drink. You're not trying to shock anyone — this is just how you're wired. Normal is a setting on a washing machine, and you don't do laundry.",
-    shareText: "I'm CASUALLY UNHINGED — my therapist takes notes. How freaky are you?",
+    tagline: "you've got stories you only tell after drink three",
+    description: "Your browser history is a liability. Your screen time report is a crime scene. You've done things that would concern your mother and texted things that would concern a therapist. But somehow you're functional. That's the scariest part.",
+    shareText: "I'm CASUALLY UNHINGED — functional but concerning. How unhinged are you?",
     emoji: "🔥",
     color: "text-red-500",
-    yourPeople: ["the friend with concerning stories", "that one coworker", "main characters in HBO shows"],
+    levelNumber: 3,
   },
   feral: {
     title: "ABSOLUTELY FERAL",
-    tagline: "you are the intrusive thought",
-    description: "You don't have intrusive thoughts — you ARE the intrusive thought. Your friends come to you for advice they're too scared to Google. You've probably been banned from something. You exist in a space beyond judgment, and honestly? We respect it.",
-    shareText: "I'm ABSOLUTELY FERAL — I AM the intrusive thought. How freaky are you?",
+    tagline: "you don't have intrusive thoughts — you ARE the intrusive thought",
+    description: "You've been banned from something. You have at least one story that starts with 'legally I can't say much but...' Your group chat fears your notification sound. You're the reason someone has trust issues and you might not even know who.",
+    shareText: "I'm ABSOLUTELY FERAL — I AM the intrusive thought. How unhinged are you?",
     emoji: "👹",
     color: "text-purple-500",
-    yourPeople: ["cryptids", "people with alt accounts", "everyone's 'wild' phase personified"],
+    levelNumber: 4,
   },
   menace: {
     title: "CERTIFIED MENACE",
     tagline: "the devil takes notes from you",
-    description: "You're not just freaky — you're a lifestyle. Your energy could power a small city. When you walk into a room, the vibe shifts permanently. You've transcended categories entirely. At this point, you're not participating in the quiz, the quiz is studying you.",
-    shareText: "I'm a CERTIFIED MENACE — the devil takes notes from me. How freaky are you?",
+    description: "You're not participating in this quiz. This quiz is studying you. Your energy has caused at least one international incident. Your presence in a room changes the WiFi. Scientists should be monitoring you. You're not unhinged — you're the hinge everyone else swings from.",
+    shareText: "I'm a CERTIFIED MENACE — the devil takes notes from me. How unhinged are you?",
     emoji: "😈",
-    color: "text-fuchsia-600",
-    yourPeople: ["the devil on your shoulder", "that friend you can't take anywhere", "chaos incarnate"],
+    color: "text-fuchsia-500",
+    levelNumber: 5,
   },
 };
 
@@ -380,7 +353,7 @@ export const FREAK_CONTENT: Record<FreakLevel, {
 export const FREAK_VISUALS: Record<FreakLevel, { emoji: string; color: string; gradient: string }> = {
   vanilla: {
     emoji: "🍦",
-    color: "text-amber-100",
+    color: "text-amber-200",
     gradient: "from-amber-500/20 to-yellow-500/20",
   },
   spicy: {
@@ -400,7 +373,7 @@ export const FREAK_VISUALS: Record<FreakLevel, { emoji: string; color: string; g
   },
   menace: {
     emoji: "😈",
-    color: "text-fuchsia-600",
+    color: "text-fuchsia-500",
     gradient: "from-fuchsia-500/20 to-pink-500/20",
   },
 };
