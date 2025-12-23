@@ -77,6 +77,7 @@ class EpisodeTemplate(BaseModel):
     # Scene setup
     situation: str  # Present-tense scene description
     opening_line: str  # Character's first message
+    starter_prompts: List[str] = Field(default_factory=list)  # Alternative opening suggestions for UI
     background_image_url: Optional[str] = None
     episode_frame: Optional[str] = None  # Stage direction for LLM
 
@@ -127,7 +128,7 @@ class EpisodeTemplate(BaseModel):
                 return {"raw": v}
         return {}
 
-    @field_validator("resolution_types", "arc_hints", mode="before")
+    @field_validator("resolution_types", "arc_hints", "starter_prompts", mode="before")
     @classmethod
     def ensure_list(cls, v: Any) -> List[Any]:
         """Handle list fields as JSON string (from DB)."""
@@ -154,6 +155,7 @@ class EpisodeTemplateCreate(BaseModel):
     slug: str = Field(..., min_length=1, max_length=100)
     situation: str = Field(..., min_length=10, max_length=2000)
     opening_line: str = Field(..., min_length=1, max_length=1000)
+    starter_prompts: List[str] = Field(default_factory=list)
 
     # Optional relationships
     character_id: Optional[UUID] = None
@@ -186,6 +188,7 @@ class EpisodeTemplateUpdate(BaseModel):
     title: Optional[str] = Field(None, min_length=1, max_length=200)
     situation: Optional[str] = Field(None, min_length=10, max_length=2000)
     opening_line: Optional[str] = Field(None, min_length=1, max_length=1000)
+    starter_prompts: Optional[List[str]] = None
 
     episode_number: Optional[int] = None
     episode_type: Optional[str] = None

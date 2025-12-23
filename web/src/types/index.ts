@@ -60,10 +60,10 @@ export interface CharacterProfile extends CharacterSummary {
   full_backstory: string | null;
   likes: string[];
   dislikes: string[];
-  starter_prompts: string[];
   gallery: AvatarGalleryItem[];
   primary_avatar_url: string | null;
   content_rating?: string;
+  // NOTE: starter_prompts moved to episode_templates (EP-01 Episode-First Pivot)
 }
 
 export interface Character extends CharacterSummary {
@@ -77,14 +77,12 @@ export interface Character extends CharacterSummary {
   likes: string[];
   dislikes: string[];
   system_prompt: string;
-  starter_prompts: string[];
-  example_messages: Array<{ role: string; content: string }>;
   boundaries: Record<string, unknown>;
   relationship_stage_thresholds: Record<string, number>;
   is_active: boolean;
   sort_order: number;
-  // NOTE: opening_situation and opening_line are now in episode_templates only
-  // (EP-01 Episode-First Pivot - single source of truth)
+  // NOTE: opening_situation, opening_line, starter_prompts, example_messages
+  // are now in episode_templates only (EP-01 Episode-First Pivot)
   status: "draft" | "active";
   categories: string[];
   content_rating: string;
@@ -265,9 +263,9 @@ export interface EpisodeTemplate extends EpisodeTemplateSummary {
   // featured_characters deferred until crossover content (Genesis Stage = single anchor)
   situation: string;
   opening_line: string;
+  starter_prompts: string[];  // Alternative opening suggestions for UI (EP-01 refactor)
   episode_frame: string | null;
   arc_hints: Record<string, unknown>[];
-  starter_prompts?: string[];  // Optional - falls back to character's prompts
   sort_order: number;
   status: string;
   // Episode Dynamics

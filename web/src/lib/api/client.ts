@@ -649,7 +649,7 @@ export const api = {
       data: {
         opening_situation: string;
         opening_line: string;
-        starter_prompts?: string[];
+        // starter_prompts removed - now managed by episode_template
       }
     ) =>
       request<import("@/types").Character>(

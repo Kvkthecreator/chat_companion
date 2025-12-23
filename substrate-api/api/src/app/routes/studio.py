@@ -197,17 +197,17 @@ async def create_character(
     if final_status == "active" and not data.avatar_url:
         final_status = "draft"  # Can't activate without avatar
 
-    # Insert character (opening beat now goes to episode_templates, not characters)
+    # Insert character (opening beat and starter_prompts now go to episode_templates)
     query = """
         INSERT INTO characters (
             name, slug, archetype, avatar_url,
             baseline_personality, boundaries, content_rating,
-            system_prompt, starter_prompts,
+            system_prompt,
             status, is_active, created_by
         ) VALUES (
             :name, :slug, :archetype, :avatar_url,
             :baseline_personality, :boundaries, :content_rating,
-            :system_prompt, :starter_prompts,
+            :system_prompt,
             :status, :is_active, :created_by
         )
         RETURNING id, slug, name, status
@@ -222,7 +222,6 @@ async def create_character(
         "boundaries": json.dumps(data.boundaries),
         "content_rating": data.content_rating,
         "system_prompt": system_prompt,
-        "starter_prompts": [data.opening_line],  # Opening line is first starter
         "status": final_status,
         "is_active": final_status == "active",
         "created_by": str(user_id),
@@ -232,14 +231,15 @@ async def create_character(
     character_id = row["id"]
 
     # Create default Episode 0 template with opening beat (EP-01 Episode-First Pivot)
+    # starter_prompts now live here, not on character
     episode_template_query = """
         INSERT INTO episode_templates (
             character_id, episode_number, title, slug,
-            situation, opening_line,
+            situation, opening_line, starter_prompts,
             episode_type, is_default, sort_order, status
         ) VALUES (
             :character_id, 0, :title, :ep_slug,
-            :situation, :opening_line,
+            :situation, :opening_line, :starter_prompts,
             'entry', TRUE, 0, :status
         )
     """
@@ -252,6 +252,7 @@ async def create_character(
         "ep_slug": episode_slug,
         "situation": data.opening_situation,
         "opening_line": data.opening_line,
+        "starter_prompts": [data.opening_line],  # Opening line is the first starter prompt
         "status": final_status,  # Episode template status matches character
     })
 
@@ -342,11 +343,11 @@ async def update_character(
         if value is not None:
             # Handle JSONB fields - use CAST() instead of :: to avoid parameter parsing issues
             if field in ["baseline_personality", "tone_style", "speech_patterns",
-                         "boundaries", "life_arc", "example_messages"]:
+                         "boundaries", "life_arc"]:
                 updates.append(f"{field} = CAST(:{field} AS jsonb)")
                 values[field] = json.dumps(value)
-            # Handle array fields
-            elif field in ["likes", "dislikes", "starter_prompts", "categories"]:
+            # Handle array fields (starter_prompts removed - now on episode_templates)
+            elif field in ["likes", "dislikes", "categories"]:
                 updates.append(f"{field} = :{field}")
                 values[field] = value
             # Handle UUID fields
@@ -766,14 +767,13 @@ async def apply_opening_beat(
     character_id: UUID,
     opening_situation: str = Body(..., embed=True),
     opening_line: str = Body(..., embed=True),
-    starter_prompts: Optional[List[str]] = Body(None, embed=True),
     user_id: UUID = Depends(get_current_user_id),
     db=Depends(get_db),
 ):
     """Apply generated opening beat to a character.
 
-    This saves the opening beat and regenerates the system prompt
-    with the new opening situation.
+    This saves the opening beat to episode_template and regenerates the system prompt.
+    starter_prompts now live on episode_template, not character.
     """
     # Get character
     existing = await db.fetch_one(
@@ -831,16 +831,10 @@ async def apply_opening_beat(
         genre=char_dict.get("genre") or "romantic_tension",
     )
 
-    # Prepare starter prompts
-    final_starter_prompts = [opening_line]
-    if starter_prompts:
-        final_starter_prompts.extend(starter_prompts)
-
-    # Update character (system_prompt and starter_prompts only - opening beat goes to episode_template)
+    # Update character system_prompt only (starter_prompts now on episode_template)
     char_query = """
         UPDATE characters
-        SET starter_prompts = :starter_prompts,
-            system_prompt = :system_prompt,
+        SET system_prompt = :system_prompt,
             updated_at = NOW()
         WHERE id = :id
         RETURNING *
@@ -848,21 +842,22 @@ async def apply_opening_beat(
 
     row = await db.fetch_one(char_query, {
         "id": str(character_id),
-        "starter_prompts": final_starter_prompts,
         "system_prompt": system_prompt,
     })
 
-    # Update or create default episode_template with opening beat (EP-01 Episode-First Pivot)
+    # Update episode_template with opening beat and starter_prompts (EP-01 Episode-First Pivot)
     await db.execute("""
         UPDATE episode_templates
         SET situation = :situation,
             opening_line = :opening_line,
+            starter_prompts = :starter_prompts,
             updated_at = NOW()
         WHERE character_id = :character_id AND is_default = TRUE
     """, {
         "character_id": str(character_id),
         "situation": opening_situation,
         "opening_line": opening_line,
+        "starter_prompts": [opening_line],  # Opening line is the primary starter prompt
     })
 
     return Character(**dict(row))
@@ -1456,13 +1451,12 @@ async def batch_create_characters(
 
             opening_situation = ignition_result.opening_situation
             opening_line = ignition_result.opening_line
-            starter_prompts = ignition_result.starter_prompts
+            # starter_prompts now live on episode_template, not character
 
         except Exception as e:
             # Fallback
             opening_situation = f"You encounter {name}."
             opening_line = "Hey there."
-            starter_prompts = [opening_line]
 
         # Build system prompt
         import json
@@ -1473,18 +1467,18 @@ Personality traits: {json.dumps(personality.get('traits', []))}
 Stay in character. Be {archetype} in your responses.
 """
 
-        # Insert character (opening beat goes to episode_templates, not characters)
+        # Insert character (opening beat and starter_prompts go to episode_templates)
         try:
             row = await db.fetch_one("""
                 INSERT INTO characters (
                     name, slug, archetype,
                     baseline_personality, boundaries, content_rating,
-                    system_prompt, starter_prompts,
+                    system_prompt,
                     status, is_active, created_by
                 ) VALUES (
                     :name, :slug, :archetype,
                     :personality, :boundaries, :content_rating,
-                    :system_prompt, :starter_prompts,
+                    :system_prompt,
                     'draft', FALSE, :user_id
                 )
                 RETURNING id
@@ -1496,21 +1490,20 @@ Stay in character. Be {archetype} in your responses.
                 "boundaries": json.dumps(DEFAULT_BOUNDARIES),
                 "content_rating": config.get("content_rating", "sfw"),
                 "system_prompt": system_prompt,
-                "starter_prompts": starter_prompts,
                 "user_id": str(user_id),
             })
 
             character_id = row["id"]
 
-            # Create Episode 0 template with opening beat (EP-01 Episode-First Pivot)
+            # Create Episode 0 template with opening beat and starter_prompts
             await db.execute("""
                 INSERT INTO episode_templates (
                     character_id, episode_number, title, slug,
-                    situation, opening_line,
+                    situation, opening_line, starter_prompts,
                     episode_type, is_default, sort_order, status
                 ) VALUES (
                     :character_id, 0, :title, :ep_slug,
-                    :situation, :opening_line,
+                    :situation, :opening_line, :starter_prompts,
                     'entry', TRUE, 0, 'draft'
                 )
             """, {
@@ -1519,6 +1512,7 @@ Stay in character. Be {archetype} in your responses.
                 "ep_slug": f"episode-0-{slug}",
                 "situation": opening_situation,
                 "opening_line": opening_line,
+                "starter_prompts": [opening_line],
             })
 
             results.append({

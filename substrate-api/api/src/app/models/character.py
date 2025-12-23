@@ -65,7 +65,10 @@ class AvatarGalleryItem(BaseModel):
 
 
 class CharacterProfile(BaseModel):
-    """Character profile for the detail page - includes avatar gallery."""
+    """Character profile for the detail page - includes avatar gallery.
+
+    NOTE: starter_prompts removed - now on episode_templates (EP-01 Episode-First Pivot)
+    """
 
     id: UUID
     name: str
@@ -76,13 +79,12 @@ class CharacterProfile(BaseModel):
     full_backstory: Optional[str] = None
     likes: List[str] = Field(default_factory=list)
     dislikes: List[str] = Field(default_factory=list)
-    starter_prompts: List[str] = Field(default_factory=list)
     is_premium: bool = False
     # Avatar gallery
     gallery: List[AvatarGalleryItem] = Field(default_factory=list)
     primary_avatar_url: Optional[str] = None
 
-    @field_validator("likes", "dislikes", "starter_prompts", mode="before")
+    @field_validator("likes", "dislikes", mode="before")
     @classmethod
     def ensure_list_profile(cls, v: Any) -> List[str]:
         """Handle list fields as JSON string (from DB)."""
@@ -129,10 +131,8 @@ class Character(BaseModel):
 
     # Conversation
     system_prompt: str
-    starter_prompts: List[str] = Field(default_factory=list)
-    example_messages: List[Dict[str, Any]] = Field(default_factory=list)
-
-    # NOTE: opening_situation and opening_line are now in episode_templates only
+    # NOTE: starter_prompts and example_messages removed - they belong on episode_templates
+    # NOTE: opening_situation and opening_line are in episode_templates only
     # (EP-01 Episode-First Pivot - single source of truth)
 
     # Boundaries
@@ -180,7 +180,7 @@ class Character(BaseModel):
                 return {"raw": v}
         return {}
 
-    @field_validator("likes", "dislikes", "starter_prompts", "categories", mode="before")
+    @field_validator("likes", "dislikes", "categories", mode="before")
     @classmethod
     def ensure_list(cls, v: Any) -> List[str]:
         """Handle list fields as JSON string (from DB)."""
@@ -195,23 +195,6 @@ class Character(BaseModel):
                     return parsed
             except (json.JSONDecodeError, TypeError):
                 return [v]
-        return []
-
-    @field_validator("example_messages", mode="before")
-    @classmethod
-    def ensure_example_messages_list(cls, v: Any) -> List[Dict[str, Any]]:
-        """Handle example_messages as JSON string (from DB)."""
-        if v is None:
-            return []
-        if isinstance(v, list):
-            return v
-        if isinstance(v, str):
-            try:
-                parsed = json.loads(v)
-                if isinstance(parsed, list):
-                    return parsed
-            except (json.JSONDecodeError, TypeError):
-                return []
         return []
 
     class Config:
@@ -382,12 +365,8 @@ class CharacterUpdateInput(BaseModel):
     likes: Optional[List[str]] = None
     dislikes: Optional[List[str]] = None
 
-    # NOTE: opening_situation and opening_line removed - edit via episode_templates
-    # (EP-01 Episode-First Pivot - single source of truth)
-
-    # Conversation config (system_prompt intentionally excluded - locked template)
-    starter_prompts: Optional[List[str]] = None
-    example_messages: Optional[List[Dict[str, Any]]] = None
+    # NOTE: opening_situation, opening_line, starter_prompts, example_messages removed
+    # - edit via episode_templates (EP-01 Episode-First Pivot - single source of truth)
 
     # Life arc
     life_arc: Optional[Dict[str, Any]] = None

@@ -166,9 +166,10 @@ async def get_character_profile(
     Only returns active characters. Drafts are never exposed via public API.
     """
     # Get character - only active ones
+    # NOTE: starter_prompts removed - now on episode_templates (EP-01 Episode-First Pivot)
     query = """
         SELECT id, name, slug, archetype, avatar_url, short_backstory,
-               full_backstory, likes, dislikes, starter_prompts, is_premium,
+               full_backstory, likes, dislikes, is_premium,
                active_avatar_kit_id
         FROM characters
         WHERE slug = :slug AND status = 'active' AND is_active = TRUE

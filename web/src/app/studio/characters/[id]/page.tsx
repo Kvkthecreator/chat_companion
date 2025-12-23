@@ -23,7 +23,7 @@ import { Textarea } from '@/components/ui/textarea'
 // Types & Constants
 // =============================================================================
 
-type EditTab = 'overview' | 'avatars' | 'backstory' | 'opening' | 'conversation' | 'advanced'
+type EditTab = 'overview' | 'avatars' | 'backstory' | 'opening' | 'advanced'
 
 const ARCHETYPES = [
   'comforting',
@@ -151,7 +151,6 @@ export default function CharacterDetailPage() {
     dislikes: [] as string[],
     opening_situation: '',
     opening_line: '',
-    starter_prompts: [] as string[],
   })
 
   // Overview tab editable fields
@@ -289,7 +288,6 @@ export default function CharacterDetailPage() {
         dislikes: data.dislikes || [],
         opening_situation: openingSituation,
         opening_line: openingLine,
-        starter_prompts: data.starter_prompts || [],
       })
       // Populate overview form
       setOverviewForm({
@@ -465,7 +463,6 @@ export default function CharacterDetailPage() {
         ...prev,
         opening_situation: result.opening_situation,
         opening_line: result.opening_line,
-        starter_prompts: [result.opening_line, ...(result.starter_prompts || [])],
       }))
 
       setRegenerateFeedback('')
@@ -514,7 +511,6 @@ export default function CharacterDetailPage() {
     { id: 'avatars', label: 'Avatars' },
     { id: 'backstory', label: 'Backstory' },
     { id: 'opening', label: 'Opening Beat' },
-    { id: 'conversation', label: 'Conversation' },
     { id: 'advanced', label: 'Advanced' },
   ]
 
@@ -1277,7 +1273,6 @@ export default function CharacterDetailPage() {
                   await api.studio.applyOpeningBeat(characterId, {
                     opening_situation: editForm.opening_situation || '',
                     opening_line: editForm.opening_line || '',
-                    starter_prompts: editForm.starter_prompts,
                   })
                   setSaveMessage('Opening beat saved to Episode 0')
                   setTimeout(() => setSaveMessage(null), 2000)
@@ -1290,44 +1285,6 @@ export default function CharacterDetailPage() {
               disabled={saving || !editForm.opening_situation || !editForm.opening_line}
             >
               {saving ? 'Saving...' : 'Save Opening Beat'}
-            </Button>
-          </CardContent>
-        </Card>
-      )}
-
-      {activeTab === 'conversation' && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Conversation Config</CardTitle>
-            <CardDescription>Starter prompts and example messages</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            <div className="space-y-2">
-              <Label>Additional Starter Prompts</Label>
-              <p className="text-xs text-muted-foreground">
-                Alternative opening lines (one per line). The opening_line is always first.
-              </p>
-              <textarea
-                className="min-h-[120px] w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
-                value={editForm.starter_prompts.slice(1).join('\n')}
-                onChange={(e) =>
-                  setEditForm((prev) => ({
-                    ...prev,
-                    starter_prompts: [
-                      prev.opening_line || '',  // Opening line from episode_template
-                      ...e.target.value.split('\n').filter(Boolean),
-                    ],
-                  }))
-                }
-                placeholder="One prompt per line..."
-              />
-            </div>
-
-            <Button
-              onClick={() => saveChanges({ starter_prompts: editForm.starter_prompts })}
-              disabled={saving}
-            >
-              {saving ? 'Saving...' : 'Save Conversation Config'}
             </Button>
           </CardContent>
         </Card>

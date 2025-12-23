@@ -291,7 +291,6 @@ export function ChatContainer({ characterId, episodeTemplateId }: ChatContainerP
               <EmptyState
                 characterName={character.name}
                 characterAvatar={character.avatar_url}
-                starterPrompts={character.starter_prompts}
                 episodeTemplate={episodeTemplate}
                 hasBackground={hasBackground}
                 onSelect={sendMessage}
@@ -480,7 +479,6 @@ function MessagesSkeleton() {
 interface EmptyStateProps {
   characterName: string;
   characterAvatar?: string | null;
-  starterPrompts: string[];
   episodeTemplate?: EpisodeTemplate | null;
   hasBackground?: boolean;
   onSelect: (prompt: string) => void;
@@ -489,15 +487,12 @@ interface EmptyStateProps {
 function EmptyState({
   characterName,
   characterAvatar,
-  starterPrompts,
   episodeTemplate,
   hasBackground,
   onSelect,
 }: EmptyStateProps) {
-  // Use episode template's starter prompts if available, otherwise use character's
-  const prompts = episodeTemplate?.starter_prompts?.length
-    ? episodeTemplate.starter_prompts
-    : starterPrompts;
+  // Starter prompts now live on episode_template only (EP-01 Episode-First Pivot)
+  const prompts = episodeTemplate?.starter_prompts || [];
 
   return (
     <div className={cn(
