@@ -349,7 +349,6 @@ function FreakResult({ result, onPlayAgain }: { result: QuizEvaluateResponse; on
   const evidence = result.result.evidence || [];
   const vibeCheck = result.result.vibe_check;
   const levelNumber = result.result.level_number || staticContent.levelNumber;
-  const confidence = result.result.confidence || 0.85;
 
   const handleShare = async () => {
     // Use clean URL format (no www., consistent branding)
@@ -457,10 +456,8 @@ function FreakResult({ result, onPlayAgain }: { result: QuizEvaluateResponse; on
             <span className="text-xs">{visuals.emoji}</span>
           </div>
         </div>
-        <div className="mt-3 text-center">
-          <span className="text-sm text-muted-foreground">
-            Match strength: <span className="font-medium">{Math.round(confidence * 100)}%</span>
-          </span>
+        <div className="text-center mt-3 text-sm text-muted-foreground">
+          level {levelNumber}/5
         </div>
       </Card>
 

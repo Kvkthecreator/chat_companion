@@ -88,6 +88,17 @@ export const QUIZ_QUESTIONS: QuizQuestion[] = [
       { text: "Shutting down whenever someone gets too close", trope: "slow_reveal" },
     ],
   },
+  {
+    id: 7,
+    question: "When you like someone, the first thing you do is:",
+    options: [
+      { text: "Nothing. I wait to see if they make a move first.", trope: "slow_burn" },
+      { text: "Check if they remind me of someone from my past", trope: "second_chance" },
+      { text: "Tell them. What's the point of waiting?", trope: "all_in" },
+      { text: "Drop hints then pull back to see if they notice", trope: "push_pull" },
+      { text: "Observe. I want to know who they are before I show who I am.", trope: "slow_reveal" },
+    ],
+  },
 ];
 
 /**

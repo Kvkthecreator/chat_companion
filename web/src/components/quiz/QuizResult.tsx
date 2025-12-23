@@ -73,8 +73,6 @@ export function QuizResult({ result, onPlayAgain }: QuizResultProps) {
   const butActually = result.result.but_actually || staticContent.butActually;
   const whatYouNeed = result.result.what_you_need || staticContent.whatYouNeed;
 
-  const confidence = result.result.confidence || 0.85;
-
   const handleShare = async () => {
     const shareUrl = `https://ep-0.com/r/${result.share_id}`;
     const fullText = `${shareText}\n\n${shareUrl}`;
@@ -190,20 +188,6 @@ export function QuizResult({ result, onPlayAgain }: QuizResultProps) {
           </div>
         </Card>
       )}
-
-      {/* Match strength */}
-      <Card className="w-full max-w-lg p-6 mb-4">
-        <div className="flex justify-between text-sm text-muted-foreground mb-2">
-          <span>Match strength</span>
-          <span className="font-medium">{Math.round(confidence * 100)}%</span>
-        </div>
-        <div className="h-2 bg-muted rounded-full overflow-hidden">
-          <div
-            className="h-full rounded-full bg-gradient-to-r from-amber-500 to-rose-500"
-            style={{ width: `${confidence * 100}%` }}
-          />
-        </div>
-      </Card>
 
       {/* Primary CTA - Share */}
       <div className="w-full max-w-lg mb-3">

@@ -229,7 +229,6 @@ export function ShareResultClient({ shareId }: ShareResultClientProps) {
   const visuals = getVisuals();
   const title = evaluation.title || "Your Result";
   const tagline = evaluation.tagline;
-  const confidence = evaluation.confidence || 0.8;
 
   // v3.0 Dating Personality Test fields
   const pattern = evaluation.pattern;
@@ -461,20 +460,6 @@ export function ShareResultClient({ shareId }: ShareResultClientProps) {
             )}
           </>
         )}
-
-        {/* Match strength */}
-        <Card className="w-full max-w-lg p-6 mb-4">
-          <div className="flex justify-between text-sm text-muted-foreground mb-2">
-            <span>Match strength</span>
-            <span className="font-medium">{Math.round(confidence * 100)}%</span>
-          </div>
-          <div className="h-2 bg-muted rounded-full overflow-hidden">
-            <div
-              className={cn("h-full rounded-full bg-gradient-to-r", buttonGradient)}
-              style={{ width: `${confidence * 100}%` }}
-            />
-          </div>
-        </Card>
 
         {/* Primary CTA - Take the Quiz */}
         <div className="w-full max-w-lg mb-3">
