@@ -10,7 +10,7 @@ from app.models.character import Character
 from app.models.session import Session
 from app.models.message import Message, MessageRole, ConversationContext, MemorySummary, HookSummary
 from app.models.engagement import Engagement
-from app.models.episode_template import EpisodeTemplate, AutoSceneMode
+from app.models.episode_template import EpisodeTemplate, VisualMode
 from app.services.llm import LLMService
 from app.services.memory import MemoryService
 from app.services.usage import UsageService

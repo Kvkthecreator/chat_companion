@@ -82,8 +82,8 @@ class EpisodeTemplate(BaseModel):
 
     # Director configuration
     genre: str = "romance"  # Story genre for semantic evaluation context
-    series_finale: bool = False  # Last episode of series
-    turn_budget: Optional[int] = None  # Optional turn limit
+    # NOTE: series_finale removed - never used in prompt generation or Director logic
+    turn_budget: Optional[int] = None  # Director uses for pacing calculation
 
     # Visual generation (Ticket + Moments model)
     # NOTE: auto_scene_mode, scene_interval, spark_cost_per_scene removed - use visual_mode
@@ -144,7 +144,6 @@ class EpisodeTemplateCreate(BaseModel):
 
     # Director configuration
     genre: str = "romance"
-    series_finale: bool = False
     turn_budget: Optional[int] = None
 
     # Visual generation
@@ -172,7 +171,6 @@ class EpisodeTemplateUpdate(BaseModel):
 
     # Director configuration
     genre: Optional[str] = None
-    series_finale: Optional[bool] = None
     turn_budget: Optional[int] = None
 
     # Visual generation

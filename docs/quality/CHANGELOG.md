@@ -28,11 +28,15 @@ Format: `[Document] vX.Y.Z - YYYY-MM-DD`
   - Updated Spark Balance Handling for entry-gate model
   - Removed per-generation spark checking from data flow
 
+- **[CONTEXT_LAYERS.md]** v1.4.0 - Clarification items resolved
+  - `turn_budget` documented as Director domain (pacing, not hard limit)
+  - `series_finale` removed (never used)
+  - Genre hierarchy documented for future consolidation (3 levels: character, episode, series)
+
 - **[CONTEXT_LAYERS.md]** v1.3.0 - Engagement layer cleanup
   - Stage progression (`stage`, `stage_progress`) sunset - dynamic system replaces it
   - `relationship_stage`/`relationship_progress` removed from ConversationContext
   - Prompt now uses dynamic `tone` instead of static stage labels
-  - Added clarification items (turn_budget, series_finale, genre hierarchy)
 
 - **[CONTEXT_LAYERS.md]** v1.2.0 - Boundaries simplification
   - Simplified `boundaries` to only `flirting_level` and `nsfw_allowed`
@@ -62,6 +66,7 @@ Format: `[Document] vX.Y.Z - YYYY-MM-DD`
 - **ConversationContext**: `character_life_arc` field and `_format_life_arc()` method
 - **ConversationContext**: `relationship_stage` and `relationship_progress` fields
 - **Engagement Model**: `inside_jokes` field (never populated)
+- **Episode Template**: `series_finale` field (never used in prompts or Director)
 - **Character Model**: `relationship_stage_thresholds` field (never read)
 - **Prompt Templates**: `Relationship: {relationship_stage}` from scene prompts
 - **Create Wizard**: `can_reject_user` toggle (was never used)

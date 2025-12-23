@@ -79,24 +79,30 @@ This document defines the 6-layer context architecture that composes every chara
 | Genre | Doctrine selection | High |
 | Resolution Types | Valid endings | Medium |
 
-### Clarification Items (Pending Decision)
+### Director Configuration Fields
 
-The following Episode fields exist in the database but their runtime behavior needs clarification:
+| Field | Purpose | Owner |
+|-------|---------|-------|
+| `turn_budget` | Pacing calculation (establish/develop/escalate/peak/resolve) | Director |
+| `genre` | Semantic evaluation context | Director + Character |
 
-| Field | Current State | Options |
-|-------|---------------|---------|
-| `turn_budget` | Stored, used for pacing calculation, but NOT enforced as hard limit | Document as "advisory" OR implement enforcement |
-| `series_finale` | Stored but not used in prompt generation | Document purpose OR remove |
-| `genre` | Exists at 3 levels: character, episode, series | Document hierarchy (which wins?) OR consolidate |
+**`turn_budget`**: Director uses this for pacing phase calculation. Not a hard limit - semantic completion (`status: done`) is the actual trigger. Also surfaces `turns_remaining` to frontend for Games UI.
 
-**`turn_budget` Detail**: The Director uses `turn_budget` to calculate pacing phase (establish/develop/escalate/peak/resolve), but episodes don't auto-complete when budget is reached. Semantic completion (`status: done`) is the actual trigger.
+> **Removed**: `series_finale` - never used in prompt generation or Director logic
 
-**`genre` Hierarchy Question**: Currently:
-- Character has `genre` (archetype context)
-- Episode has `genre` (used in Director evaluation)
-- Series has implicit genre (from character?)
+### Genre Architecture (Needs Consolidation)
 
-Which takes precedence for prompt composition and Director evaluation?
+Genre currently exists at 3 independent levels:
+
+| Level | Field | Usage |
+|-------|-------|-------|
+| **Character** | `character.genre` | `build_system_prompt()` doctrine selection |
+| **Episode** | `episode_template.genre` | Director evaluation context |
+| **Series** | `series.genre` + `genre_settings` | Context prompt injection |
+
+**Current behavior**: Character genre determines doctrine in system prompt. Episode genre is passed to Director for semantic evaluation. Series genre_settings can override specific doctrine values.
+
+**Recommended consolidation**: Series should be the single source of genre truth, with episode and character inheriting. This is a larger architectural change for a future session.
 
 ### The Situation Imperative
 
@@ -307,6 +313,7 @@ Layers are assembled in this order (later = higher priority):
 
 | Version | Date | Changes |
 |---------|------|---------|
+| 1.4.0 | 2024-12-23 | Resolved clarification items: turn_budget documented as Director domain, series_finale removed, genre hierarchy documented for future consolidation. |
 | 1.3.0 | 2024-12-23 | Added Episode Layer clarification items (turn_budget, series_finale, genre hierarchy). Hardened on Ticket + Moments model. |
 | 1.2.0 | 2024-12-23 | Simplified boundaries to flirting_level + nsfw_allowed only. Removed Character Dynamics UI (9 unused fields) |
 | 1.1.0 | 2024-12-23 | Simplified character data: merged backstory fields, removed life_arc/current_stressor |
