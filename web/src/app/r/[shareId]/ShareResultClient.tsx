@@ -2,9 +2,13 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { api } from "@/lib/api/client";
 import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { Logo } from "@/components/Logo";
 import { cn } from "@/lib/utils";
+import { Share2, Check, Quote, Sparkles, Play } from "lucide-react";
 import type {
   FlirtArchetype,
   FlirtArchetypeEvaluation,
@@ -13,94 +17,71 @@ import type {
   SharedResultResponse,
 } from "@/types";
 
-// Flirt Archetype metadata for display
-const ARCHETYPE_META: Record<FlirtArchetype, { emoji: string; color: string; gradient: string }> = {
-  tension_builder: {
-    emoji: "🔥",
-    color: "text-orange-400",
-    gradient: "from-orange-500/20 to-red-500/20",
-  },
-  bold_mover: {
-    emoji: "💪",
-    color: "text-rose-400",
-    gradient: "from-rose-500/20 to-pink-500/20",
-  },
-  playful_tease: {
-    emoji: "😏",
-    color: "text-yellow-400",
-    gradient: "from-yellow-500/20 to-orange-500/20",
-  },
-  slow_burn: {
-    emoji: "🌙",
-    color: "text-purple-400",
-    gradient: "from-purple-500/20 to-indigo-500/20",
-  },
-  mysterious_allure: {
-    emoji: "✨",
-    color: "text-violet-400",
-    gradient: "from-violet-500/20 to-purple-500/20",
-  },
-};
+// Shared header component (matches PlayHeader from play pages)
+function ShareHeader() {
+  return (
+    <header className="border-b bg-background/80 backdrop-blur sticky top-0 z-50">
+      <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
+        <Link href="/" className="flex items-center gap-3">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-border/60 bg-muted/60 shadow-sm shrink-0 overflow-hidden p-1.5">
+            <Logo variant="icon" size="full" />
+          </div>
+          <div>
+            <h1 className="text-xl font-bold leading-tight text-foreground">
+              episode-0
+            </h1>
+            <p className="text-xs text-muted-foreground">3, 2, 1... action</p>
+          </div>
+        </Link>
+
+        <Link
+          href="/login?next=/discover"
+          className="rounded-full bg-primary px-4 py-2 text-sm font-medium text-primary-foreground shadow-sm transition hover:bg-primary/90"
+        >
+          Sign in
+        </Link>
+      </div>
+    </header>
+  );
+}
+
+// Series type for featured series
+interface Series {
+  id: string;
+  title: string;
+  slug: string;
+  tagline?: string;
+  cover_image_url?: string;
+}
 
 // Freak Level type
 type FreakLevel = "vanilla" | "spicy" | "unhinged" | "feral" | "menace";
 
-// Freak Level metadata for display
-const FREAK_LEVEL_META: Record<FreakLevel, { emoji: string; color: string; gradient: string }> = {
-  vanilla: {
-    emoji: "🍦",
-    color: "text-amber-100",
-    gradient: "from-amber-500/20 to-yellow-500/20",
-  },
-  spicy: {
-    emoji: "🌶️",
-    color: "text-orange-400",
-    gradient: "from-orange-500/20 to-red-500/20",
-  },
-  unhinged: {
-    emoji: "🔥",
-    color: "text-red-500",
-    gradient: "from-red-500/20 to-rose-500/20",
-  },
-  feral: {
-    emoji: "👹",
-    color: "text-purple-500",
-    gradient: "from-purple-500/20 to-violet-500/20",
-  },
-  menace: {
-    emoji: "😈",
-    color: "text-fuchsia-600",
-    gradient: "from-fuchsia-500/20 to-pink-500/20",
-  },
+// Freak Level metadata for display (light theme colors)
+const FREAK_LEVEL_META: Record<FreakLevel, { emoji: string; color: string }> = {
+  vanilla: { emoji: "🍦", color: "text-amber-600" },
+  spicy: { emoji: "🌶️", color: "text-orange-500" },
+  unhinged: { emoji: "🔥", color: "text-red-500" },
+  feral: { emoji: "👹", color: "text-purple-600" },
+  menace: { emoji: "😈", color: "text-fuchsia-600" },
 };
 
-// Romantic Trope metadata for display
-const TROPE_META: Record<RomanticTrope, { emoji: string; color: string; gradient: string }> = {
-  slow_burn: {
-    emoji: "🕯️",
-    color: "text-amber-400",
-    gradient: "from-amber-500/20 to-orange-500/20",
-  },
-  second_chance: {
-    emoji: "🌅",
-    color: "text-rose-400",
-    gradient: "from-rose-500/20 to-pink-500/20",
-  },
-  all_in: {
-    emoji: "💫",
-    color: "text-yellow-400",
-    gradient: "from-yellow-500/20 to-amber-500/20",
-  },
-  push_pull: {
-    emoji: "⚡",
-    color: "text-purple-400",
-    gradient: "from-purple-500/20 to-indigo-500/20",
-  },
-  slow_reveal: {
-    emoji: "🌙",
-    color: "text-violet-400",
-    gradient: "from-violet-500/20 to-purple-500/20",
-  },
+// Romantic Trope metadata for display (light theme colors)
+const TROPE_META: Record<RomanticTrope, { emoji: string; color: string }> = {
+  slow_burn: { emoji: "🕯️", color: "text-amber-600" },
+  second_chance: { emoji: "🌅", color: "text-rose-500" },
+  all_in: { emoji: "💫", color: "text-yellow-600" },
+  push_pull: { emoji: "⚡", color: "text-purple-600" },
+  slow_reveal: { emoji: "🌙", color: "text-violet-600" },
+};
+
+// Flirt Archetype metadata for display (light theme colors)
+const ARCHETYPE_META: Record<FlirtArchetype, { emoji: string; color: string }> = {
+  tension_builder: { emoji: "🔥", color: "text-orange-500" },
+  bold_mover: { emoji: "💪", color: "text-rose-500" },
+  playful_tease: { emoji: "😏", color: "text-yellow-600" },
+  slow_burn: { emoji: "🌙", color: "text-purple-600" },
+  mysterious_allure: { emoji: "✨", color: "text-violet-600" },
 };
 
 interface ShareResultClientProps {
@@ -113,6 +94,7 @@ export function ShareResultClient({ shareId }: ShareResultClientProps) {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [featuredSeries, setFeaturedSeries] = useState<Series[]>([]);
 
   useEffect(() => {
     const fetchResult = async () => {
@@ -130,25 +112,48 @@ export function ShareResultClient({ shareId }: ShareResultClientProps) {
     fetchResult();
   }, [shareId]);
 
+  // Fetch featured series
+  useEffect(() => {
+    async function fetchSeries() {
+      try {
+        const res = await fetch(
+          `${process.env.NEXT_PUBLIC_API_URL || "https://api.ep-0.com"}/series?featured=true&limit=2`
+        );
+        if (res.ok) {
+          const data = await res.json();
+          setFeaturedSeries(data);
+        }
+      } catch {
+        // Ignore errors
+      }
+    }
+    fetchSeries();
+  }, []);
+
   const isRomanticTrope = result?.evaluation_type === "romantic_trope";
   const isFreakLevel = result?.evaluation_type === "freak_level";
   const testName = isFreakLevel ? "Freak Test" : isRomanticTrope ? "Romance Quiz" : "Flirt Test";
   const testUrl = isFreakLevel ? "/play/freak" : isRomanticTrope ? "/play/romance" : "/play";
+  const accentColor = isFreakLevel ? "fuchsia" : isRomanticTrope ? "amber" : "rose";
 
   const handleTakeTest = () => {
     router.push(testUrl);
   };
 
   const handleShare = async () => {
-    const shareUrl = window.location.href;
-    const evaluation = result?.result as FlirtArchetypeEvaluation | RomanticTropeResult;
-    const title = evaluation?.title || "a romantic type";
-    const shareText = isRomanticTrope
-      ? `I'm ${title}! What's your romantic trope? Take the test:`
-      : `I'm ${title}! What's your flirt style? Take the test:`;
+    const shareUrl = `https://ep-0.com/r/${shareId}`;
+    const evaluation = result?.result;
+    const title = evaluation?.title || "a type";
+    const shareText = isFreakLevel
+      ? `I'm ${title}! How freaky are you?`
+      : isRomanticTrope
+      ? `I'm ${title}! What's your romantic trope?`
+      : `I'm ${title}! What's your flirt style?`;
+    const fullText = `${shareText}\n\n${shareUrl}`;
 
-    // Try native share API first
-    if (navigator.share) {
+    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+
+    if (isMobile && navigator.share) {
       try {
         await navigator.share({
           title: `${testName} Result`,
@@ -157,528 +162,334 @@ export function ShareResultClient({ shareId }: ShareResultClientProps) {
         });
         return;
       } catch (err) {
-        // User cancelled or share failed, fall through to copy
+        if (err instanceof Error && err.name === "AbortError") {
+          return;
+        }
       }
     }
 
-    // Fallback to clipboard
     try {
-      await navigator.clipboard.writeText(`${shareText} ${shareUrl}`);
+      await navigator.clipboard.writeText(fullText);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
-    } catch (err) {
-      console.error("Failed to copy:", err);
+    } catch {
+      console.error("Failed to copy to clipboard");
     }
   };
 
+  // Loading state
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-gradient-to-b from-rose-950 via-purple-950 to-slate-950 flex items-center justify-center">
-        <div className="text-center">
-          <div className="w-16 h-16 mx-auto mb-4 border-4 border-white/20 border-t-white/80 rounded-full animate-spin" />
-          <p className="text-white/60">Loading result...</p>
+      <div className="min-h-screen bg-background text-foreground">
+        <ShareHeader />
+        <div className="flex items-center justify-center min-h-[calc(100vh-73px)]">
+          <div className="text-center">
+            <div className="inline-block animate-spin rounded-full h-12 w-12 border-4 border-primary border-t-transparent mb-4" />
+            <p className="text-muted-foreground">Loading result...</p>
+          </div>
         </div>
       </div>
     );
   }
 
+  // Error state
   if (error || !result) {
     return (
-      <div className="min-h-screen bg-gradient-to-b from-rose-950 via-purple-950 to-slate-950 flex items-center justify-center px-4">
-        <div className="text-center">
-          <h1 className="text-2xl font-bold text-white mb-4">Result Not Found</h1>
-          <p className="text-white/60 mb-6">{error}</p>
-          <Button
-            onClick={() => router.push("/play")}
-            className={cn(
-              "px-8 py-6 text-lg font-semibold rounded-full",
-              "bg-gradient-to-r from-rose-500 to-purple-500 hover:from-rose-400 hover:to-purple-400"
-            )}
-          >
-            Take a Test
-          </Button>
+      <div className="min-h-screen bg-background text-foreground">
+        <ShareHeader />
+        <div className="flex flex-col items-center justify-center min-h-[calc(100vh-73px)] px-4">
+          <div className="text-center max-w-md">
+            <h1 className="text-2xl font-bold mb-4">Result Not Found</h1>
+            <p className="text-muted-foreground mb-6">{error}</p>
+            <Button
+              onClick={() => router.push("/play")}
+              size="lg"
+              className="px-8 py-6 text-lg font-semibold rounded-full"
+            >
+              Take a Quiz
+            </Button>
+          </div>
         </div>
       </div>
     );
   }
 
-  // Render based on evaluation type
-  if (isRomanticTrope) {
-    return <RomanticTropeResultCard result={result} onTakeTest={handleTakeTest} onShare={handleShare} copied={copied} />;
-  }
+  // Get evaluation data based on type
+  const evaluation = result.result;
+  const getVisuals = () => {
+    if (isFreakLevel) {
+      const level = evaluation.level as FreakLevel;
+      return FREAK_LEVEL_META[level] || FREAK_LEVEL_META.spicy;
+    } else if (isRomanticTrope) {
+      const trope = evaluation.trope as RomanticTrope;
+      return TROPE_META[trope] || TROPE_META.slow_burn;
+    } else {
+      const archetype = evaluation.archetype as FlirtArchetype;
+      return ARCHETYPE_META[archetype] || ARCHETYPE_META.playful_tease;
+    }
+  };
 
-  if (isFreakLevel) {
-    return <FreakLevelResultCard result={result} onTakeTest={() => router.push("/play/freak")} onShare={handleShare} copied={copied} />;
-  }
+  const visuals = getVisuals();
+  const title = evaluation.title || "Your Result";
+  const tagline = evaluation.tagline;
+  const description = evaluation.description;
+  const vibeCheck = evaluation.vibe_check;
+  const evidence = evaluation.evidence || [];
+  const yourPeople = evaluation.your_people || [];
+  const confidence = evaluation.confidence || 0.8;
 
-  return <FlirtArchetypeResultCard result={result} onTakeTest={handleTakeTest} onShare={handleShare} copied={copied} />;
-}
+  // Gradient classes based on quiz type
+  const gradientClass = isFreakLevel
+    ? "from-purple-600/10 via-fuchsia-500/5 to-red-500/10"
+    : isRomanticTrope
+    ? "from-amber-500/10 via-rose-500/5 to-pink-500/10"
+    : "from-rose-500/10 via-purple-500/5 to-indigo-500/10";
 
-// Component for Flirt Archetype results
-function FlirtArchetypeResultCard({
-  result,
-  onTakeTest,
-  onShare,
-  copied,
-}: {
-  result: SharedResultResponse;
-  onTakeTest: () => void;
-  onShare: () => void;
-  copied: boolean;
-}) {
-  const evaluation = result.result as FlirtArchetypeEvaluation;
-  const archetype = evaluation.archetype;
-  const meta = ARCHETYPE_META[archetype] || ARCHETYPE_META.playful_tease;
+  const buttonGradient = isFreakLevel
+    ? "from-fuchsia-500 to-red-500 hover:from-fuchsia-400 hover:to-red-400"
+    : isRomanticTrope
+    ? "from-amber-500 to-rose-500 hover:from-amber-400 hover:to-rose-400"
+    : "from-rose-500 to-purple-500 hover:from-rose-400 hover:to-purple-400";
+
+  const accentTextClass = isFreakLevel
+    ? "text-fuchsia-500"
+    : isRomanticTrope
+    ? "text-amber-500"
+    : "text-rose-500";
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-rose-950 via-purple-950 to-slate-950 text-white">
-      {/* Background decoration */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-rose-500/20 rounded-full blur-3xl" />
-        <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-purple-500/20 rounded-full blur-3xl" />
+    <div className="min-h-screen bg-background text-foreground">
+      <ShareHeader />
+
+      {/* Subtle background gradient */}
+      <div className="fixed inset-0 -z-10 pointer-events-none">
+        <div className={cn("absolute inset-0 bg-gradient-to-br", gradientClass)} />
       </div>
 
       {/* Content */}
-      <div className="relative z-10 flex flex-col items-center justify-center min-h-screen px-4 py-12">
-        {/* Header */}
-        <div className="text-center mb-6">
-          <p className="text-white/60 text-sm mb-1">Someone shared their result</p>
-          <h1 className="text-2xl font-bold bg-gradient-to-r from-rose-400 to-purple-400 bg-clip-text text-transparent">
-            Flirt Test
-          </h1>
+      <main className="flex flex-col items-center px-4 py-8 pb-16">
+        {/* "Someone shared" badge */}
+        <div className={cn(
+          "inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs mb-6",
+          isFreakLevel ? "bg-fuchsia-500/10 text-fuchsia-600" :
+          isRomanticTrope ? "bg-amber-500/10 text-amber-600" :
+          "bg-rose-500/10 text-rose-600"
+        )}>
+          <span className={cn(
+            "inline-block w-2 h-2 rounded-full animate-pulse",
+            isFreakLevel ? "bg-fuchsia-500" :
+            isRomanticTrope ? "bg-amber-500" :
+            "bg-rose-500"
+          )} />
+          Someone shared their {testName} result
         </div>
 
-        {/* Result Card */}
-        <div className={cn(
-          "w-full max-w-md p-8 rounded-3xl backdrop-blur-xl border border-white/10",
-          "bg-gradient-to-br",
-          meta.gradient
-        )}>
+        {/* Hero Section */}
+        <div className="w-full max-w-lg text-center mb-8">
           {/* Emoji */}
-          <div className="text-6xl text-center mb-4">{meta.emoji}</div>
+          <div className="text-7xl mb-4">{visuals.emoji}</div>
+
+          {/* Pre-title */}
+          <p className="text-muted-foreground text-sm mb-2 uppercase tracking-wider">
+            {isFreakLevel ? "their freak level is" : isRomanticTrope ? "their romance type is" : "their flirt style is"}
+          </p>
 
           {/* Title */}
-          <h2 className={cn("text-3xl font-bold text-center mb-2", meta.color)}>
-            {evaluation.title}
-          </h2>
-
-          {/* Archetype key */}
-          <p className="text-center text-white/50 text-sm mb-6">
-            {archetype.replace(/_/g, " ")}
-          </p>
-
-          {/* Description */}
-          <p className="text-center text-white/80 leading-relaxed mb-6">
-            {evaluation.description}
-          </p>
-
-          {/* Confidence indicator */}
-          <div className="mb-6">
-            <div className="flex justify-between text-xs text-white/50 mb-1">
-              <span>Match strength</span>
-              <span>{Math.round(evaluation.confidence * 100)}%</span>
-            </div>
-            <div className="h-2 bg-white/10 rounded-full overflow-hidden">
-              <div
-                className={cn("h-full rounded-full bg-gradient-to-r", "from-rose-400 to-purple-400")}
-                style={{ width: `${evaluation.confidence * 100}%` }}
-              />
-            </div>
-          </div>
-
-          {/* Primary signals */}
-          {evaluation.primary_signals && evaluation.primary_signals.length > 0 && (
-            <div>
-              <p className="text-xs text-white/50 mb-2">Key signals:</p>
-              <div className="flex flex-wrap gap-2">
-                {evaluation.primary_signals.map((signal, i) => (
-                  <span
-                    key={i}
-                    className="px-3 py-1 bg-white/10 rounded-full text-xs text-white/80"
-                  >
-                    {signal}
-                  </span>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* Share count */}
-        {result.share_count > 0 && (
-          <p className="mt-4 text-white/40 text-sm">
-            Shared {result.share_count} {result.share_count === 1 ? "time" : "times"}
-          </p>
-        )}
-
-        {/* Actions */}
-        <div className="mt-8 flex flex-col gap-3 w-full max-w-md">
-          <Button
-            onClick={onTakeTest}
-            size="lg"
-            className={cn(
-              "w-full py-6 text-lg font-semibold rounded-full",
-              "bg-gradient-to-r from-rose-500 to-purple-500 hover:from-rose-400 hover:to-purple-400",
-              "shadow-xl shadow-purple-500/20"
-            )}
-          >
-            Take the Flirt Test
-          </Button>
-
-          <Button
-            onClick={onShare}
-            variant="outline"
-            size="lg"
-            className="w-full py-6 text-lg font-semibold rounded-full border-white/20 text-white hover:bg-white/10"
-          >
-            {copied ? "Copied!" : "Share This Result"}
-          </Button>
-        </div>
-
-        {/* Footer */}
-        <div className="mt-8 text-center">
-          <a
-            href="/"
-            className="text-white/40 hover:text-white/60 transition-colors text-sm"
-          >
-            ep-0.com — Interactive AI Episodes
-          </a>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// Extended result type that includes quiz-specific fields
-interface ExtendedRomanticTropeResult extends RomanticTropeResult {
-  evidence?: string[];
-  vibe_check?: string;
-}
-
-// Component for Romantic Trope results
-function RomanticTropeResultCard({
-  result,
-  onTakeTest,
-  onShare,
-  copied,
-}: {
-  result: SharedResultResponse;
-  onTakeTest: () => void;
-  onShare: () => void;
-  copied: boolean;
-}) {
-  const evaluation = result.result as ExtendedRomanticTropeResult;
-  const trope = evaluation.trope;
-  const meta = TROPE_META[trope] || TROPE_META.slow_burn;
-
-  return (
-    <div className="min-h-screen bg-gradient-to-b from-amber-950 via-rose-950 to-slate-950 text-white">
-      {/* Background decoration */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-amber-500/20 rounded-full blur-3xl" />
-        <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-rose-500/20 rounded-full blur-3xl" />
-      </div>
-
-      {/* Content */}
-      <div className="relative z-10 flex flex-col items-center justify-center min-h-screen px-4 py-12">
-        {/* Header */}
-        <div className="text-center mb-6">
-          <p className="text-white/60 text-sm mb-1">Someone shared their result</p>
-          <h1 className="text-2xl font-bold bg-gradient-to-r from-amber-400 to-rose-400 bg-clip-text text-transparent">
-            Romance Quiz
+          <h1 className={cn("text-4xl md:text-5xl font-black mb-3 tracking-tight", visuals.color)}>
+            {title}
           </h1>
-        </div>
-
-        {/* Result Card */}
-        <div className={cn(
-          "w-full max-w-md p-8 rounded-3xl backdrop-blur-xl border border-white/10",
-          "bg-gradient-to-br",
-          meta.gradient
-        )}>
-          {/* Header */}
-          <p className="text-center text-white/50 text-xs uppercase tracking-wider mb-2">
-            Their Romance Type
-          </p>
-
-          {/* Emoji */}
-          <div className="text-6xl text-center mb-4">{meta.emoji}</div>
-
-          {/* Title */}
-          <h2 className={cn("text-3xl font-bold text-center mb-2", meta.color)}>
-            {evaluation.title}
-          </h2>
 
           {/* Tagline */}
-          <p className="text-center text-white/70 italic mb-6">
-            &ldquo;{evaluation.tagline}&rdquo;
-          </p>
-
-          {/* Vibe Check - The devastating one-liner */}
-          {evaluation.vibe_check && (
-            <div className="mb-6 p-4 bg-white/10 rounded-xl border border-white/10">
-              <p className="text-sm font-medium italic text-center text-white/90">
-                &ldquo;{evaluation.vibe_check}&rdquo;
-              </p>
-            </div>
+          {tagline && (
+            <p className="text-lg text-muted-foreground italic">
+              &ldquo;{tagline}&rdquo;
+            </p>
           )}
-
-          {/* Description */}
-          <p className="text-center text-white/80 leading-relaxed mb-6">
-            {evaluation.description}
-          </p>
-
-          {/* Evidence - LLM observations */}
-          {evaluation.evidence && evaluation.evidence.length > 0 && (
-            <div className="mb-6 p-4 bg-white/5 rounded-xl">
-              <p className="text-xs text-white/50 mb-3 text-center uppercase tracking-wider">
-                we noticed...
-              </p>
-              <ul className="space-y-2">
-                {evaluation.evidence.map((item, i) => (
-                  <li key={i} className="text-sm text-white/70 text-center">
-                    {item}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-
-          {/* Callback Quote (legacy) */}
-          {evaluation.callback_quote && !evaluation.vibe_check && (
-            <div className="mb-6 p-4 bg-white/10 rounded-xl">
-              <p className="text-sm italic text-center text-white/80">
-                {evaluation.callback_quote}
-              </p>
-            </div>
-          )}
-
-          {/* Your People */}
-          {evaluation.your_people && evaluation.your_people.length > 0 && (
-            <div className="mb-6">
-              <p className="text-xs text-white/50 mb-2 text-center uppercase tracking-wider">
-                your people
-              </p>
-              <p className="text-sm text-center text-white/70">
-                {evaluation.your_people.join(" • ")}
-              </p>
-            </div>
-          )}
-
-          {/* Confidence indicator */}
-          <div>
-            <div className="flex justify-between text-xs text-white/50 mb-1">
-              <span>Match strength</span>
-              <span>{Math.round(evaluation.confidence * 100)}%</span>
-            </div>
-            <div className="h-2 bg-white/10 rounded-full overflow-hidden">
-              <div
-                className={cn("h-full rounded-full bg-gradient-to-r", "from-amber-400 to-rose-400")}
-                style={{ width: `${evaluation.confidence * 100}%` }}
-              />
-            </div>
-          </div>
         </div>
 
-        {/* Share count */}
-        {result.share_count > 0 && (
-          <p className="mt-4 text-white/40 text-sm">
-            Shared {result.share_count} {result.share_count === 1 ? "time" : "times"}
-          </p>
+        {/* Vibe Check - The devastating one-liner */}
+        {vibeCheck && (
+          <Card className={cn(
+            "w-full max-w-lg p-6 mb-4 border-2",
+            isFreakLevel ? "bg-fuchsia-500/5 border-fuchsia-500/20" :
+            isRomanticTrope ? "bg-amber-500/5 border-amber-500/20" :
+            "bg-rose-500/5 border-rose-500/20"
+          )}>
+            <div className="flex items-start gap-3">
+              <Quote className={cn("h-5 w-5 shrink-0 mt-0.5", accentTextClass)} />
+              <p className="text-base font-medium italic leading-relaxed">
+                {vibeCheck}
+              </p>
+            </div>
+          </Card>
         )}
 
-        {/* Actions */}
-        <div className="mt-8 flex flex-col gap-3 w-full max-w-md">
-          <Button
-            onClick={onTakeTest}
-            size="lg"
-            className={cn(
-              "w-full py-6 text-lg font-semibold rounded-full",
-              "bg-gradient-to-r from-amber-500 to-rose-500 hover:from-amber-400 hover:to-rose-400",
-              "shadow-xl shadow-rose-500/20"
-            )}
-          >
-            What&apos;s Your Romance Type?
-          </Button>
-
-          <Button
-            onClick={onShare}
-            variant="outline"
-            size="lg"
-            className="w-full py-6 text-lg font-semibold rounded-full border-white/20 text-white hover:bg-white/10"
-          >
-            {copied ? "Copied!" : "Share This Result"}
-          </Button>
-        </div>
-
-        {/* Footer */}
-        <div className="mt-8 text-center">
-          <a
-            href="/"
-            className="text-white/40 hover:text-white/60 transition-colors text-sm"
-          >
-            ep-0.com — Interactive AI Episodes
-          </a>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// Extended result type for freak level
-interface FreakLevelResult {
-  level: FreakLevel;
-  confidence: number;
-  title: string;
-  tagline: string;
-  description: string;
-  evidence?: string[];
-  vibe_check?: string;
-}
-
-// Component for Freak Level results
-function FreakLevelResultCard({
-  result,
-  onTakeTest,
-  onShare,
-  copied,
-}: {
-  result: SharedResultResponse;
-  onTakeTest: () => void;
-  onShare: () => void;
-  copied: boolean;
-}) {
-  const evaluation = result.result as FreakLevelResult;
-  const level = evaluation.level;
-  const meta = FREAK_LEVEL_META[level] || FREAK_LEVEL_META.spicy;
-
-  return (
-    <div className="min-h-screen bg-gradient-to-b from-purple-950 via-fuchsia-950 to-slate-950 text-white">
-      {/* Background decoration */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-fuchsia-500/20 rounded-full blur-3xl" />
-        <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-purple-500/20 rounded-full blur-3xl" />
-      </div>
-
-      {/* Content */}
-      <div className="relative z-10 flex flex-col items-center justify-center min-h-screen px-4 py-12">
-        {/* Header */}
-        <div className="text-center mb-6">
-          <p className="text-white/60 text-sm mb-1">Someone shared their result</p>
-          <h1 className="text-2xl font-bold bg-gradient-to-r from-fuchsia-400 to-red-400 bg-clip-text text-transparent">
-            Freak Test
-          </h1>
-        </div>
-
-        {/* Result Card */}
-        <div className={cn(
-          "w-full max-w-md p-8 rounded-3xl backdrop-blur-xl border border-white/10",
-          "bg-gradient-to-br",
-          meta.gradient
-        )}>
-          {/* Header */}
-          <p className="text-center text-white/50 text-xs uppercase tracking-wider mb-2">
-            Their Freak Level
-          </p>
-
-          {/* Emoji */}
-          <div className="text-6xl text-center mb-4">{meta.emoji}</div>
-
-          {/* Title */}
-          <h2 className={cn("text-3xl font-bold text-center mb-2", meta.color)}>
-            {evaluation.title}
-          </h2>
-
-          {/* Tagline */}
-          <p className="text-center text-white/70 italic mb-6">
-            &ldquo;{evaluation.tagline}&rdquo;
-          </p>
-
-          {/* Vibe Check */}
-          {evaluation.vibe_check && (
-            <div className="mb-6 p-4 bg-white/10 rounded-xl border border-white/10">
-              <p className="text-sm font-medium italic text-center text-white/90">
-                &ldquo;{evaluation.vibe_check}&rdquo;
-              </p>
-            </div>
-          )}
-
-          {/* Description */}
-          <p className="text-center text-white/80 leading-relaxed mb-6">
-            {evaluation.description}
-          </p>
-
-          {/* Evidence */}
-          {evaluation.evidence && evaluation.evidence.length > 0 && (
-            <div className="mb-6 p-4 bg-white/5 rounded-xl">
-              <p className="text-xs text-white/50 mb-3 text-center uppercase tracking-wider">
-                we noticed...
-              </p>
-              <ul className="space-y-2">
-                {evaluation.evidence.map((item, i) => (
-                  <li key={i} className="text-sm text-white/70 text-center">
-                    {item}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-
-          {/* Confidence indicator */}
-          <div>
-            <div className="flex justify-between text-xs text-white/50 mb-1">
-              <span>Match strength</span>
-              <span>{Math.round(evaluation.confidence * 100)}%</span>
-            </div>
-            <div className="h-2 bg-white/10 rounded-full overflow-hidden">
-              <div
-                className={cn("h-full rounded-full bg-gradient-to-r", "from-fuchsia-400 to-red-400")}
-                style={{ width: `${evaluation.confidence * 100}%` }}
-              />
-            </div>
-          </div>
-        </div>
-
-        {/* Share count */}
-        {result.share_count > 0 && (
-          <p className="mt-4 text-white/40 text-sm">
-            Shared {result.share_count} {result.share_count === 1 ? "time" : "times"}
-          </p>
+        {/* Main Description */}
+        {description && (
+          <Card className="w-full max-w-lg p-6 mb-4">
+            <p className="text-base leading-relaxed">
+              {description}
+            </p>
+          </Card>
         )}
 
-        {/* Actions */}
-        <div className="mt-8 flex flex-col gap-3 w-full max-w-md">
+        {/* Evidence - The callouts */}
+        {evidence.length > 0 && (
+          <Card className="w-full max-w-lg p-6 mb-4">
+            <div className="flex items-center gap-2 mb-4">
+              <Sparkles className={cn("h-5 w-5", accentTextClass)} />
+              <h2 className="font-semibold">we noticed...</h2>
+            </div>
+            <ul className="space-y-3">
+              {evidence.map((item: string, i: number) => (
+                <li key={i} className="flex items-start gap-3 text-sm text-muted-foreground leading-relaxed">
+                  <span className={cn("font-bold shrink-0", accentTextClass)}>{i + 1}.</span>
+                  <span>{item}</span>
+                </li>
+              ))}
+            </ul>
+          </Card>
+        )}
+
+        {/* Your People */}
+        {yourPeople.length > 0 && (
+          <Card className="w-full max-w-lg p-6 mb-4">
+            <div className="flex items-center gap-2 mb-3">
+              <span className="text-lg">{visuals.emoji}</span>
+              <h2 className="font-semibold">your people</h2>
+            </div>
+            <p className="text-sm text-muted-foreground">
+              {yourPeople.join(" • ")}
+            </p>
+          </Card>
+        )}
+
+        {/* Match strength */}
+        <Card className="w-full max-w-lg p-6 mb-4">
+          <div className="flex justify-between text-sm text-muted-foreground mb-2">
+            <span>Match strength</span>
+            <span className="font-medium">{Math.round(confidence * 100)}%</span>
+          </div>
+          <div className="h-2 bg-muted rounded-full overflow-hidden">
+            <div
+              className={cn("h-full rounded-full bg-gradient-to-r", buttonGradient)}
+              style={{ width: `${confidence * 100}%` }}
+            />
+          </div>
+        </Card>
+
+        {/* Primary CTA - Take the Quiz */}
+        <div className="w-full max-w-lg mb-3">
           <Button
-            onClick={onTakeTest}
+            onClick={handleTakeTest}
             size="lg"
             className={cn(
-              "w-full py-6 text-lg font-semibold rounded-full",
-              "bg-gradient-to-r from-fuchsia-500 to-red-500 hover:from-fuchsia-400 hover:to-red-400",
-              "shadow-xl shadow-fuchsia-500/20"
+              "w-full py-6 text-lg font-semibold rounded-full shadow-lg bg-gradient-to-r",
+              buttonGradient
             )}
           >
-            How Freaky Are You?
-          </Button>
-
-          <Button
-            onClick={onShare}
-            variant="outline"
-            size="lg"
-            className="w-full py-6 text-lg font-semibold rounded-full border-white/20 text-white hover:bg-white/10"
-          >
-            {copied ? "Copied!" : "Share This Result"}
+            {isFreakLevel ? "How Freaky Are You?" : isRomanticTrope ? "What's Your Romance Type?" : "Take the Test"}
           </Button>
         </div>
+
+        {/* Secondary: Share */}
+        <div className="w-full max-w-lg mb-8">
+          <Button
+            onClick={handleShare}
+            variant="outline"
+            className="w-full py-3 rounded-full"
+          >
+            {copied ? (
+              <>
+                <Check className="h-4 w-4 mr-2" />
+                Copied!
+              </>
+            ) : (
+              <>
+                <Share2 className="h-4 w-4 mr-2" />
+                Share This Result
+              </>
+            )}
+          </Button>
+        </div>
+
+        {/* Try other quizzes */}
+        <div className="w-full max-w-lg mb-8 text-center">
+          <Link
+            href="/play"
+            className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+          >
+            {isFreakLevel ? "Try the Romance Quiz instead" : "Try the Freak Test instead"}
+          </Link>
+        </div>
+
+        {/* Episode 0 CTA Section */}
+        {featuredSeries.length > 0 && (
+          <div className="w-full max-w-lg">
+            <div className="text-center mb-6">
+              <h3 className="text-xl font-semibold mb-2">ready for the real thing?</h3>
+              <p className="text-sm text-muted-foreground">
+                try episode 0 — free interactive romance stories
+              </p>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              {featuredSeries.map((series) => (
+                <Link
+                  key={series.id}
+                  href={`/series/${series.slug}`}
+                  className="group"
+                >
+                  <Card className={cn(
+                    "overflow-hidden border-2 border-transparent transition-all duration-200 hover:shadow-lg hover:-translate-y-1",
+                    isFreakLevel ? "hover:border-fuchsia-500/30" :
+                    isRomanticTrope ? "hover:border-amber-500/30" :
+                    "hover:border-rose-500/30"
+                  )}>
+                    <div className="relative aspect-[16/10] overflow-hidden bg-muted">
+                      {series.cover_image_url && (
+                        <img
+                          src={series.cover_image_url}
+                          alt={series.title}
+                          className="absolute inset-0 w-full h-full object-cover"
+                        />
+                      )}
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
+                      <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                        <div className="w-12 h-12 rounded-full bg-white/90 flex items-center justify-center shadow-lg">
+                          <Play className={cn(
+                            "h-5 w-5 ml-0.5",
+                            isFreakLevel ? "text-fuchsia-500 fill-fuchsia-500" :
+                            isRomanticTrope ? "text-amber-500 fill-amber-500" :
+                            "text-rose-500 fill-rose-500"
+                          )} />
+                        </div>
+                      </div>
+                      <div className="absolute bottom-0 left-0 right-0 p-3">
+                        <h4 className="font-semibold text-sm text-white drop-shadow-md line-clamp-1">
+                          {series.title}
+                        </h4>
+                        {series.tagline && (
+                          <p className="text-xs text-white/80 line-clamp-1 mt-0.5 drop-shadow-md">
+                            {series.tagline}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  </Card>
+                </Link>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Footer */}
-        <div className="mt-8 text-center">
-          <a
-            href="/"
-            className="text-white/40 hover:text-white/60 transition-colors text-sm"
-          >
-            ep-0.com — Interactive AI Episodes
-          </a>
+        <div className="mt-10 text-muted-foreground/60 text-xs">
+          <Link href="/" className="hover:text-foreground transition-colors">
+            ep-0.com
+          </Link>
         </div>
-      </div>
+      </main>
     </div>
   );
 }
