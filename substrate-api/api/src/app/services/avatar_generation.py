@@ -852,6 +852,19 @@ class AvatarGenerationService:
                 is_primary=is_primary,
             ))
 
+        # Auto-sync avatar_url if out of sync with primary anchor
+        # This ensures the character's avatar_url stays current when primary changes
+        if primary_url and not char_dict.get("avatar_url"):
+            try:
+                await db.execute(
+                    "UPDATE characters SET avatar_url = :url WHERE id = :id",
+                    {"url": primary_url, "id": str(character_id)}
+                )
+                char_dict["avatar_url"] = primary_url
+                log.info(f"Auto-synced avatar_url for character {character_id}")
+            except Exception as e:
+                log.warning(f"Failed to auto-sync avatar_url: {e}")
+
         # Use canonical validation for activation check
         errors = validate_chat_ready(char_dict)
 

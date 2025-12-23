@@ -434,12 +434,24 @@ def validate_chat_ready(character: dict) -> List[ActivationError]:
         errors.append(ActivationError("archetype", "required"))
 
     # Personality must exist and be non-empty
+    # Handle both dict and JSON string (DB may return either depending on query)
     personality = character.get("baseline_personality")
+    if personality and isinstance(personality, str):
+        try:
+            personality = json.loads(personality)
+        except (json.JSONDecodeError, TypeError):
+            personality = None
     if not personality or not isinstance(personality, dict) or len(personality) == 0:
         errors.append(ActivationError("baseline_personality", "required and must be non-empty"))
 
     # Boundaries must exist
+    # Handle both dict and JSON string (DB may return either depending on query)
     boundaries = character.get("boundaries")
+    if boundaries and isinstance(boundaries, str):
+        try:
+            boundaries = json.loads(boundaries)
+        except (json.JSONDecodeError, TypeError):
+            boundaries = None
     if not boundaries or not isinstance(boundaries, dict):
         errors.append(ActivationError("boundaries", "required"))
 
