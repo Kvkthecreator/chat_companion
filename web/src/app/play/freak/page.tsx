@@ -348,7 +348,8 @@ function FreakResult({ result, onPlayAgain }: { result: QuizEvaluateResponse; on
   const shareText = result.result.share_text || staticContent.shareText;
   const evidence = result.result.evidence || [];
   const vibeCheck = result.result.vibe_check;
-  const yourPeople = staticContent.yourPeople;
+  const levelNumber = result.result.level_number || staticContent.levelNumber;
+  const confidence = result.result.confidence || 0.85;
 
   const handleShare = async () => {
     // Use clean URL format (no www., consistent branding)
@@ -441,18 +442,27 @@ function FreakResult({ result, onPlayAgain }: { result: QuizEvaluateResponse; on
         </Card>
       )}
 
-      {/* Your People */}
-      {yourPeople && yourPeople.length > 0 && (
-        <Card className="w-full max-w-lg p-6 mb-4">
-          <div className="flex items-center gap-2 mb-3">
-            <span className="text-lg">{visuals.emoji}</span>
-            <h2 className="font-semibold">your people</h2>
+      {/* Unhinged Spectrum */}
+      <Card className="w-full max-w-lg p-6 mb-4">
+        <div className="flex justify-between text-xs text-muted-foreground mb-3">
+          <span>vanilla</span>
+          <span>menace</span>
+        </div>
+        <div className="relative h-3 bg-gradient-to-r from-amber-200 via-orange-400 via-red-500 via-purple-500 to-fuchsia-500 rounded-full">
+          {/* Position indicator based on level */}
+          <div
+            className="absolute top-1/2 -translate-y-1/2 w-5 h-5 bg-white rounded-full border-2 border-fuchsia-500 shadow-md flex items-center justify-center"
+            style={{ left: `${((levelNumber - 1) / 4) * 100}%`, transform: 'translate(-50%, -50%)' }}
+          >
+            <span className="text-xs">{visuals.emoji}</span>
           </div>
-          <p className="text-sm text-muted-foreground">
-            {yourPeople.join(" • ")}
-          </p>
-        </Card>
-      )}
+        </div>
+        <div className="mt-3 text-center">
+          <span className="text-sm text-muted-foreground">
+            Match strength: <span className="font-medium">{Math.round(confidence * 100)}%</span>
+          </span>
+        </div>
+      </Card>
 
       {/* Primary CTA - Share */}
       <div className="w-full max-w-lg mb-3">

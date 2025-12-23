@@ -8,12 +8,10 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Logo } from "@/components/Logo";
 import { cn } from "@/lib/utils";
-import { Share2, Check, Quote, Sparkles, Play } from "lucide-react";
+import { Share2, Check, Quote, Sparkles, Play, MessageCircle, Lightbulb } from "lucide-react";
 import type {
   FlirtArchetype,
-  FlirtArchetypeEvaluation,
   RomanticTrope,
-  RomanticTropeResult,
   SharedResultResponse,
 } from "@/types";
 
@@ -132,9 +130,8 @@ export function ShareResultClient({ shareId }: ShareResultClientProps) {
 
   const isRomanticTrope = result?.evaluation_type === "romantic_trope";
   const isFreakLevel = result?.evaluation_type === "freak_level";
-  const testName = isFreakLevel ? "Freak Test" : isRomanticTrope ? "Romance Quiz" : "Flirt Test";
-  const testUrl = isFreakLevel ? "/play/freak" : isRomanticTrope ? "/play/romance" : "/play";
-  const accentColor = isFreakLevel ? "fuchsia" : isRomanticTrope ? "amber" : "rose";
+  const testName = isFreakLevel ? "Unhinged Test" : isRomanticTrope ? "Dating Personality Test" : "Flirt Test";
+  const testUrl = isFreakLevel ? "/play/freak" : isRomanticTrope ? "/play" : "/play";
 
   const handleTakeTest = () => {
     router.push(testUrl);
@@ -232,11 +229,20 @@ export function ShareResultClient({ shareId }: ShareResultClientProps) {
   const visuals = getVisuals();
   const title = evaluation.title || "Your Result";
   const tagline = evaluation.tagline;
+  const confidence = evaluation.confidence || 0.8;
+
+  // v3.0 Dating Personality Test fields
+  const pattern = evaluation.pattern;
+  const theTruth = evaluation.the_truth;
+  const youTellYourself = evaluation.you_tell_yourself;
+  const butActually = evaluation.but_actually;
+  const whatYouNeed = evaluation.what_you_need;
+
+  // v3.0 Unhinged Test fields
   const description = evaluation.description;
   const vibeCheck = evaluation.vibe_check;
   const evidence = evaluation.evidence || [];
-  const yourPeople = evaluation.your_people || [];
-  const confidence = evaluation.confidence || 0.8;
+  const levelNumber = evaluation.level_number || 3;
 
   // Gradient classes based on quiz type
   const gradientClass = isFreakLevel
@@ -250,12 +256,6 @@ export function ShareResultClient({ shareId }: ShareResultClientProps) {
     : isRomanticTrope
     ? "from-amber-500 to-rose-500 hover:from-amber-400 hover:to-rose-400"
     : "from-rose-500 to-purple-500 hover:from-rose-400 hover:to-purple-400";
-
-  const accentTextClass = isFreakLevel
-    ? "text-fuchsia-500"
-    : isRomanticTrope
-    ? "text-amber-500"
-    : "text-rose-500";
 
   return (
     <div className="min-h-screen bg-background text-foreground">
@@ -291,7 +291,7 @@ export function ShareResultClient({ shareId }: ShareResultClientProps) {
 
           {/* Pre-title */}
           <p className="text-muted-foreground text-sm mb-2 uppercase tracking-wider">
-            {isFreakLevel ? "their freak level is" : isRomanticTrope ? "their romance type is" : "their flirt style is"}
+            {isFreakLevel ? "their unhinged level is" : isRomanticTrope ? "their dating pattern is" : "their flirt style is"}
           </p>
 
           {/* Title */}
@@ -307,61 +307,159 @@ export function ShareResultClient({ shareId }: ShareResultClientProps) {
           )}
         </div>
 
-        {/* Vibe Check - The devastating one-liner */}
-        {vibeCheck && (
-          <Card className={cn(
-            "w-full max-w-lg p-6 mb-4 border-2",
-            isFreakLevel ? "bg-fuchsia-500/5 border-fuchsia-500/20" :
-            isRomanticTrope ? "bg-amber-500/5 border-amber-500/20" :
-            "bg-rose-500/5 border-rose-500/20"
-          )}>
-            <div className="flex items-start gap-3">
-              <Quote className={cn("h-5 w-5 shrink-0 mt-0.5", accentTextClass)} />
-              <p className="text-base font-medium italic leading-relaxed">
-                {vibeCheck}
-              </p>
-            </div>
-          </Card>
+        {/* === Dating Personality Test v3.0 Content === */}
+        {isRomanticTrope && (
+          <>
+            {/* Pattern - The one-liner truth */}
+            {pattern && (
+              <Card className="w-full max-w-lg p-6 mb-4 bg-amber-500/5 border-amber-500/20">
+                <p className="text-base font-medium text-center leading-relaxed">
+                  {pattern}
+                </p>
+              </Card>
+            )}
+
+            {/* The Truth - The insight that makes them feel seen */}
+            {theTruth && (
+              <Card className="w-full max-w-lg p-6 mb-4">
+                <div className="flex items-center gap-2 mb-4">
+                  <Quote className="h-5 w-5 text-amber-500 shrink-0" />
+                  <h2 className="font-semibold text-sm uppercase tracking-wider text-muted-foreground">the truth is...</h2>
+                </div>
+                <p className="text-base leading-relaxed">
+                  {theTruth}
+                </p>
+              </Card>
+            )}
+
+            {/* You Tell Yourself / But Actually - The reveal */}
+            {(youTellYourself || butActually) && (
+              <Card className="w-full max-w-lg p-6 mb-4">
+                {youTellYourself && (
+                  <div className="mb-4">
+                    <div className="flex items-center gap-2 mb-2">
+                      <MessageCircle className="h-4 w-4 text-muted-foreground shrink-0" />
+                      <h2 className="font-semibold text-sm text-muted-foreground">they tell themselves</h2>
+                    </div>
+                    <p className="text-base italic text-muted-foreground pl-6">
+                      &ldquo;{youTellYourself}&rdquo;
+                    </p>
+                  </div>
+                )}
+
+                {butActually && (
+                  <div className={youTellYourself ? "pt-4 border-t" : ""}>
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className="text-amber-500 font-bold">but actually...</span>
+                    </div>
+                    <p className="text-base leading-relaxed">
+                      {butActually}
+                    </p>
+                  </div>
+                )}
+              </Card>
+            )}
+
+            {/* What You Need - The advice */}
+            {whatYouNeed && (
+              <Card className="w-full max-w-lg p-6 mb-4 bg-primary/5 border-primary/20">
+                <div className="flex items-start gap-3">
+                  <Lightbulb className="h-5 w-5 text-primary shrink-0 mt-0.5" />
+                  <div>
+                    <h2 className="font-semibold text-sm mb-2">what they actually need</h2>
+                    <p className="text-sm leading-relaxed">
+                      {whatYouNeed}
+                    </p>
+                  </div>
+                </div>
+              </Card>
+            )}
+          </>
         )}
 
-        {/* Main Description */}
-        {description && (
-          <Card className="w-full max-w-lg p-6 mb-4">
-            <p className="text-base leading-relaxed">
-              {description}
-            </p>
-          </Card>
+        {/* === Unhinged Test v3.0 Content === */}
+        {isFreakLevel && (
+          <>
+            {/* Spectrum visualization */}
+            <Card className="w-full max-w-lg p-6 mb-4">
+              <div className="flex justify-between text-xs text-muted-foreground mb-3">
+                <span>🍦 vanilla</span>
+                <span>😈 menace</span>
+              </div>
+              <div className="relative h-3 bg-gradient-to-r from-amber-200 via-orange-400 via-red-500 via-purple-500 to-fuchsia-500 rounded-full">
+                <div
+                  className="absolute top-1/2 -translate-y-1/2 w-5 h-5 bg-white rounded-full border-2 border-fuchsia-500 shadow-md"
+                  style={{ left: `${((levelNumber - 1) / 4) * 100}%`, transform: 'translate(-50%, -50%)' }}
+                />
+              </div>
+              <div className="text-center mt-3 text-sm text-muted-foreground">
+                level {levelNumber}/5
+              </div>
+            </Card>
+
+            {/* Vibe Check - The devastating one-liner */}
+            {vibeCheck && (
+              <Card className="w-full max-w-lg p-6 mb-4 border-2 bg-fuchsia-500/5 border-fuchsia-500/20">
+                <div className="flex items-start gap-3">
+                  <Quote className="h-5 w-5 shrink-0 mt-0.5 text-fuchsia-500" />
+                  <p className="text-base font-medium italic leading-relaxed">
+                    {vibeCheck}
+                  </p>
+                </div>
+              </Card>
+            )}
+
+            {/* Main Description */}
+            {description && (
+              <Card className="w-full max-w-lg p-6 mb-4">
+                <p className="text-base leading-relaxed">
+                  {description}
+                </p>
+              </Card>
+            )}
+
+            {/* Evidence - The callouts */}
+            {evidence.length > 0 && (
+              <Card className="w-full max-w-lg p-6 mb-4">
+                <div className="flex items-center gap-2 mb-4">
+                  <Sparkles className="h-5 w-5 text-fuchsia-500" />
+                  <h2 className="font-semibold">we noticed...</h2>
+                </div>
+                <ul className="space-y-3">
+                  {evidence.map((item: string, i: number) => (
+                    <li key={i} className="flex items-start gap-3 text-sm text-muted-foreground leading-relaxed">
+                      <span className="font-bold shrink-0 text-fuchsia-500">{i + 1}.</span>
+                      <span>{item}</span>
+                    </li>
+                  ))}
+                </ul>
+              </Card>
+            )}
+          </>
         )}
 
-        {/* Evidence - The callouts */}
-        {evidence.length > 0 && (
-          <Card className="w-full max-w-lg p-6 mb-4">
-            <div className="flex items-center gap-2 mb-4">
-              <Sparkles className={cn("h-5 w-5", accentTextClass)} />
-              <h2 className="font-semibold">we noticed...</h2>
-            </div>
-            <ul className="space-y-3">
-              {evidence.map((item: string, i: number) => (
-                <li key={i} className="flex items-start gap-3 text-sm text-muted-foreground leading-relaxed">
-                  <span className={cn("font-bold shrink-0", accentTextClass)}>{i + 1}.</span>
-                  <span>{item}</span>
-                </li>
-              ))}
-            </ul>
-          </Card>
-        )}
+        {/* === Legacy Flirt Test Content (fallback) === */}
+        {!isRomanticTrope && !isFreakLevel && (
+          <>
+            {vibeCheck && (
+              <Card className="w-full max-w-lg p-6 mb-4 border-2 bg-rose-500/5 border-rose-500/20">
+                <div className="flex items-start gap-3">
+                  <Quote className="h-5 w-5 shrink-0 mt-0.5 text-rose-500" />
+                  <p className="text-base font-medium italic leading-relaxed">
+                    {vibeCheck}
+                  </p>
+                </div>
+              </Card>
+            )}
 
-        {/* Your People */}
-        {yourPeople.length > 0 && (
-          <Card className="w-full max-w-lg p-6 mb-4">
-            <div className="flex items-center gap-2 mb-3">
-              <span className="text-lg">{visuals.emoji}</span>
-              <h2 className="font-semibold">your people</h2>
-            </div>
-            <p className="text-sm text-muted-foreground">
-              {yourPeople.join(" • ")}
-            </p>
-          </Card>
+            {description && (
+              <Card className="w-full max-w-lg p-6 mb-4">
+                <p className="text-base leading-relaxed">
+                  {description}
+                </p>
+              </Card>
+            )}
+          </>
         )}
 
         {/* Match strength */}
@@ -388,7 +486,7 @@ export function ShareResultClient({ shareId }: ShareResultClientProps) {
               buttonGradient
             )}
           >
-            {isFreakLevel ? "How Freaky Are You?" : isRomanticTrope ? "What's Your Romance Type?" : "Take the Test"}
+            {isFreakLevel ? "How Unhinged Are You?" : isRomanticTrope ? "What's Your Dating Pattern?" : "Take the Test"}
           </Button>
         </div>
 
@@ -416,10 +514,10 @@ export function ShareResultClient({ shareId }: ShareResultClientProps) {
         {/* Try other quizzes */}
         <div className="w-full max-w-lg mb-8 text-center">
           <Link
-            href="/play"
+            href={isFreakLevel ? "/play" : "/play/freak"}
             className="text-sm text-muted-foreground hover:text-foreground transition-colors"
           >
-            {isFreakLevel ? "Try the Romance Quiz instead" : "Try the Freak Test instead"}
+            {isFreakLevel ? "Try the Dating Personality Test instead" : "Try the Unhinged Test instead"}
           </Link>
         </div>
 
