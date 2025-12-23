@@ -90,13 +90,15 @@ DirectorEvaluation(
 
 **Visual Type Taxonomy**:
 
-| Type | Description | Cost | Example |
-|------|-------------|------|---------|
-| `character` | Character in emotional moment | Sparks | "her expression as she reads the letter" |
-| `object` | Close-up of significant item | Sparks | "the key on the table" |
-| `atmosphere` | Setting/mood without character | Sparks | "the empty café at closing time" |
-| `instruction` | Game-like text overlay | Free | "Choice: Stay or Leave" |
-| `none` | No visual warranted | Free | Most turns |
+| Type | Description | Example |
+|------|-------------|---------|
+| `character` | Character in emotional moment | "her expression as she reads the letter" |
+| `object` | Close-up of significant item | "the key on the table" |
+| `atmosphere` | Setting/mood without character | "the empty café at closing time" |
+| `instruction` | Game-like text overlay | "Choice: Stay or Leave" |
+| `none` | No visual warranted | Most turns |
+
+Note: Image generation costs are included in `episode_cost` (Ticket + Moments model).
 
 **Status Values**:
 
@@ -254,13 +256,20 @@ Example genre_beat: "thriller: every answer should raise two new questions"
 
 ---
 
-## Auto-Scene Modes
+## Visual Mode (Ticket + Moments Model)
 
-| Mode | Behavior | Configuration |
-|------|----------|---------------|
-| `off` | Manual only, user requests | Default |
-| `peaks` | Generate on visual moments | `visual_type != "none"` |
-| `rhythmic` | Every N turns + peaks | `scene_interval: 5` |
+Episode templates define `visual_mode` to control auto-generation:
+
+| Mode | Behavior | Budget |
+|------|----------|--------|
+| `cinematic` | Generate on narrative beats | 3-4 gens typical |
+| `minimal` | Generate at climax only | 1 gen |
+| `none` | No auto-gen (manual still available) | 0 |
+
+**Key principle**: Generations are included in `episode_cost` (no per-image charging).
+Director triggers based on semantic evaluation, not turn counts.
+
+See: [MONETIZATION_v2.0.md](../../monetization/MONETIZATION_v2.0.md)
 
 ---
 
@@ -294,5 +303,6 @@ session.director_state = {
 
 | Version | Date | Changes |
 |---------|------|---------|
+| 2.1.0 | 2024-12-23 | Hardened on Ticket + Moments model. Removed legacy auto_scene_mode/rhythmic. Visual costs included in episode_cost. |
 | 2.0.0 | 2024-12-20 | Added pre-response guidance phase, pacing algorithm |
 | 1.0.0 | 2024-12-20 | Initial protocol (post-evaluation only) |

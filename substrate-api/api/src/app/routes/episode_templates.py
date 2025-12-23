@@ -43,10 +43,8 @@ class EpisodeTemplateBase(BaseModel):
     situation: str
     opening_line: str
     episode_frame: Optional[str] = None
-    arc_hints: Optional[List[dict]] = []
     # Episode Dynamics (per EPISODE_DYNAMICS_CANON.md)
     dramatic_question: Optional[str] = None
-    beat_guidance: Optional[dict] = {}
     resolution_types: Optional[List[str]] = ["positive", "neutral", "negative"]
 
 
@@ -64,13 +62,11 @@ class EpisodeTemplateUpdate(BaseModel):
     situation: Optional[str] = None
     opening_line: Optional[str] = None
     episode_frame: Optional[str] = None
-    arc_hints: Optional[List[dict]] = None
     background_image_url: Optional[str] = None
     status: Optional[str] = None
     series_id: Optional[UUID] = None
     # Episode Dynamics
     dramatic_question: Optional[str] = None
-    beat_guidance: Optional[dict] = None
     resolution_types: Optional[List[str]] = None
 
 
@@ -223,7 +219,7 @@ async def get_episode_template(
     query = """
         SELECT id, character_id, series_id, episode_number, title, slug,
                situation, opening_line, background_image_url,
-               episode_frame, arc_hints, is_default, sort_order, status,
+               episode_frame, is_default, sort_order, status,
                episode_type, dramatic_question
         FROM episode_templates
         WHERE id = :id
@@ -251,7 +247,7 @@ async def get_default_episode(
     query = """
         SELECT id, character_id, series_id, episode_number, title, slug,
                situation, opening_line, background_image_url,
-               episode_frame, arc_hints, is_default, sort_order, status,
+               episode_frame, is_default, sort_order, status,
                episode_type, dramatic_question
         FROM episode_templates
         WHERE character_id = :character_id
@@ -301,19 +297,18 @@ async def create_episode_template(
     query = """
         INSERT INTO episode_templates (
             character_id, episode_number, title, slug,
-            situation, opening_line, episode_frame, arc_hints,
+            situation, opening_line, episode_frame,
             is_default, sort_order, status
         ) VALUES (
             :character_id, :episode_number, :title, :slug,
-            :situation, :opening_line, :episode_frame, :arc_hints,
+            :situation, :opening_line, :episode_frame,
             :is_default, :sort_order, 'draft'
         )
         RETURNING id, character_id, episode_number, title, slug,
                   situation, opening_line, background_image_url,
-                  episode_frame, arc_hints, is_default, sort_order, status
+                  episode_frame, is_default, sort_order, status
     """
 
-    import json
     row = await db.fetch_one(query, {
         "character_id": str(data.character_id),
         "episode_number": data.episode_number,
@@ -322,7 +317,6 @@ async def create_episode_template(
         "situation": data.situation,
         "opening_line": data.opening_line,
         "episode_frame": data.episode_frame,
-        "arc_hints": json.dumps(data.arc_hints or []),
         "is_default": data.is_default,
         "sort_order": max_sort["next_sort"],
     })
@@ -356,10 +350,6 @@ async def update_episode_template(
     if data.episode_frame is not None:
         updates.append("episode_frame = :episode_frame")
         values["episode_frame"] = data.episode_frame
-    if data.arc_hints is not None:
-        import json
-        updates.append("arc_hints = :arc_hints")
-        values["arc_hints"] = json.dumps(data.arc_hints)
     if data.background_image_url is not None:
         updates.append("background_image_url = :background_image_url")
         values["background_image_url"] = data.background_image_url
@@ -381,7 +371,7 @@ async def update_episode_template(
         WHERE id = :id
         RETURNING id, character_id, episode_number, title, slug,
                   situation, opening_line, background_image_url,
-                  episode_frame, arc_hints, is_default, sort_order, status
+                  episode_frame, is_default, sort_order, status
     """
 
     row = await db.fetch_one(query, values)
@@ -407,7 +397,7 @@ async def activate_episode_template(
         WHERE id = :id
         RETURNING id, character_id, episode_number, title, slug,
                   situation, opening_line, background_image_url,
-                  episode_frame, arc_hints, is_default, sort_order, status
+                  episode_frame, is_default, sort_order, status
     """
 
     row = await db.fetch_one(query, {"id": str(template_id)})

@@ -72,36 +72,29 @@ The Director classifies visual moments into types:
 | `instruction` | Game-like text overlay | "Choice: Stay or Leave" | InstructionCard |
 | `none` | No visual warranted | — | Nothing rendered |
 
-### Cost Model
-
-| Type | Sparks Cost | Notes |
-|------|-------------|-------|
-| `character` | Episode's `spark_cost_per_scene` (default: 5) | Image generation |
-| `object` | Episode's `spark_cost_per_scene` (default: 5) | Image generation |
-| `atmosphere` | Episode's `spark_cost_per_scene` (default: 5) | Image generation |
-| `instruction` | Free | Text-only, no generation |
-| `none` | Free | Nothing happens |
-
 ---
 
-## Auto-Scene Modes
+## Visual Mode (Ticket + Moments Model)
 
-How the Director decides when to generate visuals:
+Episode templates define `visual_mode` to control auto-generation:
 
-| Mode | Behavior | Use Case |
-|------|----------|----------|
-| `off` | User must manually request | Default, user control |
-| `peaks` | Generate on visual moments | Emotional highs |
-| `rhythmic` | Every N turns + peaks | Comic-book pacing |
+| Mode | Behavior | Typical Budget |
+|------|----------|----------------|
+| `cinematic` | Generate on narrative beats | 3-4 gens |
+| `minimal` | Generate at climax only | 1 gen |
+| `none` | No auto-gen (manual still available) | 0 |
 
 ### Configuration
 
 Set per episode template:
 ```
-auto_scene_mode: "peaks"
-scene_interval: 5        # For rhythmic mode
-spark_cost_per_scene: 5  # Sparks per visual
+visual_mode: "cinematic"      # cinematic, minimal, none
+generation_budget: 3          # Max auto-gens for this episode
+episode_cost: 3               # Sparks to start (includes generations)
 ```
+
+**Key principle**: Generation costs are included in `episode_cost`. No per-image charging.
+See: [MONETIZATION_v2.0.md](../../monetization/MONETIZATION_v2.0.md)
 
 ---
 
@@ -206,13 +199,14 @@ Both include `next_suggestion` pointing to recommended next episode.
 
 ---
 
-## Spark Balance Handling
+## Spark Balance Handling (Ticket + Moments Model)
 
-When Director wants to generate a visual but user lacks sparks:
+Sparks are checked at **episode entry**, not per-generation:
 
-1. First time per episode: Emit `needs_sparks`, show modal
-2. Subsequent times: Skip silently (don't spam)
-3. State tracked in: `session.director_state.spark_prompt_shown`
+1. User starts episode → Check `episode_cost` against balance
+2. If insufficient → Show `InsufficientSparksModal`
+3. Auto-generated visuals during episode → Free (included in ticket)
+4. Manual "Capture Moment" → 1 Spark (separate feature)
 
 ---
 
@@ -235,9 +229,8 @@ Character LLM generates response → [chunk, chunk, chunk...]
         ↓
 Stream events emitted:
   [done] ─────────────────→ MessageBubble + ChatHeader update
-  [visual_pending] ───────→ SceneCard skeleton
+  [visual_pending] ───────→ SceneCard skeleton (if budget allows)
   [instruction_card] ─────→ InstructionCard
-  [needs_sparks] ─────────→ Modal (once)
   [episode_complete] ─────→ InlineCompletionCard
         ↓
 Async: Image generation completes
@@ -262,12 +255,10 @@ The `useChat` hook exposes Director state:
   // Visual state
   visualPending: VisualPendingState | null,
   instructionCards: string[],
-  needsSparks: boolean,
 
   // Actions
   clearVisualPending: () => void,
   clearCompletion: () => void,
-  clearNeedsSparks: () => void,
 }
 ```
 
@@ -298,4 +289,5 @@ The `useChat` hook exposes Director state:
 
 | Version | Date | Changes |
 |---------|------|---------|
+| 1.1.0 | 2024-12-23 | Hardened on Ticket + Moments model. Removed legacy auto_scene_mode config. |
 | 1.0.0 | 2024-12-20 | Initial UI toolkit specification |

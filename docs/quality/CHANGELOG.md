@@ -17,6 +17,17 @@ Format: `[Document] vX.Y.Z - YYYY-MM-DD`
 ## 2024-12-23
 
 ### Changed
+- **[DIRECTOR_PROTOCOL.md]** v2.1.0 - Hardened on Ticket + Moments model
+  - Replaced Auto-Scene Modes section with Visual Mode section
+  - Removed legacy `auto_scene_mode`, `scene_interval`, `spark_cost_per_scene` references
+  - Visual costs now included in `episode_cost` (no per-image charging)
+  - Director triggers on semantic evaluation, not turn counts
+
+- **[DIRECTOR_UI_TOOLKIT.md]** v1.1.0 - Ticket + Moments alignment
+  - Replaced legacy configuration with `visual_mode`, `generation_budget`, `episode_cost`
+  - Updated Spark Balance Handling for entry-gate model
+  - Removed per-generation spark checking from data flow
+
 - **[CONTEXT_LAYERS.md]** v1.2.0 - Boundaries simplification
   - Simplified `boundaries` to only `flirting_level` and `nsfw_allowed`
   - Replaced Character Dynamics card with focused Energy Level card
@@ -29,6 +40,13 @@ Format: `[Document] vX.Y.Z - YYYY-MM-DD`
   - Added `likes/dislikes` documentation (first 5 used in prompt)
 
 ### Removed
+- **Episode Layer (Visual)**: Legacy visual generation fields:
+  - `auto_scene_mode` - superseded by `visual_mode`
+  - `scene_interval` - rhythmic mode removed (semantic triggers only)
+  - `spark_cost_per_scene` - costs now in `episode_cost`
+- **Episode Layer (Dynamics)**: Unused fields:
+  - `arc_hints`, `beat_guidance`, `fade_hints` - never used in prompt generation
+- **Director Service**: Legacy fallback code for `auto_scene_mode`
 - **Character Dynamics UI**: Removed 9 fields that were never used in prompt generation:
   - `availability`, `vulnerability_pacing`, `desire_expression`, `physical_comfort`
   - `dynamics_notes`, `can_reject_user`, `relationship_max_stage`
@@ -39,6 +57,7 @@ Format: `[Document] vX.Y.Z - YYYY-MM-DD`
 - **Create Wizard**: `can_reject_user` toggle (was never used)
 
 ### Migration
+- Database migration `041_drop_legacy_visual_columns.sql` drops legacy visual fields
 - Database migration `039_consolidate_backstory_fields.sql` merges backstory fields
 - UI Backstory tab simplified to single textarea
 - Likes/dislikes now show "X/5 used in prompt" indicator

@@ -8,26 +8,18 @@ Reference: docs/GLOSSARY.md, docs/EPISODE_DYNAMICS_CANON.md
 
 import json
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any, List, Optional
 from uuid import UUID
 
 from pydantic import BaseModel, Field, field_validator
-
-
-class AutoSceneMode:
-    """Auto scene generation mode constants (DEPRECATED - use VisualMode)."""
-    OFF = "off"           # No auto-generation, manual only
-    PEAKS = "peaks"       # Generate on visual moments (Director detects)
-    RHYTHMIC = "rhythmic" # Generate every N turns
 
 
 class VisualMode:
     """Visual generation mode constants (Ticket + Moments model).
 
     Defines how auto-generated visuals are handled for an episode.
-    This replaces auto_scene_mode with clearer semantics.
 
-    Reference: docs/monetization/MONETIZATION_v2.0_needsupdate.md
+    Reference: docs/monetization/MONETIZATION_v2.0.md
     """
     CINEMATIC = "cinematic"  # 3-4 auto-gens at narrative beats (Director decides)
     MINIMAL = "minimal"      # 1 auto-gen at climax only
@@ -82,22 +74,19 @@ class EpisodeTemplate(BaseModel):
     episode_frame: Optional[str] = None  # Stage direction for LLM
 
     # Episode dynamics (per EPISODE_DYNAMICS_CANON.md)
+    # NOTE: fade_hints, arc_hints removed - never used in prompt generation
     dramatic_question: Optional[str] = None
     resolution_types: List[str] = Field(
         default_factory=lambda: ["positive", "neutral", "negative"]
     )
-    fade_hints: Dict[str, Any] = Field(default_factory=dict)
-    arc_hints: List[Any] = Field(default_factory=list)
 
-    # Director V2 configuration (per DIRECTOR_ARCHITECTURE.md)
+    # Director configuration
     genre: str = "romance"  # Story genre for semantic evaluation context
-    auto_scene_mode: str = AutoSceneMode.OFF  # DEPRECATED: use visual_mode
-    scene_interval: Optional[int] = None  # For rhythmic mode: every N turns
-    spark_cost_per_scene: int = 5  # DEPRECATED: use episode_cost + generation_budget
     series_finale: bool = False  # Last episode of series
     turn_budget: Optional[int] = None  # Optional turn limit
 
-    # Ticket + Moments model (per MONETIZATION_v2.0)
+    # Visual generation (Ticket + Moments model)
+    # NOTE: auto_scene_mode, scene_interval, spark_cost_per_scene removed - use visual_mode
     visual_mode: str = VisualMode.NONE  # cinematic, minimal, none
     generation_budget: int = 0  # Max auto-gens included in episode cost
     episode_cost: int = 3  # Sparks to start episode (0 for entry/play)
@@ -111,24 +100,7 @@ class EpisodeTemplate(BaseModel):
     created_at: datetime
     updated_at: datetime
 
-    @field_validator("fade_hints", mode="before")
-    @classmethod
-    def ensure_dict(cls, v: Any) -> Dict[str, Any]:
-        """Handle dict fields as JSON string (from DB)."""
-        if v is None:
-            return {}
-        if isinstance(v, dict):
-            return v
-        if isinstance(v, str):
-            try:
-                parsed = json.loads(v)
-                if isinstance(parsed, dict):
-                    return parsed
-            except (json.JSONDecodeError, TypeError):
-                return {"raw": v}
-        return {}
-
-    @field_validator("resolution_types", "arc_hints", "starter_prompts", mode="before")
+    @field_validator("resolution_types", "starter_prompts", mode="before")
     @classmethod
     def ensure_list(cls, v: Any) -> List[Any]:
         """Handle list fields as JSON string (from DB)."""
@@ -170,13 +142,15 @@ class EpisodeTemplateCreate(BaseModel):
         default_factory=lambda: ["positive", "neutral", "negative"]
     )
 
-    # Director V2 configuration
+    # Director configuration
     genre: str = "romance"
-    auto_scene_mode: str = AutoSceneMode.OFF
-    scene_interval: Optional[int] = None
-    spark_cost_per_scene: int = 5
     series_finale: bool = False
     turn_budget: Optional[int] = None
+
+    # Visual generation
+    visual_mode: str = VisualMode.NONE
+    generation_budget: int = 0
+    episode_cost: int = 3
 
     # Status
     is_default: bool = False
@@ -195,15 +169,16 @@ class EpisodeTemplateUpdate(BaseModel):
     episode_frame: Optional[str] = None
     dramatic_question: Optional[str] = None
     resolution_types: Optional[List[str]] = None
-    fade_hints: Optional[Dict[str, Any]] = None
 
-    # Director V2 configuration
+    # Director configuration
     genre: Optional[str] = None
-    auto_scene_mode: Optional[str] = None
-    scene_interval: Optional[int] = None
-    spark_cost_per_scene: Optional[int] = None
     series_finale: Optional[bool] = None
     turn_budget: Optional[int] = None
+
+    # Visual generation
+    visual_mode: Optional[str] = None
+    generation_budget: Optional[int] = None
+    episode_cost: Optional[int] = None
 
     is_default: Optional[bool] = None
     sort_order: Optional[int] = None
