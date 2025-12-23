@@ -1551,6 +1551,12 @@ class EpisodeTemplateCreateInput(BaseModel):
     starter_prompts: Optional[List[str]] = None
     background_image_url: Optional[str] = None
     arc_hints: Optional[Dict[str, Any]] = None
+    # Episode Dynamics
+    dramatic_question: Optional[str] = Field(None, max_length=500, description="Narrative tension to explore")
+    # Scene motivation (ADR-002: Theatrical Model)
+    scene_objective: Optional[str] = Field(None, max_length=500, description="What character wants from user this scene")
+    scene_obstacle: Optional[str] = Field(None, max_length=500, description="What's stopping them from just asking")
+    scene_tactic: Optional[str] = Field(None, max_length=500, description="How they're trying to get what they want")
 
 
 class EpisodeTemplateUpdateInput(BaseModel):
@@ -1565,6 +1571,12 @@ class EpisodeTemplateUpdateInput(BaseModel):
     background_image_url: Optional[str] = None
     arc_hints: Optional[Dict[str, Any]] = None
     status: Optional[str] = Field(None, pattern="^(draft|active)$")
+    # Episode Dynamics
+    dramatic_question: Optional[str] = Field(None, max_length=500)
+    # Scene motivation (ADR-002: Theatrical Model)
+    scene_objective: Optional[str] = Field(None, max_length=500)
+    scene_obstacle: Optional[str] = Field(None, max_length=500)
+    scene_tactic: Optional[str] = Field(None, max_length=500)
 
 
 class EpisodeTemplateResponse(BaseModel):
@@ -1584,6 +1596,12 @@ class EpisodeTemplateResponse(BaseModel):
     status: str
     created_at: str
     updated_at: Optional[str] = None
+    # Episode Dynamics
+    dramatic_question: Optional[str] = None
+    # Scene motivation (ADR-002: Theatrical Model)
+    scene_objective: Optional[str] = None
+    scene_obstacle: Optional[str] = None
+    scene_tactic: Optional[str] = None
 
 
 @router.post("/episode-templates", response_model=EpisodeTemplateResponse, status_code=status.HTTP_201_CREATED)
@@ -1633,12 +1651,14 @@ async def create_episode_template(
             character_id, episode_number, title, slug,
             situation, episode_frame, opening_line,
             episode_type, is_default, starter_prompts,
-            background_image_url, arc_hints, sort_order, status
+            background_image_url, arc_hints, sort_order, status,
+            dramatic_question, scene_objective, scene_obstacle, scene_tactic
         ) VALUES (
             :character_id, :episode_number, :title, :slug,
             :situation, :episode_frame, :opening_line,
             :episode_type, :is_default, :starter_prompts,
-            :background_image_url, CAST(:arc_hints AS jsonb), :sort_order, 'draft'
+            :background_image_url, CAST(:arc_hints AS jsonb), :sort_order, 'draft',
+            :dramatic_question, :scene_objective, :scene_obstacle, :scene_tactic
         )
         RETURNING *
     """
@@ -1657,6 +1677,10 @@ async def create_episode_template(
         "background_image_url": data.background_image_url,
         "arc_hints": json.dumps(data.arc_hints or {}),
         "sort_order": episode_number,
+        "dramatic_question": data.dramatic_question,
+        "scene_objective": data.scene_objective,
+        "scene_obstacle": data.scene_obstacle,
+        "scene_tactic": data.scene_tactic,
     })
 
     row_dict = dict(row)
@@ -1676,6 +1700,10 @@ async def create_episode_template(
         status=row_dict["status"],
         created_at=str(row_dict["created_at"]),
         updated_at=str(row_dict["updated_at"]) if row_dict.get("updated_at") else None,
+        dramatic_question=row_dict.get("dramatic_question"),
+        scene_objective=row_dict.get("scene_objective"),
+        scene_obstacle=row_dict.get("scene_obstacle"),
+        scene_tactic=row_dict.get("scene_tactic"),
     )
 
 
@@ -1726,6 +1754,10 @@ async def list_character_episode_templates(
             status=r["status"],
             created_at=str(r["created_at"]),
             updated_at=str(r["updated_at"]) if r.get("updated_at") else None,
+            dramatic_question=r.get("dramatic_question"),
+            scene_objective=r.get("scene_objective"),
+            scene_obstacle=r.get("scene_obstacle"),
+            scene_tactic=r.get("scene_tactic"),
         )
         for row in rows
         for r in [dict(row)]  # Convert Record to dict for .get() access
@@ -1768,6 +1800,10 @@ async def get_episode_template(
         status=r["status"],
         created_at=str(r["created_at"]),
         updated_at=str(r["updated_at"]) if r.get("updated_at") else None,
+        dramatic_question=r.get("dramatic_question"),
+        scene_objective=r.get("scene_objective"),
+        scene_obstacle=r.get("scene_obstacle"),
+        scene_tactic=r.get("scene_tactic"),
     )
 
 
@@ -1834,6 +1870,10 @@ async def update_episode_template(
             status=existing["status"],
             created_at=str(existing["created_at"]),
             updated_at=str(existing["updated_at"]) if existing.get("updated_at") else None,
+            dramatic_question=existing.get("dramatic_question"),
+            scene_objective=existing.get("scene_objective"),
+            scene_obstacle=existing.get("scene_obstacle"),
+            scene_tactic=existing.get("scene_tactic"),
         )
 
     updates.append("updated_at = NOW()")
@@ -1864,6 +1904,10 @@ async def update_episode_template(
         status=r["status"],
         created_at=str(r["created_at"]),
         updated_at=str(r["updated_at"]) if r.get("updated_at") else None,
+        dramatic_question=r.get("dramatic_question"),
+        scene_objective=r.get("scene_objective"),
+        scene_obstacle=r.get("scene_obstacle"),
+        scene_tactic=r.get("scene_tactic"),
     )
 
 
