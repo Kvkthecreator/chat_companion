@@ -159,57 +159,74 @@ class DirectorGuidance:
     """Pre-response guidance for character LLM.
 
     This is injected into context BEFORE the character generates a response.
-    It influences pacing, tension, and genre-appropriate behavior.
+    The core of direction is the MOTIVATION BLOCK - what the character wants,
+    what's stopping them, and how they're trying to get it.
 
     ADR-001: Genre doctrine is now injected here by Director, not baked into
     character system_prompt. This allows the same character to work in
     different genre contexts (romance, thriller, slice-of-life).
+
+    Director Protocol v2.1: Motivation-Driven Direction
+    - objective: What you want from the user THIS moment
+    - obstacle: What's stopping you from just asking/doing it
+    - tactic: How you're trying to get what you want
     """
     pacing: str = "develop"  # establish/develop/escalate/peak/resolve
-    tension_note: Optional[str] = None  # Subtle direction for the actor
-    physical_anchor: Optional[str] = None  # Sensory reminder
-    genre_beat: Optional[str] = None  # Genre-specific guidance
+    physical_anchor: Optional[str] = None  # Sensory grounding
     genre: str = "romantic_tension"  # Genre for doctrine lookup
-    energy_level: str = "playful"  # Character's energy level for doctrine
+    energy_level: str = "playful"  # Character's energy level
+
+    # Motivation Block (the core of direction)
+    objective: Optional[str] = None  # What you want from user
+    obstacle: Optional[str] = None   # What's stopping you
+    tactic: Optional[str] = None     # How you're trying to get it
 
     def to_prompt_section(self) -> str:
-        """Format as prompt section for character LLM."""
+        """Format as prompt section for character LLM.
+
+        Structure (in priority order):
+        1. MOTIVATION BLOCK - the actable direction (objective/obstacle/tactic)
+        2. SCENE - physical grounding
+        3. GENRE ENERGY - how to express within this genre
+        """
         doctrine = GENRE_DOCTRINES.get(self.genre, GENRE_DOCTRINES["romantic_tension"])
 
         lines = [
             "═══════════════════════════════════════════════════════════════",
-            f"DIRECTOR NOTE: {doctrine['name']} - {doctrine['tagline']}",
+            f"DIRECTOR: {doctrine['name']}",
             "═══════════════════════════════════════════════════════════════",
-            "",
-            doctrine["purpose"],
-            "",
-            f"Pacing: {self.pacing.upper()}",
         ]
 
-        if self.tension_note:
-            lines.append(f"Tension: {self.tension_note}")
+        # MOTIVATION BLOCK - The core direction (if generated)
+        if self.objective or self.obstacle or self.tactic:
+            lines.append("")
+            lines.append("THIS MOMENT:")
+            if self.objective:
+                lines.append(f"  Want: {self.objective}")
+            if self.obstacle:
+                lines.append(f"  But: {self.obstacle}")
+            if self.tactic:
+                lines.append(f"  So: {self.tactic}")
 
+        # SCENE - Physical grounding
         if self.physical_anchor:
+            lines.append("")
             lines.append(f"Ground in: {self.physical_anchor}")
 
-        if self.genre_beat:
-            lines.append(f"Beat: {self.genre_beat}")
-
-        # Add key doctrine reminders (condensed)
+        # PACING + ENERGY - Genre-appropriate expression
         lines.append("")
-        lines.append(f"DO: {', '.join(doctrine['mandatory'][:3])}")
-        lines.append(f"DON'T: {', '.join(doctrine['forbidden'][:2])}")
+        lines.append(f"Pacing: {self.pacing.upper()}")
 
-        # Add energy-specific guidance
         energy_desc = doctrine["energy_descriptions"].get(
             self.energy_level,
             doctrine["energy_descriptions"].get("playful", "")
         )
         if energy_desc:
-            lines.append(f"{doctrine['energy_label']}: {energy_desc}")
+            lines.append(f"Energy: {energy_desc}")
 
+        # Condensed doctrine reminder
         lines.append("")
-        lines.append(doctrine["closing"])
+        lines.append(f"Remember: {doctrine['closing']}")
 
         return "\n".join(lines)
 
@@ -323,98 +340,130 @@ class DirectorService:
         turn_count: int,
         turn_budget: Optional[int] = None,
         energy_level: str = "playful",
+        character_name: Optional[str] = None,
     ) -> DirectorGuidance:
         """Generate pre-response guidance for character LLM.
 
-        ADR-001: Genre doctrine is now injected here, not in character system_prompt.
-        This allows characters to work across different genre contexts.
+        Director Protocol v2.1: Motivation-Driven Direction
 
-        This provides:
-        - Genre doctrine (from GENRE_DOCTRINES lookup)
-        - Pacing phase (algorithmic)
-        - Tension note (LLM-generated, contextual)
-        - Physical anchor (from situation)
-        - Genre beat (from GENRE_BEATS lookup)
-        - Energy-level specific guidance
+        The core output is the MOTIVATION BLOCK:
+        - objective: What you want from user THIS moment
+        - obstacle: What's stopping you from just asking
+        - tactic: How you're trying to get it
+
+        This replaces abstract doctrine with actable direction.
         """
         # 1. Determine pacing algorithmically
         pacing = self.determine_pacing(turn_count, turn_budget)
 
-        # 2. Get genre beat from lookup
+        # 2. Normalize genre key
         genre_key = genre.lower().replace(" ", "_").replace("-", "_")
-        genre_beats = GENRE_BEATS.get(genre_key, GENRE_BEATS.get("romantic_tension", {}))
-        genre_beat = f"{genre_key}: {genre_beats.get(pacing, 'stay in the moment')}"
 
-        # 3. Extract physical anchor from situation (first sensory phrase)
+        # 3. Extract physical anchor from situation
         physical_anchor = None
         if situation:
-            # Take first meaningful chunk for grounding
             physical_anchor = situation.split(".")[0].strip()[:100]
 
-        # 4. Generate tension note via lightweight LLM call
-        tension_note = await self._generate_tension_note(
+        # 4. Generate motivation block via LLM
+        motivation = await self._generate_motivation(
             messages=messages,
-            genre=genre,
+            genre=genre_key,
+            situation=situation,
             dramatic_question=dramatic_question,
             pacing=pacing,
+            character_name=character_name,
         )
 
         return DirectorGuidance(
             pacing=pacing,
-            tension_note=tension_note,
             physical_anchor=physical_anchor,
-            genre_beat=genre_beat,
             genre=genre_key,
             energy_level=energy_level,
+            objective=motivation.get("objective"),
+            obstacle=motivation.get("obstacle"),
+            tactic=motivation.get("tactic"),
         )
 
-    async def _generate_tension_note(
+    async def _generate_motivation(
         self,
         messages: List[Dict[str, str]],
         genre: str,
+        situation: str,
         dramatic_question: str,
         pacing: str,
-    ) -> Optional[str]:
-        """Generate a contextual tension note for the character.
+        character_name: Optional[str] = None,
+    ) -> Dict[str, Optional[str]]:
+        """Generate the motivation block for character direction.
 
-        This is a very short, focused LLM call (~50 tokens output).
+        Returns objective/obstacle/tactic - the actable core of direction.
+        This is what transforms flat responses into wanting responses.
         """
-        # Only use last 2 exchanges for speed
-        recent = messages[-4:] if len(messages) > 4 else messages
+        # Use last 2-3 exchanges for context
+        recent = messages[-6:] if len(messages) > 6 else messages
         formatted = "\n".join(
-            f"{m['role'].upper()}: {m['content'][:200]}"
+            f"{m['role'].upper()}: {m['content'][:150]}"
             for m in recent
         )
 
-        prompt = f"""You are a director giving a one-line note to an actor in a {genre} scene.
+        char_label = character_name or "Character"
+
+        prompt = f"""You are a director giving an actor their motivation for the next line.
+
+SCENE: {situation or 'An intimate moment'}
+DRAMATIC QUESTION: {dramatic_question or 'What happens next between you two?'}
+PACING: {pacing.upper()}
+GENRE: {genre.replace('_', ' ')}
 
 RECENT EXCHANGE:
 {formatted}
 
-DRAMATIC TENSION: {dramatic_question}
-CURRENT PACING: {pacing}
+Give {char_label} their motivation for responding. Be specific to THIS moment.
 
-Give ONE short direction (max 15 words) that helps the actor understand what to lean into for their next line. Focus on subtext, not action.
+OBJECTIVE: What do you want from the user right now? (one clear sentence)
+OBSTACLE: What's stopping you from just asking/saying it directly? (one clear sentence)
+TACTIC: How are you trying to get what you want? (one clear sentence)
 
-Examples:
-- "She wants to stay but can't admit it—let the pause speak"
-- "He's testing you—match his energy but keep something back"
-- "The silence is louder than words right now"
+Examples for romantic_tension:
+OBJECTIVE: You want them to ask you to stay
+OBSTACLE: You're supposed to be working, you can't ask
+TACTIC: Linger, find small excuses, make it easy for them to invite you
 
-Your direction:"""
+Examples for psychological_thriller:
+OBJECTIVE: You want them to trust you enough to reveal what they know
+OBSTACLE: They're suspicious and you can't seem too eager
+TACTIC: Offer something small first, create a sense of shared stakes
+
+Respond in this exact format:
+OBJECTIVE: [your direction]
+OBSTACLE: [your direction]
+TACTIC: [your direction]"""
 
         try:
             response = await self.llm.generate(
                 [{"role": "user", "content": prompt}],
-                max_tokens=50,
+                max_tokens=150,
                 temperature=0.7,
             )
-            # Clean up response
-            note = response.content.strip().strip('"').strip("'")
-            return note[:150] if note else None
+            return self._parse_motivation(response.content)
         except Exception as e:
-            log.warning(f"Tension note generation failed: {e}")
-            return None
+            log.warning(f"Motivation generation failed: {e}")
+            return {"objective": None, "obstacle": None, "tactic": None}
+
+    def _parse_motivation(self, response: str) -> Dict[str, Optional[str]]:
+        """Parse LLM response into objective/obstacle/tactic."""
+        result = {"objective": None, "obstacle": None, "tactic": None}
+
+        for key in ["objective", "obstacle", "tactic"]:
+            pattern = rf'{key.upper()}:\s*(.+?)(?:\n|$)'
+            match = re.search(pattern, response, re.IGNORECASE)
+            if match:
+                value = match.group(1).strip()
+                # Clean up common artifacts
+                value = value.strip('"\'')
+                if value and len(value) > 5:
+                    result[key] = value[:200]  # Cap length
+
+        return result
 
     # =========================================================================
     # PHASE 2: POST-EVALUATION (after character response)

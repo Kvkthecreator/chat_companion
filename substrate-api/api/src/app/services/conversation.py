@@ -228,6 +228,7 @@ class ConversationService:
                     turn_count=episode.turn_count,
                     turn_budget=getattr(episode_template, 'turn_budget', None),
                     energy_level=energy_level,
+                    character_name=context.character_name,
                 )
                 # Inject guidance into context (includes genre doctrine)
                 context.director_guidance = guidance.to_prompt_section()
