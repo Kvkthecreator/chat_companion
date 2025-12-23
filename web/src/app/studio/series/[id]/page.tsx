@@ -46,6 +46,10 @@ interface SeriesEpisode {
   episode_frame?: string
   background_image_url?: string
   dramatic_question?: string
+  // Scene Motivation (ADR-002: Theatrical Model)
+  scene_objective?: string
+  scene_obstacle?: string
+  scene_tactic?: string
   is_default: boolean
   sort_order: number
   status: string
@@ -217,6 +221,10 @@ export default function SeriesDetailPage({ params }: PageProps) {
         situation: episode.situation,
         opening_line: episode.opening_line,
         episode_frame: episode.episode_frame || undefined,
+        // Scene Motivation (ADR-002: Theatrical Model)
+        scene_objective: episode.scene_objective || undefined,
+        scene_obstacle: episode.scene_obstacle || undefined,
+        scene_tactic: episode.scene_tactic || undefined,
       })
       await fetchData()
       setEditingEpisode(null)
@@ -955,6 +963,62 @@ export default function SeriesDetailPage({ params }: PageProps) {
                               }
                               placeholder="e.g., Dimly lit coffee shop at night, rain on windows, warm amber lighting..."
                             />
+                          </div>
+
+                          {/* Scene Motivation (ADR-002: Theatrical Model) */}
+                          <div className="space-y-4 pt-4 border-t border-dashed">
+                            <div className="flex items-center gap-2">
+                              <Label className="text-base font-medium">Scene Motivation</Label>
+                              <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded">Theatrical Model</span>
+                            </div>
+                            <p className="text-xs text-muted-foreground -mt-2">
+                              Director's notes for the character in this scene. These guide behavior without being visible to users.
+                            </p>
+
+                            <div className="space-y-2">
+                              <Label className="text-sm">Scene Objective</Label>
+                              <p className="text-xs text-muted-foreground">
+                                What does the character want from the user in this scene?
+                              </p>
+                              <textarea
+                                className="min-h-[60px] w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
+                                value={editingEpisode.scene_objective || ''}
+                                onChange={(e) =>
+                                  setEditingEpisode({ ...editingEpisode, scene_objective: e.target.value })
+                                }
+                                placeholder="e.g., You want them to finally notice the signs you've been dropping"
+                              />
+                            </div>
+
+                            <div className="space-y-2">
+                              <Label className="text-sm">Scene Obstacle</Label>
+                              <p className="text-xs text-muted-foreground">
+                                What's stopping the character from just asking directly?
+                              </p>
+                              <textarea
+                                className="min-h-[60px] w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
+                                value={editingEpisode.scene_obstacle || ''}
+                                onChange={(e) =>
+                                  setEditingEpisode({ ...editingEpisode, scene_obstacle: e.target.value })
+                                }
+                                placeholder="e.g., You've hidden behind the barista role for too long - admitting interest feels like losing"
+                              />
+                            </div>
+
+                            <div className="space-y-2">
+                              <Label className="text-sm">Scene Tactic</Label>
+                              <p className="text-xs text-muted-foreground">
+                                How is the character trying to get what they want?
+                              </p>
+                              <textarea
+                                className="min-h-[60px] w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
+                                value={editingEpisode.scene_tactic || ''}
+                                onChange={(e) =>
+                                  setEditingEpisode({ ...editingEpisode, scene_tactic: e.target.value })
+                                }
+                                placeholder="e.g., Show them the drawing as a test - if they get it, they get it"
+                              />
+                            </div>
                           </div>
 
                           {/* Current Background Preview (expanded view) */}

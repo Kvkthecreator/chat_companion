@@ -271,6 +271,10 @@ export interface EpisodeTemplate extends EpisodeTemplateSummary {
   // Episode Dynamics
   dramatic_question: string | null;  // Narrative tension to explore
   resolution_types: string[];  // Valid endings: positive, neutral, negative, surprise
+  // Scene Motivation (ADR-002: Theatrical Model)
+  scene_objective: string | null;  // What character wants from user this scene
+  scene_obstacle: string | null;   // What's stopping them from just asking
+  scene_tactic: string | null;     // How they're trying to get what they want
   // Director V2 configuration
   genre: string;  // Story genre for semantic evaluation
   auto_scene_mode: AutoSceneMode;  // off, peaks, rhythmic
@@ -457,6 +461,10 @@ export interface EpisodeDrawerItem extends EpisodeTemplateSummary {
   opening_line?: string;
   episode_frame?: string | null;
   dramatic_question?: string | null;
+  // Scene Motivation (ADR-002: Theatrical Model)
+  scene_objective?: string | null;
+  scene_obstacle?: string | null;
+  scene_tactic?: string | null;
   sort_order: number;
   status: string;
 }
