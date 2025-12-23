@@ -17,6 +17,11 @@ Format: `[Document] vX.Y.Z - YYYY-MM-DD`
 ## 2024-12-23
 
 ### Changed
+- **[CONTEXT_LAYERS.md]** v1.2.0 - Boundaries simplification
+  - Simplified `boundaries` to only `flirting_level` and `nsfw_allowed`
+  - Replaced Character Dynamics card with focused Energy Level card
+  - `flirting_level` now surfaced with clear UI (reserved/playful/flirty/bold)
+
 - **[CONTEXT_LAYERS.md]** v1.1.0 - Character data model simplification
   - `short_backstory` and `full_backstory` merged into single `backstory` field
   - `current_stressor` removed - episode `situation` now conveys emotional state
@@ -24,14 +29,21 @@ Format: `[Document] vX.Y.Z - YYYY-MM-DD`
   - Added `likes/dislikes` documentation (first 5 used in prompt)
 
 ### Removed
+- **Character Dynamics UI**: Removed 9 fields that were never used in prompt generation:
+  - `availability`, `vulnerability_pacing`, `desire_expression`, `physical_comfort`
+  - `dynamics_notes`, `can_reject_user`, `relationship_max_stage`
+  - `avoided_topics`, `has_own_boundaries`
 - **Character Layer**: `life_arc` field (was half-implemented, no UI)
 - **Character Layer**: `current_stressor` field (redundant with episode situation)
 - **ConversationContext**: `character_life_arc` field and `_format_life_arc()` method
+- **Create Wizard**: `can_reject_user` toggle (was never used)
 
 ### Migration
 - Database migration `039_consolidate_backstory_fields.sql` merges backstory fields
 - UI Backstory tab simplified to single textarea
 - Likes/dislikes now show "X/5 used in prompt" indicator
+- CharacterBoundaries model simplified to 2 fields
+- DEFAULT_BOUNDARIES reduced from 6 fields to 2
 
 ---
 

@@ -26,11 +26,11 @@ type StudioDraft = {
   avatarUrl: string | null
 
   // Step 2: Personality & Boundaries
+  // NOTE: boundaries simplified - only fields that affect prompt generation
   personalityPreset: string
   boundaries: {
     nsfw_allowed: boolean
     flirting_level: FlirtingLevel
-    can_reject_user: boolean
   }
   contentRating: ContentRating
 
@@ -86,7 +86,6 @@ function buildEmptyDraft(): StudioDraft {
     boundaries: {
       nsfw_allowed: false,
       flirting_level: 'playful',
-      can_reject_user: true,
     },
     contentRating: 'sfw',
     openingSituation: '',
@@ -154,7 +153,6 @@ export default function CreateCharacterWizard() {
         boundaries: {
           nsfw_allowed: draft.boundaries.nsfw_allowed,
           flirting_level: draft.boundaries.flirting_level,
-          can_reject_user: draft.boundaries.can_reject_user,
         },
         content_rating: draft.contentRating,
       })
@@ -190,10 +188,6 @@ export default function CreateCharacterWizard() {
         boundaries: {
           nsfw_allowed: draft.boundaries.nsfw_allowed,
           flirting_level: draft.boundaries.flirting_level,
-          relationship_max_stage: 'intimate',
-          avoided_topics: [],
-          can_reject_user: draft.boundaries.can_reject_user,
-          has_own_boundaries: true,
         },
         content_rating: draft.contentRating,
         opening_situation: draft.openingSituation.trim(),
@@ -397,22 +391,7 @@ export default function CreateCharacterWizard() {
                 />
               </div>
 
-              {/* Can Reject */}
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium">Character Can Decline</p>
-                  <p className="text-xs text-muted-foreground">Character can refuse uncomfortable requests</p>
-                </div>
-                <Switch
-                  checked={draft.boundaries.can_reject_user}
-                  onCheckedChange={(checked) =>
-                    setDraft((prev) => ({
-                      ...prev,
-                      boundaries: { ...prev.boundaries, can_reject_user: checked },
-                    }))
-                  }
-                />
-              </div>
+              {/* NOTE: can_reject_user removed - was never used in prompt generation */}
             </div>
           </CardContent>
         </Card>

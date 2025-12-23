@@ -30,14 +30,15 @@ class CharacterToneStyle(BaseModel):
 
 
 class CharacterBoundaries(BaseModel):
-    """Character's interaction boundaries."""
+    """Character's interaction boundaries.
+
+    NOTE: Simplified to only include fields that actually affect prompt generation.
+    Removed: relationship_max_stage, avoided_topics, can_reject_user, has_own_boundaries
+    (these were never used in build_system_prompt or any behavior logic)
+    """
 
     nsfw_allowed: bool = False
-    flirting_level: str = "playful"
-    relationship_max_stage: str = "intimate"
-    avoided_topics: List[str] = Field(default_factory=list)
-    can_reject_user: bool = True
-    has_own_boundaries: bool = True
+    flirting_level: str = "playful"  # Used in prompt generation and avatar generation
 
 
 class CharacterSummary(BaseModel):
@@ -271,14 +272,12 @@ PERSONALITY_PRESETS = {
     },
 }
 
-# Default boundaries (sensible safety defaults)
+# Default boundaries (simplified to only fields that affect behavior)
+# NOTE: relationship_max_stage, avoided_topics, can_reject_user, has_own_boundaries
+# were removed as they were never used in prompt generation or behavior logic
 DEFAULT_BOUNDARIES = {
     "nsfw_allowed": False,
     "flirting_level": "playful",
-    "relationship_max_stage": "intimate",
-    "avoided_topics": [],
-    "can_reject_user": True,
-    "has_own_boundaries": True,
 }
 
 
