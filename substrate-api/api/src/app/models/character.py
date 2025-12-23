@@ -48,7 +48,7 @@ class CharacterSummary(BaseModel):
     slug: str
     archetype: str
     avatar_url: Optional[str] = None
-    short_backstory: Optional[str] = None
+    backstory: Optional[str] = None  # Merged from short_backstory/full_backstory
     is_premium: bool = False
     genre: str = "romantic_tension"
     status: Optional[str] = None  # draft/active - for studio view
@@ -68,6 +68,7 @@ class CharacterProfile(BaseModel):
     """Character profile for the detail page - includes avatar gallery.
 
     NOTE: starter_prompts removed - now on episode_templates (EP-01 Episode-First Pivot)
+    NOTE: short_backstory/full_backstory merged into backstory
     """
 
     id: UUID
@@ -75,8 +76,7 @@ class CharacterProfile(BaseModel):
     slug: str
     archetype: str
     avatar_url: Optional[str] = None
-    short_backstory: Optional[str] = None
-    full_backstory: Optional[str] = None
+    backstory: Optional[str] = None  # Merged from short_backstory/full_backstory
     likes: List[str] = Field(default_factory=list)
     dislikes: List[str] = Field(default_factory=list)
     is_premium: bool = False
@@ -122,10 +122,11 @@ class Character(BaseModel):
     tone_style: Dict[str, Any] = Field(default_factory=dict)
     speech_patterns: Dict[str, Any] = Field(default_factory=dict)
 
-    # Backstory
-    short_backstory: Optional[str] = None
-    full_backstory: Optional[str] = None
-    current_stressor: Optional[str] = None
+    # Backstory - single field for character history/context
+    # NOTE: short_backstory and full_backstory merged into backstory
+    # NOTE: current_stressor removed - episode situation should convey emotional state
+    # NOTE: life_arc removed - backstory + archetype + genre doctrine provide character depth
+    backstory: Optional[str] = None
     likes: List[str] = Field(default_factory=list)
     dislikes: List[str] = Field(default_factory=list)
 
@@ -137,9 +138,6 @@ class Character(BaseModel):
 
     # Boundaries
     boundaries: Dict[str, Any] = Field(default_factory=dict)
-
-    # Life arc (character's own story/struggles)
-    life_arc: Dict[str, Any] = Field(default_factory=dict)
 
     # Relationship config
     relationship_stage_thresholds: Dict[str, int] = Field(default_factory=dict)
@@ -162,7 +160,7 @@ class Character(BaseModel):
 
     @field_validator(
         "baseline_personality", "tone_style", "speech_patterns",
-        "boundaries", "life_arc", "relationship_stage_thresholds", mode="before"
+        "boundaries", "relationship_stage_thresholds", mode="before"
     )
     @classmethod
     def ensure_dict(cls, v: Any) -> Dict[str, Any]:
@@ -359,17 +357,15 @@ class CharacterUpdateInput(BaseModel):
     boundaries: Optional[Dict[str, Any]] = None
 
     # Backstory (optional enrichment)
-    short_backstory: Optional[str] = Field(None, max_length=500)
-    full_backstory: Optional[str] = Field(None, max_length=5000)
-    current_stressor: Optional[str] = Field(None, max_length=500)
+    # NOTE: short_backstory/full_backstory merged into backstory
+    # NOTE: current_stressor removed - episode situation conveys emotional state
+    # NOTE: life_arc removed - backstory + archetype + genre doctrine provide depth
+    backstory: Optional[str] = Field(None, max_length=5000)
     likes: Optional[List[str]] = None
     dislikes: Optional[List[str]] = None
 
     # NOTE: opening_situation, opening_line, starter_prompts, example_messages removed
     # - edit via episode_templates (EP-01 Episode-First Pivot - single source of truth)
-
-    # Life arc
-    life_arc: Optional[Dict[str, Any]] = None
 
     # World attachment
     world_id: Optional[UUID] = None
@@ -605,7 +601,6 @@ def build_system_prompt(
     tone_style: Dict[str, Any] = None,
     speech_patterns: Dict[str, Any] = None,
     backstory: str = None,
-    current_stressor: str = None,
     likes: List[str] = None,
     dislikes: List[str] = None,
     genre: str = "romantic_tension",
@@ -616,7 +611,19 @@ def build_system_prompt(
     be generated through this function to ensure consistency with genre doctrine.
 
     Args:
+        name: Character's name
+        archetype: Character archetype (e.g., 'quiet_observer', 'flirty')
+        personality: Big Five personality traits
+        boundaries: Safety/behavior boundaries
+        tone_style: Communication style (formality, emoji usage, etc.)
+        speech_patterns: Greetings, thinking words, affirmations
+        backstory: Character history/context (merged from short/full)
+        likes: Things the character enjoys (first 5 used)
+        dislikes: Things the character doesn't like (first 5 used)
         genre: One of 'romantic_tension' or 'psychological_thriller'
+
+    NOTE: current_stressor and life_arc removed - episode situation should
+    convey emotional state, backstory + archetype + genre doctrine provide depth.
 
     The prompt includes placeholders for dynamic context:
     - {memories}: User memories, filled by ConversationContext
@@ -682,14 +689,7 @@ YOUR BACKSTORY (use subtly, don't dump):
 {backstory}
 """
 
-    # Build current struggle/stressor
-    stressor_section = ""
-    if current_stressor:
-        stressor_section = f"""
-WHAT'S WEIGHING ON YOU RIGHT NOW:
-{current_stressor}
-(Let this color your mood occasionally - you have your own life.)
-"""
+    # NOTE: current_stressor/life_arc removed - episode situation conveys emotional state
 
     # Build likes/dislikes
     preferences_section = ""
@@ -736,7 +736,7 @@ PERSONALITY: {traits_str}
 {energy_desc}
 
 COMMUNICATION STYLE:{tone_guidance}{speech_guidance}
-{backstory_section}{stressor_section}{preferences_section}
+{backstory_section}{preferences_section}
 ═══════════════════════════════════════════════════════════════
 WHAT YOU KNOW ABOUT THEM
 ═══════════════════════════════════════════════════════════════

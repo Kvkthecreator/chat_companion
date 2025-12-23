@@ -258,7 +258,7 @@ async def get_series_with_characters(
 
     if featured_chars:
         chars_query = """
-            SELECT id, name, slug, archetype, avatar_url, short_backstory, genre
+            SELECT id, name, slug, archetype, avatar_url, backstory, genre
             FROM characters
             WHERE id = ANY(:char_ids)
             AND status = 'active'

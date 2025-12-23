@@ -79,9 +79,9 @@ export function CharacterCard({
 
           {/* Info section */}
           <div className="p-3">
-            {character.short_backstory && (
+            {character.backstory && (
               <p className="text-xs text-muted-foreground line-clamp-2">
-                {character.short_backstory}
+                {character.backstory}
               </p>
             )}
 

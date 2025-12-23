@@ -1,8 +1,8 @@
 # Context Layers
 
-> **Version**: 1.0.0
+> **Version**: 1.1.0
 > **Status**: Draft
-> **Updated**: 2024-12-20
+> **Updated**: 2024-12-23
 
 ---
 
@@ -48,10 +48,13 @@ This document defines the 6-layer context architecture that composes every chara
 | Component | Purpose | Example |
 |-----------|---------|---------|
 | System Prompt | Core voice and behavior | Genre doctrine, communication style |
-| Life Arc | Current journey | `{current_goal, struggle, secret_dream}` |
+| Backstory | Character history/context | Background, motivations, personality depth |
 | Personality | Trait weights | Warmth: 0.8, Wit: 0.6, Intensity: 0.7 |
 | Boundaries | What they won't do | Topics avoided, intimacy limits |
 | Speech Patterns | Voice consistency | Emoji usage, slang level, message length |
+| Likes/Dislikes | Preferences (first 5 used) | Conversation hooks and personality details |
+
+> **Note**: `life_arc` and `current_stressor` have been removed. Character emotional state is now conveyed through episode `situation`. Backstory + archetype + genre doctrine provide sufficient character depth.
 
 ### Quality Impact
 - **High**: Determines voice consistency
@@ -278,4 +281,5 @@ Layers are assembled in this order (later = higher priority):
 
 | Version | Date | Changes |
 |---------|------|---------|
+| 1.1.0 | 2024-12-23 | Simplified character data: merged backstory fields, removed life_arc/current_stressor |
 | 1.0.0 | 2024-12-20 | Initial 6-layer specification, added Layer 6 (Director Guidance) |

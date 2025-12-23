@@ -44,7 +44,7 @@ export interface CharacterSummary {
   slug: string;
   archetype: string;
   avatar_url: string | null;
-  short_backstory: string | null;
+  backstory: string | null; // NOTE: short_backstory/full_backstory merged into backstory
   is_premium: boolean;
   genre?: Genre;
 }
@@ -57,7 +57,7 @@ export interface AvatarGalleryItem {
 }
 
 export interface CharacterProfile extends CharacterSummary {
-  full_backstory: string | null;
+  // NOTE: backstory inherited from CharacterSummary (short_backstory/full_backstory merged)
   likes: string[];
   dislikes: string[];
   gallery: AvatarGalleryItem[];
@@ -72,8 +72,8 @@ export interface Character extends CharacterSummary {
   baseline_personality: Record<string, unknown>;
   tone_style: Record<string, unknown>;
   speech_patterns: Record<string, unknown>;
-  full_backstory: string | null;
-  current_stressor: string | null;
+  // NOTE: backstory inherited from CharacterSummary (short_backstory/full_backstory merged)
+  // NOTE: current_stressor removed - episode situation conveys emotional state
   likes: string[];
   dislikes: string[];
   system_prompt: string;

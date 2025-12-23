@@ -489,13 +489,8 @@ class ConversationService:
                 months = delta.days // 30
                 time_since_first_met = f"{months} month{'s' if months > 1 else ''}"
 
-        # Get character life arc from character data (if available)
-        character_life_arc = {}
-        if hasattr(character, 'life_arc') and character.life_arc:
-            character_life_arc = character.life_arc
-        elif character.current_stressor:
-            # Fallback: use current_stressor as the struggle
-            character_life_arc = {"current_struggle": character.current_stressor}
+        # NOTE: character_life_arc removed - backstory + archetype + genre doctrine provide depth
+        # Character's emotional state comes from episode situation, not a separate life_arc field
 
         # Get relationship dynamic (Phase 4: Beat-aware system)
         relationship_dynamic_data = await self.memory_service.get_relationship_dynamic(
@@ -549,7 +544,7 @@ class ConversationService:
         return ConversationContext(
             character_system_prompt=character.system_prompt,
             character_name=character.name,
-            character_life_arc=character_life_arc,
+            # NOTE: character_life_arc removed
             messages=messages,
             memories=memory_summaries,
             hooks=hook_summaries,

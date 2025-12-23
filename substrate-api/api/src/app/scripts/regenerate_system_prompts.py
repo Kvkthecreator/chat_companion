@@ -36,9 +36,11 @@ async def regenerate_all_prompts():
 
     try:
         # Get all active characters with their genre
+        # NOTE: short_backstory/full_backstory merged into backstory
+        # NOTE: current_stressor removed - episode situation conveys emotional state
         rows = await db.fetch_all("""
             SELECT id, name, archetype, baseline_personality, boundaries,
-                   tone_style, speech_patterns, full_backstory, current_stressor,
+                   tone_style, speech_patterns, backstory,
                    likes, dislikes, genre
             FROM characters
             WHERE status = 'active'
@@ -88,8 +90,7 @@ async def regenerate_all_prompts():
                 boundaries=boundaries or {},
                 tone_style=tone_style,
                 speech_patterns=speech_patterns,
-                backstory=char["full_backstory"],
-                current_stressor=char["current_stressor"],
+                backstory=char.get("backstory"),
                 likes=likes,
                 dislikes=dislikes,
                 genre=genre,

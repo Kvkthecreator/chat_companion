@@ -42,7 +42,7 @@ async def list_characters(
     # Join with avatar_kits and avatar_assets to get primary anchor path
     query = f"""
         SELECT c.id, c.name, c.slug, c.archetype, c.avatar_url,
-               c.short_backstory, c.is_premium,
+               c.backstory, c.is_premium,
                aa.storage_path as anchor_path
         FROM characters c
         LEFT JOIN avatar_kits ak ON ak.id = c.active_avatar_kit_id
@@ -167,9 +167,10 @@ async def get_character_profile(
     """
     # Get character - only active ones
     # NOTE: starter_prompts removed - now on episode_templates (EP-01 Episode-First Pivot)
+    # NOTE: short_backstory/full_backstory merged into backstory
     query = """
-        SELECT id, name, slug, archetype, avatar_url, short_backstory,
-               full_backstory, likes, dislikes, is_premium,
+        SELECT id, name, slug, archetype, avatar_url, backstory,
+               likes, dislikes, is_premium,
                active_avatar_kit_id
         FROM characters
         WHERE slug = :slug AND status = 'active' AND is_active = TRUE

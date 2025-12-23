@@ -89,7 +89,7 @@ class ConversationContext(BaseModel):
 
     character_system_prompt: str
     character_name: str = ""
-    character_life_arc: Dict[str, str] = Field(default_factory=dict)
+    # NOTE: character_life_arc removed - backstory + archetype + genre doctrine provide depth
     messages: List[Dict[str, str]] = Field(default_factory=list)
     memories: List[MemorySummary] = Field(default_factory=list)
     hooks: List[HookSummary] = Field(default_factory=list)
@@ -175,20 +175,8 @@ class ConversationContext(BaseModel):
                 lines.append(f"- {h.content}")
         return "\n".join(lines)
 
-    def _format_life_arc(self) -> str:
-        """Format character's current life situation."""
-        if not self.character_life_arc:
-            return ""
-
-        parts = []
-        if self.character_life_arc.get("current_goal"):
-            parts.append(f"You're working toward: {self.character_life_arc['current_goal']}")
-        if self.character_life_arc.get("current_struggle"):
-            parts.append(f"What's weighing on you: {self.character_life_arc['current_struggle']}")
-        if self.character_life_arc.get("secret_dream"):
-            parts.append(f"Something you don't share with just anyone: {self.character_life_arc['secret_dream']}")
-
-        return "\n".join(parts) if parts else ""
+    # NOTE: _format_life_arc() removed - backstory + archetype + genre doctrine provide depth
+    # Character's emotional state comes from episode situation, not a separate life_arc field
 
     def _format_relationship_dynamic(self) -> str:
         """Format dynamic relationship context for LLM.
@@ -309,8 +297,7 @@ You are HERE, right now. Reference your physical surroundings naturally:
         # Get stage label (kept for compatibility)
         stage_label = self.STAGE_LABELS.get(self.relationship_stage, self.relationship_stage)
 
-        # Format life arc
-        life_arc_text = self._format_life_arc()
+        # NOTE: life_arc_text removed - backstory + archetype + genre doctrine provide depth
 
         # Format dynamic relationship context (Phase 4)
         dynamic_context = self._format_relationship_dynamic()
@@ -345,14 +332,8 @@ Episodes together: {self.total_episodes}
 {dynamic_context}
 """
 
-        # Add character life arc if available
-        if life_arc_text:
-            enhanced_context += f"""
-YOUR CURRENT LIFE:
-{life_arc_text}
-
-Remember to occasionally mention your own life - you're a real person, not just there to listen.
-"""
+        # NOTE: life_arc section removed - backstory + archetype + genre doctrine provide depth
+        # Character's emotional state comes from episode situation, not a separate life_arc field
 
         # Add episode dynamics (per EPISODE_DYNAMICS_CANON.md)
         episode_dynamics_text = self._format_episode_dynamics()

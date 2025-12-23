@@ -51,12 +51,15 @@ def generate_system_prompt(
     tone_style: Optional[dict] = None,
     speech_patterns: Optional[dict] = None,
     backstory: Optional[str] = None,
-    current_stressor: Optional[str] = None,
     likes: Optional[List[str]] = None,
     dislikes: Optional[List[str]] = None,
     genre: str = "romantic_tension",
 ) -> str:
-    """Generate a system prompt from character configuration."""
+    """Generate a system prompt from character configuration.
+
+    NOTE: current_stressor and life_arc removed - episode situation conveys emotional state,
+    backstory + archetype + genre doctrine provide character depth.
+    """
     base_prompt = build_system_prompt(
         name=name,
         archetype=archetype,
@@ -65,7 +68,6 @@ def generate_system_prompt(
         tone_style=tone_style,
         speech_patterns=speech_patterns,
         backstory=backstory,
-        current_stressor=current_stressor,
         likes=likes,
         dislikes=dislikes,
         genre=genre,
@@ -118,7 +120,7 @@ async def list_all_characters(
     # Join with avatar_kits to get primary anchor path for fresh signed URLs
     query = f"""
         SELECT c.id, c.name, c.slug, c.archetype, c.avatar_url,
-               c.short_backstory, c.is_premium, c.genre,
+               c.backstory, c.is_premium, c.genre,
                c.status, c.created_by,
                aa.storage_path as anchor_path
         FROM characters c
@@ -342,8 +344,9 @@ async def update_character(
     for field, value in update_data.items():
         if value is not None:
             # Handle JSONB fields - use CAST() instead of :: to avoid parameter parsing issues
+            # NOTE: life_arc removed - backstory + archetype + genre doctrine provide depth
             if field in ["baseline_personality", "tone_style", "speech_patterns",
-                         "boundaries", "life_arc"]:
+                         "boundaries"]:
                 updates.append(f"{field} = CAST(:{field} AS jsonb)")
                 values[field] = json.dumps(value)
             # Handle array fields (starter_prompts removed - now on episode_templates)
@@ -390,9 +393,11 @@ async def update_character(
     row = await db.fetch_one(query, values)
 
     # Check if we need to regenerate system_prompt (core fields changed)
+    # NOTE: short_backstory/full_backstory merged into backstory
+    # NOTE: current_stressor removed - episode situation conveys emotional state
     prompt_affecting_fields = {"name", "archetype", "baseline_personality", "boundaries",
-                               "tone_style", "speech_patterns", "full_backstory",
-                               "short_backstory", "current_stressor", "likes", "dislikes", "genre"}
+                               "tone_style", "speech_patterns", "backstory",
+                               "likes", "dislikes", "genre"}
     if prompt_affecting_fields & set(update_data.keys()):
         # Regenerate system prompt with updated character data
         char_dict = dict(row)
@@ -425,8 +430,7 @@ async def update_character(
             opening_situation=opening_situation,
             tone_style=tone_style,
             speech_patterns=speech_patterns,
-            backstory=char_dict.get("full_backstory") or char_dict.get("short_backstory"),
-            current_stressor=char_dict.get("current_stressor"),
+            backstory=char_dict.get("backstory"),
             likes=char_dict.get("likes"),
             dislikes=char_dict.get("dislikes"),
             genre=char_dict.get("genre") or "romantic_tension",
@@ -453,7 +457,7 @@ async def regenerate_system_prompt_endpoint(
     This rebuilds the system prompt using the latest character fields:
     - name, archetype, personality, boundaries
     - tone_style, speech_patterns
-    - backstory (full or short), current_stressor
+    - backstory
     - likes, dislikes, genre
     - opening_situation from default episode template
     """
@@ -501,8 +505,7 @@ async def regenerate_system_prompt_endpoint(
         opening_situation=opening_situation,
         tone_style=tone_style,
         speech_patterns=speech_patterns,
-        backstory=char_dict.get("full_backstory") or char_dict.get("short_backstory"),
-        current_stressor=char_dict.get("current_stressor"),
+        backstory=char_dict.get("backstory"),
         likes=char_dict.get("likes"),
         dislikes=char_dict.get("dislikes"),
         genre=char_dict.get("genre") or "romantic_tension",
@@ -824,8 +827,7 @@ async def apply_opening_beat(
         opening_situation=opening_situation,
         tone_style=char_dict.get("tone_style"),
         speech_patterns=char_dict.get("speech_patterns"),
-        backstory=char_dict.get("full_backstory") or char_dict.get("short_backstory"),
-        current_stressor=char_dict.get("current_stressor"),
+        backstory=char_dict.get("backstory"),
         likes=char_dict.get("likes"),
         dislikes=char_dict.get("dislikes"),
         genre=char_dict.get("genre") or "romantic_tension",

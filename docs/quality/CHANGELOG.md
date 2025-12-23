@@ -14,6 +14,27 @@ Format: `[Document] vX.Y.Z - YYYY-MM-DD`
 
 ---
 
+## 2024-12-23
+
+### Changed
+- **[CONTEXT_LAYERS.md]** v1.1.0 - Character data model simplification
+  - `short_backstory` and `full_backstory` merged into single `backstory` field
+  - `current_stressor` removed - episode `situation` now conveys emotional state
+  - `life_arc` removed - backstory + archetype + genre doctrine provide character depth
+  - Added `likes/dislikes` documentation (first 5 used in prompt)
+
+### Removed
+- **Character Layer**: `life_arc` field (was half-implemented, no UI)
+- **Character Layer**: `current_stressor` field (redundant with episode situation)
+- **ConversationContext**: `character_life_arc` field and `_format_life_arc()` method
+
+### Migration
+- Database migration `039_consolidate_backstory_fields.sql` merges backstory fields
+- UI Backstory tab simplified to single textarea
+- Likes/dislikes now show "X/5 used in prompt" indicator
+
+---
+
 ## 2025-12-20
 
 ### Added

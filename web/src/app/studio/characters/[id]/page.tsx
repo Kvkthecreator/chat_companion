@@ -143,10 +143,10 @@ export default function CharacterDetailPage() {
   const [styleNotes, setStyleNotes] = useState('')
 
   // Editable fields
+  // NOTE: short_backstory/full_backstory merged into backstory
+  // NOTE: current_stressor removed - episode situation conveys emotional state
   const [editForm, setEditForm] = useState({
-    short_backstory: '',
-    full_backstory: '',
-    current_stressor: '',
+    backstory: '',
     likes: [] as string[],
     dislikes: [] as string[],
     opening_situation: '',
@@ -281,9 +281,7 @@ export default function CharacterDetailPage() {
       }
 
       setEditForm({
-        short_backstory: data.short_backstory || '',
-        full_backstory: data.full_backstory || '',
-        current_stressor: data.current_stressor || '',
+        backstory: data.backstory || '',
         likes: data.likes || [],
         dislikes: data.dislikes || [],
         opening_situation: openingSituation,
@@ -1090,42 +1088,31 @@ export default function CharacterDetailPage() {
           </CardHeader>
           <CardContent className="space-y-6">
             <div className="space-y-2">
-              <Label>Short Backstory</Label>
-              <p className="text-xs text-muted-foreground">Brief intro shown on character cards (max 500 chars)</p>
-              <textarea
-                maxLength={500}
-                className="min-h-[100px] w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
-                value={editForm.short_backstory}
-                onChange={(e) => setEditForm((prev) => ({ ...prev, short_backstory: e.target.value }))}
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label>Full Backstory</Label>
-              <p className="text-xs text-muted-foreground">Detailed history, only used for context (max 5000 chars)</p>
+              <Label>Backstory</Label>
+              <p className="text-xs text-muted-foreground">
+                Character history and context. Used in system prompt to inform chat responses.
+                First paragraph may be shown on character cards. (max 5000 chars)
+              </p>
               <textarea
                 maxLength={5000}
                 className="min-h-[200px] w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
-                value={editForm.full_backstory}
-                onChange={(e) => setEditForm((prev) => ({ ...prev, full_backstory: e.target.value }))}
+                value={editForm.backstory}
+                onChange={(e) => setEditForm((prev) => ({ ...prev, backstory: e.target.value }))}
+                placeholder="Who are they? What's their story? What makes them interesting?"
               />
             </div>
 
-            <div className="space-y-2">
-              <Label>Current Stressor</Label>
-              <p className="text-xs text-muted-foreground">What&apos;s on their mind lately? Adds depth to conversations.</p>
-              <Input
-                maxLength={500}
-                value={editForm.current_stressor}
-                onChange={(e) => setEditForm((prev) => ({ ...prev, current_stressor: e.target.value }))}
-                placeholder="e.g., Deadline stress, relationship trouble..."
-              />
-            </div>
+            {/* NOTE: Current Stressor removed - episode situation should convey emotional state */}
 
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-2">
-                <Label>Likes</Label>
-                <p className="text-xs text-muted-foreground">Comma-separated</p>
+                <div className="flex items-center justify-between">
+                  <Label>Likes</Label>
+                  <span className={`text-xs ${editForm.likes.length > 5 ? 'text-yellow-500' : 'text-muted-foreground'}`}>
+                    {editForm.likes.length}/5 used in prompt
+                  </span>
+                </div>
+                <p className="text-xs text-muted-foreground">Comma-separated. First 5 are included in system prompt.</p>
                 <Input
                   value={editForm.likes.join(', ')}
                   onChange={(e) =>
@@ -1138,8 +1125,13 @@ export default function CharacterDetailPage() {
                 />
               </div>
               <div className="space-y-2">
-                <Label>Dislikes</Label>
-                <p className="text-xs text-muted-foreground">Comma-separated</p>
+                <div className="flex items-center justify-between">
+                  <Label>Dislikes</Label>
+                  <span className={`text-xs ${editForm.dislikes.length > 5 ? 'text-yellow-500' : 'text-muted-foreground'}`}>
+                    {editForm.dislikes.length}/5 used in prompt
+                  </span>
+                </div>
+                <p className="text-xs text-muted-foreground">Comma-separated. First 5 are included in system prompt.</p>
                 <Input
                   value={editForm.dislikes.join(', ')}
                   onChange={(e) =>
@@ -1156,9 +1148,7 @@ export default function CharacterDetailPage() {
             <Button
               onClick={() =>
                 saveChanges({
-                  short_backstory: editForm.short_backstory || null,
-                  full_backstory: editForm.full_backstory || null,
-                  current_stressor: editForm.current_stressor || null,
+                  backstory: editForm.backstory || null,
                   likes: editForm.likes,
                   dislikes: editForm.dislikes,
                 })

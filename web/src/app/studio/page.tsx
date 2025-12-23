@@ -278,9 +278,9 @@ export default function StudioPage() {
                               {char.genre === 'romantic_tension' ? 'Romance' : 'Thriller'}
                             </span>
                           )}
-                          {char.short_backstory && (
+                          {char.backstory && (
                             <p className="text-xs text-muted-foreground mt-1 line-clamp-2">
-                              {char.short_backstory}
+                              {char.backstory}
                             </p>
                           )}
                         </div>

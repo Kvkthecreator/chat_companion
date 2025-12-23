@@ -167,12 +167,9 @@ export default function CharacterProfilePage({ params }: CharacterProfilePagePro
                 <Info className="h-4 w-4" />
                 Profile
               </div>
-              {profile.short_backstory && (
-                <p className="text-base text-foreground">{profile.short_backstory}</p>
-              )}
-              {profile.full_backstory && (
-                <p className="text-sm text-muted-foreground whitespace-pre-line">
-                  {profile.full_backstory}
+              {profile.backstory && (
+                <p className="text-base text-foreground whitespace-pre-line">
+                  {profile.backstory}
                 </p>
               )}
               {/* Conversation starters removed - now shown in chat via episode_template */}
