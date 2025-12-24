@@ -24,6 +24,15 @@ Format: `[Document] vX.Y.Z - YYYY-MM-DD`
   - Cost reduction: $0.05 vs $0.15 per auto-gen (67% savings)
   - Improved manual prompting: facial expressions, body language, composition
 
+- **[modalities/IMAGE_GENERATION.md]** v1.0.0 - Image generation quality specification
+  - Strategic philosophy: Two-track generation approach
+  - Track 1 (Auto-gen): Cinematic insert shot standards, prompting templates, quality checklist
+  - Track 2 (Manual): Kontext Pro and T2I mode specifications with Phase 1C improvements
+  - Subscription & budget gating logic
+  - Quality anti-patterns catalog with fixes
+  - Cost analysis and economics
+  - Evolution tracking with open questions
+
 ### Changed
 - **[DIRECTOR_PROTOCOL.md]** v2.3.0 - Memory & Hook Extraction Ownership
   - Director now owns all post-exchange processing (memory, hooks, beats)
