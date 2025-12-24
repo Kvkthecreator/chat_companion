@@ -38,7 +38,7 @@ export function EpisodeOpeningCard({
   hasBackground = false,
 }: EpisodeOpeningCardProps) {
   return (
-    <div className="my-6 w-full">
+    <div className="my-6 w-full animate-in fade-in duration-700">
       <div className={cn(
         "relative overflow-hidden rounded-2xl shadow-2xl",
         "ring-1",
@@ -50,35 +50,35 @@ export function EpisodeOpeningCard({
         <div className="absolute inset-0 opacity-5 bg-[radial-gradient(circle_at_30%_20%,rgba(168,85,247,0.4)_0%,transparent_50%),radial-gradient(circle_at_70%_80%,rgba(147,51,234,0.3)_0%,transparent_50%)]" />
 
         {/* Content */}
-        <div className="relative px-6 py-8">
+        <div className="relative px-4 py-6 sm:px-6 sm:py-8">
           {/* Icon badge - Book/Script representing "authored scene" */}
-          <div className="flex justify-center mb-4">
-            <div className="w-12 h-12 rounded-full bg-purple-500/20 border border-purple-500/30 flex items-center justify-center">
-              <BookOpen className="w-6 h-6 text-purple-400" />
+          <div className="flex justify-center mb-3 sm:mb-4">
+            <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-purple-500/20 border border-purple-500/30 flex items-center justify-center">
+              <BookOpen className="w-5 h-5 sm:w-6 sm:h-6 text-purple-400" />
             </div>
           </div>
 
           {/* Episode title */}
-          <h2 className="text-2xl font-bold text-white text-center mb-4 leading-tight">
+          <h2 className="text-xl sm:text-2xl font-bold text-white text-center mb-3 sm:mb-4 leading-tight px-2">
             {title}
           </h2>
 
           {/* Situation - Scene-setting paragraph */}
-          <p className="text-base text-white/80 text-center leading-relaxed mb-4 max-w-2xl mx-auto">
+          <p className="text-sm sm:text-base text-white/80 text-center leading-relaxed mb-3 sm:mb-4 max-w-2xl mx-auto px-2">
             {situation}
           </p>
 
           {/* Dramatic question - What's at stake (if provided) */}
           {dramaticQuestion && (
-            <div className="mt-6 pt-4 border-t border-purple-500/20">
-              <p className="text-sm italic text-purple-300/90 text-center leading-relaxed max-w-xl mx-auto">
+            <div className="mt-4 sm:mt-6 pt-3 sm:pt-4 border-t border-purple-500/20">
+              <p className="text-xs sm:text-sm italic text-purple-300/90 text-center leading-relaxed max-w-xl mx-auto px-2">
                 {dramaticQuestion}
               </p>
             </div>
           )}
 
           {/* Subtle label */}
-          <p className="text-[10px] uppercase tracking-widest text-purple-500/50 text-center mt-6">
+          <p className="text-[10px] uppercase tracking-widest text-purple-500/50 text-center mt-4 sm:mt-6">
             Episode Opening
           </p>
         </div>
