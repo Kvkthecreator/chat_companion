@@ -1,8 +1,8 @@
 # Director UI Toolkit
 
-> **Version**: 1.0.0
+> **Version**: 2.0.0
 > **Status**: Canonical
-> **Updated**: 2024-12-20
+> **Updated**: 2024-12-24
 
 ---
 
@@ -10,25 +10,43 @@
 
 This document defines all UI/UX elements the Director controls during the conversation experience. It serves as the authoritative reference for what the Director can surface, when, and how.
 
-**Relationship to DIRECTOR_PROTOCOL.md**: That document defines Director's evaluation logic; this document defines its UI outputs.
+**Relationship to DIRECTOR_PROTOCOL.md**: That document defines Director's evaluation logic and theatrical model; this document defines its UI outputs.
+
+---
+
+## The Theatrical Model (Director's Role)
+
+**Director Protocol v2.2+** reframes the system through theatrical production:
+
+| Layer | Theater Equivalent | What It Provides | When Defined |
+|-------|-------------------|------------------|--------------|
+| **Genre (Series)** | The Play's Style | Genre conventions, energy descriptions | Series creation |
+| **Episode** | The Scene | Situation, dramatic question, scene motivation | Episode authoring |
+| **Director (Runtime)** | Stage Manager | Pacing calls, physical grounding | During conversation |
+| **Character** | Actor | Improvises within the established frame | Real-time LLM |
+
+**Key Insight**: The director doesn't whisper motivation in the actor's ear during the show. Direction was *internalized* during rehearsal (Episode setup). During performance (chat), the stage manager only calls pacing and grounding.
 
 ---
 
 ## Director UI Responsibility
 
-The Director is the **runtime orchestrator** of the conversation experience. It decides:
+The Director is the **runtime stage manager** of the conversation experience. It surfaces:
 
-| Decision | Output | User Sees |
-|----------|--------|-----------|
-| What visual to show | `visual_type` | Scene card, instruction card, or nothing |
-| When episode ends | `status: done` | Completion card with next episode |
-| How pacing feels | `pacing` | (Internal, affects character response) |
-| What costs sparks | `deduct_sparks` | Spark balance update |
+| Responsibility | Output | User Sees |
+|----------------|--------|-----------|
+| Pacing phase | `pacing` | (Internal, affects character energy) |
+| Episode progress | `turn_count`, `turns_remaining` | Progress tracking in UI |
+| Episode completion | `status: done` | Completion card with next episode |
+| Visual moments | `visual_type` | Scene card, instruction card, or nothing |
+| Episode state | `is_complete`, `status` | UI state changes |
 
 The Director does NOT decide:
-- Message content (Character LLM's job)
-- Static layout (Frontend's job)
-- User preferences (Settings' job)
+- **Scene motivation** (Episode's job - authored as `scene_objective`, `scene_obstacle`, `scene_tactic`)
+- **Genre conventions** (Series' job - defined in Genre Doctrines)
+- **Message content** (Character LLM's job - actor improvisation)
+- **Static layout** (Frontend's job)
+- **User preferences** (Settings' job - e.g., `visual_mode_override`)
 
 ---
 
@@ -47,16 +65,19 @@ The Director emits these events through the conversation stream:
 
 | Event | Trigger | Payload | Component | Cost |
 |-------|---------|---------|-----------|------|
-| `visual_pending` | Visual moment detected | `{ visual_type, visual_hint, sparks_deducted }` | SceneCard (skeleton) | Sparks |
+| `visual_pending` | Visual moment detected (if auto-gen enabled) | `{ visual_type, visual_hint }` | SceneCard (skeleton) | Free (included in episode cost) |
 | `visual_ready` | Image generation complete | `{ image_url, caption }` | SceneCard | — |
 | `instruction_card` | Game-like moment | `{ content }` | InstructionCard | Free |
+
+**Note**: `sparks_deducted` field removed in v2.0. Auto-gen is included in episode entry cost (Ticket + Moments model). Manual "Capture Moment" charges separately (1 Spark T2I / 3 Sparks Kontext Pro).
 
 ### State Events
 
 | Event | Trigger | Payload | Component |
 |-------|---------|---------|-----------|
-| `needs_sparks` | Insufficient balance | `{ message }` | InsufficientSparksModal |
 | `episode_complete` | Episode done | `{ turn_count, trigger, next_suggestion, evaluation? }` | InlineCompletionCard |
+
+**Note**: `needs_sparks` event removed in v2.0. Spark checks happen at episode entry, not per-generation.
 
 ---
 
@@ -74,27 +95,63 @@ The Director classifies visual moments into types:
 
 ---
 
-## Visual Mode (Ticket + Moments Model)
+## Visual Mode (Manual-First Strategy)
 
-Episode templates define `visual_mode` to control auto-generation:
+**Director Protocol v2.5** implements a **manual-first philosophy** after quality assessment:
 
-| Mode | Behavior | Typical Budget |
-|------|----------|----------------|
-| `cinematic` | Generate on narrative beats | 3-4 gens |
-| `minimal` | Generate at climax only | 1 gen |
-| `none` | No auto-gen (manual still available) | 0 |
+### Episode-Level Defaults
+
+All episodes default to `visual_mode='none'` (text-only, fast, no interruptions):
+
+| Mode | Behavior | Default Budget | Usage |
+|------|----------|----------------|-------|
+| `none` | No auto-gen | 0 | **Default for all episodes** |
+| `minimal` | Generate at climax only | 1 gen | Opt-in via user preference |
+| `cinematic` | Generate on narrative beats | 3-4 gens | Opt-in via user preference |
+
+### User Preference Override (v2.5)
+
+Users can override episode defaults via Settings > Preferences:
+
+| Override | Behavior | When to Use |
+|----------|----------|-------------|
+| `"episode_default"` or `null` | Respect episode setting (typically `none`) | **Default for all users** |
+| `"always_off"` | Force text-only mode | Accessibility, slow connections, data-saving |
+| `"always_on"` | Enable experimental auto-gen (upgrades none→minimal→cinematic) | Power users who want auto-gen |
+
+**Resolution Logic**:
+```python
+# Episodes default to 'none', users can opt-in for auto-gen
+resolved_mode = episode.visual_mode  # Typically 'none'
+if user.preferences.visual_mode_override == "always_on":
+    resolved_mode = upgrade(episode.visual_mode)  # none→minimal, minimal→cinematic
+elif user.preferences.visual_mode_override == "always_off":
+    resolved_mode = "none"
+```
 
 ### Configuration
 
 Set per episode template:
 ```
-visual_mode: "cinematic"      # cinematic, minimal, none
-generation_budget: 3          # Max auto-gens for this episode
-episode_cost: 3               # Sparks to start (includes generations)
+visual_mode: "none"           # Default: text-only (manual-first)
+generation_budget: 0          # No auto-gen by default
+episode_cost: 3               # Sparks to start episode (entry fee)
 ```
 
-**Key principle**: Generation costs are included in `episode_cost`. No per-image charging.
-See: [MONETIZATION_v2.0.md](../../monetization/MONETIZATION_v2.0.md)
+### Manual Generation (Primary Path)
+
+Manual "Capture Moment" is the **primary, proven path** for image generation:
+- **T2I mode**: 1 Spark - Reliable character portraits in narrative composition
+- **Kontext Pro**: 3 Sparks - High-fidelity character likeness with facial expressions
+- Always available regardless of `visual_mode` setting
+
+**Rationale for Manual-First**:
+- Auto-gen quality not yet consistent (abstract/confusing images in testing)
+- Generation time (5-10 seconds) interrupts narrative flow
+- Manual generation provides reliable results when users want images
+- Opt-in approach allows testing improvements without degrading default experience
+
+See: [IMAGE_GENERATION.md](../modalities/IMAGE_GENERATION.md) for quality standards
 
 ---
 
@@ -201,41 +258,70 @@ Both include `next_suggestion` pointing to recommended next episode.
 
 ## Spark Balance Handling (Ticket + Moments Model)
 
-Sparks are checked at **episode entry**, not per-generation:
+Sparks are checked at **episode entry** for ticket cost, and per-action for manual generation:
 
+### Episode Entry (Ticket Cost)
 1. User starts episode → Check `episode_cost` against balance
 2. If insufficient → Show `InsufficientSparksModal`
-3. Auto-generated visuals during episode → Free (included in ticket)
-4. Manual "Capture Moment" → 1 Spark (separate feature)
+3. Deduct `episode_cost` sparks (typically 3 Sparks for paid episodes)
+
+### During Episode (Manual Generation)
+4. User clicks "Capture Moment" → Deduct 1 Spark (T2I) or 3 Sparks (Kontext Pro)
+5. Auto-generated visuals (if user opted in) → Free (included in episode entry cost)
+
+**Default Behavior**: No auto-gen (manual-first), so episode cost is pure entry fee
 
 ---
 
-## Data Flow
+## Data Flow (Director Protocol v2.2+)
 
 ```
+┌─────────────────────────────────────────────────────────────────┐
+│ EPISODE SETUP (Authored Content - "Rehearsal")                  │
+│ - Series: Genre conventions (GENRE_DOCTRINES)                   │
+│ - Episode: Situation, dramatic question                         │
+│ - Episode: Scene motivation (objective/obstacle/tactic)         │
+│ → Injected into character context before conversation starts    │
+└─────────────────────────────────────────────────────────────────┘
+        ↓
 User sends message
         ↓
 ┌─────────────────────────────────────────────────────────────────┐
-│ DIRECTOR PHASE 1: Pre-Guidance                                  │
-│ (pacing, tension note → injected into character prompt)         │
+│ DIRECTOR PHASE 1: Pre-Guidance (Deterministic - "Stage Manager")│
+│ - Pacing: Algorithmic from turn_count/turn_budget              │
+│ - Physical anchor: Extract from episode.situation               │
+│ - Genre energy: Lookup from GENRE_DOCTRINES                    │
+│ → Formatted into director guidance section of prompt            │
 └─────────────────────────────────────────────────────────────────┘
         ↓
-Character LLM generates response → [chunk, chunk, chunk...]
+Character LLM generates response (Actor improvises within frame)
+  → [chunk, chunk, chunk...]
         ↓
 ┌─────────────────────────────────────────────────────────────────┐
-│ DIRECTOR PHASE 2: Post-Evaluation                               │
-│ (visual_type, status, hint → decides what to surface)           │
+│ DIRECTOR PHASE 2: Post-Evaluation (Semantic + Extraction)       │
+│ - Visual evaluation: LLM determines visual_type + hint          │
+│ - Completion check: Semantic "status" (going/closing/done)      │
+│ - Memory extraction: Facts, preferences, relationships          │
+│ - Hook extraction: Character callbacks across episodes          │
+│ - Beat tracking: Update relationship dynamics                   │
 └─────────────────────────────────────────────────────────────────┘
         ↓
 Stream events emitted:
   [done] ─────────────────→ MessageBubble + ChatHeader update
-  [visual_pending] ───────→ SceneCard skeleton (if budget allows)
-  [instruction_card] ─────→ InstructionCard
+      director: { turn_count, turns_remaining, is_complete, status, pacing }
+  [visual_pending] ───────→ SceneCard skeleton (if auto-gen enabled + budget allows)
+  [instruction_card] ─────→ InstructionCard (game-like moments)
   [episode_complete] ─────→ InlineCompletionCard
         ↓
-Async: Image generation completes
+Async: Image generation completes (if triggered)
   [visual_ready] ─────────→ SceneCard updates with image
 ```
+
+**Key Changes from v1.0**:
+- Episode-authored motivation (no longer generated per-turn)
+- Deterministic Phase 1 (no LLM call for pacing/grounding)
+- Director owns memory/hook extraction (Phase 2 expanded)
+- Manual-first visuals (auto-gen is opt-in)
 
 ---
 
@@ -269,9 +355,10 @@ The `useChat` hook exposes Director state:
 | Capability | Description | Status |
 |------------|-------------|--------|
 | Interactive instructions | "Choice: A / B" as clickable buttons | Planned |
-| Pacing visualization | Show narrative arc progress | Not planned |
+| Pacing visualization | Show narrative arc progress in chat header | Consideration |
 | Visual cancellation | Cancel pending image generation | Not planned |
-| Director debug mode | Show evaluation reasoning | Not planned |
+| Director debug mode | Show evaluation reasoning in dev mode | Not planned |
+| Auto-gen quality improvements | Better prompt engineering, model upgrades | Active (experimental opt-in) |
 
 ---
 
@@ -289,5 +376,6 @@ The `useChat` hook exposes Director state:
 
 | Version | Date | Changes |
 |---------|------|---------|
+| 2.0.0 | 2024-12-24 | **Major update**: Theatrical model (v2.2+), manual-first visuals (v2.5), user preference override, removed `sparks_deducted` field, updated data flow diagram, Episode-authored motivation |
 | 1.1.0 | 2024-12-23 | Hardened on Ticket + Moments model. Removed legacy auto_scene_mode config. |
 | 1.0.0 | 2024-12-20 | Initial UI toolkit specification |
