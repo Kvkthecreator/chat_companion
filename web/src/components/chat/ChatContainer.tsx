@@ -34,6 +34,8 @@ type ChatItem =
 export function ChatContainer({ characterId, episodeTemplateId }: ChatContainerProps) {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const refreshScenesRef = useRef<(() => Promise<void>) | null>(null);
+  const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const [isAutoGenerating, setIsAutoGenerating] = useState(false);
   const [showQuotaModal, setShowQuotaModal] = useState(false);
   const [showSparksModal, setShowSparksModal] = useState(false);
   const [sparksError, setSparksError] = useState<InsufficientSparksError | null>(null);
@@ -136,12 +138,40 @@ export function ChatContainer({ characterId, episodeTemplateId }: ChatContainerP
       setAccessError(error);
       setShowAccessDeniedModal(true);
     },
-    onVisualPending: () => {
-      // Refresh scenes when auto-gen image is created
-      // Use setTimeout to ensure backend has committed the image before we fetch
-      setTimeout(() => {
-        refreshScenesRef.current?.();
-      }, 1000);
+    onVisualPending: (event) => {
+      // Auto-gen image generation started - show loading and poll for completion
+      console.log("Auto-gen started, showing loading indicator and polling...");
+
+      // Clear any existing polling interval
+      if (pollingIntervalRef.current) {
+        clearInterval(pollingIntervalRef.current);
+      }
+
+      setIsAutoGenerating(true);
+      const initialSceneCount = scenes.length;
+      let attempts = 0;
+      const maxAttempts = 60; // 60 seconds max
+
+      // Poll every 2 seconds (FLUX Dev takes ~20-30 seconds)
+      pollingIntervalRef.current = setInterval(async () => {
+        attempts++;
+
+        if (attempts >= maxAttempts) {
+          console.warn("Auto-gen polling timeout after 60 seconds");
+          setIsAutoGenerating(false);
+          if (pollingIntervalRef.current) {
+            clearInterval(pollingIntervalRef.current);
+            pollingIntervalRef.current = null;
+          }
+          return;
+        }
+
+        // Refresh scenes
+        await refreshScenesRef.current?.();
+
+        // Check if new scene appeared (scenes state will be updated by refreshScenes)
+        // Note: We rely on React's state update cycle to reflect the new scenes count
+      }, 2000);
     },
   });
 
@@ -170,6 +200,29 @@ export function ChatContainer({ characterId, episodeTemplateId }: ChatContainerP
   useEffect(() => {
     refreshScenesRef.current = refreshScenes;
   }, [refreshScenes]);
+
+  // Detect when auto-gen image appears and stop polling
+  const previousSceneCountRef = useRef(scenes.length);
+  useEffect(() => {
+    if (isAutoGenerating && scenes.length > previousSceneCountRef.current) {
+      console.log("Auto-gen image detected, stopping poll");
+      setIsAutoGenerating(false);
+      if (pollingIntervalRef.current) {
+        clearInterval(pollingIntervalRef.current);
+        pollingIntervalRef.current = null;
+      }
+    }
+    previousSceneCountRef.current = scenes.length;
+  }, [scenes.length, isAutoGenerating]);
+
+  // Cleanup polling on unmount
+  useEffect(() => {
+    return () => {
+      if (pollingIntervalRef.current) {
+        clearInterval(pollingIntervalRef.current);
+      }
+    };
+  }, []);
 
   // Build series progress for header
   const seriesProgress = useMemo(() => {
@@ -347,9 +400,14 @@ export function ChatContainer({ characterId, episodeTemplateId }: ChatContainerP
                   />
                 )}
 
-                {/* Scene generation skeleton */}
+                {/* Scene generation skeleton (manual) */}
                 {isGeneratingScene && (
                   <SceneCardSkeleton caption="Creating a scene from your conversation..." />
+                )}
+
+                {/* Auto-generation skeleton (Director-triggered) */}
+                {isAutoGenerating && (
+                  <SceneCardSkeleton caption="Capturing this moment..." />
                 )}
 
                 {/* Director V2: Instruction cards (game-like hints, free) */}
