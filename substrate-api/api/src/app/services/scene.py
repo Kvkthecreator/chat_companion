@@ -516,7 +516,7 @@ Think: Makoto Shinkai environmental shots, Cowboy Bebop insert frames."""
             prompt_response = await self.llm_service.generate([
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": prompt_request},
-            ], max_tokens=250)
+            ], max_tokens=500)  # Increased from 250 to avoid Gemini Flash truncation
             scene_prompt = prompt_response.content.strip()
 
             log.info(f"CINEMATIC INSERT LLM OUTPUT (raw): {scene_prompt}")
@@ -693,7 +693,7 @@ Focus on the feeling of the space itself."""
 
             caption_response = await self.llm_service.generate([
                 {"role": "user", "content": caption_input},
-            ], max_tokens=100)
+            ], max_tokens=200)  # Increased from 100 to avoid Gemini Flash truncation
             caption = caption_response.content.strip().strip('"')
 
             log.info(f"CAPTION OUTPUT: {caption}")
