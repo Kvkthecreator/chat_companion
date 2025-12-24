@@ -33,6 +33,7 @@ type ChatItem =
 
 export function ChatContainer({ characterId, episodeTemplateId }: ChatContainerProps) {
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const refreshScenesRef = useRef<(() => Promise<void>) | null>(null);
   const [showQuotaModal, setShowQuotaModal] = useState(false);
   const [showSparksModal, setShowSparksModal] = useState(false);
   const [sparksError, setSparksError] = useState<InsufficientSparksError | null>(null);
@@ -135,6 +136,13 @@ export function ChatContainer({ characterId, episodeTemplateId }: ChatContainerP
       setAccessError(error);
       setShowAccessDeniedModal(true);
     },
+    onVisualPending: () => {
+      // Refresh scenes when auto-gen image is created
+      // Use setTimeout to ensure backend has committed the image before we fetch
+      setTimeout(() => {
+        refreshScenesRef.current?.();
+      }, 1000);
+    },
   });
 
   // Scene generation
@@ -142,6 +150,7 @@ export function ChatContainer({ characterId, episodeTemplateId }: ChatContainerP
     scenes,
     isGenerating: isGeneratingScene,
     generateScene,
+    refreshScenes,
   } = useScenes({
     episodeId: episode?.id ?? null,
     enabled: shouldInitChat && !!episode,
@@ -156,6 +165,11 @@ export function ChatContainer({ characterId, episodeTemplateId }: ChatContainerP
       setShowSparksModal(true);
     },
   });
+
+  // Store refreshScenes in ref for use in visual_pending callback
+  useEffect(() => {
+    refreshScenesRef.current = refreshScenes;
+  }, [refreshScenes]);
 
   // Build series progress for header
   const seriesProgress = useMemo(() => {
