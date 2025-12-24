@@ -7,12 +7,13 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import { SubscriptionCard } from "@/components/subscription";
 import { TopupPacks, TransactionHistory } from "@/components/sparks";
 import { useUser } from "@/hooks/useUser";
 import { useSparks } from "@/hooks/useSparks";
 import { createClient } from "@/lib/supabase/client";
-import { CheckCircle2, Sparkles, CreditCard, User, Mail, Clock, Loader2, History } from "lucide-react";
+import { CheckCircle2, Sparkles, CreditCard, User, Mail, Clock, Loader2, History, Settings2, Image, AlertCircle } from "lucide-react";
 
 export default function SettingsPage() {
   const searchParams = useSearchParams();
@@ -25,6 +26,11 @@ export default function SettingsPage() {
   const [displayName, setDisplayName] = useState("");
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
+
+  // Visual preferences
+  const [autoGenEnabled, setAutoGenEnabled] = useState(false);
+  const [isSavingPrefs, setIsSavingPrefs] = useState(false);
+  const [prefsSaveSuccess, setPrefsSaveSuccess] = useState(false);
 
   // Get email from Supabase auth
   useEffect(() => {
@@ -43,6 +49,14 @@ export default function SettingsPage() {
     }
   }, [user]);
 
+  // Sync visual preferences from user data
+  useEffect(() => {
+    if (user?.preferences) {
+      const visualOverride = user.preferences.visual_mode_override;
+      setAutoGenEnabled(visualOverride === "always_on");
+    }
+  }, [user]);
+
   const handleSaveProfile = async () => {
     setIsSaving(true);
     setSaveSuccess(false);
@@ -54,6 +68,29 @@ export default function SettingsPage() {
       console.error("Failed to save profile:", err);
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const handleToggleAutoGen = async (enabled: boolean) => {
+    setAutoGenEnabled(enabled);
+    setIsSavingPrefs(true);
+    setPrefsSaveSuccess(false);
+    try {
+      const visual_mode_override = enabled ? "always_on" : "episode_default";
+      await updateUser({
+        preferences: {
+          ...user?.preferences,
+          visual_mode_override,
+        },
+      });
+      setPrefsSaveSuccess(true);
+      setTimeout(() => setPrefsSaveSuccess(false), 3000);
+    } catch (err) {
+      console.error("Failed to save visual preferences:", err);
+      // Revert on error
+      setAutoGenEnabled(!enabled);
+    } finally {
+      setIsSavingPrefs(false);
     }
   };
 
@@ -141,7 +178,7 @@ export default function SettingsPage() {
       )}
 
       <Tabs value={activeTab} onValueChange={handleTabChange}>
-        <TabsList className="grid w-full grid-cols-2 max-w-xs">
+        <TabsList className="grid w-full grid-cols-3 max-w-md">
           <TabsTrigger value="billing" className="gap-2">
             <CreditCard className="h-4 w-4" />
             Billing
@@ -149,6 +186,10 @@ export default function SettingsPage() {
           <TabsTrigger value="account" className="gap-2">
             <User className="h-4 w-4" />
             Account
+          </TabsTrigger>
+          <TabsTrigger value="preferences" className="gap-2">
+            <Settings2 className="h-4 w-4" />
+            Preferences
           </TabsTrigger>
         </TabsList>
 
@@ -320,6 +361,84 @@ export default function SettingsPage() {
               <div className="flex justify-between text-sm">
                 <span className="text-muted-foreground">Timezone</span>
                 <span>{user?.timezone || "Auto"}</span>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Preferences Tab */}
+        <TabsContent value="preferences" className="space-y-6">
+          {/* Visual Experience */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Image className="h-5 w-5 text-muted-foreground" />
+                Visual Experience
+              </CardTitle>
+              <CardDescription>
+                Control how images appear during episodes (experimental)
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              {/* Auto-Generated Images Toggle */}
+              <div className="flex items-start justify-between gap-4">
+                <div className="space-y-1 flex-1">
+                  <Label htmlFor="auto-gen-toggle" className="text-base font-medium">
+                    Auto-generated images
+                  </Label>
+                  <p className="text-sm text-muted-foreground">
+                    Automatically generate images at key narrative moments during episodes (25%, 50%, 75%).
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  {isSavingPrefs && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
+                  <Switch
+                    id="auto-gen-toggle"
+                    checked={autoGenEnabled}
+                    onCheckedChange={handleToggleAutoGen}
+                    disabled={isSavingPrefs}
+                  />
+                </div>
+              </div>
+
+              {prefsSaveSuccess && (
+                <div className="flex items-center gap-2 text-sm text-green-500">
+                  <CheckCircle2 className="h-4 w-4" />
+                  <span>Preferences saved</span>
+                </div>
+              )}
+
+              {/* Warning Banner */}
+              <div className="rounded-lg bg-amber-500/10 border border-amber-500/20 p-4">
+                <div className="flex gap-3">
+                  <AlertCircle className="h-5 w-5 text-amber-500 shrink-0 mt-0.5" />
+                  <div className="space-y-2">
+                    <p className="text-sm font-medium text-amber-700 dark:text-amber-400">
+                      Experimental Feature
+                    </p>
+                    <div className="text-sm text-amber-600 dark:text-amber-500 space-y-1">
+                      <p>
+                        <strong>Generation time:</strong> 5-10 seconds per image (may pause conversation flow)
+                      </p>
+                      <p>
+                        <strong>Quality:</strong> Improving but not yet consistent. Some images may not match the moment well.
+                      </p>
+                      <p className="mt-2">
+                        <strong>Alternative:</strong> Manual "Capture Moment" generation (1 Spark) offers higher quality with more control.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Info about defaults */}
+              <div className="text-sm text-muted-foreground space-y-2">
+                <p>
+                  <strong>Default behavior:</strong> Auto-generation is disabled for all episodes. This setting applies globally to all characters and episodes when enabled.
+                </p>
+                <p>
+                  <strong>Manual generation:</strong> Always available regardless of this setting. Use the "Capture Moment" button during chat to generate high-quality images on demand.
+                </p>
               </div>
             </CardContent>
           </Card>
