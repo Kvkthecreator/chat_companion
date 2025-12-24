@@ -30,31 +30,24 @@ router = APIRouter(prefix="/scenes", tags=["Scenes"])
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# KONTEXT MODE PROMPT TEMPLATE
+# KONTEXT MODE PROMPT TEMPLATE (Phase 1C: Improved for facial expression/composition)
 # Used when we have an anchor/reference image. Character appearance comes from
 # the reference image, so prompt describes ONLY action/setting/mood.
 # ═══════════════════════════════════════════════════════════════════════════════
-KONTEXT_PROMPT_TEMPLATE = """Create an image prompt capturing THIS EXACT MOMENT from the conversation.
+KONTEXT_PROMPT_TEMPLATE = """Create a scene transformation prompt for FLUX Kontext. A reference image provides character appearance.
 
-CRITICAL: The reference image shows the character's appearance.
-DO NOT describe face, hair, eyes, or clothing.
-ONLY describe ACTION, SETTING, and EXPRESSION.
+CRITICAL: DO NOT describe appearance (hair, eyes, face features, clothing).
+DO describe: facial expression, body language, specific action, environmental context, emotional tone.
 
-═══════════════════════════════════════════════════════════════════════════════
-STEP 1: THE CONVERSATION (What's happening RIGHT NOW?)
-═══════════════════════════════════════════════════════════════════════════════
+CONVERSATION CONTEXT:
 {conversation_summary}
 
-═══════════════════════════════════════════════════════════════════════════════
-STEP 2: THE SETTING (Where are they?)
-═══════════════════════════════════════════════════════════════════════════════
+SETTING:
 {episode_situation}
 
 Episode context: {episode_frame}
 
-═══════════════════════════════════════════════════════════════════════════════
-STEP 3: THE EMOTIONAL BEAT
-═══════════════════════════════════════════════════════════════════════════════
+EMOTIONAL BEAT:
 Tone: {emotional_tone} | Tension: {tension_level}/100
 
 Tension guide:
@@ -63,42 +56,45 @@ Tension guide:
 - 60-80: Intense gaze, dramatic lighting, close proximity
 - 80-100: Intimate, charged atmosphere, breath-close
 
-═══════════════════════════════════════════════════════════════════════════════
-YOUR TASK: Write ONE prompt (40-60 words)
-═══════════════════════════════════════════════════════════════════════════════
-Capture what's happening in the conversation above:
-1. WHAT action matches the conversation? (Don't invent - use what they're discussing)
-2. WHERE exactly? (Use the setting details)
-3. WHAT expression fits the emotional tone?
+Focus on:
+1. FACIAL EXPRESSION - Specific emotion visible in eyes/mouth (vulnerable, teasing, conflicted)
+2. WITHIN-SCENE COMPOSITION - Spatial relationship to environment (leaning against, reaching for, turning away from)
+3. BODY LANGUAGE - Gesture or posture that conveys the emotional beat
+4. ENVIRONMENTAL INTERACTION - How character engages with the space/objects
 
-FORMAT: "[action from conversation], [setting details], [lighting], [expression], anime style, cinematic"
+Write a detailed prompt (50-70 words).
+
+FORMAT: "[specific expression], [precise action/gesture], [environmental interaction], [lighting/atmosphere], [camera angle], anime style, cinematic"
+
+GOOD EXAMPLES:
+- "eyes downcast with slight smile, fingers tracing café table edge, leaning back against counter with one foot crossed over ankle, warm dim lighting from overhead pendant lamp, slightly low angle shot, anime style, cinematic"
+- "vulnerable expression with parted lips, reaching for coffee cup but hesitating mid-motion, standing at window with rain-blurred cityscape behind, backlit by cool evening light, medium close-up, anime style, cinematic"
+
+BAD EXAMPLES:
+- "standing in café" ← Too vague, no expression/gesture detail
+- "brown-haired girl smiling" ← Describing appearance instead of scene
 
 Your prompt:"""
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# T2I MODE PROMPT TEMPLATE
+# T2I MODE PROMPT TEMPLATE (Phase 1C: Improved for narrative composition)
 # Used when NO reference image exists. Must include full character appearance.
 # ═══════════════════════════════════════════════════════════════════════════════
-T2I_PROMPT_TEMPLATE = """Create an image prompt capturing THIS EXACT MOMENT. Include character appearance.
+T2I_PROMPT_TEMPLATE = """Create an image prompt for this narrative moment. Include full character description AND compositional details.
 
-CHARACTER: {character_name}
-Appearance: {appearance_prompt}
+CHARACTER:
+- Name: {character_name}
+- Appearance: {appearance_prompt}
 
-═══════════════════════════════════════════════════════════════════════════════
-STEP 1: THE CONVERSATION (What's happening RIGHT NOW?)
-═══════════════════════════════════════════════════════════════════════════════
+CONVERSATION CONTEXT:
 {conversation_summary}
 
-═══════════════════════════════════════════════════════════════════════════════
-STEP 2: THE SETTING (Where are they?)
-═══════════════════════════════════════════════════════════════════════════════
+SETTING:
 {episode_situation}
 
 Episode context: {episode_frame}
 
-═══════════════════════════════════════════════════════════════════════════════
-STEP 3: THE EMOTIONAL BEAT
-═══════════════════════════════════════════════════════════════════════════════
+EMOTIONAL BEAT:
 Tone: {emotional_tone} | Tension: {tension_level}/100
 
 Tension guide:
@@ -107,16 +103,21 @@ Tension guide:
 - 60-80: Intense gaze, dramatic lighting, close proximity
 - 80-100: Intimate, charged atmosphere, breath-close
 
-═══════════════════════════════════════════════════════════════════════════════
-YOUR TASK: Write ONE prompt (50-80 words)
-═══════════════════════════════════════════════════════════════════════════════
-Capture what's happening in the conversation above:
-1. Start with "solo, 1girl" (or 1boy) + character appearance
-2. WHAT action matches the conversation? (Don't invent - use what they're discussing)
-3. WHERE exactly? (Use the setting details)
-4. WHAT expression fits the emotional tone?
+Write a detailed prompt (60-90 words) that captures the emotional beat through composition.
 
-FORMAT: "solo, 1girl, [appearance], [action from conversation], [setting], [lighting], [expression], anime style, cinematic"
+Focus on:
+1. CHARACTER APPEARANCE - Full description from appearance_prompt
+2. FACIAL EXPRESSION - Specific emotion conveyed through eyes/mouth
+3. BODY LANGUAGE - Gesture, posture, action that tells the story
+4. ENVIRONMENTAL COMPOSITION - Spatial relationship to setting
+5. LIGHTING & ATMOSPHERE - Mood-enhancing details
+6. CAMERA FRAMING - Shot type that serves the narrative
+
+FORMAT: "solo, 1girl, [full appearance], [specific expression], [detailed action/gesture], [environmental interaction], [lighting/atmosphere], [camera angle], anime style, cinematic"
+
+GOOD EXAMPLE: "solo, 1girl, young woman with messy black hair and tired eyes, vulnerable expression with slight smile, wiping down espresso machine while glancing sideways toward door, leaning against café counter with one hand on hip, warm dim overhead lighting casting soft shadows, rain visible through window behind, medium shot from slight low angle, anime style, cinematic"
+
+BAD EXAMPLE: "girl in café smiling" ← Too vague, no compositional detail
 
 Your prompt:"""
 

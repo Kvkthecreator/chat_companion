@@ -578,8 +578,9 @@ class ImageService:
     """
 
     # Default provider/model for the app
-    DEFAULT_PROVIDER = "gemini"
-    DEFAULT_MODEL = "gemini-3-flash-preview"
+    # Using FLUX Schnell for T2I - fast, cheap ($0.003/image), supports negative prompts
+    DEFAULT_PROVIDER = "replicate"
+    DEFAULT_MODEL = "black-forest-labs/flux-schnell"
 
     # API key environment variable mapping
     API_KEY_ENV_VARS = {
