@@ -1,6 +1,6 @@
 # Director UI Toolkit
 
-> **Version**: 2.0.0
+> **Version**: 2.1.0
 > **Status**: Canonical
 > **Updated**: 2024-12-24
 
@@ -157,9 +157,51 @@ See: [IMAGE_GENERATION.md](../modalities/IMAGE_GENERATION.md) for quality standa
 
 ## UI Components
 
+### EpisodeOpeningCard
+
+**Purpose**: Render episode setup at conversation start ("program notes" before the show begins).
+
+**Content Source**: Episode-authored metadata (not Director runtime)
+- `episode.title` - Episode name
+- `episode.situation` - Scene-setting paragraph (where we are, physical details)
+- `episode.dramatic_question` - What's at stake, what tension drives this scene
+
+**When Shown**: Once per episode, before first user message (empty chat state)
+
+**Owner**: Episode domain (authored content), not Director runtime evaluation
+
+**Analogy**: Theater program notes / "Previously on..." recap card
+
+**Visual Design Requirements**:
+- Full-width card (matches SceneCard, InstructionCard width)
+- `rounded-2xl` with `shadow-2xl` (Director UI design language)
+- Gradient background with subtle pattern overlay
+- Icon badge: Book/Script icon representing "authored scene"
+- Typography hierarchy:
+  - Title: Large, bold, white text
+  - Situation: Medium paragraph, white/80 opacity
+  - Dramatic question: Smaller italicized text with accent color (amber/purple)
+- Vertical spacing: `my-6` (consistent with other Director cards)
+
+**Design Principles**:
+- **Authored, not generated**: Static content from Episode template
+- **Scene establishment**: Sets physical and emotional stage before conversation
+- **Visual consistency**: Matches runtime Director cards (SceneCard, InstructionCard)
+- **One-time display**: Only shown at episode start, not repeated during conversation
+
+**Implementation Notes**:
+- Rendered in ChatContainer empty state
+- Should display before MessageInput becomes active
+- Consider fade-in animation on episode start
+- Optional: Dismiss button to clear and start chatting immediately
+
+**Current Status**: **Not yet implemented** - Currently just text (title + situation), no dramatic_question display
+
+---
+
 ### SceneCard
 
-**Purpose**: Render generated scene images inline in chat.
+**Purpose**: Render generated scene images inline in chat (runtime visual moments).
 
 **Visual Types**: `character`, `object`, `atmosphere`
 
@@ -376,6 +418,7 @@ The `useChat` hook exposes Director state:
 
 | Version | Date | Changes |
 |---------|------|---------|
+| 2.1.0 | 2024-12-24 | Added EpisodeOpeningCard specification (authored scene setup card before conversation start) |
 | 2.0.0 | 2024-12-24 | **Major update**: Theatrical model (v2.2+), manual-first visuals (v2.5), user preference override, removed `sparks_deducted` field, updated data flow diagram, Episode-authored motivation |
 | 1.1.0 | 2024-12-23 | Hardened on Ticket + Moments model. Removed legacy auto_scene_mode config. |
 | 1.0.0 | 2024-12-20 | Initial UI toolkit specification |
