@@ -489,39 +489,46 @@ Think cinematically: This is a single frame that must convey an emotional story.
             # Generate cinematic insert prompt with conversation context
             prompt_request = f"""Create a cinematic insert shot prompt for this moment:
 
-Setting: {scene_setting or "An intimate setting"}
+Setting/Location: {scene_setting or "An intimate setting"}
 Emotional beat: {visual_hint}
 Recent conversation context: {conversation_summary}
 
 The image should capture the FEELING of this moment through environmental storytelling.
 Use anime insert shot techniques: focus on details, lighting, composition, symbolic objects.
 
-CRITICAL: Use the conversation context to inform the MOOD, ATMOSPHERE, and EMOTIONAL TONE.
-The visual should reflect what just happened in the dialogue - intimate, tense, playful, vulnerable, etc.
+CRITICAL REQUIREMENTS:
+1. LOCATION SPECIFICITY: Extract the physical environment from Setting (e.g., "top floor penthouse", "farm", "office", "apartment"). Include architectural details, interior design elements, time of day.
+2. EMOTIONAL TONE: Use conversation context to match mood (intimate, tense, playful, vulnerable, etc.)
+3. ENVIRONMENTAL STORYTELLING: Objects, lighting, weather that convey both the specific location AND emotional state
 
 Visual techniques:
 - Partial framing (hands, silhouettes, backs of heads OK - no face focus)
-- Environmental storytelling (objects, lighting, weather convey emotion)
+- Setting-specific details (penthouse cityscape views, farm landscapes, office interiors, etc.)
 - Cinematic composition (dramatic angles, selective focus)
-- Atmospheric mood (color temperature, depth of field, lighting)
+- Atmospheric mood (color temperature, depth of field, lighting that matches both location and emotion)
 - Emotional resonance with the conversation's tone
 
-Write a detailed image generation prompt (2-3 sentences) that captures both the visual style AND the emotional atmosphere."""
+Write a detailed image generation prompt (2-3 sentences) that captures:
+- The SPECIFIC physical environment/location from the Setting
+- The emotional atmosphere from the conversation
+- Anime cinematic insert shot aesthetic"""
 
             system_prompt = """You are an expert at writing anime-style cinematic insert shot prompts.
 
-These are NOT character portraits. They are environmental storytelling moments that capture EMOTIONAL ATMOSPHERE.
+These are NOT character portraits. They are environmental storytelling moments that capture BOTH a SPECIFIC LOCATION and EMOTIONAL ATMOSPHERE.
 
 CRITICAL RULES:
 - NO character faces or detailed appearance descriptions
 - YES to: silhouettes, partial figures, hands, environmental details
+- MUST extract the specific physical location from Setting (penthouse/farm/office/apartment/etc.)
+- MUST include location-specific architectural/design elements (floor-to-ceiling windows, exposed brick, modern furniture, rustic wood, etc.)
 - MUST read the conversation context and match the emotional tone (intimate, tense, playful, vulnerable, etc.)
-- Focus on: mood, lighting, composition, symbolic objects, atmospheric details
+- Focus on: specific location details, mood, lighting, composition, symbolic objects, atmospheric details
 - Style: anime aesthetic, cinematic framing, emotional atmosphere
-- Color temperature and lighting MUST reflect the conversation's emotional tone
+- Color temperature and lighting MUST reflect both the location type AND conversation's emotional tone
 
-Think: Makoto Shinkai environmental shots, Cowboy Bebop insert frames.
-The visual should make viewers FEEL what's happening emotionally, not just see a pretty scene."""
+Think: Makoto Shinkai environmental shots showing SPECIFIC places, Cowboy Bebop insert frames that ground scenes.
+The visual should make viewers FEEL the emotional moment AND know exactly where it's happening."""
 
             log.info(f"CINEMATIC INSERT INPUT - visual_hint: {visual_hint}")
 
