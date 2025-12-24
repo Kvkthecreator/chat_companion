@@ -17,18 +17,32 @@ Format: `[Document] vX.Y.Z - YYYY-MM-DD`
 ## 2024-12-24
 
 ### Added
-- **[User Preferences]** visual_mode_override field for hybrid episode/user control
-  - New field in UserPreferences model: visual_mode_override ("always_off" | "always_on" | "episode_default")
-  - Enables user-level accessibility/performance overrides while respecting creator intent by default
-  - "always_off": Text-only mode (accessibility, performance, data-saving)
-  - "always_on": Maximum visuals (upgrade none→minimal, minimal→cinematic)
-  - "episode_default" or null: Respect episode template visual_mode (default behavior)
+- **[DIRECTOR_PROTOCOL.md]** v2.5.0 - User Preference Override for visual_mode
+  - New section: "Visual Mode Resolution (v2.5 - User Preference Override)"
+  - `resolve_visual_mode()` function balances episode defaults with user overrides
+  - Hybrid architecture: Episode sets default, user can override for accessibility/performance
+  - User options: "always_off" (text-only), "always_on" (maximum visuals), "episode_default" (respect creator)
+  - Benefits: Creator control + User accessibility + Performance control + Cost predictability
 
-- **[VISUAL_MODE_MIGRATION.sql]** Database migration script for hybrid visual_mode architecture
-  - Updates all paid episodes to visual_mode='cinematic', generation_budget=3
-  - Updates Episode 0 (free entry) to cinematic with budget=2 (cost control)
-  - Verification queries to ensure expected distribution
-  - Rationale: Auto-gen included in episode price, users expect visuals for paid content
+- **[IMAGE_GENERATION.md]** v1.3.0 - Visual Mode Architecture (Hybrid Model)
+  - New section: "Visual Mode Architecture (v1.3 - Hybrid Model)"
+  - Episode-level defaults: cinematic (default for paid), minimal, none
+  - User-level override: always_off, always_on, episode_default
+  - Resolution logic with accessibility/performance support
+  - Updated auto-generation gating to use resolved visual_mode
+
+- **[UserPreferences Model]** visual_mode_override field
+  - New optional field in substrate-api/api/src/app/models/user.py
+  - Stored in existing users.preferences JSONB column
+  - Values: "always_off" | "always_on" | "episode_default" | null
+
+- **[Database Migration]** All paid episodes now default to cinematic mode
+  - Migration executed 2024-12-24: Updated 21 episodes from visual_mode='none' to 'cinematic'
+  - All 34 paid episodes now have visual_mode='cinematic', generation_budget=3
+  - Consistent premium visual experience across all paid content
+  - Users can opt-out via visual_mode_override='always_off'
+  - Economics: $0.075 cost per episode (3 auto-gens × $0.025), 75% margin on $0.30 revenue
+
 - **[ADR-003]** Image Generation Strategy - Cinematic Inserts for Auto-Gen
   - Two-track strategy: Auto-gen = T2I cinematic inserts, Manual = dual mode (T2I + Kontext)
   - Anime insert shot philosophy (Makoto Shinkai, Cowboy Bebop)

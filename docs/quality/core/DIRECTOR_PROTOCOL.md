@@ -1,6 +1,6 @@
 # Director Protocol
 
-> **Version**: 2.4.0
+> **Version**: 2.5.0
 > **Status**: Active
 > **Updated**: 2024-12-24
 
@@ -277,13 +277,51 @@ Character LLM generates response
 
 **Solution**: **Hybrid Deterministic + Semantic Model**
 
+### Visual Mode Resolution (v2.5 - User Preference Override)
+
+**NEW (2024-12-24)**: `visual_mode` now supports **user preference override** for accessibility and performance.
+
+```python
+def resolve_visual_mode(episode, user_preferences):
+    """Resolve visual_mode with user preference override.
+
+    Hybrid model: Episode defines default, user can override.
+    """
+    episode_mode = episode.visual_mode  # Creator's intent
+    user_override = user_preferences.get("visual_mode_override")
+
+    if user_override == "always_off":
+        # User needs text-only (accessibility/performance/data-saving)
+        return VisualMode.NONE
+    elif user_override == "always_on":
+        # Power user wants maximum visuals
+        if episode_mode == VisualMode.NONE:
+            return VisualMode.MINIMAL
+        elif episode_mode == VisualMode.MINIMAL:
+            return VisualMode.CINEMATIC
+        else:
+            return episode_mode
+    else:  # "episode_default" or null
+        # Respect creator's intent (default, 95%+ of users)
+        return episode_mode
+```
+
+**Benefits**:
+- ✅ Creator control maintained (episode sets default)
+- ✅ Accessibility support (screen readers, cognitive load reduction)
+- ✅ Performance control (slow connections, limited data, battery conservation)
+- ✅ Cost unchanged (user override doesn't affect episode pricing)
+
 ### When to Generate (Deterministic)
 
 Visual generation triggers are **turn-based**, not LLM-driven:
 
 ```python
 def should_generate_visual(turn_count, turn_budget, visual_mode, generations_used, generation_budget):
-    """Pure function - predictable, testable, no LLM calls."""
+    """Pure function - predictable, testable, no LLM calls.
+
+    NOTE: visual_mode should be the RESOLVED mode (after user preference override).
+    """
 
     if generations_used >= generation_budget:
         return False, "budget_exhausted"

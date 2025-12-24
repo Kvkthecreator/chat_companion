@@ -1,6 +1,6 @@
 # Image Generation Quality Specification
 
-> **Version**: 1.2.0
+> **Version**: 1.3.0
 > **Status**: Active
 > **Updated**: 2024-12-24
 
@@ -416,6 +416,45 @@ style, cinematic"
 
 ## Subscription & Budget Gating
 
+### Visual Mode Architecture (v1.3 - Hybrid Model)
+
+**NEW (2024-12-24)**: visual_mode now supports **user preference override** for accessibility and performance.
+
+**Episode-Level Defaults** (Creator Intent):
+- `cinematic`: 3-4 auto-gens at narrative beats (default for all paid episodes)
+- `minimal`: 1 auto-gen at climax only
+- `none`: No auto-gen (text-focused episodes)
+
+**User-Level Override** (Accessibility/Performance):
+- `"episode_default"` or `null`: Respect episode design (default, 95%+ of users)
+- `"always_off"`: Force text-only mode (accessibility, slow connections, data-saving)
+- `"always_on"`: Upgrade visuals (none→minimal, minimal→cinematic)
+
+**Resolution Logic:**
+```python
+# Hybrid resolution (episode default + user override)
+def resolve_visual_mode(episode, user_preferences):
+    episode_mode = episode.visual_mode  # Creator's intent
+    user_override = user_preferences.get("visual_mode_override")
+
+    if user_override == "always_off":
+        return "none"  # User needs text-only (accessibility/performance)
+    elif user_override == "always_on":
+        # Upgrade visuals for power users
+        if episode_mode == "none":
+            return "minimal"
+        elif episode_mode == "minimal":
+            return "cinematic"
+    else:
+        return episode_mode  # Respect creator intent (default)
+```
+
+**Benefits:**
+- ✅ Creator control maintained (episode sets default)
+- ✅ User accessibility supported (screen readers, cognitive load)
+- ✅ Performance control (slow connections, limited data, battery)
+- ✅ Cost predictability unchanged (override doesn't change episode price)
+
 ### Auto-Generation Access
 
 **Requirement:** Premium subscription ($19/mo)
@@ -424,13 +463,16 @@ style, cinematic"
 **Gating Logic:**
 ```python
 if user.subscription_status == "premium":
-    if episode.visual_mode in ("cinematic", "minimal"):
+    # Resolve visual_mode with user preference override
+    resolved_mode = resolve_visual_mode(episode, user.preferences)
+
+    if resolved_mode in ("cinematic", "minimal"):
         if session.generations_used < episode.generation_budget:
             # Trigger auto-generation
         else:
             # Budget exhausted (typically 3-4 per episode)
     else:
-        # Visual mode is "none"
+        # Visual mode resolved to "none" (episode default OR user override)
 else:
     # Free users: no auto-gen
 ```
