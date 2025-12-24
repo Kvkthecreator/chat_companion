@@ -482,34 +482,46 @@ Think cinematically: This is a single frame that must convey an emotional story.
         These shots capture narrative tension through composition, not character consistency.
         """
         try:
-            # Generate cinematic insert prompt
+            # Get recent conversation context for mood/vibe
+            conversation_summary = await self.get_recent_conversation_summary(episode_id, limit=3)
+            log.info(f"CINEMATIC INSERT CONTEXT - conversation_summary: {conversation_summary[:200]}...")
+
+            # Generate cinematic insert prompt with conversation context
             prompt_request = f"""Create a cinematic insert shot prompt for this moment:
 
 Setting: {scene_setting or "An intimate setting"}
 Emotional beat: {visual_hint}
+Recent conversation context: {conversation_summary}
 
 The image should capture the FEELING of this moment through environmental storytelling.
 Use anime insert shot techniques: focus on details, lighting, composition, symbolic objects.
+
+CRITICAL: Use the conversation context to inform the MOOD, ATMOSPHERE, and EMOTIONAL TONE.
+The visual should reflect what just happened in the dialogue - intimate, tense, playful, vulnerable, etc.
 
 Visual techniques:
 - Partial framing (hands, silhouettes, backs of heads OK - no face focus)
 - Environmental storytelling (objects, lighting, weather convey emotion)
 - Cinematic composition (dramatic angles, selective focus)
 - Atmospheric mood (color temperature, depth of field, lighting)
+- Emotional resonance with the conversation's tone
 
-Write a detailed image generation prompt (2-3 sentences)."""
+Write a detailed image generation prompt (2-3 sentences) that captures both the visual style AND the emotional atmosphere."""
 
             system_prompt = """You are an expert at writing anime-style cinematic insert shot prompts.
 
-These are NOT character portraits. They are environmental storytelling moments.
+These are NOT character portraits. They are environmental storytelling moments that capture EMOTIONAL ATMOSPHERE.
 
 CRITICAL RULES:
 - NO character faces or detailed appearance descriptions
 - YES to: silhouettes, partial figures, hands, environmental details
-- Focus on: mood, lighting, composition, symbolic objects
+- MUST read the conversation context and match the emotional tone (intimate, tense, playful, vulnerable, etc.)
+- Focus on: mood, lighting, composition, symbolic objects, atmospheric details
 - Style: anime aesthetic, cinematic framing, emotional atmosphere
+- Color temperature and lighting MUST reflect the conversation's emotional tone
 
-Think: Makoto Shinkai environmental shots, Cowboy Bebop insert frames."""
+Think: Makoto Shinkai environmental shots, Cowboy Bebop insert frames.
+The visual should make viewers FEEL what's happening emotionally, not just see a pretty scene."""
 
             log.info(f"CINEMATIC INSERT INPUT - visual_hint: {visual_hint}")
 
