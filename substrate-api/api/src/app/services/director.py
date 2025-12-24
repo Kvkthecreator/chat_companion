@@ -566,10 +566,7 @@ If visual is not "none", add: [hint: <description>]"""
         # 4. Decide actions
         actions = self.decide_actions(evaluation, episode_template, session) if episode_template else DirectorActions()
 
-        # 5. Execute actions (generation budget or spark check)
-        actions = await self.execute_actions(actions, session, user_id, episode_template)
-
-        # 6. Determine completion
+        # 5. Determine completion (execute_actions removed - generations_used increment moved to _generate_auto_scene)
         is_complete = actions.suggest_next
         completion_trigger = None
         if is_complete:
