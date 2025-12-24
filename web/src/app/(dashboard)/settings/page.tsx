@@ -7,7 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Switch } from "@/components/ui/switch";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { SubscriptionCard } from "@/components/subscription";
 import { TopupPacks, TransactionHistory } from "@/components/sparks";
 import { useUser } from "@/hooks/useUser";
@@ -28,7 +28,7 @@ export default function SettingsPage() {
   const [saveSuccess, setSaveSuccess] = useState(false);
 
   // Visual preferences
-  const [autoGenEnabled, setAutoGenEnabled] = useState(false);
+  const [visualModeOverride, setVisualModeOverride] = useState<string>("episode_default");
   const [isSavingPrefs, setIsSavingPrefs] = useState(false);
   const [prefsSaveSuccess, setPrefsSaveSuccess] = useState(false);
 
@@ -52,8 +52,8 @@ export default function SettingsPage() {
   // Sync visual preferences from user data
   useEffect(() => {
     if (user?.preferences) {
-      const visualOverride = user.preferences.visual_mode_override;
-      setAutoGenEnabled(visualOverride === "always_on");
+      const visualOverride = (user.preferences.visual_mode_override as string) || "episode_default";
+      setVisualModeOverride(visualOverride);
     }
   }, [user]);
 
@@ -71,27 +71,23 @@ export default function SettingsPage() {
     }
   };
 
-  const handleToggleAutoGen = async (enabled: boolean) => {
-    // Optimistically update UI
-    setAutoGenEnabled(enabled);
+  const handleVisualModeChange = async (value: string) => {
     setIsSavingPrefs(true);
     setPrefsSaveSuccess(false);
     try {
-      const visual_mode_override = enabled ? "always_on" : "episode_default";
-      const updatedUser = await updateUser({
+      await updateUser({
         preferences: {
           ...user?.preferences,
-          visual_mode_override,
+          visual_mode_override: value as "always_off" | "always_on" | "episode_default",
         },
       });
-      // Ensure state matches server response
-      setAutoGenEnabled(updatedUser?.preferences?.visual_mode_override === "always_on");
+      setVisualModeOverride(value);
       setPrefsSaveSuccess(true);
       setTimeout(() => setPrefsSaveSuccess(false), 3000);
     } catch (err) {
       console.error("Failed to save visual preferences:", err);
-      // Revert on error
-      setAutoGenEnabled(!enabled);
+      // Reload user data on error to reset to server state
+      await reload();
     } finally {
       setIsSavingPrefs(false);
     }
@@ -383,33 +379,49 @@ export default function SettingsPage() {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
-              {/* Auto-Generated Images Toggle */}
-              <div className="flex items-start justify-between gap-4">
-                <div className="space-y-1 flex-1">
-                  <Label htmlFor="auto-gen-toggle" className="text-base font-medium">
+              {/* Auto-Generated Images Setting */}
+              <div className="space-y-3">
+                <div className="space-y-1">
+                  <Label htmlFor="visual-mode" className="text-base font-medium">
                     Auto-generated images
                   </Label>
                   <p className="text-sm text-muted-foreground">
-                    Automatically generate images at key narrative moments during episodes (25%, 50%, 75%).
+                    Control when images are automatically generated during episodes.
                   </p>
                 </div>
-                <div className="flex items-center gap-2">
-                  {isSavingPrefs && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
-                  <Switch
-                    id="auto-gen-toggle"
-                    checked={autoGenEnabled}
-                    onCheckedChange={handleToggleAutoGen}
+                <div className="flex items-center gap-3">
+                  <Select
+                    value={visualModeOverride}
+                    onValueChange={handleVisualModeChange}
                     disabled={isSavingPrefs}
-                  />
+                  >
+                    <SelectTrigger id="visual-mode" className="w-full max-w-md">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="episode_default">
+                        <div className="flex flex-col gap-1">
+                          <span className="font-medium">Off (Default)</span>
+                          <span className="text-xs text-muted-foreground">No auto-generation, manual only</span>
+                        </div>
+                      </SelectItem>
+                      <SelectItem value="always_on">
+                        <div className="flex flex-col gap-1">
+                          <span className="font-medium">Enabled (Experimental)</span>
+                          <span className="text-xs text-muted-foreground">Auto-generate at 25%, 50%, 75%</span>
+                        </div>
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                  {isSavingPrefs && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
+                  {prefsSaveSuccess && (
+                    <span className="text-sm text-green-500 flex items-center gap-1">
+                      <CheckCircle2 className="h-4 w-4" />
+                      Saved
+                    </span>
+                  )}
                 </div>
               </div>
-
-              {prefsSaveSuccess && (
-                <div className="flex items-center gap-2 text-sm text-green-500">
-                  <CheckCircle2 className="h-4 w-4" />
-                  <span>Preferences saved</span>
-                </div>
-              )}
 
               {/* Warning Banner */}
               <div className="rounded-lg bg-amber-500/10 border border-amber-500/20 p-4">
