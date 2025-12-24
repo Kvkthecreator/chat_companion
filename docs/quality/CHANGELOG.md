@@ -17,6 +17,28 @@ Format: `[Document] vX.Y.Z - YYYY-MM-DD`
 ## 2024-12-24
 
 ### Added
+- **[DIRECTOR_UI_TOOLKIT.md]** v2.3.0 - Simplified Interjection Model
+  - **EpisodeOpeningCard**: Now persists as first chat item (not ephemeral in EmptyState)
+  - **StageDirection deprecated**: `episode_frame` is for Character LLM context, not user display
+  - Streamlined interjection reference table with clear categories
+  - Clear field purpose distinction: `situation` (user-facing) vs `episode_frame` (LLM-facing)
+
+### Changed
+- **[ChatContainer]** Refactored episode opening display
+  - Moved EpisodeOpeningCard from EmptyState to chat item list (persists after first message)
+  - Removed StageDirection component (was displaying `episode_frame` inline)
+  - Removed `episode_frame` display from EmptyState
+
+### Removed
+- **[ChatContainer]** StageDirection component (deprecated in DIRECTOR_UI_TOOLKIT v2.3.0)
+  - `episode_frame` field is for Character LLM context injection, not user display
+  - User-facing scene-setting now exclusively via `situation` in EpisodeOpeningCard
+
+---
+
+## 2024-12-24 (Earlier)
+
+### Added
 - **[Settings UI]** Visual Preferences tab for auto-gen toggle
   - New "Preferences" tab in Settings page (web/src/app/(dashboard)/settings/page.tsx)
   - Toggle for "Auto-generated images" (opt-in for experimental feature)

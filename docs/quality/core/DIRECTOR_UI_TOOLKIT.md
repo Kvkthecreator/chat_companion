@@ -1,6 +1,6 @@
 # Director UI Toolkit
 
-> **Version**: 2.2.0
+> **Version**: 2.3.0
 > **Status**: Canonical
 > **Updated**: 2024-12-24
 
@@ -133,102 +133,75 @@ The Director classifies visual moments into types:
 
 #### UPSTREAM-DRIVEN Interjections
 
-| Component | Data Source | Trigger Condition | Director Role | Implementation Path |
-|-----------|-------------|-------------------|---------------|---------------------|
-| **EpisodeOpeningCard** | `episode_templates` table (title, situation, dramatic_question) | Episode start (empty chat state) | Format Episode metadata into card UI | Deterministic: Read Episode → Format → Display |
-| **InstructionCard** (conditional) | Character LLM output during message generation | Director Phase 2 detects `visual_type="instruction"` in response | Detect instruction pattern in Character response, coordinate display | Hybrid: Character generates → Director detects → Display |
+| Component | Data Source | Trigger Condition | Behavior |
+|-----------|-------------|-------------------|----------|
+| **EpisodeOpeningCard** | `episode_templates` table (`title`, `situation`, `dramatic_question`) | Episode start | Persisted as first chat item (scrollable history) |
 
 **Key Characteristics**:
-- **Deterministic Display**: No LLM evaluation needed for display decision (data either exists or doesn't)
-- **Authored Content**: Created during Episode/Series authoring, not generated at runtime
-- **Graceful Degradation**: Missing fields don't break experience (e.g., no dramatic_question? Show title + situation only)
-- **Service Boundaries Clear**: Episode Service owns data, Director formats for display
+- **Deterministic Display**: No LLM evaluation needed (data either exists or doesn't)
+- **Authored Content**: Created during Episode authoring, not generated at runtime
+- **Persistent in Chat**: Remains as first item in chat history (not ephemeral)
+- **Graceful Degradation**: Missing optional fields don't break experience
 
 **Error Handling Strategy**:
 ```python
-# Example: EpisodeOpeningCard
+# EpisodeOpeningCard display logic
 if episode.situation:
     display_opening_card(
         title=episode.title,
         situation=episode.situation,
         dramatic_question=episode.dramatic_question  # Optional, may be None
     )
-else:
-    # Graceful fallback: Show minimal prompt
-    display_default_prompt()
+# If no situation, card simply doesn't render (character-only chat fallback)
 ```
 
 #### RUNTIME-DRIVEN Interjections
 
-| Component | Evaluation Trigger | Director Phase | Decision Logic | Implementation Path |
-|-----------|-------------------|----------------|----------------|---------------------|
-| **SceneCard** (visual moments) | After Character message complete | Phase 2: Visual evaluation | LLM determines `visual_type` in (character, object, atmosphere) | Semantic: Evaluate exchange → Classify visual moment → Trigger generation |
-| **InlineCompletionCard** (episode complete) | After Character message complete | Phase 2: Completion check | LLM evaluates `status` (going/closing/done) OR algorithmic `turn_count >= turn_budget` | Semantic + Algorithmic: Evaluate narrative status → Suggest next episode |
+| Component | Evaluation Trigger | Decision Logic | Behavior |
+|-----------|-------------------|----------------|----------|
+| **SceneCard** | After Character message | LLM determines `visual_type` (character/object/atmosphere) | Inline image with caption |
+| **InstructionCard** | Character LLM output | Director detects instruction pattern in response | Game-like text overlay |
+| **InlineCompletionCard** | After Character message | `status=done` OR `turn_count >= turn_budget` | Episode complete + next suggestion |
+| **InlineSuggestionCard** | Director state | Pacing/narrative cues | Lighter "continue to next" nudge |
 
 **Key Characteristics**:
-- **Semantic Judgment**: Requires LLM evaluation to determine if/when to display
-- **Runtime Generation**: Decision made during conversation, not pre-authored
-- **Fallback Required**: LLM evaluation can fail (timeout, API error) → need safe defaults
-- **Director Owns Logic**: Director Service owns evaluation prompts, trigger logic, error handling
+- **Semantic Judgment**: Requires LLM evaluation or algorithmic threshold
+- **Runtime Decisions**: When/whether to display determined during conversation
+- **Fallback Required**: Evaluation failures → safe defaults (no visual, continue episode)
+- **Director Owns Logic**: Evaluation prompts, trigger logic, error handling
 
 **Error Handling Strategy**:
 ```python
-# Example: SceneCard visual evaluation
+# SceneCard visual evaluation
 try:
-    visual_eval = await director.evaluate_visual_moment(
-        user_msg=user_message,
-        char_msg=character_response,
-        context=episode_context
-    )
+    visual_eval = await director.evaluate_visual_moment(...)
     if visual_eval.visual_type != "none":
         emit_visual_pending(visual_eval.visual_type, visual_eval.hint)
 except LLMEvaluationError:
     # Fallback: No visual generation (safe default)
-    logger.warning("Visual evaluation failed, continuing without visual")
     visual_type = "none"
 ```
 
-### Implementation Decision Tree
+### Complete Interjection Reference
 
-When implementing a new Director interjection, ask:
+| Component | Category | Data Source | Trigger | Persistence |
+|-----------|----------|-------------|---------|-------------|
+| EpisodeOpeningCard | UPSTREAM | Episode template | Episode start | First chat item (permanent) |
+| SceneCard | RUNTIME | Phase 2 visual eval | Visual moment detected | Inline in chat history |
+| InstructionCard | RUNTIME | Character output detection | Instruction pattern | Inline in chat history |
+| InlineCompletionCard | RUNTIME | Phase 2 completion check | Episode done | End of chat |
+| InlineSuggestionCard | RUNTIME | Director state | Pacing cues | End of chat |
 
-**Question 1**: Does the interjection display pre-authored/generated content, or does it require runtime semantic evaluation?
+### Deprecated: StageDirection
 
-- **Pre-authored/generated** → UPSTREAM-DRIVEN
-  - Service boundary: Episode/Series Service owns data
-  - Implementation: Deterministic formatting & display logic
-  - Error handling: Graceful degradation for missing data
-  - Example: EpisodeOpeningCard
+**v2.3.0**: The `StageDirection` component (displaying `episode_frame` inline) has been removed.
 
-- **Runtime evaluation** → RUNTIME-DRIVEN
-  - Service boundary: Director Service owns evaluation
-  - Implementation: LLM evaluation prompt + trigger logic
-  - Error handling: Fallback to safe defaults on evaluation failure
-  - Example: SceneCard, InlineCompletionCard
+**Rationale**: `episode_frame` is actor blocking notes for the Character LLM, not user-facing content. User-facing scene-setting belongs in `situation` field, displayed by `EpisodeOpeningCard`.
 
-**Question 2**: Is the interjection timing deterministic or semantic?
-
-- **Deterministic** → Episode start, turn count threshold, user action
-  - Example: EpisodeOpeningCard (episode start), InlineCompletionCard (turn_limit trigger)
-
-- **Semantic** → Requires LLM evaluation to determine timing
-  - Example: SceneCard (visual moment detection), InlineCompletionCard (semantic "done" status)
-
-**Question 3**: What happens if data is missing or evaluation fails?
-
-- **UPSTREAM**: Graceful degradation (show partial card, skip optional fields)
-- **RUNTIME**: Fallback to safe default (no visual, continue episode)
-
-### Visual Interjection Summary
-
-| Component | Category | Data Source | Trigger | Director Role |
-|-----------|----------|-------------|---------|---------------|
-| EpisodeOpeningCard | UPSTREAM | Episode template | Episode start | Format & display |
-| InstructionCard | UPSTREAM* | Character LLM output | Phase 2 detection | Detect & coordinate display |
-| SceneCard | RUNTIME | Phase 2 visual eval | Visual moment detected | Semantic judgment + trigger generation |
-| InlineCompletionCard | RUNTIME | Phase 2 completion check | Episode complete | Semantic judgment + suggest next |
-
-\* Hybrid: Character generates content, Director detects pattern and coordinates display
+| Field | Purpose | Audience |
+|-------|---------|----------|
+| `situation` | Scene-setting paragraph (where, mood, physical details) | **User** (via EpisodeOpeningCard) |
+| `episode_frame` | Stage direction / blocking notes | **Character LLM** (context injection) |
 
 ---
 
@@ -296,14 +269,14 @@ See: [IMAGE_GENERATION.md](../modalities/IMAGE_GENERATION.md) for quality standa
 
 ### EpisodeOpeningCard
 
-**Purpose**: Render episode setup at conversation start ("program notes" before the show begins).
+**Purpose**: Render episode setup as the first item in chat history ("program notes" that persist).
 
 **Content Source**: Episode-authored metadata (not Director runtime)
 - `episode.title` - Episode name
 - `episode.situation` - Scene-setting paragraph (where we are, physical details)
-- `episode.dramatic_question` - What's at stake, what tension drives this scene
+- `episode.dramatic_question` - What's at stake, what tension drives this scene (optional)
 
-**When Shown**: Once per episode, before first user message (empty chat state)
+**When Shown**: Always as first item in chat history (persists when scrolling up)
 
 **Owner**: Episode domain (authored content), not Director runtime evaluation
 
@@ -317,22 +290,22 @@ See: [IMAGE_GENERATION.md](../modalities/IMAGE_GENERATION.md) for quality standa
 - Typography hierarchy:
   - Title: Large, bold, white text
   - Situation: Medium paragraph, white/80 opacity
-  - Dramatic question: Smaller italicized text with accent color (amber/purple)
+  - Dramatic question: Smaller italicized text with accent color (purple)
 - Vertical spacing: `my-6` (consistent with other Director cards)
 
 **Design Principles**:
 - **Authored, not generated**: Static content from Episode template
 - **Scene establishment**: Sets physical and emotional stage before conversation
 - **Visual consistency**: Matches runtime Director cards (SceneCard, InstructionCard)
-- **One-time display**: Only shown at episode start, not repeated during conversation
+- **Persistent**: Remains as first chat item (user can scroll up to review)
 
 **Implementation Notes**:
-- Rendered in ChatContainer empty state
-- Should display before MessageInput becomes active
-- Consider fade-in animation on episode start
-- Optional: Dismiss button to clear and start chatting immediately
+- Rendered as first item in chat message list (not in EmptyState)
+- Displayed above all messages, always visible when scrolling to top
+- Fade-in animation on initial render
+- No dismiss button (permanent part of episode context)
 
-**Current Status**: **Not yet implemented** - Currently just text (title + situation), no dramatic_question display
+**Current Status**: ✅ Implemented (v2.3.0)
 
 ---
 
@@ -555,6 +528,7 @@ The `useChat` hook exposes Director state:
 
 | Version | Date | Changes |
 |---------|------|---------|
+| 2.3.0 | 2024-12-24 | **Simplified interjection model**: EpisodeOpeningCard now persists as first chat item (not ephemeral). Deprecated StageDirection component (`episode_frame` is for Character LLM, not user display). Streamlined interjection reference table. |
 | 2.2.0 | 2024-12-24 | **Architectural addition**: Interjection System Architecture section documenting upstream vs runtime categorization, implementation decision tree, service boundaries, error handling strategies |
 | 2.1.0 | 2024-12-24 | Added EpisodeOpeningCard specification (authored scene setup card before conversation start) |
 | 2.0.0 | 2024-12-24 | **Major update**: Theatrical model (v2.2+), manual-first visuals (v2.5), user preference override, removed `sparks_deducted` field, updated data flow diagram, Episode-authored motivation |
