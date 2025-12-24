@@ -578,9 +578,10 @@ class ImageService:
     """
 
     # Default provider/model for the app
-    # Using FLUX Schnell for T2I - fast, cheap ($0.003/image), supports negative prompts
+    # Using FLUX Dev for T2I - slower but respects negative prompts properly
+    # FLUX Schnell doesn't actually support negative_prompt parameter
     DEFAULT_PROVIDER = "replicate"
-    DEFAULT_MODEL = "black-forest-labs/flux-schnell"
+    DEFAULT_MODEL = "black-forest-labs/flux-dev"
 
     # API key environment variable mapping
     API_KEY_ENV_VARS = {
