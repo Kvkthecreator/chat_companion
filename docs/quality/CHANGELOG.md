@@ -24,7 +24,8 @@ Format: `[Document] vX.Y.Z - YYYY-MM-DD`
   - Cost reduction: $0.05 vs $0.15 per auto-gen (67% savings)
   - Improved manual prompting: facial expressions, body language, composition
 
-- **[modalities/IMAGE_GENERATION.md]** v1.1.0 - Image generation quality specification
+- **[modalities/IMAGE_GENERATION.md]** v1.2.0 - Hybrid trigger model + observability
+  - **v1.2 Update**: Turn-based visual triggers (deterministic WHEN + semantic WHAT)
   - Strategic philosophy: Two-track generation approach
   - Track 1 (Auto-gen): Cinematic insert shot standards, prompting templates, quality checklist
   - Track 2 (Manual): Kontext Pro and T2I mode specifications with Phase 1C improvements
@@ -34,7 +35,21 @@ Format: `[Document] vX.Y.Z - YYYY-MM-DD`
   - Evolution tracking with open questions
   - Provider configuration documentation (Phase 1E)
 
+- **[DIRECTOR_PHASE_2_4_VISUAL_OBSERVABILITY.md]** - Implementation plan for hybrid model
+  - Root cause analysis: LLM-driven visual triggers unreliable (Gemini Flash too conservative)
+  - Solution architecture: Deterministic turn-based triggers (25%, 50%, 75% of episode)
+  - Observability enhancements: raw_response logging, visual_decisions history, parse_method tracking
+  - Testing strategy and success metrics
+  - Migration path and rollout plan
+
 ### Changed
+- **[DIRECTOR_PROTOCOL.md]** v2.4.0 - Hybrid Visual Triggers + Observability
+  - **NEW Section**: "Visual Trigger Strategy (v2.4 - Hybrid Model)"
+  - Replaced LLM-driven visual decisions with deterministic turn-based triggers
+  - Simplified LLM prompt: description-only (no SIGNAL format, no complex parsing)
+  - Added observability fields: raw_response, parse_method, visual_decisions history
+  - Benefits: Predictable, testable, reliable, model-agnostic
+
 - **[DIRECTOR_PROTOCOL.md]** v2.3.0 - Memory & Hook Extraction Ownership
   - Director now owns all post-exchange processing (memory, hooks, beats)
   - Removed dual ownership (ConversationService._process_exchange deleted)
@@ -72,7 +87,21 @@ Format: `[Document] vX.Y.Z - YYYY-MM-DD`
   - Added good/bad examples to both templates
   - Fixed 500 error by switching to FLUX Schnell default provider
 
+- **[DirectorService]** Hybrid visual trigger model (v2.4 - commit 317cb551)
+  - Added `_should_generate_visual_deterministic()` - pure function, turn-based trigger logic
+  - Modified `decide_actions()` - call deterministic check first, use LLM description only
+  - Simplified `evaluate_exchange()` prompt - removed SIGNAL format, just VISUAL + STATUS
+  - Updated `_parse_evaluation()` - extract description & status (no complex regex)
+  - Enhanced `process_exchange()` - save raw_response, parse_method, visual_decisions history
+  - Added logging: warnings on parse failures, info on visual triggers with reasons
+  - Deterministic triggers: 25%, 50%, 75% for cinematic (budget=3), 90%+ for minimal
+
 ### Fixed
+- **[Director Auto-Gen]** Visual triggers now reliable and observable (v2.4)
+  - Root cause: Gemini Flash evaluated ALL turns as visual_type="none" despite clear visual moments
+  - Fix: Replaced LLM decision with deterministic turn-based triggers
+  - Impact: Auto-gen will now fire predictably at 25%, 50%, 75% of episode
+  - Observability: Can now see full LLM responses and decision reasons in director_state
 - **[HOTFIX]** Director completely broken - removed orphaned execute_actions() call (commit bf3331c0)
   - Phase 1A removed execute_actions() method but missed removing the call in process_exchange()
   - Caused: 'DirectorService' object has no attribute 'execute_actions' error on every exchange
