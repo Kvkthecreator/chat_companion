@@ -572,12 +572,12 @@ STATUS: going/closing/done"""
         else:
             log.debug(f"Visual skipped: {trigger_reason}")
 
-        # --- Episode Progression ---
-        status = evaluation.get("status", "going")
-
-        if status == "done":
-            actions.suggest_next = True
-        elif turn_budget and turn >= turn_budget:
+        # --- Episode Progression (turn-based only) ---
+        # v2.5: Removed semantic completion ("status: done" from LLM).
+        # Only turn_budget triggers next episode suggestion - deterministic and predictable.
+        # Default turn_budget = 10 if not set on episode_template.
+        effective_turn_budget = turn_budget or 10
+        if turn >= effective_turn_budget:
             actions.suggest_next = True
 
         # NOTE: Memory/hook extraction now happens in process_exchange() (Director Protocol v2.3)
@@ -626,15 +626,14 @@ STATUS: going/closing/done"""
         # 4. Decide actions (with user preference support)
         actions = await self.decide_actions(evaluation, episode_template, session, user_preferences) if episode_template else DirectorActions()
 
-        # 5. Determine completion (execute_actions removed - generations_used increment moved to _generate_auto_scene)
+        # 5. Determine completion (turn-based only, v2.5)
+        # Semantic completion removed - only turn_budget triggers suggestions
         is_complete = actions.suggest_next
         completion_trigger = None
         if is_complete:
-            if evaluation.get("status") == "done":
-                completion_trigger = "semantic"
-            elif episode_template and getattr(episode_template, 'turn_budget', None):
-                if new_turn_count >= episode_template.turn_budget:
-                    completion_trigger = "turn_limit"
+            effective_turn_budget = getattr(episode_template, 'turn_budget', None) or 10 if episode_template else 10
+            if new_turn_count >= effective_turn_budget:
+                completion_trigger = "turn_limit"
 
         # 7. Update session state (with observability v2.4)
         director_state = dict(session.director_state) if session.director_state else {}
@@ -836,14 +835,20 @@ STATUS: going/closing/done"""
         is_complete: bool,
         completion_trigger: Optional[str],
     ):
-        """Update session with Director state."""
+        """Update session with Director state.
+
+        v2.5: Episodes no longer marked "complete" - users have full control.
+        session_state stays 'active' indefinitely. completion_trigger is still
+        recorded for analytics/debugging but doesn't change session_state.
+        """
         updates = {
             "turn_count": turn_count,
             "director_state": json.dumps(director_state),
         }
 
-        if is_complete:
-            updates["session_state"] = "complete"
+        # v2.5: Record completion_trigger for analytics but don't mark session complete
+        # Users can continue chatting beyond turn_budget - it's just a suggestion
+        if is_complete and completion_trigger:
             updates["completion_trigger"] = completion_trigger
 
         set_clause = ", ".join(f"{k} = :{k}" for k in updates.keys())

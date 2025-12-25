@@ -121,11 +121,18 @@ export function useChat({
       // Get or create active episode
       let activeEpisode = await api.episodes.getActive(characterId);
 
-      // If we have an episodeTemplateId from URL, check if the active episode matches
-      // If not, we need to get/create the correct session for that template
-      if (episodeTemplateId && activeEpisode && activeEpisode.episode_template_id !== episodeTemplateId) {
-        // The active episode doesn't match the requested template
-        // Use conversation.start which properly handles episode template scoping
+      // Check if the active session matches what we need:
+      // - If episodeTemplateId provided: active session must have matching episode_template_id
+      // - If NO episodeTemplateId (free chat): active session must have NULL episode_template_id
+      const needsNewSession =
+        !activeEpisode ||
+        (episodeTemplateId && activeEpisode.episode_template_id !== episodeTemplateId) ||
+        (!episodeTemplateId && activeEpisode.episode_template_id);
+
+      if (needsNewSession) {
+        // Use conversation.start which properly handles session scoping by episode_template_id
+        // - With episodeTemplateId: creates/reactivates episode session
+        // - Without episodeTemplateId: creates/reactivates free chat session (episode_template_id = NULL)
         try {
           activeEpisode = await api.conversation.start(characterId, {
             episodeTemplateId,
@@ -133,21 +140,6 @@ export function useChat({
         } catch (err) {
           if (err instanceof APIError && err.status === 409) {
             // Session might already exist - try fetching again
-            // Note: getActive doesn't support template filtering, so we use what start returned
-          } else {
-            throw err;
-          }
-        }
-      } else if (!activeEpisode) {
-        // No active episode at all - start new episode with template if provided
-        try {
-          activeEpisode = await api.conversation.start(characterId, {
-            episodeTemplateId,
-          });
-        } catch (err) {
-          // If the backend returns a conflict because the engagement/session already exists, recover gracefully.
-          if (err instanceof APIError && err.status === 409) {
-            // Attempt to fetch the freshly-active episode again (or one may have been created in parallel)
             activeEpisode = await api.episodes.getActive(characterId);
           } else {
             throw err;

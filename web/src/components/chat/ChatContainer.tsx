@@ -53,7 +53,8 @@ export function ChatContainer({ characterId, episodeTemplateId }: ChatContainerP
   }>>([]);
   const { character, isLoading: isLoadingCharacter } = useCharacter(characterId);
 
-  // Load episode template if provided
+  // Load episode template ONLY if explicitly provided via URL param
+  // Free chat mode (no episodeTemplateId) should NOT load any episode template
   useEffect(() => {
     if (episodeTemplateId) {
       api.episodeTemplates.get(episodeTemplateId)
@@ -63,12 +64,10 @@ export function ChatContainer({ characterId, episodeTemplateId }: ChatContainerP
           setEpisodeTemplate(null);
         });
     } else {
-      // Try to get default episode template for character
-      api.episodeTemplates.getDefault(characterId)
-        .then(setEpisodeTemplate)
-        .catch(() => setEpisodeTemplate(null));
+      // Free chat mode - explicitly clear any episode template
+      setEpisodeTemplate(null);
     }
-  }, [episodeTemplateId, characterId]);
+  }, [episodeTemplateId]);
 
   // Load series episodes for header picker
   useEffect(() => {
@@ -370,7 +369,6 @@ export function ChatContainer({ characterId, episodeTemplateId }: ChatContainerP
                   <EpisodeOpeningCard
                     title={episodeTemplate.title}
                     situation={episodeTemplate.situation}
-                    dramaticQuestion={episodeTemplate.dramatic_question}
                     characterName={character.name}
                     hasBackground={hasBackground}
                   />
@@ -580,7 +578,6 @@ function EmptyState({
         <EpisodeOpeningCard
           title={episodeTemplate.title}
           situation={episodeTemplate.situation}
-          dramaticQuestion={episodeTemplate.dramatic_question}
           characterName={characterName}
           hasBackground={hasBackground}
         />

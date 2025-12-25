@@ -1,87 +1,57 @@
 "use client";
 
-import { BookOpen } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface EpisodeOpeningCardProps {
   title: string;
   situation: string;
-  dramaticQuestion?: string | null;
   characterName: string;
   hasBackground?: boolean;
 }
 
 /**
- * EpisodeOpeningCard - Renders episode setup at conversation start
+ * EpisodeOpeningCard - Simple scene-setting card at conversation start
  *
- * Design philosophy (DIRECTOR_UI_TOOLKIT.md v2.2):
- * - UPSTREAM-DRIVEN interjection (displays Episode-authored metadata)
- * - Shown once per episode before first user message (empty chat state)
- * - "Program notes" before the show begins - sets the stage
- * - Matches Director UI design language (SceneCard, InstructionCard)
- *
- * Theatrical Model Analogy:
- * - Like theater program notes or "Previously on..." recap
- * - Episode owns the content, Director formats for display
- * - Establishes situation (where we are) and dramatic question (what's at stake)
- *
- * Content Source:
- * - episode.title - Episode name
- * - episode.situation - Scene-setting paragraph (physical details, mood)
- * - episode.dramatic_question - What tension drives this scene (optional)
+ * v2.5: Simplified design - matches assistant chat bubble aesthetic
+ * - Shows episode title and situation only
+ * - No dramatic_question (removed for cleaner UX)
+ * - Styled to blend with conversation flow, not stand out
  */
 export function EpisodeOpeningCard({
   title,
   situation,
-  dramaticQuestion,
   characterName,
   hasBackground = false,
 }: EpisodeOpeningCardProps) {
   return (
-    <div className="my-6 w-full animate-in fade-in duration-700">
-      <div className={cn(
-        "relative overflow-hidden rounded-2xl shadow-2xl",
-        "ring-1",
-        hasBackground
-          ? "ring-purple-500/30 bg-gradient-to-br from-purple-950/80 via-black/80 to-purple-950/60"
-          : "ring-purple-500/20 bg-gradient-to-br from-purple-950/90 via-gray-900 to-purple-950/70"
-      )}>
-        {/* Decorative pattern overlay */}
-        <div className="absolute inset-0 opacity-5 bg-[radial-gradient(circle_at_30%_20%,rgba(168,85,247,0.4)_0%,transparent_50%),radial-gradient(circle_at_70%_80%,rgba(147,51,234,0.3)_0%,transparent_50%)]" />
-
-        {/* Content */}
-        <div className="relative px-4 py-6 sm:px-6 sm:py-8">
-          {/* Icon badge - Book/Script representing "authored scene" */}
-          <div className="flex justify-center mb-3 sm:mb-4">
-            <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-purple-500/20 border border-purple-500/30 flex items-center justify-center">
-              <BookOpen className="w-5 h-5 sm:w-6 sm:h-6 text-purple-400" />
-            </div>
-          </div>
-
-          {/* Episode title */}
-          <h2 className="text-xl sm:text-2xl font-bold text-white text-center mb-3 sm:mb-4 leading-tight px-2">
-            {title}
-          </h2>
-
-          {/* Situation - Scene-setting paragraph */}
-          <p className="text-sm sm:text-base text-white/80 text-center leading-relaxed mb-3 sm:mb-4 max-w-2xl mx-auto px-2">
-            {situation}
-          </p>
-
-          {/* Dramatic question - What's at stake (if provided) */}
-          {dramaticQuestion && (
-            <div className="mt-4 sm:mt-6 pt-3 sm:pt-4 border-t border-purple-500/20">
-              <p className="text-xs sm:text-sm italic text-purple-300/90 text-center leading-relaxed max-w-xl mx-auto px-2">
-                {dramaticQuestion}
-              </p>
-            </div>
+    <div className="flex justify-start mb-4">
+      <div
+        className={cn(
+          "max-w-[85%] rounded-2xl px-4 py-3",
+          hasBackground
+            ? "bg-black/40 backdrop-blur-sm"
+            : "bg-muted"
+        )}
+      >
+        {/* Episode title - subtle label */}
+        <p
+          className={cn(
+            "text-xs font-medium mb-1",
+            hasBackground ? "text-white/60" : "text-muted-foreground"
           )}
+        >
+          {title}
+        </p>
 
-          {/* Subtle label */}
-          <p className="text-[10px] uppercase tracking-widest text-purple-500/50 text-center mt-4 sm:mt-6">
-            Episode Opening
-          </p>
-        </div>
+        {/* Situation - the main content */}
+        <p
+          className={cn(
+            "text-sm leading-relaxed",
+            hasBackground ? "text-white/90" : "text-foreground"
+          )}
+        >
+          {situation}
+        </p>
       </div>
     </div>
   );

@@ -2,7 +2,7 @@
 
 > **Version**: 2.5.0
 > **Status**: Active
-> **Updated**: 2024-12-24
+> **Updated**: 2024-12-25
 
 ---
 
@@ -125,17 +125,45 @@ Pacing is **deterministic** based on turn count and optional turn budget.
 
 ---
 
-## Phase 2: Post-Exchange Processing (v2.3 - Expanded)
+## Phase 2: Post-Exchange Processing (v2.5)
 
 After the character responds, Director orchestrates all post-exchange processing:
 
-### Semantic Evaluation
+### Episode Progression (v2.5 - Turn-Based Only)
+
+**BREAKING CHANGE**: Semantic completion detection removed in v2.5.
+
+```python
+# BEFORE (v2.4): LLM-driven completion
+status = evaluation.get("status", "going")  # "going" | "closing" | "done"
+if status == "done":
+    actions.suggest_next = True  # LLM decides when episode is "done"
+
+# AFTER (v2.5): Turn-based only
+effective_turn_budget = turn_budget or 10  # Default: 10 turns
+if turn_count >= effective_turn_budget:
+    actions.suggest_next = True  # Deterministic trigger
+```
+
+**Why This Change:**
+- Semantic completion was unpredictable (LLM judgment varied)
+- Users didn't know when/why episodes would end
+- Turn-based is deterministic and testable
+- Default of 10 turns provides consistent experience
+
+**User Control (v2.5):**
+- Episodes are **never** marked `session_state = "complete"`
+- `completion_trigger` is recorded for analytics only
+- Users can continue chatting beyond turn_budget
+- Next episode suggestion is truly a *suggestion*, not a gate
+
+### Semantic Evaluation (Simplified in v2.5)
 
 ```python
 DirectorEvaluation(
-    visual_type: str,      # "character" | "object" | "atmosphere" | "instruction" | "none"
+    visual_type: str,      # "character" (always, for visual generation)
     visual_hint: str,      # "close-up on her hands, fidgeting"
-    status: str,           # "going" | "closing" | "done"
+    # status field still returned but IGNORED for completion decisions
 )
 ```
 
@@ -436,6 +464,7 @@ Director now logs full evaluation context:
 
 | Version | Date | Changes |
 |---------|------|---------|
+| 2.5.0 | 2024-12-25 | **Turn-Based Completion Only**: Remove semantic completion ("status: done" from LLM). Default turn_budget=10. Episodes never marked "complete" - users have full control. EpisodeOpeningCard simplified (no dramatic_question). |
 | 2.4.0 | 2024-12-24 | **Hybrid Visual Triggers**: Replace LLM-driven visual decisions with deterministic turn-based triggers. Add observability (raw_response, visual_decisions history). Simplify LLM to description-only (no SIGNAL parsing). |
 | 2.3.0 | 2024-12-24 | **Memory & Hook Extraction Ownership**: Director orchestrates post-exchange processing (memory/hook extraction, beat classification). Series-scoped memory isolation. |
 | 2.2.0 | 2024-12-23 | **Theatrical Model**: Remove per-turn motivation generation. Director becomes deterministic stage manager. Motivation moves upstream to Episode/Genre. |
