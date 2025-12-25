@@ -497,6 +497,10 @@ export const api = {
         `/scenes/gallery${query ? `?${query}` : ""}`
       );
     },
+    delete: (image_id: string) =>
+      request<{ status: string; image_id: string }>(`/scenes/${image_id}`, {
+        method: "DELETE",
+      }),
   },
 
   // Hook endpoints

@@ -1,20 +1,49 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import Link from "next/link";
 import { api } from "@/lib/api/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
-import { Star, ImageOff, MessageCircle, Clock, Sparkles } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { ImageOff, MessageCircle, Sparkles, MoreVertical, Download, Trash2, ChevronDown, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { SceneGalleryItem, RelationshipWithCharacter } from "@/types";
+
+type GroupBy = "series" | "character" | "none";
+
+interface GroupedScenes {
+  key: string;
+  label: string;
+  sublabel?: string;
+  scenes: SceneGalleryItem[];
+}
 
 export default function GalleryPage() {
   const [scenes, setScenes] = useState<SceneGalleryItem[]>([]);
   const [relationships, setRelationships] = useState<RelationshipWithCharacter[]>([]);
   const [selectedCharacter, setSelectedCharacter] = useState<string>("all");
+  const [groupBy, setGroupBy] = useState<GroupBy>("series");
+  const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
   const [isLoading, setIsLoading] = useState(true);
+  const [deleteTarget, setDeleteTarget] = useState<SceneGalleryItem | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   // Load relationships for filter
   useEffect(() => {
@@ -23,12 +52,12 @@ export default function GalleryPage() {
       .catch(console.error);
   }, []);
 
-  // Load scenes (all generated, not just memories)
+  // Load scenes
   useEffect(() => {
     async function loadScenes() {
       setIsLoading(true);
       try {
-        const params: { character_id?: string; limit?: number } = { limit: 50 };
+        const params: { character_id?: string; limit?: number } = { limit: 100 };
         if (selectedCharacter !== "all") {
           params.character_id = selectedCharacter;
         }
@@ -43,14 +72,123 @@ export default function GalleryPage() {
     loadScenes();
   }, [selectedCharacter]);
 
+  // Group scenes based on groupBy setting
+  const groupedScenes = useMemo((): GroupedScenes[] => {
+    if (groupBy === "none") {
+      return [{ key: "all", label: "All Images", scenes }];
+    }
+
+    const groups = new Map<string, GroupedScenes>();
+
+    for (const scene of scenes) {
+      let key: string;
+      let label: string;
+      let sublabel: string | undefined;
+
+      if (groupBy === "series") {
+        if (scene.series_title) {
+          key = scene.series_title;
+          label = scene.series_title;
+          sublabel = scene.character_name;
+        } else {
+          key = `free-chat-${scene.character_id}`;
+          label = "Free Chat";
+          sublabel = scene.character_name;
+        }
+      } else {
+        // group by character
+        key = scene.character_id;
+        label = scene.character_name;
+      }
+
+      if (!groups.has(key)) {
+        groups.set(key, { key, label, sublabel, scenes: [] });
+      }
+      groups.get(key)!.scenes.push(scene);
+    }
+
+    // Sort groups: series with content first, then free chat
+    return Array.from(groups.values()).sort((a, b) => {
+      if (a.label === "Free Chat") return 1;
+      if (b.label === "Free Chat") return -1;
+      return a.label.localeCompare(b.label);
+    });
+  }, [scenes, groupBy]);
+
+  const toggleGroup = (key: string) => {
+    setCollapsedGroups((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) {
+        next.delete(key);
+      } else {
+        next.add(key);
+      }
+      return next;
+    });
+  };
+
+  const handleDownload = async (scene: SceneGalleryItem) => {
+    try {
+      const response = await fetch(scene.image_url);
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `scene-${scene.image_id}.png`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error("Failed to download image:", err);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!deleteTarget) return;
+    setIsDeleting(true);
+    try {
+      await api.scenes.delete(deleteTarget.image_id);
+      setScenes((prev) => prev.filter((s) => s.image_id !== deleteTarget.image_id));
+      setDeleteTarget(null);
+    } catch (err) {
+      console.error("Failed to delete scene:", err);
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">Gallery</h1>
-        <p className="text-muted-foreground">
-          All the moments you&apos;ve captured in your stories
-        </p>
+      <div className="flex items-start justify-between">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Gallery</h1>
+          <p className="text-muted-foreground">
+            {scenes.length} {scenes.length === 1 ? "moment" : "moments"} captured
+          </p>
+        </div>
+
+        {/* Group by selector */}
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="outline" size="sm" className="gap-2">
+              Group by: {groupBy === "series" ? "Series" : groupBy === "character" ? "Character" : "None"}
+              <ChevronDown className="h-4 w-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem onClick={() => setGroupBy("series")}>
+              Series
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => setGroupBy("character")}>
+              Character
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => setGroupBy("none")}>
+              None (flat list)
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
 
       {/* Character filter tabs */}
@@ -84,30 +222,89 @@ export default function GalleryPage() {
       ) : scenes.length === 0 ? (
         <EmptyState hasRelationships={relationships.length > 0} />
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {scenes.map((scene) => (
-            <SceneCard key={scene.image_id} scene={scene} />
+        <div className="space-y-8">
+          {groupedScenes.map((group) => (
+            <div key={group.key}>
+              {/* Group header */}
+              {groupBy !== "none" && (
+                <button
+                  onClick={() => toggleGroup(group.key)}
+                  className="flex items-center gap-2 mb-4 hover:opacity-80 transition-opacity"
+                >
+                  {collapsedGroups.has(group.key) ? (
+                    <ChevronRight className="h-5 w-5 text-muted-foreground" />
+                  ) : (
+                    <ChevronDown className="h-5 w-5 text-muted-foreground" />
+                  )}
+                  <h2 className="text-lg font-semibold">{group.label}</h2>
+                  {group.sublabel && (
+                    <span className="text-sm text-muted-foreground">• {group.sublabel}</span>
+                  )}
+                  <span className="text-sm text-muted-foreground">({group.scenes.length})</span>
+                </button>
+              )}
+
+              {/* Grid */}
+              {!collapsedGroups.has(group.key) && (
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+                  {group.scenes.map((scene) => (
+                    <SceneCard
+                      key={scene.image_id}
+                      scene={scene}
+                      onDownload={() => handleDownload(scene)}
+                      onDelete={() => setDeleteTarget(scene)}
+                      showEpisode={groupBy === "series"}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
           ))}
         </div>
       )}
+
+      {/* Delete confirmation dialog */}
+      <AlertDialog open={!!deleteTarget} onOpenChange={() => setDeleteTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete this image?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. The image will be permanently deleted.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDelete}
+              disabled={isDeleting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {isDeleting ? "Deleting..." : "Delete"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
 
-function SceneCard({ scene }: { scene: SceneGalleryItem }) {
+function SceneCard({
+  scene,
+  onDownload,
+  onDelete,
+  showEpisode,
+}: {
+  scene: SceneGalleryItem;
+  onDownload: () => void;
+  onDelete: () => void;
+  showEpisode: boolean;
+}) {
   const [imageError, setImageError] = useState(false);
   const [imageLoaded, setImageLoaded] = useState(false);
 
   return (
     <Card className="overflow-hidden hover:shadow-lg transition-shadow group">
       <div className="relative aspect-square bg-muted">
-        {/* Memory indicator */}
-        {scene.is_memory && (
-          <div className="absolute top-2 right-2 z-10">
-            <Star className="h-5 w-5 text-yellow-500 fill-yellow-500 drop-shadow-md" />
-          </div>
-        )}
-
         {imageError ? (
           <div className="absolute inset-0 flex items-center justify-center">
             <ImageOff className="h-12 w-12 text-muted-foreground/50" />
@@ -130,56 +327,36 @@ function SceneCard({ scene }: { scene: SceneGalleryItem }) {
           </>
         )}
 
-        {/* Overlay on hover */}
-        <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+        {/* Actions overlay */}
+        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-start justify-end p-2">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon" className="h-8 w-8 bg-black/50 hover:bg-black/70 text-white">
+                <MoreVertical className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={onDownload}>
+                <Download className="h-4 w-4 mr-2" />
+                Download
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={onDelete} className="text-destructive">
+                <Trash2 className="h-4 w-4 mr-2" />
+                Delete
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
       </div>
 
-      <CardContent className="p-4">
-        {/* Series & Episode */}
-        <div className="mb-2">
-          {scene.series_title && (
-            <p className="text-xs text-muted-foreground truncate">
-              {scene.series_title}
-            </p>
-          )}
-          {scene.episode_title && (
-            <p className="text-sm font-medium truncate">
-              {scene.episode_title}
-            </p>
-          )}
-        </div>
-
-        {/* Meta */}
-        <div className="flex items-center justify-between text-xs text-muted-foreground">
-          <span className="font-medium text-foreground/70">
-            {scene.character_name}
-          </span>
-          <div className="flex items-center gap-1">
-            <Clock className="h-3 w-3" />
-            <span>
-              {new Date(scene.created_at).toLocaleDateString(undefined, {
-                month: "short",
-                day: "numeric",
-              })}
-            </span>
-          </div>
-        </div>
-
-        {/* Trigger type badge */}
-        {scene.trigger_type && (
-          <div className="mt-2">
-            <span className={cn(
-              "inline-flex items-center gap-1 px-2 py-0.5 text-xs rounded-full",
-              scene.trigger_type === "user_request"
-                ? "bg-primary/10 text-primary"
-                : "bg-muted text-muted-foreground"
-            )}>
-              <Sparkles className="h-3 w-3" />
-              {scene.trigger_type === "user_request" ? "You requested" : scene.trigger_type}
-            </span>
-          </div>
-        )}
-      </CardContent>
+      {/* Minimal caption */}
+      {showEpisode && scene.episode_title && (
+        <CardContent className="p-3">
+          <p className="text-xs text-muted-foreground truncate">
+            {scene.episode_title}
+          </p>
+        </CardContent>
+      )}
     </Card>
   );
 }
@@ -191,10 +368,10 @@ function EmptyState({ hasRelationships }: { hasRelationships: boolean }) {
         <div className="w-20 h-20 rounded-full bg-gradient-to-br from-violet-400 to-purple-500 flex items-center justify-center text-white text-3xl mb-6">
           <Sparkles className="h-10 w-10" />
         </div>
-        <h3 className="text-xl font-semibold mb-2">No scenes yet</h3>
+        <h3 className="text-xl font-semibold mb-2">No images yet</h3>
         <p className="text-muted-foreground max-w-sm mb-6">
           {hasRelationships
-            ? "During your conversations, tap the ✨ button to generate scene cards that capture special moments."
+            ? "During your conversations, tap the ✨ button to capture moments as images."
             : "Start chatting with a character and create visual moments from your story."}
         </p>
         {hasRelationships ? (
@@ -205,10 +382,10 @@ function EmptyState({ hasRelationships }: { hasRelationships: boolean }) {
             </Button>
           </Link>
         ) : (
-          <Link href="/dashboard/characters">
+          <Link href="/discover">
             <Button className="gap-2">
               <MessageCircle className="h-4 w-4" />
-              Meet someone new
+              Discover characters
             </Button>
           </Link>
         )}
@@ -219,18 +396,10 @@ function EmptyState({ hasRelationships }: { hasRelationships: boolean }) {
 
 function ScenesGridSkeleton() {
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-      {[1, 2, 3, 4, 5, 6].map((i) => (
+    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+      {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
         <Card key={i} className="overflow-hidden">
           <Skeleton className="aspect-square" />
-          <CardContent className="p-4 space-y-2">
-            <Skeleton className="h-3 w-1/3" />
-            <Skeleton className="h-4 w-2/3" />
-            <div className="flex justify-between">
-              <Skeleton className="h-3 w-20" />
-              <Skeleton className="h-3 w-16" />
-            </div>
-          </CardContent>
         </Card>
       ))}
     </div>

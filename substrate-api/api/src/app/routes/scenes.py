@@ -694,6 +694,52 @@ async def list_memories(
     return results
 
 
+@router.delete("/{image_id}")
+async def delete_scene(
+    image_id: UUID,
+    user_id: UUID = Depends(get_current_user_id),
+    db=Depends(get_db),
+):
+    """Delete a scene image.
+
+    Removes both the scene_images record and the image_assets record.
+    Storage file is kept for now (could add cleanup job later).
+    """
+    # Verify ownership via session join
+    check_query = """
+        SELECT si.id, ia.storage_path
+        FROM scene_images si
+        JOIN sessions s ON s.id = si.episode_id
+        JOIN image_assets ia ON ia.id = si.image_id
+        WHERE si.image_id = :image_id AND s.user_id = :user_id
+    """
+    row = await db.fetch_one(check_query, {"image_id": str(image_id), "user_id": str(user_id)})
+
+    if not row:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Scene not found or not owned by user",
+        )
+
+    # Delete scene_images record
+    await db.execute(
+        "DELETE FROM scene_images WHERE image_id = :image_id",
+        {"image_id": str(image_id)},
+    )
+
+    # Delete image_assets record
+    await db.execute(
+        "DELETE FROM image_assets WHERE id = :image_id",
+        {"image_id": str(image_id)},
+    )
+
+    # Note: Storage file not deleted - could add cleanup job later
+    # storage = StorageService.get_instance()
+    # await storage.delete("scenes", row["storage_path"])
+
+    return {"status": "deleted", "image_id": str(image_id)}
+
+
 @router.get("/gallery", response_model=List[SceneGalleryItem])
 async def list_all_scenes(
     user_id: UUID = Depends(get_current_user_id),

@@ -3,7 +3,7 @@
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import type { User } from "@supabase/supabase-js"
-import { BookOpen, Compass, Heart, Images, LayoutDashboard, MessageCircle, ChevronLeft, ChevronRight } from "lucide-react"
+import { BookOpen, Compass, Images, LayoutDashboard, MessageCircle, ChevronLeft, ChevronRight } from "lucide-react"
 import { ModeToggle } from "@/components/mode-toggle"
 import { UserMenu } from "@/components/UserMenu"
 import { Logo } from "@/components/Logo"
@@ -15,8 +15,8 @@ const navigation = [
   { name: "Discover", href: "/discover", icon: Compass },
   { name: "My Series", href: "/dashboard/series", icon: BookOpen },
   { name: "My Chats", href: "/dashboard/chats", icon: MessageCircle },
-  { name: "Our Story", href: "/dashboard/story", icon: Images },
-  { name: "Memories", href: "/dashboard/memories", icon: Heart },
+  { name: "Gallery", href: "/dashboard/story", icon: Images },
+  // Memories page still exists at /dashboard/memories for debugging, but hidden from nav
 ]
 
 export function Sidebar({ user, variant = "default" }: { user: User; variant?: "default" | "immersive" }) {
