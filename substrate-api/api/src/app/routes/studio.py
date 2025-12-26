@@ -340,6 +340,10 @@ async def update_character(
 
     update_data = data.model_dump(exclude_unset=True)
 
+    # Auto-update slug when name changes
+    if "name" in update_data:
+        update_data["slug"] = generate_slug(update_data["name"])
+
     for field, value in update_data.items():
         if value is not None:
             # Handle JSONB fields - use CAST() instead of :: to avoid parameter parsing issues
