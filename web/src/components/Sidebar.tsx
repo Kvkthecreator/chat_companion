@@ -23,16 +23,22 @@ export function Sidebar({ user, variant = "default" }: { user: User; variant?: "
   const pathname = usePathname()
   const [isCollapsed, setIsCollapsed] = useState(false)
 
-  // Persist collapsed state
+  // Auto-collapse on chat pages for less intrusive experience
+  const isOnChatPage = pathname.startsWith("/chat/")
+
+  // Persist collapsed state, but auto-collapse on chat/immersive pages
   useEffect(() => {
-    const stored = localStorage.getItem("sidebar-collapsed")
-    if (stored !== null) {
-      setIsCollapsed(stored === "true")
-    } else if (variant === "immersive") {
+    if (isOnChatPage || variant === "immersive") {
+      // Auto-collapse on chat pages - don't persist this to localStorage
       setIsCollapsed(true)
-      localStorage.setItem("sidebar-collapsed", "true")
+    } else {
+      // Respect stored preference on non-chat pages
+      const stored = localStorage.getItem("sidebar-collapsed")
+      if (stored !== null) {
+        setIsCollapsed(stored === "true")
+      }
     }
-  }, [variant])
+  }, [variant, isOnChatPage])
 
   const toggleCollapsed = () => {
     const newValue = !isCollapsed

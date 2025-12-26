@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
@@ -11,6 +12,7 @@ interface ChatHeaderProps {
   character: Character;
   episodeTemplate?: EpisodeTemplate | null;
   directorState?: StreamDirectorState | null;
+  messageCount?: number;  // Fallback for turn count if director state unavailable
   seriesProgress?: {
     current: number;
     total: number;
@@ -28,6 +30,7 @@ export function ChatHeader({
   character,
   episodeTemplate: _episodeTemplate,
   directorState,
+  messageCount = 0,
   seriesProgress,
   hasBackground = false,
 }: ChatHeaderProps) {
@@ -36,8 +39,10 @@ export function ChatHeader({
   const [showEpisodePicker, setShowEpisodePicker] = useState(false);
   const router = useRouter();
 
-  // Format turn display - always show turn count (default to 0 if no directorState yet)
-  const turnCount = directorState?.turn_count ?? 0;
+  // Format turn display - use director state if available, fallback to message-based count
+  // A "turn" is one user message + one assistant response = 1 turn
+  const turnCountFromMessages = Math.floor(messageCount / 2);
+  const turnCount = directorState?.turn_count ?? turnCountFromMessages;
   const turnDisplay = directorState?.turns_remaining !== null && directorState?.turns_remaining !== undefined
     ? `${turnCount}/${turnCount + directorState.turns_remaining}`
     : `${turnCount}`;
@@ -171,13 +176,20 @@ function EpisodePickerOverlay({
   onSelect,
   onClose,
 }: EpisodePickerOverlayProps) {
-  return (
-      <div className="fixed inset-0 z-[100]">
-        {/* Backdrop */}
-        <div
-          className="absolute inset-0 bg-black/40 sm:bg-transparent"
-          onClick={onClose}
-        />
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+    return () => setMounted(false);
+  }, []);
+
+  const content = (
+    <div className="fixed inset-0 z-[9999]">
+      {/* Backdrop */}
+      <div
+        className="absolute inset-0 bg-black/40 sm:bg-transparent"
+        onClick={onClose}
+      />
 
       {/* Picker - positioned top-right */}
       <div
@@ -291,6 +303,10 @@ function EpisodePickerOverlay({
       </div>
     </div>
   );
+
+  // Use portal to render at document body level, avoiding stacking context issues
+  if (!mounted) return null;
+  return createPortal(content, document.body);
 }
 
 /* Icons */

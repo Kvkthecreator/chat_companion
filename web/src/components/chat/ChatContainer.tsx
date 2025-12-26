@@ -344,6 +344,7 @@ export function ChatContainer({ characterId, episodeTemplateId }: ChatContainerP
             character={character}
             episodeTemplate={episodeTemplate}
             directorState={directorState}
+            messageCount={messages.length}
             seriesProgress={seriesProgress}
             hasBackground={hasBackground}
           />
