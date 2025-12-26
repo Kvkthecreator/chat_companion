@@ -301,6 +301,56 @@ PENTHOUSE_SECRETS_BACKGROUNDS = {
     },
 }
 
+# Fashion Empire CEO (Real Life anime style - Maya Chen, Fashion CEO)
+# Anime style for NYC luxury/fashion settings
+NYC_ANIME_STYLE = "anime illustration, elegant sophisticated style, fashion industry aesthetic, detailed background art"
+NYC_ANIME_QUALITY = "masterpiece, best quality, highly detailed anime, luxury atmosphere"
+
+FASHION_EMPIRE_CEO_BACKGROUNDS = {
+    "Last Call": {
+        "location": "upscale NYC rooftop bar interior, warm amber pendant lights, Manhattan skyline through floor-to-ceiling windows, elegant marble bar counter, sophisticated lounge seating, end of evening atmosphere",
+        "time": "late night, warm amber interior lighting against cool city lights outside, intimate evening glow",
+        "mood": "sophisticated solitude, chance encounter energy, the moment before everything changes",
+        "rendering": NYC_ANIME_STYLE,
+        "quality": NYC_ANIME_QUALITY,
+    },
+    "The Gallery": {
+        "location": "elegant Chelsea art gallery, white walls with dramatic spotlighting on abstract paintings, high ceilings with track lighting, polished concrete floors, champagne glasses on pedestals",
+        "time": "evening event lighting, dramatic spots on artwork, sophisticated ambient glow",
+        "mood": "artistic elegance, exclusive atmosphere, meaningful encounter in beautiful space",
+        "rendering": NYC_ANIME_STYLE,
+        "quality": NYC_ANIME_QUALITY,
+    },
+    "Fitting Room": {
+        "location": "private fashion showroom, elegant mannequins in haute couture, fabric swatches and sketches on tables, floor-to-ceiling mirrors with soft lighting, rolling racks of designer garments",
+        "time": "late night creative session, soft studio lighting, intimate workspace energy",
+        "mood": "creative vulnerability, trust being offered, behind the scenes intimacy",
+        "rendering": NYC_ANIME_STYLE,
+        "quality": NYC_ANIME_QUALITY,
+    },
+    "Rooftop": {
+        "location": "luxury penthouse rooftop terrace, modern outdoor furniture, Manhattan skyline panoramic view, city lights twinkling below, elegant planters and ambient lighting",
+        "time": "night, city lights sparkling, soft terrace lighting, intimate private atmosphere",
+        "mood": "success and loneliness, walls coming down, private moment above the world",
+        "rendering": NYC_ANIME_STYLE,
+        "quality": NYC_ANIME_QUALITY,
+    },
+    "After Hours": {
+        "location": "corner executive office at night, floor-to-ceiling windows with city view, modern desk with scattered papers, laptop glow, designer furniture, the weight of an empire visible",
+        "time": "2 AM, laptop screen glow against dark office, city lights through windows, exhausted tension",
+        "mood": "crisis and trust, vulnerability in power, the loneliness at the top cracking",
+        "rendering": NYC_ANIME_STYLE,
+        "quality": NYC_ANIME_QUALITY,
+    },
+    "Dawn": {
+        "location": "Central Park path at dawn, golden sunrise through trees, empty morning paths with dew, Manhattan skyline silhouetted in pink and gold, peaceful urban nature",
+        "time": "sunrise golden hour, soft warm light filtering through leaves, new beginning energy",
+        "mood": "hope after darkness, new chapter beginning, the night survived together",
+        "rendering": NYC_ANIME_STYLE,
+        "quality": NYC_ANIME_QUALITY,
+    },
+}
+
 # Code Violet (Medical Romance - Dr. Maya Chen)
 CODE_VIOLET_BACKGROUNDS = {
     "Code Blue": {
@@ -356,6 +406,7 @@ ALL_EPISODE_BACKGROUNDS = {
     **MIDNIGHT_EVIDENCE_BACKGROUNDS,
     **PENTHOUSE_SECRETS_BACKGROUNDS,
     **CODE_VIOLET_BACKGROUNDS,
+    **FASHION_EMPIRE_CEO_BACKGROUNDS,
 }
 
 
@@ -575,6 +626,17 @@ def build_code_violet_cover_prompt() -> tuple[str, str]:
     )
 
 
+def build_fashion_empire_ceo_cover_prompt() -> tuple[str, str]:
+    """Series cover prompt for Fashion Empire CEO (anime style - Maya Chen, Fashion CEO)."""
+    return build_series_cover_prompt(
+        character_description="beautiful anime girl, elegant East Asian woman early 30s, sharp intelligent eyes, sleek black hair in sophisticated updo, minimal elegant makeup, natural beauty with guarded expression, designer black dress with statement jewelry, confident powerful stance",
+        scene_description="upscale NYC rooftop bar at night, Manhattan skyline glittering through windows, warm amber lighting mixing with cool city glow, sophisticated luxury interior",
+        pose_and_expression="leaning against the bar with a drink in hand, looking at viewer with guarded but intrigued expression, the look of someone used to being in control meeting something unexpected",
+        lighting_and_time="late night, warm amber bar lighting against cool blue city lights, cinematic contrast, soft romantic glow",
+        genre_style="anime illustration, elegant sophisticated style, fashion industry aesthetic, Korean webtoon influence, emotional depth",
+    )
+
+
 # Series cover prompt lookup
 SERIES_COVER_PROMPTS = {
     "stolen-moments": build_stolen_moments_cover_prompt,
@@ -584,6 +646,7 @@ SERIES_COVER_PROMPTS = {
     "midnight-evidence": build_midnight_evidence_cover_prompt,
     "penthouse-secrets": build_penthouse_secrets_cover_prompt,
     "code-violet": build_code_violet_cover_prompt,
+    "fashion-empire-ceo": build_fashion_empire_ceo_cover_prompt,
 }
 
 
