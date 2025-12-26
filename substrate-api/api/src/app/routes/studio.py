@@ -1956,7 +1956,13 @@ async def delete_episode_template(
 # Episode Background Generation
 # =============================================================================
 
-# Style settings for episode backgrounds (no characters, atmospheric scenes)
+# Import config-based prompt builder for high-quality backgrounds
+from app.services.content_image_generation import (
+    build_episode_background_prompt,
+    ALL_EPISODE_BACKGROUNDS,
+)
+
+# Fallback style settings for episode backgrounds (used when no config exists)
 BACKGROUND_STYLE = """masterpiece, best quality, highly detailed anime background,
 beautiful atmospheric lighting, cinematic composition,
 professional digital art, immersive environment,
@@ -2040,14 +2046,23 @@ async def generate_episode_backgrounds(
     for i, row in enumerate(rows):
         ep = dict(row)
 
-        # Build prompt for atmospheric background (no characters)
-        full_prompt = f"{ep['episode_frame']}, {BACKGROUND_STYLE}"
+        # Use config-based prompt if available for this episode title, else fallback
+        episode_title = ep["title"]
+        if episode_title in ALL_EPISODE_BACKGROUNDS:
+            full_prompt, negative_prompt = build_episode_background_prompt(
+                episode_title=episode_title,
+                episode_config=ALL_EPISODE_BACKGROUNDS[episode_title],
+            )
+        else:
+            # Fallback to episode_frame with generic style
+            full_prompt = f"{ep['episode_frame']}, {BACKGROUND_STYLE}"
+            negative_prompt = BACKGROUND_NEGATIVE
 
         try:
             # Generate 16:9 landscape background
             response = await image_service.generate(
                 prompt=full_prompt,
-                negative_prompt=BACKGROUND_NEGATIVE,
+                negative_prompt=negative_prompt,
                 width=1344,  # FLUX supports this for 16:9
                 height=768,
             )
