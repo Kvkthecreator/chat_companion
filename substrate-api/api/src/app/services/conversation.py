@@ -329,15 +329,18 @@ class ConversationService:
                 # Emit next_episode_suggestion event if Director detected turn budget reached
                 # v2.6: Fully decoupled from "completion" - this is just a suggestion
                 # User can dismiss and keep chatting. See EPISODE_STATUS_MODEL.md
+                log.info(f"Director output: turn={director_output.turn_count}, suggest_next={director_output.suggest_next}, trigger={director_output.suggestion_trigger}")
                 if director_output.suggest_next:
+                    next_ep = await self.director_service.suggest_next_episode(
+                        session=refreshed_session,
+                        evaluation=director_output.evaluation,
+                    )
+                    log.info(f"Emitting next_episode_suggestion: turn={director_output.turn_count}, next_ep={next_ep}")
                     yield json.dumps({
                         "type": "next_episode_suggestion",
                         "turn_count": director_output.turn_count,
                         "trigger": director_output.suggestion_trigger or "turn_limit",
-                        "next_suggestion": await self.director_service.suggest_next_episode(
-                            session=refreshed_session,
-                            evaluation=director_output.evaluation,
-                        ),
+                        "next_suggestion": next_ep,
                     }) + "\n"
             # Director now owns memory/hook extraction (v2.3)
         except Exception as e:
