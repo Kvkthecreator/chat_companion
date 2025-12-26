@@ -775,7 +775,18 @@ STATUS: going/closing/done"""
             "SELECT preferences FROM users WHERE id = :user_id",
             {"user_id": str(user_id)}
         )
-        return dict(row)["preferences"] if row and row["preferences"] else {}
+        if not row or not row["preferences"]:
+            return {}
+
+        preferences = row["preferences"]
+        # Handle case where JSONB is returned as string (driver-dependent)
+        if isinstance(preferences, str):
+            try:
+                return json.loads(preferences)
+            except (json.JSONDecodeError, TypeError):
+                log.warning(f"Failed to parse user preferences JSON: {preferences[:100]}")
+                return {}
+        return preferences if isinstance(preferences, dict) else {}
 
     def _resolve_visual_mode_with_user_preference(
         self,
