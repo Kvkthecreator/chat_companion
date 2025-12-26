@@ -576,11 +576,11 @@ STATUS: going/closing/done"""
             log.debug(f"Visual skipped: {trigger_reason}")
 
         # --- Episode Progression (turn-based only) ---
-        # v2.5: Removed semantic completion ("status: done" from LLM).
-        # Only turn_budget triggers next episode suggestion - deterministic and predictable.
+        # v2.6: Only suggest ONCE when turn exactly equals budget (not every turn after).
+        # This prevents the suggestion card from reappearing after every message.
         # Default turn_budget = 10 if not set on episode_template.
         effective_turn_budget = turn_budget or 10
-        if turn >= effective_turn_budget:
+        if turn == effective_turn_budget:
             actions.suggest_next = True
 
         # NOTE: Memory/hook extraction now happens in process_exchange() (Director Protocol v2.3)
