@@ -576,11 +576,12 @@ STATUS: going/closing/done"""
             log.debug(f"Visual skipped: {trigger_reason}")
 
         # --- Episode Progression (turn-based only) ---
-        # v2.6: Only suggest ONCE when turn exactly equals budget (not every turn after).
-        # This prevents the suggestion card from reappearing after every message.
+        # v2.6: Suggest ONCE when turn reaches budget, not on every turn after.
+        # Check session.completion_trigger to avoid re-suggesting.
         # Default turn_budget = 10 if not set on episode_template.
         effective_turn_budget = turn_budget or 10
-        if turn == effective_turn_budget:
+        already_suggested = getattr(session, 'completion_trigger', None) is not None
+        if turn >= effective_turn_budget and not already_suggested:
             actions.suggest_next = True
 
         # NOTE: Memory/hook extraction now happens in process_exchange() (Director Protocol v2.3)
