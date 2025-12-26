@@ -587,6 +587,77 @@ SERIES_COVER_PROMPTS = {
 }
 
 
+def build_dynamic_series_cover_prompt(
+    title: str,
+    genre: Optional[str] = None,
+    tagline: Optional[str] = None,
+    description: Optional[str] = None,
+    world_name: Optional[str] = None,
+) -> tuple[str, str]:
+    """
+    Build a dynamic series cover prompt from series metadata.
+
+    Used as fallback when no predefined prompt exists for a series.
+    Creates an atmospheric, cinematic cover based on available metadata.
+
+    Args:
+        title: Series title
+        genre: Genre (e.g., "romance", "thriller", "slice_of_life")
+        tagline: Series tagline
+        description: Series description
+        world_name: World name (e.g., "K-World", "Real Life")
+
+    Returns:
+        Tuple of (positive_prompt, negative_prompt)
+    """
+    # Genre-based style mapping
+    genre_styles = {
+        "romance": "romantic atmosphere, soft warm lighting, emotional depth",
+        "romantic_tension": "romantic tension atmosphere, moody lighting, emotional anticipation",
+        "drama": "dramatic cinematic lighting, emotional intensity, storytelling moment",
+        "thriller": "suspenseful atmosphere, dramatic shadows, tension-filled scene",
+        "mystery": "mysterious atmosphere, intriguing shadows, enigmatic mood",
+        "slice_of_life": "warm cozy atmosphere, natural lighting, everyday beauty",
+        "comedy": "bright cheerful atmosphere, vibrant colors, lighthearted mood",
+        "fantasy": "magical atmosphere, ethereal lighting, fantastical elements",
+        "action": "dynamic atmosphere, high energy, cinematic action mood",
+    }
+
+    # World-based rendering style
+    world_styles = {
+        "K-World": "Korean drama aesthetic, soft romantic style, Korean webtoon influence",
+        "Real Life": "cinematic photography, film still aesthetic, realistic lighting",
+    }
+
+    # Build style from genre
+    style = genre_styles.get(genre, "cinematic atmosphere, professional lighting, emotional depth")
+
+    # Build rendering from world
+    rendering = world_styles.get(world_name, "cinematic photography, professional quality")
+
+    # Extract scene hints from tagline/description
+    scene_hints = ""
+    if tagline:
+        scene_hints = tagline[:100]
+    elif description:
+        scene_hints = description[:150]
+
+    # Build the prompt
+    prompt_parts = [
+        f"cinematic cover art for '{title}'",
+        scene_hints if scene_hints else "evocative atmospheric scene",
+        style,
+        rendering,
+        "wide shot composition, key art poster style",
+        "atmospheric depth, professional color grading",
+        "masterpiece, best quality, highly detailed",
+    ]
+
+    prompt = ", ".join(p for p in prompt_parts if p)
+
+    return prompt, SERIES_COVER_NEGATIVE
+
+
 # =============================================================================
 # Main Generation Service
 # =============================================================================

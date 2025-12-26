@@ -506,6 +506,7 @@ async def generate_series_cover(
     """Generate or regenerate the series cover image.
 
     Uses pre-defined cover prompt if available for the series slug.
+    Falls back to dynamic prompt building from series metadata.
     Stores the storage path (not signed URL) in the database.
     """
     import logging
@@ -513,8 +514,14 @@ async def generate_series_cover(
 
     log = logging.getLogger(__name__)
 
-    # Get series data
-    query = "SELECT id, title, slug, cover_image_url FROM series WHERE id = :id"
+    # Get series data with all metadata for dynamic prompt building
+    query = """
+        SELECT s.id, s.title, s.slug, s.cover_image_url, s.genre, s.tagline, s.description, s.world_id,
+               w.name as world_name
+        FROM series s
+        LEFT JOIN worlds w ON w.id = s.world_id
+        WHERE s.id = :id
+    """
     row = await db.fetch_one(query, {"id": str(series_id)})
 
     if not row:
@@ -536,20 +543,27 @@ async def generate_series_cover(
             SERIES_COVER_PROMPTS,
             ASPECT_RATIOS,
             ImageType,
+            build_dynamic_series_cover_prompt,
         )
     except ImportError as e:
         return GenerateCoverResponse(success=False, error=f"Import error: {e}")
 
-    # Get series-specific cover prompt builder
+    # Get series-specific cover prompt builder, or use dynamic fallback
     cover_builder = SERIES_COVER_PROMPTS.get(series_slug)
-    if not cover_builder:
-        return GenerateCoverResponse(
-            success=False,
-            error=f"No cover prompt configured for series '{series_slug}'. Add one to SERIES_COVER_PROMPTS."
+    if cover_builder:
+        # Use predefined prompt
+        prompt, negative = cover_builder()
+        log.info(f"Using predefined cover prompt for '{series_slug}'")
+    else:
+        # Use dynamic prompt from series metadata
+        prompt, negative = build_dynamic_series_cover_prompt(
+            title=series_data["title"],
+            genre=series_data.get("genre"),
+            tagline=series_data.get("tagline"),
+            description=series_data.get("description"),
+            world_name=series_data.get("world_name"),
         )
-
-    # Build prompt
-    prompt, negative = cover_builder()
+        log.info(f"Using dynamic cover prompt for '{series_slug}'")
 
     log.info(f"Generating cover for series '{series_slug}'")
     log.info(f"Prompt: {prompt[:200]}...")
