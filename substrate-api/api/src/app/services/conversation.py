@@ -327,13 +327,13 @@ class ConversationService:
                                     log.debug(f"Auto-gen skipped: user {user_id} not premium")
 
                 # Emit next_episode_suggestion event if Director detected turn budget reached
-                # v2.6: Renamed from episode_complete - this is a suggestion, not a status change
+                # v2.6: Fully decoupled from "completion" - this is just a suggestion
                 # User can dismiss and keep chatting. See EPISODE_STATUS_MODEL.md
-                if director_output.is_complete:
+                if director_output.suggest_next:
                     yield json.dumps({
                         "type": "next_episode_suggestion",
                         "turn_count": director_output.turn_count,
-                        "trigger": director_output.completion_trigger or "unknown",
+                        "trigger": director_output.suggestion_trigger or "turn_limit",
                         "next_suggestion": await self.director_service.suggest_next_episode(
                             session=refreshed_session,
                             evaluation=director_output.evaluation,
@@ -371,7 +371,8 @@ class ConversationService:
             done_event["director"] = {
                 "turn_count": director_output.turn_count,
                 "turns_remaining": max(0, turn_budget - director_output.turn_count) if turn_budget else None,
-                "is_complete": director_output.is_complete,
+                "suggest_next": director_output.suggest_next,  # v2.6: renamed from is_complete
+                "is_complete": director_output.suggest_next,  # DEPRECATED: kept for backward compat
                 "status": director_output.evaluation.get("status") if director_output.evaluation else "going",
                 "pacing": pacing,  # establish/develop/escalate/peak/resolve
             }

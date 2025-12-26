@@ -39,11 +39,14 @@ class GameStartResult:
 
 @dataclass
 class GameMessageResult:
-    """Result of a game message exchange."""
+    """Result of a game message exchange.
+
+    v2.6: Renamed is_complete → suggest_next to decouple from completion semantics.
+    """
     message_content: str
     turn_count: int
     turns_remaining: int
-    is_complete: bool
+    suggest_next: bool  # v2.6: renamed from is_complete
     structured_response: Optional[Dict[str, Any]]
     evaluation: Optional[Dict[str, Any]]
 
@@ -206,9 +209,9 @@ class GamesService:
         turn_budget = episode_template.turn_budget or 7 if episode_template else 7
         turns_remaining = max(0, turn_budget - director_output.turn_count)
 
-        # Generate and save evaluation if game is complete
+        # Generate and save evaluation if turn budget reached (Games feature)
         evaluation_result = None
-        if director_output.is_complete:
+        if director_output.suggest_next:
             evaluation_result = await self._generate_and_save_evaluation(
                 session=session,
                 messages=context.messages + [{"role": "assistant", "content": display_content}],
@@ -218,7 +221,7 @@ class GamesService:
             message_content=display_content,
             turn_count=director_output.turn_count,
             turns_remaining=turns_remaining,
-            is_complete=director_output.is_complete,
+            suggest_next=director_output.suggest_next,
             structured_response=structured_response,
             evaluation=evaluation_result,
         )
@@ -287,15 +290,15 @@ class GamesService:
         turn_budget = episode_template.turn_budget or 7 if episode_template else 7
         turns_remaining = max(0, turn_budget - director_output.turn_count)
 
-        # Yield completion event
-        if director_output.is_complete:
+        # Yield suggestion event when turn budget reached (Games feature)
+        if director_output.suggest_next:
             # Generate and save evaluation
             evaluation_result = await self._generate_and_save_evaluation(
                 session=session,
                 messages=context.messages + [{"role": "assistant", "content": display_content}],
             )
             yield json.dumps({
-                "type": "episode_complete",
+                "type": "next_episode_suggestion",  # v2.6: renamed from episode_complete
                 "turn_count": director_output.turn_count,
                 "evaluation": evaluation_result,
             })

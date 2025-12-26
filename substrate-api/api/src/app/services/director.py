@@ -241,11 +241,14 @@ class DirectorOutput:
 
     Director Protocol v2.3: Director owns post-exchange processing.
     Extracted memories, hooks, and beat data are now populated by Director.
+
+    v2.6: Renamed is_complete → suggest_next, completion_trigger → suggestion_trigger
+    to decouple suggestion flow from "completion" semantics. See EPISODE_STATUS_MODEL.md.
     """
     # Core state
     turn_count: int
-    is_complete: bool
-    completion_trigger: Optional[str]  # "semantic", "turn_limit", None
+    suggest_next: bool  # v2.6: Whether to suggest moving to next episode
+    suggestion_trigger: Optional[str]  # "turn_limit" or None (v2.6: renamed from completion_trigger)
 
     # Semantic evaluation result
     evaluation: Optional[Dict[str, Any]] = None
@@ -626,14 +629,14 @@ STATUS: going/closing/done"""
         # 4. Decide actions (with user preference support)
         actions = await self.decide_actions(evaluation, episode_template, session, user_preferences) if episode_template else DirectorActions()
 
-        # 5. Determine completion (turn-based only, v2.5)
-        # Semantic completion removed - only turn_budget triggers suggestions
-        is_complete = actions.suggest_next
-        completion_trigger = None
-        if is_complete:
+        # 5. Determine if we should suggest next episode (v2.6: decoupled from "completion")
+        # Only turn_budget triggers suggestions - see EPISODE_STATUS_MODEL.md
+        suggest_next = actions.suggest_next
+        suggestion_trigger = None
+        if suggest_next:
             effective_turn_budget = getattr(episode_template, 'turn_budget', None) or 10 if episode_template else 10
             if new_turn_count >= effective_turn_budget:
-                completion_trigger = "turn_limit"
+                suggestion_trigger = "turn_limit"
 
         # 7. Update session state (with observability v2.4)
         director_state = dict(session.director_state) if session.director_state else {}
@@ -686,8 +689,8 @@ STATUS: going/closing/done"""
             session_id=session.id,
             turn_count=new_turn_count,
             director_state=director_state,
-            is_complete=is_complete,
-            completion_trigger=completion_trigger,
+            suggest_next=suggest_next,
+            suggestion_trigger=suggestion_trigger,
         )
 
         # 8. Memory & Hook Extraction (Director Protocol v2.3)
@@ -752,8 +755,8 @@ STATUS: going/closing/done"""
         # 9. Build output
         return DirectorOutput(
             turn_count=new_turn_count,
-            is_complete=is_complete,
-            completion_trigger=completion_trigger,
+            suggest_next=suggest_next,
+            suggestion_trigger=suggestion_trigger,
             evaluation=evaluation,
             actions=actions,
             extracted_memories=extracted_memories,
@@ -843,24 +846,25 @@ STATUS: going/closing/done"""
         session_id: UUID,
         turn_count: int,
         director_state: Dict[str, Any],
-        is_complete: bool,
-        completion_trigger: Optional[str],
+        suggest_next: bool,
+        suggestion_trigger: Optional[str],
     ):
         """Update session with Director state.
 
-        v2.5: Episodes no longer marked "complete" - users have full control.
-        session_state stays 'active' indefinitely. completion_trigger is still
-        recorded for analytics/debugging but doesn't change session_state.
+        v2.6: Renamed is_complete → suggest_next, completion_trigger → suggestion_trigger.
+        The trigger is recorded for analytics/debugging but doesn't change session_state.
+        Sessions stay 'active' indefinitely - users have full control.
+        See EPISODE_STATUS_MODEL.md for rationale.
         """
         updates = {
             "turn_count": turn_count,
             "director_state": json.dumps(director_state),
         }
 
-        # v2.5: Record completion_trigger for analytics but don't mark session complete
-        # Users can continue chatting beyond turn_budget - it's just a suggestion
-        if is_complete and completion_trigger:
-            updates["completion_trigger"] = completion_trigger
+        # v2.6: Record suggestion_trigger for analytics (stored in completion_trigger column for now)
+        # This is just metadata - doesn't affect session_state or gate anything
+        if suggest_next and suggestion_trigger:
+            updates["completion_trigger"] = suggestion_trigger  # Column name unchanged for migration simplicity
 
         set_clause = ", ".join(f"{k} = :{k}" for k in updates.keys())
         updates["session_id"] = str(session_id)
