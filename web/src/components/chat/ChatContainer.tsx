@@ -336,9 +336,9 @@ export function ChatContainer({ characterId, episodeTemplateId }: ChatContainerP
       <div className="relative z-10 flex flex-col h-full">
         {/* Header - unified info bar */}
         <div className={cn(
-          "transition-colors pt-[env(safe-area-inset-top)]",
+          "flex-shrink-0 transition-colors pt-[env(safe-area-inset-top)]",
           hasBackground
-            ? "mx-2 mt-1.5 sm:mx-3 sm:mt-2 rounded-2xl backdrop-blur-xl backdrop-saturate-150 bg-black/30"
+            ? "mx-2 mt-1.5 sm:mx-3 sm:mt-2 rounded-2xl backdrop-blur-xl backdrop-saturate-150 bg-black/40"
             : "bg-card border-b border-border"
         )}>
           <ChatHeader
@@ -454,13 +454,13 @@ export function ChatContainer({ characterId, episodeTemplateId }: ChatContainerP
 
         {/* Input bar - just input */}
         <div className={cn(
-          "pb-[env(safe-area-inset-bottom)]",
-          hasBackground ? "mx-2 mb-1.5 sm:mx-3 sm:mb-2" : "border-t border-border bg-card"
+          "flex-shrink-0 pb-[env(safe-area-inset-bottom)]",
+          hasBackground ? "mx-2 mb-1 sm:mx-3 sm:mb-1.5" : "border-t border-border bg-card"
         )}>
           <div className={cn(
             "transition-colors",
             hasBackground
-              ? "rounded-2xl backdrop-blur-xl backdrop-saturate-150 bg-black/30"
+              ? "rounded-2xl backdrop-blur-xl backdrop-saturate-150 bg-black/40"
               : ""
           )}>
             <MessageInput
