@@ -21,7 +21,7 @@ export function MessageBubble({
   return (
     <div
       className={cn(
-        "flex gap-3 mb-4",
+        "flex gap-2.5 mb-3 sm:gap-3 sm:mb-4",
         isUser ? "flex-row-reverse" : "flex-row"
       )}
     >
@@ -102,9 +102,9 @@ export function StreamingBubble({
     );
   }
   return (
-      <div className="flex gap-3 mb-4">
+      <div className="flex gap-2.5 mb-3 sm:gap-3 sm:mb-4">
         {/* Avatar */}
-      <div className="flex-shrink-0 h-8 w-8 sm:h-9 sm:w-9 rounded-full bg-gradient-to-br from-pink-400 to-purple-500 flex items-center justify-center text-white text-sm font-medium shadow-lg ring-2 ring-white/20">
+      <div className="flex-shrink-0 h-8 w-8 rounded-full bg-gradient-to-br from-pink-400 to-purple-500 flex items-center justify-center text-white text-sm font-medium shadow-lg ring-2 ring-white/20">
         {characterAvatar ? (
           <img
             src={characterAvatar}
@@ -144,9 +144,9 @@ export function TypingIndicator({
   hasBackground = false,
 }: TypingIndicatorProps) {
   return (
-    <div className="flex gap-3 mb-4">
+    <div className="flex gap-2.5 mb-3 sm:gap-3 sm:mb-4">
       {/* Avatar */}
-      <div className="flex-shrink-0 h-8 w-8 sm:h-9 sm:w-9 rounded-full bg-gradient-to-br from-pink-400 to-purple-500 flex items-center justify-center text-white text-sm font-medium shadow-lg ring-2 ring-white/20">
+      <div className="flex-shrink-0 h-8 w-8 rounded-full bg-gradient-to-br from-pink-400 to-purple-500 flex items-center justify-center text-white text-sm font-medium shadow-lg ring-2 ring-white/20">
         {characterAvatar ? (
           <img
             src={characterAvatar}

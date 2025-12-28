@@ -205,6 +205,12 @@ export function MessageInput({
               placeholder={placeholder}
               disabled={disabled}
               rows={1}
+              autoComplete="off"
+              autoCorrect="off"
+              autoCapitalize="sentences"
+              spellCheck={false}
+              data-form-type="other"
+              enterKeyHint="send"
               className={cn(
                 "w-full resize-none border-none bg-transparent px-2 py-1.5 text-[16px] sm:text-sm shadow-none",
                 hasBackground
