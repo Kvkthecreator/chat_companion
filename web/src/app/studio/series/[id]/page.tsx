@@ -1146,25 +1146,62 @@ export default function SeriesDetailPage({ params }: PageProps) {
       {/* Image Lightbox Modal */}
       {expandedImage && (
         <div
-          className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4"
+          className="fixed inset-0 z-50 bg-black/90 backdrop-blur-sm flex items-center justify-center"
           onClick={() => setExpandedImage(null)}
         >
-          <div className="relative max-w-5xl w-full max-h-[90vh]">
-            <button
-              type="button"
-              className="absolute -top-10 right-0 text-white hover:text-gray-300 text-sm"
-              onClick={() => setExpandedImage(null)}
-            >
-              Press ESC or click to close
-            </button>
+          {/* Top controls */}
+          <div className="absolute top-0 left-0 right-0 flex items-center justify-between p-4 z-10">
+            <p className="text-white/80 text-sm">{expandedImage.title}</p>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="text-white hover:bg-white/20"
+                title="Download image"
+                onClick={async (e) => {
+                  e.stopPropagation()
+                  try {
+                    const response = await fetch(expandedImage.url)
+                    const blob = await response.blob()
+                    const url = window.URL.createObjectURL(blob)
+                    const a = document.createElement('a')
+                    a.href = url
+                    a.download = `${expandedImage.title.toLowerCase().replace(/\s+/g, '-')}.jpg`
+                    document.body.appendChild(a)
+                    a.click()
+                    document.body.removeChild(a)
+                    window.URL.revokeObjectURL(url)
+                  } catch {
+                    window.open(expandedImage.url, '_blank')
+                  }
+                }}
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="text-white hover:bg-white/20"
+                title="Close"
+                onClick={() => setExpandedImage(null)}
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+              </Button>
+            </div>
+          </div>
+
+          {/* Main image */}
+          <div className="relative max-w-5xl w-full max-h-[85vh] px-4">
             <img
               src={expandedImage.url}
               alt={expandedImage.title}
               className="w-full h-auto max-h-[85vh] object-contain rounded-lg"
               onClick={(e) => e.stopPropagation()}
             />
-            <p className="text-white text-center mt-2 text-sm">{expandedImage.title}</p>
           </div>
+
+          {/* Bottom hint */}
+          <p className="absolute bottom-4 text-white/60 text-sm">Press ESC or click backdrop to close</p>
         </div>
       )}
     </div>
