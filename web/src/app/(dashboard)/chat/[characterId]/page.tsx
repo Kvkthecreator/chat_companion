@@ -13,7 +13,7 @@ export default async function ChatPage({ params, searchParams }: ChatPageProps) 
   const { episode: episodeTemplateId } = await searchParams;
 
   return (
-    <div className="h-screen w-full">
+    <div className="h-full w-full">
       <ChatContainer
         characterId={characterId}
         episodeTemplateId={episodeTemplateId}

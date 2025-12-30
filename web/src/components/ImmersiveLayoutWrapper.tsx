@@ -25,13 +25,13 @@ export function ImmersiveLayoutWrapper({ children, sidebar }: ImmersiveLayoutWra
 
   if (isImmersive) {
     return (
-      <div className="relative flex h-[100dvh] bg-background text-foreground overflow-hidden">
+      <div className="relative flex h-[100dvh] bg-background text-foreground">
         {/* Sidebar with glass effect in immersive mode */}
-        <div className="relative z-20">
+        <div className="relative z-20 hidden sm:block">
           {resolvedSidebar}
         </div>
-        {/* Full-bleed main content */}
-        <main className="flex-1 relative min-w-0">
+        {/* Full-bleed main content - takes full height */}
+        <main className="flex-1 relative min-w-0 h-full overflow-hidden">
           {children}
         </main>
       </div>

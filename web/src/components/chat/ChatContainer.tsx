@@ -315,7 +315,7 @@ export function ChatContainer({ characterId, episodeTemplateId }: ChatContainerP
   return (
     <div
       className={cn(
-        "flex flex-col h-[100dvh] w-full",
+        "flex flex-col h-full w-full",
         hasBackground ? "bg-black" : "bg-background"
       )}
       style={hasBackground ? {
