@@ -313,177 +313,159 @@ export function ChatContainer({ characterId, episodeTemplateId }: ChatContainerP
   }
 
   return (
-    <div className={cn(
-      "relative flex flex-col h-[100dvh] min-h-[100svh] w-full overflow-hidden",
-      !hasBackground && "bg-background"
-    )}>
-      {/* Full-bleed background layer - only when we have an image */}
-      {hasBackground && (
-        <div className="absolute inset-0 z-0">
-          <img
-            src={activeBackgroundUrl}
-            alt=""
-            className="absolute inset-0 w-full h-full object-cover transition-opacity duration-700"
-          />
-          {/* Cinematic gradient overlay for depth and readability */}
-          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-black/50" />
-          {/* Subtle vignette effect */}
-          <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,transparent_0%,rgba(0,0,0,0.4)_100%)]" />
-        </div>
+    <div
+      className={cn(
+        "flex flex-col h-[100dvh] w-full",
+        hasBackground ? "bg-black" : "bg-background"
       )}
+      style={hasBackground ? {
+        backgroundImage: `linear-gradient(to top, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.4) 50%, rgba(0,0,0,0.6) 100%), url("${activeBackgroundUrl}")`,
+        backgroundSize: "cover",
+        backgroundPosition: "center",
+      } : undefined}
+    >
+      {/* Safe area top spacer */}
+      <div className="flex-shrink-0 h-[env(safe-area-inset-top)]" />
 
-      {/* Content layer */}
-      <div className="relative z-10 flex flex-col h-full pt-[env(safe-area-inset-top)]">
-        {/* Header - unified info bar */}
-        <div className={cn(
-          "flex-shrink-0 transition-colors",
-          hasBackground
-            ? "mx-2 mt-1 sm:mx-3 sm:mt-1.5 rounded-2xl backdrop-blur-xl backdrop-saturate-150 bg-black/40"
-            : "bg-card border-b border-border"
-        )}>
-          <ChatHeader
-            character={character}
-            episodeTemplate={episodeTemplate}
-            directorState={directorState}
-            messageCount={messages.length}
-            seriesProgress={seriesProgress}
-            hasBackground={hasBackground}
-          />
-        </div>
+      {/* Header */}
+      <div className={cn(
+        "flex-shrink-0",
+        hasBackground
+          ? "mx-2 rounded-xl bg-black/50 backdrop-blur-md"
+          : "bg-card border-b border-border"
+      )}>
+        <ChatHeader
+          character={character}
+          episodeTemplate={episodeTemplate}
+          directorState={directorState}
+          messageCount={messages.length}
+          seriesProgress={seriesProgress}
+          hasBackground={hasBackground}
+        />
+      </div>
 
-        {/* Messages area - single focal point for all content */}
-        <div className="flex-1 overflow-y-auto pt-2 sm:pt-4">
-          <div className="mx-auto max-w-2xl px-3 sm:px-4">
-            {isLoadingChat ? (
-              <MessagesSkeleton />
-            ) : chatItems.length === 0 ? (
-              <EmptyState
-                characterName={character.name}
-                characterAvatar={character.avatar_url}
-                episodeTemplate={episodeTemplate}
-                hasBackground={hasBackground}
-                onSelect={sendMessage}
-              />
-            ) : (
-              <>
-                {/* UPSTREAM-DRIVEN: Episode Opening Card (persists as first chat item) */}
-                {episodeTemplate?.situation && (
-                  <EpisodeOpeningCard
-                    title={episodeTemplate.title}
-                    situation={episodeTemplate.situation}
-                    characterName={character.name}
-                    hasBackground={hasBackground}
-                  />
-                )}
+      {/* Messages area */}
+      <div className="flex-1 overflow-y-auto">
+        <div className="mx-auto max-w-2xl px-3 py-2 sm:px-4 sm:py-4">
+          {isLoadingChat ? (
+            <MessagesSkeleton />
+          ) : chatItems.length === 0 ? (
+            <EmptyState
+              characterName={character.name}
+              characterAvatar={character.avatar_url}
+              episodeTemplate={episodeTemplate}
+              hasBackground={hasBackground}
+              onSelect={sendMessage}
+            />
+          ) : (
+            <>
+              {/* Episode Opening Card */}
+              {episodeTemplate?.situation && (
+                <EpisodeOpeningCard
+                  title={episodeTemplate.title}
+                  situation={episodeTemplate.situation}
+                  characterName={character.name}
+                  hasBackground={hasBackground}
+                />
+              )}
 
-                {/* Chat items (messages + scenes) */}
-                {chatItems.map((item) =>
-                  item.type === "message" ? (
-                    <MessageBubble
-                      key={`msg-${item.data.id}`}
-                      message={item.data}
-                      characterName={character.name}
-                      characterAvatar={character.avatar_url}
-                      hasBackground={hasBackground}
-                    />
-                  ) : item.type === "scene" ? (
-                    <SceneCard
-                      key={`scene-${item.data.id}`}
-                      scene={item.data}
-                    />
-                  ) : null
-                )}
-
-                {/* Streaming content or typing indicator */}
-                {(isSending || streamingContent) && (
-                  <StreamingBubble
-                    content={streamingContent}
+              {/* Chat items (messages + scenes) */}
+              {chatItems.map((item) =>
+                item.type === "message" ? (
+                  <MessageBubble
+                    key={`msg-${item.data.id}`}
+                    message={item.data}
                     characterName={character.name}
                     characterAvatar={character.avatar_url}
                     hasBackground={hasBackground}
                   />
-                )}
-
-                {/* Scene generation skeleton (manual) */}
-                {isGeneratingScene && (
-                  <SceneCardSkeleton caption="Creating a scene from your conversation..." />
-                )}
-
-                {/* Auto-generation skeleton (Director-triggered) */}
-                {isAutoGenerating && (
-                  <SceneCardSkeleton caption="Capturing this moment..." />
-                )}
-
-                {/* Director V2: Instruction cards (game-like hints, free) */}
-                {instructionCards.map((content, index) => (
-                  <InstructionCard
-                    key={`instruction-${index}`}
-                    content={content}
-                    hasBackground={hasBackground}
+                ) : item.type === "scene" ? (
+                  <SceneCard
+                    key={`scene-${item.data.id}`}
+                    scene={item.data}
                   />
-                ))}
+                ) : null
+              )}
 
-                {/* Inline completion card - for Games evaluation (separate concern) */}
-                {evaluation && (
-                  <InlineCompletionCard
-                    evaluation={evaluation}
-                    nextSuggestion={nextSuggestion}
-                    characterId={characterId}
-                    characterName={character.name}
-                    hasBackground={hasBackground}
-                    onDismiss={dismissSuggestion}
-                  />
-                )}
+              {/* Streaming content */}
+              {(isSending || streamingContent) && (
+                <StreamingBubble
+                  content={streamingContent}
+                  characterName={character.name}
+                  characterAvatar={character.avatar_url}
+                  hasBackground={hasBackground}
+                />
+              )}
 
-                {/* Inline suggestion card - shows when turn budget reached (v2.6: decoupled from completion)
-                    Only show if: suggestion exists, not dismissed, and no evaluation card showing */}
-                {nextSuggestion && !suggestionDismissed && !evaluation && (
-                  <InlineSuggestionCard
-                    suggestion={nextSuggestion}
-                    characterId={characterId}
-                    characterName={character.name}
-                    hasBackground={hasBackground}
-                    onDismiss={dismissSuggestion}
-                  />
-                )}
-              </>
-            )}
-            <div ref={messagesEndRef} />
-          </div>
-        </div>
+              {/* Scene generation skeleton */}
+              {isGeneratingScene && (
+                <SceneCardSkeleton caption="Creating a scene from your conversation..." />
+              )}
 
-        {/* Input bar - just input */}
-        <div className={cn(
-          "flex-shrink-0 pb-[env(safe-area-inset-bottom)]",
-          hasBackground ? "mx-2 sm:mx-3" : "border-t border-border bg-card"
-        )}>
-          <div className={cn(
-            "transition-colors",
-            hasBackground
-              ? "rounded-2xl backdrop-blur-xl backdrop-saturate-150 bg-black/40"
-              : ""
-          )}>
-            <MessageInput
-              onSend={sendMessage}
-              onVisualize={handleVisualize}
-              disabled={isSending || isLoadingChat}
-              isGeneratingScene={isGeneratingScene}
-              showVisualizeButton={showVisualizeButton}
-              suggestScene={suggestScene}
-              placeholder={`Message ${character.name}...`}
-              hasBackground={hasBackground}
-              hasAnchorImage={hasAnchorImage}
-            />
-          </div>
-          {/* AI disclaimer - hidden on mobile, visible on larger screens */}
-          <p className={cn(
-            "text-center text-[10px] mt-1 transition-colors hidden sm:block",
-            hasBackground ? "text-white/40" : "text-muted-foreground/50"
-          )}>
-            This is A.I. and not a real person. Treat everything it says as fiction.
-          </p>
+              {/* Auto-generation skeleton */}
+              {isAutoGenerating && (
+                <SceneCardSkeleton caption="Capturing this moment..." />
+              )}
+
+              {/* Instruction cards */}
+              {instructionCards.map((content, index) => (
+                <InstructionCard
+                  key={`instruction-${index}`}
+                  content={content}
+                  hasBackground={hasBackground}
+                />
+              ))}
+
+              {/* Completion card */}
+              {evaluation && (
+                <InlineCompletionCard
+                  evaluation={evaluation}
+                  nextSuggestion={nextSuggestion}
+                  characterId={characterId}
+                  characterName={character.name}
+                  hasBackground={hasBackground}
+                  onDismiss={dismissSuggestion}
+                />
+              )}
+
+              {/* Suggestion card */}
+              {nextSuggestion && !suggestionDismissed && !evaluation && (
+                <InlineSuggestionCard
+                  suggestion={nextSuggestion}
+                  characterId={characterId}
+                  characterName={character.name}
+                  hasBackground={hasBackground}
+                  onDismiss={dismissSuggestion}
+                />
+              )}
+            </>
+          )}
+          <div ref={messagesEndRef} />
         </div>
       </div>
+
+      {/* Input bar */}
+      <div className={cn(
+        "flex-shrink-0",
+        hasBackground
+          ? "mx-2 mb-2 rounded-xl bg-black/50 backdrop-blur-md"
+          : "border-t border-border bg-card"
+      )}>
+        <MessageInput
+          onSend={sendMessage}
+          onVisualize={handleVisualize}
+          disabled={isSending || isLoadingChat}
+          isGeneratingScene={isGeneratingScene}
+          showVisualizeButton={showVisualizeButton}
+          suggestScene={suggestScene}
+          placeholder={`Message ${character.name}...`}
+          hasBackground={hasBackground}
+          hasAnchorImage={hasAnchorImage}
+        />
+      </div>
+
+      {/* Safe area bottom spacer */}
+      <div className="flex-shrink-0 h-[env(safe-area-inset-bottom)]" style={{ backgroundColor: hasBackground ? "transparent" : undefined }} />
 
       {/* Modals - only for system errors, not for episode completion */}
       <QuotaExceededModal
