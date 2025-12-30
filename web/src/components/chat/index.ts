@@ -2,6 +2,7 @@
 
 export { ChatContainer } from "./ChatContainer";
 export { ChatHeader } from "./ChatHeader";
+export { CharacterInfoSheet } from "./CharacterInfoSheet";
 export { MessageBubble, StreamingBubble } from "./MessageBubble";
 export { MessageInput } from "./MessageInput";
 export { SceneCard, SceneCardSkeleton } from "./SceneCard";

@@ -8,6 +8,7 @@ interface MessageBubbleProps {
   characterName?: string;
   characterAvatar?: string | null;
   hasBackground?: boolean;
+  onAvatarClick?: () => void;
 }
 
 export function MessageBubble({
@@ -15,6 +16,7 @@ export function MessageBubble({
   characterName = "Character",
   characterAvatar,
   hasBackground = false,
+  onAvatarClick,
 }: MessageBubbleProps) {
   const isUser = message.role === "user";
 
@@ -27,7 +29,10 @@ export function MessageBubble({
     >
       {/* Avatar */}
       {!isUser && (
-        <div className="flex-shrink-0 w-9 h-9 rounded-full bg-gradient-to-br from-pink-400 to-purple-500 flex items-center justify-center text-white text-sm font-medium shadow-lg ring-2 ring-white/20">
+        <button
+          onClick={onAvatarClick}
+          className="flex-shrink-0 w-9 h-9 rounded-full bg-gradient-to-br from-pink-400 to-purple-500 flex items-center justify-center text-white text-sm font-medium shadow-lg ring-2 ring-white/20 transition-transform hover:scale-105 active:scale-95"
+        >
           {characterAvatar ? (
             <img
               src={characterAvatar}
@@ -37,7 +42,7 @@ export function MessageBubble({
           ) : (
             characterName[0]
           )}
-        </div>
+        </button>
       )}
 
       {/* Message content */}
@@ -83,6 +88,7 @@ interface StreamingBubbleProps {
   characterName?: string;
   characterAvatar?: string | null;
   hasBackground?: boolean;
+  onAvatarClick?: () => void;
 }
 
 export function StreamingBubble({
@@ -90,6 +96,7 @@ export function StreamingBubble({
   characterName = "Character",
   characterAvatar,
   hasBackground = false,
+  onAvatarClick,
 }: StreamingBubbleProps) {
   // Show typing indicator when no content yet
   if (!content) {
@@ -98,13 +105,17 @@ export function StreamingBubble({
         characterName={characterName}
         characterAvatar={characterAvatar}
         hasBackground={hasBackground}
+        onAvatarClick={onAvatarClick}
       />
     );
   }
   return (
       <div className="flex gap-2.5 mb-3 sm:gap-3 sm:mb-4">
         {/* Avatar */}
-      <div className="flex-shrink-0 h-8 w-8 rounded-full bg-gradient-to-br from-pink-400 to-purple-500 flex items-center justify-center text-white text-sm font-medium shadow-lg ring-2 ring-white/20">
+      <button
+        onClick={onAvatarClick}
+        className="flex-shrink-0 h-8 w-8 rounded-full bg-gradient-to-br from-pink-400 to-purple-500 flex items-center justify-center text-white text-sm font-medium shadow-lg ring-2 ring-white/20 transition-transform hover:scale-105 active:scale-95"
+      >
         {characterAvatar ? (
           <img
             src={characterAvatar}
@@ -114,7 +125,7 @@ export function StreamingBubble({
         ) : (
           characterName[0]
         )}
-      </div>
+      </button>
 
       {/* Message content */}
       <div className={cn(
@@ -136,17 +147,22 @@ interface TypingIndicatorProps {
   characterName?: string;
   characterAvatar?: string | null;
   hasBackground?: boolean;
+  onAvatarClick?: () => void;
 }
 
 export function TypingIndicator({
   characterName = "Character",
   characterAvatar,
   hasBackground = false,
+  onAvatarClick,
 }: TypingIndicatorProps) {
   return (
     <div className="flex gap-2.5 mb-3 sm:gap-3 sm:mb-4">
       {/* Avatar */}
-      <div className="flex-shrink-0 h-8 w-8 rounded-full bg-gradient-to-br from-pink-400 to-purple-500 flex items-center justify-center text-white text-sm font-medium shadow-lg ring-2 ring-white/20">
+      <button
+        onClick={onAvatarClick}
+        className="flex-shrink-0 h-8 w-8 rounded-full bg-gradient-to-br from-pink-400 to-purple-500 flex items-center justify-center text-white text-sm font-medium shadow-lg ring-2 ring-white/20 transition-transform hover:scale-105 active:scale-95"
+      >
         {characterAvatar ? (
           <img
             src={characterAvatar}
@@ -156,7 +172,7 @@ export function TypingIndicator({
         ) : (
           characterName[0]
         )}
-      </div>
+      </button>
 
       {/* Typing dots */}
       <div className={cn(

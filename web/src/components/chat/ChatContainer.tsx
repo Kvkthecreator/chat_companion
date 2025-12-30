@@ -5,6 +5,7 @@ import { useChat } from "@/hooks/useChat";
 import { useCharacter } from "@/hooks/useCharacters";
 import { useScenes } from "@/hooks/useScenes";
 import { ChatHeader } from "./ChatHeader";
+import { CharacterInfoSheet } from "./CharacterInfoSheet";
 import { MessageBubble, StreamingBubble } from "./MessageBubble";
 import { MessageInput, SceneGenerationMode } from "./MessageInput";
 import { SceneCard, SceneCardSkeleton } from "./SceneCard";
@@ -44,6 +45,7 @@ export function ChatContainer({ characterId, episodeTemplateId }: ChatContainerP
   const [accessError, setAccessError] = useState<EpisodeAccessError | null>(null);
   const [showRateLimitModal, setShowRateLimitModal] = useState(false);
   const [rateLimitError, setRateLimitError] = useState<RateLimitError | null>(null);
+  const [showCharacterInfo, setShowCharacterInfo] = useState(false);
   const [episodeTemplate, setEpisodeTemplate] = useState<EpisodeTemplate | null>(null);
   const [seriesEpisodes, setSeriesEpisodes] = useState<Array<{
     id: string;
@@ -294,6 +296,11 @@ export function ChatContainer({ characterId, episodeTemplateId }: ChatContainerP
     await generateScene(undefined, mode);
   }, [episode, isGeneratingScene, clearSceneSuggestion, generateScene]);
 
+  // Handle avatar click to show character info sheet
+  const openCharacterInfo = useCallback(() => {
+    setShowCharacterInfo(true);
+  }, []);
+
   // Check if character has an anchor image for Kontext mode
   const hasAnchorImage = !!character?.avatar_url;
 
@@ -375,6 +382,7 @@ export function ChatContainer({ characterId, episodeTemplateId }: ChatContainerP
                     characterName={character.name}
                     characterAvatar={character.avatar_url}
                     hasBackground={hasBackground}
+                    onAvatarClick={openCharacterInfo}
                   />
                 ) : item.type === "scene" ? (
                   <SceneCard
@@ -391,6 +399,7 @@ export function ChatContainer({ characterId, episodeTemplateId }: ChatContainerP
                   characterName={character.name}
                   characterAvatar={character.avatar_url}
                   hasBackground={hasBackground}
+                  onAvatarClick={openCharacterInfo}
                 />
               )}
 
@@ -488,6 +497,14 @@ export function ChatContainer({ characterId, episodeTemplateId }: ChatContainerP
         resetAt={rateLimitError?.reset_at}
         cooldownSeconds={rateLimitError?.cooldown_seconds}
       />
+
+      {/* Character info sheet - triggered by clicking avatar in messages */}
+      <CharacterInfoSheet
+        character={character}
+        isOpen={showCharacterInfo}
+        onClose={() => setShowCharacterInfo(false)}
+        hasBackground={hasBackground}
+      />
     </div>
   );
 }
@@ -577,7 +594,7 @@ function EmptyState({
             "text-lg font-semibold mb-2",
             hasBackground && "drop-shadow-md"
           )}>
-            Start talking with {characterName}
+            {characterName}
           </h2>
 
           {/* Default prompt */}
@@ -585,7 +602,7 @@ function EmptyState({
             "text-sm mb-4 max-w-sm",
             hasBackground ? "text-white/80" : "text-muted-foreground"
           )}>
-            Send a message to begin your conversation. {characterName} will remember everything you share.
+            Say hi to start a conversation
           </p>
         </>
       )}
