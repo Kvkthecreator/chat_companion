@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { SectionHeader } from "@/components/ui/section-header";
 import { RotatingHero, SeriesCard } from "@/components/landing";
@@ -34,10 +33,7 @@ export default async function Home() {
     data: { user },
   } = await supabase.auth.getUser();
 
-  if (user) {
-    redirect("/discover");
-  }
-
+  const isLoggedIn = !!user;
   const series = await getFeaturedSeries();
 
   return (
@@ -57,13 +53,22 @@ export default async function Home() {
             </div>
           </Link>
 
-          {/* Sign in button - more prominent */}
-          <Link
-            href="/login?next=/discover"
-            className="rounded-full bg-primary px-4 py-2 text-sm font-medium text-primary-foreground shadow-sm transition hover:bg-primary/90"
-          >
-            Sign in
-          </Link>
+          {/* Auth button */}
+          {isLoggedIn ? (
+            <Link
+              href="/discover"
+              className="rounded-full bg-primary px-4 py-2 text-sm font-medium text-primary-foreground shadow-sm transition hover:bg-primary/90"
+            >
+              Continue →
+            </Link>
+          ) : (
+            <Link
+              href="/login?next=/discover"
+              className="rounded-full bg-primary px-4 py-2 text-sm font-medium text-primary-foreground shadow-sm transition hover:bg-primary/90"
+            >
+              Sign in
+            </Link>
+          )}
         </div>
       </header>
 
@@ -132,9 +137,11 @@ export default async function Home() {
               <span className="text-sm text-muted-foreground">episode-0</span>
             </div>
             <nav className="flex flex-wrap items-center gap-6 text-sm text-muted-foreground">
-              <Link href="/login?next=/discover" className="hover:text-foreground">
-                Sign in
-              </Link>
+              {!isLoggedIn && (
+                <Link href="/login?next=/discover" className="hover:text-foreground">
+                  Sign in
+                </Link>
+              )}
               <Link href="/privacy" className="hover:text-foreground">
                 Privacy Policy
               </Link>

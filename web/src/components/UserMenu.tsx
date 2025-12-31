@@ -28,7 +28,7 @@ export function UserMenu({ user, collapsed = false }: UserMenuProps) {
 
   const handleSignOut = async () => {
     await supabase.auth.signOut()
-    router.push("/login")
+    router.push("/")
   }
 
   const initial = user.email?.[0].toUpperCase() || "?"
