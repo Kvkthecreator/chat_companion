@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
 import type { User } from "@supabase/supabase-js"
-import { LogOut, Settings, Sparkles, ChevronRight } from "lucide-react"
+import { LogOut, Settings, Sparkles, ChevronUp } from "lucide-react"
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -48,7 +48,7 @@ export function UserMenu({ user, collapsed = false }: UserMenuProps) {
             {initial}
           </button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="start" side="right" sideOffset={8} className="w-48">
+        <DropdownMenuContent align="start" side="top" sideOffset={8} className="w-48">
           <div className="px-3 py-2">
             <p className="text-sm font-medium truncate">{displayEmail}</p>
             <p className={cn(
@@ -116,12 +116,12 @@ export function UserMenu({ user, collapsed = false }: UserMenuProps) {
               </span>
             </div>
           </div>
-          <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
+          <ChevronUp className="h-4 w-4 text-muted-foreground shrink-0" />
         </button>
       </DropdownMenuTrigger>
       <DropdownMenuContent
-        align="end"
-        side="right"
+        align="start"
+        side="top"
         sideOffset={8}
         collisionPadding={16}
         avoidCollisions={true}
