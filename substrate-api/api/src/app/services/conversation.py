@@ -541,9 +541,11 @@ class ConversationService:
 
         episode_cost = 0  # Default: free (for free chat or Episode 0)
 
+        role_id = None  # Role for the session (ADR-004)
+
         if episode_template_id:
             template_query = """
-                SELECT situation, title, opening_line, series_id, episode_cost
+                SELECT situation, title, opening_line, series_id, episode_cost, role_id
                 FROM episode_templates WHERE id = :template_id
             """
             template_row = await self.db.fetch_one(template_query, {"template_id": str(episode_template_id)})
@@ -552,6 +554,7 @@ class ConversationService:
                 opening_line = template_row["opening_line"]
                 series_id = template_row["series_id"]
                 episode_cost = template_row["episode_cost"] or 0
+                role_id = template_row["role_id"]
 
         # If no series from template, try to get series from character
         if not series_id:
@@ -699,11 +702,11 @@ class ConversationService:
             # Free episode (Episode 0, Play Mode, or free chat)
             entry_paid = True
 
-        # Create session with series_id for proper scoping
+        # Create session with series_id and role_id for proper scoping (ADR-004)
         # session_state must be set explicitly to 'active' for series progress tracking
         create_query = """
-            INSERT INTO sessions (user_id, character_id, engagement_id, episode_number, scene, episode_template_id, series_id, session_state, entry_paid)
-            VALUES (:user_id, :character_id, :engagement_id, :episode_number, :scene, :episode_template_id, :series_id, :session_state, :entry_paid)
+            INSERT INTO sessions (user_id, character_id, engagement_id, episode_number, scene, episode_template_id, series_id, role_id, session_state, entry_paid)
+            VALUES (:user_id, :character_id, :engagement_id, :episode_number, :scene, :episode_template_id, :series_id, :role_id, :session_state, :entry_paid)
             RETURNING *
         """
         new_row = await self.db.fetch_one(
@@ -716,6 +719,7 @@ class ConversationService:
                 "scene": effective_scene,
                 "episode_template_id": str(episode_template_id) if episode_template_id else None,
                 "series_id": str(series_id) if series_id else None,
+                "role_id": str(role_id) if role_id else None,
                 "session_state": "active",  # Explicit state for progress tracking
                 "entry_paid": entry_paid,
             },
