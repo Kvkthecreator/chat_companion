@@ -134,6 +134,8 @@ export default function CharacterDetailPage() {
   const [expressionPreset, setExpressionPreset] = useState('')
   const [posePreset, setPosePreset] = useState('')
   const [styleNotes, setStyleNotes] = useState('')
+  // Image lightbox
+  const [expandedImage, setExpandedImage] = useState<{ url: string; title: string } | null>(null)
 
   // Editable fields
   // NOTE: short_backstory/full_backstory merged into backstory
@@ -164,6 +166,17 @@ export default function CharacterDetailPage() {
     fetchCharacter()
     fetchGalleryStatus()
   }, [characterId])
+
+  // ESC key to close lightbox
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && expandedImage) {
+        setExpandedImage(null)
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [expandedImage])
 
   const fetchGalleryStatus = async () => {
     try {
@@ -765,45 +778,53 @@ export default function CharacterDetailPage() {
                           : 'border-border hover:border-primary/50'
                       )}
                     >
-                      <img
-                        src={item.url}
-                        alt={item.label || `${character.name} avatar`}
-                        className="aspect-square w-full object-cover"
-                      />
+                      <button
+                        type="button"
+                        className="w-full aspect-square cursor-pointer"
+                        onClick={() => setExpandedImage({ url: item.url, title: item.label || `${character.name} avatar` })}
+                      >
+                        <img
+                          src={item.url}
+                          alt={item.label || `${character.name} avatar`}
+                          className="w-full h-full object-cover"
+                        />
+                      </button>
                       {/* Primary badge */}
                       {item.is_primary && (
-                        <div className="absolute top-2 left-2 bg-green-500 text-white text-xs px-2 py-0.5 rounded-full font-medium">
+                        <div className="absolute top-2 left-2 bg-green-500 text-white text-xs px-2 py-0.5 rounded-full font-medium pointer-events-none">
                           Primary
                         </div>
                       )}
                       {/* Label */}
                       {item.label && (
-                        <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-2">
+                        <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-2 pointer-events-none">
                           <p className="text-xs text-white truncate">{item.label}</p>
                         </div>
                       )}
                       {/* Hover Actions */}
-                      <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
-                        {!item.is_primary && (
-                          <Button
-                            size="sm"
-                            variant="secondary"
-                            onClick={() => handleSetPrimary(item.id)}
-                            disabled={settingPrimary === item.id}
-                          >
-                            {settingPrimary === item.id ? '...' : 'Set Primary'}
-                          </Button>
-                        )}
-                        {galleryStatus.gallery.length > 1 && (
-                          <Button
-                            size="sm"
-                            variant="destructive"
-                            onClick={() => handleDeleteGalleryItem(item.id)}
-                            disabled={deletingItem === item.id || item.is_primary}
-                          >
-                            {deletingItem === item.id ? '...' : 'Delete'}
-                          </Button>
-                        )}
+                      <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2 pointer-events-none">
+                        <div className="pointer-events-auto flex gap-2">
+                          {!item.is_primary && (
+                            <Button
+                              size="sm"
+                              variant="secondary"
+                              onClick={(e) => { e.stopPropagation(); handleSetPrimary(item.id); }}
+                              disabled={settingPrimary === item.id}
+                            >
+                              {settingPrimary === item.id ? '...' : 'Set Primary'}
+                            </Button>
+                          )}
+                          {galleryStatus.gallery.length > 1 && (
+                            <Button
+                              size="sm"
+                              variant="destructive"
+                              onClick={(e) => { e.stopPropagation(); handleDeleteGalleryItem(item.id); }}
+                              disabled={deletingItem === item.id || item.is_primary}
+                            >
+                              {deletingItem === item.id ? '...' : 'Delete'}
+                            </Button>
+                          )}
+                        </div>
                       </div>
                     </div>
                   ))}
@@ -1237,6 +1258,68 @@ export default function CharacterDetailPage() {
               </Button>
             </CardContent>
           </Card>
+        </div>
+      )}
+
+      {/* Image Lightbox Modal */}
+      {expandedImage && (
+        <div
+          className="fixed inset-0 z-50 bg-black/90 backdrop-blur-sm flex items-center justify-center"
+          onClick={() => setExpandedImage(null)}
+        >
+          {/* Top controls */}
+          <div className="absolute top-0 left-0 right-0 flex items-center justify-between p-4 z-10">
+            <p className="text-white/80 text-sm">{expandedImage.title}</p>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="text-white hover:bg-white/20"
+                title="Download image"
+                onClick={async (e) => {
+                  e.stopPropagation()
+                  try {
+                    const response = await fetch(expandedImage.url)
+                    const blob = await response.blob()
+                    const url = window.URL.createObjectURL(blob)
+                    const a = document.createElement('a')
+                    a.href = url
+                    a.download = `${expandedImage.title.toLowerCase().replace(/\s+/g, '-')}.png`
+                    document.body.appendChild(a)
+                    a.click()
+                    document.body.removeChild(a)
+                    window.URL.revokeObjectURL(url)
+                  } catch {
+                    window.open(expandedImage.url, '_blank')
+                  }
+                }}
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="text-white hover:bg-white/20"
+                title="Close"
+                onClick={() => setExpandedImage(null)}
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+              </Button>
+            </div>
+          </div>
+
+          {/* Main image */}
+          <div className="relative max-w-3xl w-full max-h-[85vh] px-4">
+            <img
+              src={expandedImage.url}
+              alt={expandedImage.title}
+              className="w-full h-auto max-h-[85vh] object-contain rounded-lg"
+              onClick={(e) => e.stopPropagation()}
+            />
+          </div>
+
+          {/* Bottom hint */}
+          <p className="absolute bottom-4 text-white/60 text-sm">Press ESC or click backdrop to close</p>
         </div>
       )}
     </div>
