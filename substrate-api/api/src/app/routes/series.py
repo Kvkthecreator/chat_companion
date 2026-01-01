@@ -931,11 +931,11 @@ async def get_series_user_context(
         """
         char_row = await db.fetch_one(char_query, {"character_id": character_id})
         if char_row:
-            # Convert avatar storage path to signed URL
+            # Convert avatar storage path to signed URL (bucket: "avatars")
             avatar_url = char_row["avatar_url"]
             if avatar_url and not avatar_url.startswith("http"):
                 storage = StorageService.get_instance()
-                avatar_url = await storage.create_signed_url("scenes", avatar_url, expires_in=3600)
+                avatar_url = await storage.create_signed_url("avatars", avatar_url, expires_in=3600)
 
             character_info = CharacterInfo(
                 id=str(char_row["id"]),
@@ -1073,10 +1073,10 @@ async def get_continue_watching(
         if cover_url and not cover_url.startswith("http"):
             cover_url = await storage.create_signed_url("scenes", cover_url, expires_in=3600)
 
-        # Convert character avatar to signed URL if needed
+        # Convert character avatar to signed URL if needed (bucket: "avatars")
         char_avatar_url = row["character_avatar_url"]
         if char_avatar_url and not char_avatar_url.startswith("http"):
-            char_avatar_url = await storage.create_signed_url("scenes", char_avatar_url, expires_in=3600)
+            char_avatar_url = await storage.create_signed_url("avatars", char_avatar_url, expires_in=3600)
 
         items.append(ContinueWatchingItem(
             series_id=str(row["series_id"]),
