@@ -407,16 +407,26 @@ export const api = {
         throw new Error("No response body");
       }
 
+      // Buffer for incomplete lines across chunk boundaries
+      let buffer = "";
+
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
 
-        const chunk = decoder.decode(value);
-        const lines = chunk.split("\n");
+        // Append decoded chunk to buffer (stream: true for partial multi-byte chars)
+        buffer += decoder.decode(value, { stream: true });
+
+        // Split by newline
+        const lines = buffer.split("\n");
+
+        // Keep the last potentially incomplete line in buffer
+        buffer = lines.pop() || "";
 
         for (const line of lines) {
-          if (line.startsWith("data: ")) {
-            const data = line.slice(6);
+          const trimmedLine = line.trim();
+          if (trimmedLine.startsWith("data: ")) {
+            const data = trimmedLine.slice(6);
             if (data === "[DONE]") {
               return;
             }
@@ -427,7 +437,24 @@ export const api = {
               const parsed = JSON.parse(data);
               yield parsed;
             } catch {
-              // Ignore parse errors for incomplete chunks
+              // Log parse errors for debugging
+              console.warn("[SSE] Failed to parse:", data.substring(0, 100));
+            }
+          }
+        }
+      }
+
+      // Process any remaining data in buffer after stream ends
+      if (buffer.trim()) {
+        const trimmedLine = buffer.trim();
+        if (trimmedLine.startsWith("data: ")) {
+          const data = trimmedLine.slice(6);
+          if (data !== "[DONE]" && !data.startsWith("[ERROR]")) {
+            try {
+              const parsed = JSON.parse(data);
+              yield parsed;
+            } catch {
+              console.warn("[SSE] Failed to parse final buffer:", data.substring(0, 100));
             }
           }
         }
@@ -918,16 +945,26 @@ export const api = {
         throw new Error("No response body");
       }
 
+      // Buffer for incomplete lines across chunk boundaries
+      let buffer = "";
+
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
 
-        const chunk = decoder.decode(value);
-        const lines = chunk.split("\n");
+        // Append decoded chunk to buffer (stream: true for partial multi-byte chars)
+        buffer += decoder.decode(value, { stream: true });
+
+        // Split by newline
+        const lines = buffer.split("\n");
+
+        // Keep the last potentially incomplete line in buffer
+        buffer = lines.pop() || "";
 
         for (const line of lines) {
-          if (line.startsWith("data: ")) {
-            const data = line.slice(6);
+          const trimmedLine = line.trim();
+          if (trimmedLine.startsWith("data: ")) {
+            const data = trimmedLine.slice(6);
             if (data === "[DONE]") {
               return;
             }
@@ -938,7 +975,24 @@ export const api = {
               const parsed = JSON.parse(data);
               yield parsed;
             } catch {
-              // Ignore parse errors for incomplete chunks
+              // Log parse errors for debugging
+              console.warn("[SSE] Failed to parse:", data.substring(0, 100));
+            }
+          }
+        }
+      }
+
+      // Process any remaining data in buffer after stream ends
+      if (buffer.trim()) {
+        const trimmedLine = buffer.trim();
+        if (trimmedLine.startsWith("data: ")) {
+          const data = trimmedLine.slice(6);
+          if (data !== "[DONE]" && !data.startsWith("[ERROR]")) {
+            try {
+              const parsed = JSON.parse(data);
+              yield parsed;
+            } catch {
+              console.warn("[SSE] Failed to parse final buffer:", data.substring(0, 100));
             }
           }
         }
