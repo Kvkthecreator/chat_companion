@@ -1,10 +1,34 @@
 # Character Data Model
 
-> **Version**: 1.0.0
-> **Updated**: 2024-12-23
+> **Version**: 2.0.0
+> **Updated**: 2025-01-01
 > **Status**: Canonical
 
-This document defines the authoritative character data model after the December 2024 simplification. It serves as a reference for understanding what fields affect prompt generation.
+This document defines the authoritative character data model. It covers both **canonical characters** (platform-authored) and **user-created characters** (ADR-004).
+
+---
+
+## Character Types
+
+Episode-0 supports two character types, unified in the same `characters` table:
+
+| Type | `is_user_created` | Owner | Customization Level |
+|------|-------------------|-------|---------------------|
+| **Canonical** | FALSE | Platform | Full control over all fields |
+| **User-Created** | TRUE | User (`created_by`) | Limited: name, archetype, flirting_level, appearance_prompt |
+
+### User Character Constraints
+
+User-created characters have **intentionally limited** customization to preserve authored episode quality:
+
+| Exposed to User | Hidden from User |
+|-----------------|------------------|
+| `name` | `system_prompt` |
+| `archetype` (dropdown) | `backstory` |
+| `boundaries.flirting_level` | `genre` |
+| `boundaries.appearance_prompt` | Scene motivation |
+
+Genre doctrine and scene motivation remain platform-controlled via the **Role** abstraction (ADR-004).
 
 ---
 
@@ -54,10 +78,32 @@ The `boundaries` JSONB field has been simplified to only fields that affect beha
 
 ```json
 {
-  "flirting_level": "playful",   // Used in prompt (reserved/playful/flirty/bold)
-  "nsfw_allowed": false          // Used in content validation
+  "flirting_level": "playful",       // Used in prompt (reserved/playful/flirty/bold)
+  "nsfw_allowed": false,             // Used in content validation
+  "appearance_prompt": "..."         // User-created only: for avatar generation
 }
 ```
+
+### User Character Archetypes
+
+User-created characters select from predefined archetypes:
+
+| Value | Label | Description |
+|-------|-------|-------------|
+| `warm_supportive` | Warm & Supportive | Nurturing, empathetic, emotionally available |
+| `playful_teasing` | Playful & Teasing | Witty, fun-loving, charmingly mischievous |
+| `mysterious_reserved` | Mysterious & Reserved | Intriguing, thoughtful, selectively open |
+| `intense_passionate` | Intense & Passionate | Deep, focused, emotionally expressive |
+| `confident_assertive` | Confident & Assertive | Self-assured, direct, naturally commanding |
+
+### Flirting Levels
+
+| Value | Label | Description |
+|-------|-------|-------------|
+| `subtle` | Subtle | Gentle hints and understated charm |
+| `playful` | Playful | Light teasing and friendly banter |
+| `bold` | Bold | Confident and direct expressions |
+| `intense` | Intense | Passionate and unmistakable attraction |
 
 ### Removed Fields (never affected prompt)
 
@@ -162,4 +208,13 @@ The following fields were removed during December 2024 simplification:
 
 | Version | Date | Changes |
 |---------|------|---------|
+| 2.0.0 | 2025-01-01 | Added user-created characters, archetypes, flirting levels (ADR-004) |
 | 1.0.0 | 2024-12-23 | Initial canonical document post-simplification |
+
+---
+
+## Related Documents
+
+- [ADR-004: User Character & Role Abstraction](../../decisions/ADR-004-user-character-role-abstraction.md)
+- [USER_CHARACTER_CUSTOMIZATION.md](../../implementation/USER_CHARACTER_CUSTOMIZATION.md)
+- [EPISODE-0_CANON.md](../../EPISODE-0_CANON.md)

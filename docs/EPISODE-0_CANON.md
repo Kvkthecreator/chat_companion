@@ -1,7 +1,7 @@
 # Episode-0 Platform Canon
 
 > This document defines what Episode-0 is, regardless of genre, theme, or studio.
-> Updated 2024-12-23 with architecture audit findings.
+> Updated 2025-01-01 with Role abstraction and User Character architecture (ADR-004).
 
 ---
 
@@ -131,7 +131,8 @@ The platform engine is built on generic primitives:
 
 | Primitive | Purpose |
 |-----------|---------|
-| `Character` | Container for personality, voice, boundaries |
+| `Character` | Container for personality, voice, boundaries (canonical or user-created) |
+| `Role` | Episode-character bridge: archetype slot + scene motivation (ADR-004) |
 | `World` | Setting context (café, apartment, office, etc.) |
 | `EpisodeTemplate` | Pre-authored scenario entry point |
 | `Session` | User's conversation instance (runtime) |
@@ -142,6 +143,10 @@ The platform engine is built on generic primitives:
 > **Note (EP-01 Pivot):** Session replaced the runtime Episode concept. Engagement replaced Relationship
 > and removed stage progression — connection depth is now implicit via memory accumulation and
 > episode count rather than explicit stage labels.
+
+> **Note (ADR-004):** Role abstraction introduced to enable user-created characters to play in
+> platform-authored episodes. Role defines the archetype slot an episode requires; any compatible
+> character (canonical or user-created) can fill that role.
 
 These primitives power any genre. The theme is layered via studio configuration.
 
@@ -202,7 +207,59 @@ Episode-0 is like **improv theater with a trained partner**:
 
 ---
 
-## 9. Director Protocol v2.2
+## 9. Role Abstraction (ADR-004)
+
+Episode-0 enables **user-created characters** to play in platform-authored episodes through the **Role abstraction**.
+
+### The Problem
+
+Episodes were tightly coupled to specific canonical characters. This prevented:
+- Users from playing as "their" character in authored scenarios
+- Reusing episode templates across multiple character types
+- Clean separation between "who someone is" and "what they do in this scene"
+
+### The Solution: Role as Episode-Character Bridge
+
+```
+EpisodeTemplate → defines → Role (archetype slot)
+                              ↓
+                         "The barista in this café scene"
+                              ↓
+                    filled by → Character (canonical OR user-created)
+```
+
+**Role** represents:
+- The **archetype** required (e.g., "warm café worker," "mysterious stranger")
+- The **constraints** a character must satisfy to play this role
+- The **scene motivation** (objective/obstacle/tactic) — lives with the role, not the character
+
+### Character Types
+
+| Type | Owner | Customization | Use Case |
+|------|-------|---------------|----------|
+| **Canonical** | Platform | Full control | Authored, quality-controlled characters |
+| **User-Created** | User | Limited (name, appearance, archetype, flirting level) | "My character in your story" |
+
+### What Users Control vs. Platform Controls
+
+| User Controls | Platform Controls |
+|---------------|-------------------|
+| Character name | System prompt |
+| Appearance (for avatar) | Genre doctrine |
+| Archetype (dropdown) | Scene motivation |
+| Flirting level | Backstory |
+
+This preserves authored quality while enabling emotional investment.
+
+### Why This Matters
+
+> "MY character in YOUR compelling situation"
+
+The magic isn't building a character. It's experiencing **your** character in a **well-authored moment**.
+
+---
+
+## 10. Director Protocol v2.2
 
 The Director is now a **stage manager**, not a line-by-line director.
 
@@ -235,7 +292,7 @@ DirectorGuidance(
 
 ---
 
-## 10. Scene Motivation in Episodes
+## 11. Scene Motivation in Episodes
 
 Scene motivation (objective/obstacle/tactic) is now a **content authoring** concern:
 
@@ -275,7 +332,7 @@ These are **static rules** in `GENRE_DOCTRINES`, not generated per-turn.
 
 ---
 
-## 11. Architecture Summary
+## 12. Architecture Summary
 
 ### The 6-Layer Context (Updated)
 
@@ -316,7 +373,7 @@ DirectorService.evaluate_exchange()  ← LLM CALL (post only)
 
 ---
 
-## 12. North Star Metric
+## 13. North Star Metric
 
 **Episodes Started per User per Week (ESPW)**
 
@@ -336,7 +393,7 @@ DirectorService.evaluate_exchange()  ← LLM CALL (post only)
 
 ---
 
-## 13. Active Studios
+## 14. Active Studios
 
 ### Studio 1: Romantic Tension
 - Focus: desire, attraction, vulnerability, proximity
@@ -355,7 +412,7 @@ Each studio follows Episode-0 platform rules while defining its own creative bar
 
 ---
 
-## 14. Key Strategic Takeaway
+## 15. Key Strategic Takeaway
 
 You are **not** building a romance app.
 
@@ -378,4 +435,6 @@ This is the difference between:
 - `docs/character-philosophy/Genre 02 — Psychological Thriller- Suspense.md` — Thriller studio doctrine
 - `docs/decisions/ADR-001-genre-architecture.md` — Genre belongs to Story, not Character
 - `docs/decisions/ADR-002-theatrical-architecture.md` — Theatrical production model
+- `docs/decisions/ADR-004-user-character-role-abstraction.md` — User Character & Role architecture
+- `docs/quality/core/CHARACTER_DATA_MODEL.md` — Character data model (canonical + user-created)
 - `docs/quality/core/DIRECTOR_PROTOCOL.md` — Director Protocol v2.2 (stage manager model)
