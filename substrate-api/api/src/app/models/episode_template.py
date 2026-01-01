@@ -62,8 +62,9 @@ class EpisodeTemplate(BaseModel):
     id: UUID
 
     # Relationships
-    character_id: Optional[UUID] = None
+    character_id: Optional[UUID] = None  # Canonical character for this episode (backward compat)
     series_id: Optional[UUID] = None
+    role_id: Optional[UUID] = None  # ADR-004: Role this episode requires (preferred over character_id)
 
     # Episode identity
     episode_number: int = 0
@@ -141,8 +142,9 @@ class EpisodeTemplateCreate(BaseModel):
     starter_prompts: List[str] = Field(default_factory=list)
 
     # Optional relationships
-    character_id: Optional[UUID] = None
+    character_id: Optional[UUID] = None  # Canonical character (backward compat)
     series_id: Optional[UUID] = None
+    role_id: Optional[UUID] = None  # ADR-004: Role (preferred)
 
     # Optional configuration
     episode_number: int = 0
@@ -198,6 +200,9 @@ class EpisodeTemplateUpdate(BaseModel):
     visual_mode: Optional[str] = None
     generation_budget: Optional[int] = None
     episode_cost: Optional[int] = None
+
+    # Relationships
+    role_id: Optional[UUID] = None  # ADR-004: Role (preferred)
 
     is_default: Optional[bool] = None
     sort_order: Optional[int] = None

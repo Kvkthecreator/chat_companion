@@ -158,6 +158,10 @@ class Character(BaseModel):
     # Creator tracking
     created_by: Optional[UUID] = None
 
+    # User character flags (ADR-004)
+    is_user_created: bool = False  # True for user-created, False for canonical
+    is_public: bool = False  # Future: shareable characters (Phase 3)
+
     # Discovery
     categories: List[str] = Field(default_factory=list)
     content_rating: str = "sfw"
@@ -389,6 +393,92 @@ class CharacterCreatedResponse(BaseModel):
     name: str
     status: str
     message: str
+
+
+# =============================================================================
+# User Character Creation (ADR-004 - simplified for end users)
+# =============================================================================
+
+# Flirting level options for user character creation
+FLIRTING_LEVELS = ["reserved", "playful", "flirty", "bold"]
+
+FLIRTING_LEVEL_DESCRIPTIONS = {
+    "reserved": "Subtle hints and shy glances",
+    "playful": "Light teasing and friendly warmth",
+    "flirty": "Confident charm and clear interest",
+    "bold": "Direct and unapologetically forward",
+}
+
+# User-facing archetype options (simplified from studio archetypes)
+USER_ARCHETYPES = {
+    "warm_supportive": {
+        "label": "Warm & Supportive",
+        "description": "Caring, attentive, emotionally available",
+    },
+    "playful_teasing": {
+        "label": "Playful & Teasing",
+        "description": "Witty, flirty, loves banter",
+    },
+    "mysterious_reserved": {
+        "label": "Mysterious & Reserved",
+        "description": "Enigmatic, guarded, intriguing",
+    },
+    "confident_assertive": {
+        "label": "Confident & Bold",
+        "description": "Direct, assertive, magnetic",
+    },
+}
+
+
+class UserCharacterCreate(BaseModel):
+    """Input for creating a user character (simplified for end users).
+
+    ADR-004: User characters have limited customization:
+    - Name, appearance, archetype, flirting level
+    - No backstory, no system prompt, no genre control
+    """
+
+    name: str = Field(..., min_length=2, max_length=30, description="Character name")
+    appearance_prompt: str = Field(
+        ...,
+        min_length=10,
+        max_length=500,
+        description="Description of how the character looks (for avatar generation)"
+    )
+    archetype: str = Field(
+        ...,
+        description="Personality archetype (warm_supportive, playful_teasing, etc.)"
+    )
+    flirting_level: str = Field(
+        default="playful",
+        description="How the character expresses interest (reserved, playful, flirty, bold)"
+    )
+
+
+class UserCharacterUpdate(BaseModel):
+    """Input for updating a user character.
+
+    All fields optional - only provided fields are updated.
+    """
+
+    name: Optional[str] = Field(None, min_length=2, max_length=30)
+    archetype: Optional[str] = None
+    flirting_level: Optional[str] = None
+    # NOTE: appearance_prompt changes require regenerate-avatar endpoint
+
+
+class UserCharacterResponse(BaseModel):
+    """Response model for user character operations."""
+
+    id: UUID
+    name: str
+    slug: str
+    archetype: str
+    avatar_url: Optional[str] = None
+    flirting_level: str = "playful"
+    is_user_created: bool = True
+    created_at: datetime
+    updated_at: datetime
 
 
 # =============================================================================

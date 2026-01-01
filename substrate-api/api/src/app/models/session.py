@@ -89,6 +89,7 @@ class Session(BaseModel):
     engagement_id: Optional[UUID] = None
     episode_template_id: Optional[UUID] = None
     series_id: Optional[UUID] = None  # Series scoping for memory isolation
+    role_id: Optional[UUID] = None  # ADR-004: Role being played in this session
 
     # Session info
     episode_number: int

@@ -1,21 +1,42 @@
-"""Characters API routes."""
+"""Characters API routes.
+
+Includes:
+- Public character endpoints (list, get by ID/slug)
+- User character CRUD (ADR-004: User Character Customization)
+"""
+import logging
+import re
+from datetime import datetime
 from typing import List, Optional
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 
 from app.deps import get_db
+from app.dependencies import get_current_user_id
 from app.models.character import (
     AvatarGalleryItem,
     Character,
     CharacterProfile,
     CharacterSummary,
     CharacterWithAvatar,
+    UserCharacterCreate,
+    UserCharacterUpdate,
+    UserCharacterResponse,
+    PERSONALITY_PRESETS,
+    FLIRTING_LEVELS,
+    USER_ARCHETYPES,
+    build_system_prompt,
 )
 from app.models.world import World
 from app.services.storage import StorageService
 
+log = logging.getLogger(__name__)
+
 router = APIRouter(prefix="/characters", tags=["Characters"])
+
+# Maximum user characters per user (free tier)
+MAX_USER_CHARACTERS_FREE = 3
 
 
 @router.get("", response_model=List[CharacterSummary])
@@ -274,3 +295,395 @@ async def get_character_world(
         )
 
     return World(**dict(row))
+
+
+# =============================================================================
+# User Character CRUD (ADR-004: User Character Customization)
+# =============================================================================
+
+def generate_slug(name: str) -> str:
+    """Generate a URL-safe slug from a name."""
+    # Convert to lowercase and replace spaces/special chars with hyphens
+    slug = re.sub(r'[^a-z0-9]+', '-', name.lower())
+    # Remove leading/trailing hyphens
+    slug = slug.strip('-')
+    # Add timestamp for uniqueness
+    timestamp = int(datetime.utcnow().timestamp())
+    return f"{slug}-{timestamp}"
+
+
+@router.get("/mine", response_model=List[UserCharacterResponse])
+async def list_my_characters(
+    user_id: UUID = Depends(get_current_user_id),
+    db=Depends(get_db),
+):
+    """List the current user's created characters.
+
+    Returns all characters created by the authenticated user.
+    """
+    query = """
+        SELECT id, name, slug, archetype, avatar_url,
+               boundaries->>'flirting_level' as flirting_level,
+               is_user_created, created_at, updated_at
+        FROM characters
+        WHERE created_by = :user_id AND is_user_created = TRUE
+        ORDER BY created_at DESC
+    """
+    rows = await db.fetch_all(query, {"user_id": str(user_id)})
+
+    results = []
+    storage = None
+
+    for row in rows:
+        data = dict(row)
+        # Ensure flirting_level has a default
+        if not data.get("flirting_level"):
+            data["flirting_level"] = "playful"
+
+        # Refresh avatar URL if we have one stored
+        if data.get("avatar_url") and "storage_path" in data.get("avatar_url", ""):
+            # Avatar URL is a storage path, generate signed URL
+            if storage is None:
+                storage = StorageService.get_instance()
+            try:
+                # This would need the actual storage path, skip for now
+                pass
+            except Exception as e:
+                log.warning(f"Failed to refresh avatar URL: {e}")
+
+        results.append(UserCharacterResponse(**data))
+
+    return results
+
+
+@router.post("", response_model=UserCharacterResponse, status_code=status.HTTP_201_CREATED)
+async def create_user_character(
+    data: UserCharacterCreate,
+    user_id: UUID = Depends(get_current_user_id),
+    db=Depends(get_db),
+):
+    """Create a new user character.
+
+    ADR-004: User characters have simplified creation:
+    - Name, appearance prompt, archetype, flirting level
+    - System prompt is auto-generated from archetype preset
+    - Avatar is generated separately via regenerate-avatar endpoint
+
+    Monetization:
+    - First 3 characters are free
+    - Character creation itself is free (avatar regen costs sparks)
+    """
+    # Check character limit
+    count_query = """
+        SELECT COUNT(*) as count FROM characters
+        WHERE created_by = :user_id AND is_user_created = TRUE
+    """
+    count_row = await db.fetch_one(count_query, {"user_id": str(user_id)})
+    current_count = count_row["count"] if count_row else 0
+
+    if current_count >= MAX_USER_CHARACTERS_FREE:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=f"Character limit reached ({MAX_USER_CHARACTERS_FREE}). Upgrade for more slots.",
+        )
+
+    # Validate archetype
+    if data.archetype not in USER_ARCHETYPES and data.archetype not in PERSONALITY_PRESETS:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid archetype. Choose from: {list(USER_ARCHETYPES.keys())}",
+        )
+
+    # Validate flirting level
+    if data.flirting_level not in FLIRTING_LEVELS:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid flirting level. Choose from: {FLIRTING_LEVELS}",
+        )
+
+    # Generate slug
+    slug = generate_slug(data.name)
+
+    # Get personality preset
+    personality = PERSONALITY_PRESETS.get(
+        data.archetype,
+        PERSONALITY_PRESETS.get("warm_supportive")
+    )
+
+    # Build boundaries
+    boundaries = {
+        "nsfw_allowed": False,  # User characters are SFW only for now
+        "flirting_level": data.flirting_level,
+    }
+
+    # Generate system prompt from archetype
+    system_prompt = build_system_prompt(
+        name=data.name,
+        archetype=data.archetype,
+        personality=personality,
+        boundaries=boundaries,
+        tone_style={},
+        speech_patterns={},
+        backstory=None,  # User characters don't have backstory
+        likes=[],
+        dislikes=[],
+    )
+
+    # Insert character
+    insert_query = """
+        INSERT INTO characters (
+            name, slug, archetype, baseline_personality, boundaries,
+            system_prompt, status, is_active, is_user_created, created_by,
+            content_rating, created_at, updated_at
+        ) VALUES (
+            :name, :slug, :archetype, :personality, :boundaries,
+            :system_prompt, 'active', TRUE, TRUE, :user_id,
+            'sfw', NOW(), NOW()
+        )
+        RETURNING id, name, slug, archetype, avatar_url,
+                  boundaries->>'flirting_level' as flirting_level,
+                  is_user_created, created_at, updated_at
+    """
+
+    import json
+    row = await db.fetch_one(insert_query, {
+        "name": data.name,
+        "slug": slug,
+        "archetype": data.archetype,
+        "personality": json.dumps(personality),
+        "boundaries": json.dumps(boundaries),
+        "system_prompt": system_prompt,
+        "user_id": str(user_id),
+    })
+
+    if not row:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to create character",
+        )
+
+    result = dict(row)
+    if not result.get("flirting_level"):
+        result["flirting_level"] = data.flirting_level
+
+    log.info(f"User {user_id} created character {result['id']} ({data.name})")
+
+    # TODO: Trigger avatar generation with data.appearance_prompt
+    # This will be done via the regenerate-avatar endpoint or inline here
+
+    return UserCharacterResponse(**result)
+
+
+@router.patch("/{character_id}", response_model=UserCharacterResponse)
+async def update_user_character(
+    character_id: UUID,
+    data: UserCharacterUpdate,
+    user_id: UUID = Depends(get_current_user_id),
+    db=Depends(get_db),
+):
+    """Update a user-created character.
+
+    Only the character's owner can update it.
+    System prompt is regenerated if archetype or flirting level changes.
+    """
+    # Verify ownership
+    check_query = """
+        SELECT id, name, archetype, boundaries, baseline_personality
+        FROM characters
+        WHERE id = :character_id AND created_by = :user_id AND is_user_created = TRUE
+    """
+    existing = await db.fetch_one(check_query, {
+        "character_id": str(character_id),
+        "user_id": str(user_id),
+    })
+
+    if not existing:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Character not found or you don't have permission to edit it",
+        )
+
+    existing_data = dict(existing)
+
+    # Build update fields
+    updates = []
+    values = {"character_id": str(character_id)}
+
+    import json
+
+    new_name = data.name or existing_data["name"]
+    new_archetype = data.archetype or existing_data["archetype"]
+
+    # Parse existing boundaries
+    existing_boundaries = existing_data.get("boundaries") or {}
+    if isinstance(existing_boundaries, str):
+        existing_boundaries = json.loads(existing_boundaries)
+
+    new_flirting_level = data.flirting_level or existing_boundaries.get("flirting_level", "playful")
+
+    if data.name:
+        updates.append("name = :name")
+        values["name"] = data.name
+
+    if data.archetype:
+        if data.archetype not in USER_ARCHETYPES and data.archetype not in PERSONALITY_PRESETS:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Invalid archetype. Choose from: {list(USER_ARCHETYPES.keys())}",
+            )
+        updates.append("archetype = :archetype")
+        values["archetype"] = data.archetype
+
+    if data.flirting_level:
+        if data.flirting_level not in FLIRTING_LEVELS:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Invalid flirting level. Choose from: {FLIRTING_LEVELS}",
+            )
+        new_boundaries = {**existing_boundaries, "flirting_level": data.flirting_level}
+        updates.append("boundaries = :boundaries")
+        values["boundaries"] = json.dumps(new_boundaries)
+
+    # Regenerate system prompt if personality-affecting fields changed
+    if data.archetype or data.flirting_level or data.name:
+        personality = PERSONALITY_PRESETS.get(
+            new_archetype,
+            PERSONALITY_PRESETS.get("warm_supportive")
+        )
+        boundaries = {
+            "nsfw_allowed": False,
+            "flirting_level": new_flirting_level,
+        }
+        system_prompt = build_system_prompt(
+            name=new_name,
+            archetype=new_archetype,
+            personality=personality,
+            boundaries=boundaries,
+            tone_style={},
+            speech_patterns={},
+            backstory=None,
+            likes=[],
+            dislikes=[],
+        )
+        updates.append("system_prompt = :system_prompt")
+        values["system_prompt"] = system_prompt
+
+        # Also update personality if archetype changed
+        if data.archetype:
+            updates.append("baseline_personality = :personality")
+            values["personality"] = json.dumps(personality)
+
+    if not updates:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No fields to update",
+        )
+
+    updates.append("updated_at = NOW()")
+
+    update_query = f"""
+        UPDATE characters
+        SET {", ".join(updates)}
+        WHERE id = :character_id
+        RETURNING id, name, slug, archetype, avatar_url,
+                  boundaries->>'flirting_level' as flirting_level,
+                  is_user_created, created_at, updated_at
+    """
+
+    row = await db.fetch_one(update_query, values)
+
+    if not row:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to update character",
+        )
+
+    result = dict(row)
+    if not result.get("flirting_level"):
+        result["flirting_level"] = new_flirting_level
+
+    log.info(f"User {user_id} updated character {character_id}")
+
+    return UserCharacterResponse(**result)
+
+
+@router.delete("/{character_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_user_character(
+    character_id: UUID,
+    user_id: UUID = Depends(get_current_user_id),
+    db=Depends(get_db),
+):
+    """Delete a user-created character.
+
+    Only the character's owner can delete it.
+    This also deletes associated avatar_kits and avatar_assets.
+    """
+    # Verify ownership
+    check_query = """
+        SELECT id FROM characters
+        WHERE id = :character_id AND created_by = :user_id AND is_user_created = TRUE
+    """
+    existing = await db.fetch_one(check_query, {
+        "character_id": str(character_id),
+        "user_id": str(user_id),
+    })
+
+    if not existing:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Character not found or you don't have permission to delete it",
+        )
+
+    # Delete character (cascade will handle avatar_kits if FK is set)
+    delete_query = """
+        DELETE FROM characters WHERE id = :character_id
+    """
+    await db.execute(delete_query, {"character_id": str(character_id)})
+
+    log.info(f"User {user_id} deleted character {character_id}")
+
+    return None
+
+
+@router.post("/{character_id}/regenerate-avatar")
+async def regenerate_user_character_avatar(
+    character_id: UUID,
+    appearance_prompt: Optional[str] = None,
+    user_id: UUID = Depends(get_current_user_id),
+    db=Depends(get_db),
+):
+    """Regenerate avatar for a user-created character.
+
+    Monetization:
+    - First avatar generation (during creation) is FREE
+    - Subsequent regenerations cost 5 sparks
+
+    TODO: Implement spark deduction and actual avatar generation
+    """
+    # Verify ownership
+    check_query = """
+        SELECT id, name, avatar_url FROM characters
+        WHERE id = :character_id AND created_by = :user_id AND is_user_created = TRUE
+    """
+    existing = await db.fetch_one(check_query, {
+        "character_id": str(character_id),
+        "user_id": str(user_id),
+    })
+
+    if not existing:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Character not found or you don't have permission to edit it",
+        )
+
+    existing_data = dict(existing)
+    is_first_generation = existing_data.get("avatar_url") is None
+
+    # TODO: If not first generation, check and deduct sparks
+    # TODO: Call AvatarGenerationService to generate avatar
+    # TODO: Update character.avatar_url with new signed URL
+
+    raise HTTPException(
+        status_code=status.HTTP_501_NOT_IMPLEMENTED,
+        detail="Avatar generation not yet implemented. Coming soon!",
+    )

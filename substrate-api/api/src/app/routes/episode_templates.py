@@ -448,3 +448,111 @@ async def activate_episode_template(
         )
 
     return EpisodeTemplate(**dict(row))
+
+
+# =============================================================================
+# Character Selection for Episodes (ADR-004)
+# =============================================================================
+
+class AvailableCharactersResponse(BaseModel):
+    """Response for available characters for an episode."""
+    canonical: Optional[dict] = None  # The episode's canonical character
+    user_characters: List[dict] = []  # User's compatible characters
+
+
+@router.get("/{template_id}/available-characters", response_model=AvailableCharactersResponse)
+async def get_available_characters_for_episode(
+    template_id: UUID,
+    db=Depends(get_db),
+    user_id: Optional[UUID] = None,  # TODO: Get from auth when available
+):
+    """Get characters available to play in this episode.
+
+    ADR-004: Returns the canonical character plus any user-created characters
+    that have a compatible archetype.
+
+    Returns:
+        - canonical: The episode's original/default character
+        - user_characters: User's characters that can play this role
+    """
+    from app.models.role import get_compatible_archetypes
+
+    # Get the episode template with its character
+    template_query = """
+        SELECT et.id, et.character_id, et.role_id,
+               c.id as char_id, c.name as char_name, c.slug as char_slug,
+               c.archetype as char_archetype, c.avatar_url as char_avatar_url
+        FROM episode_templates et
+        LEFT JOIN characters c ON c.id = et.character_id
+        WHERE et.id = :template_id AND et.status = 'active'
+    """
+    template_row = await db.fetch_one(template_query, {"template_id": str(template_id)})
+
+    if not template_row:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Episode template not found"
+        )
+
+    template_data = dict(template_row)
+
+    # Build canonical character response
+    canonical = None
+    if template_data.get("char_id"):
+        canonical = {
+            "id": template_data["char_id"],
+            "name": template_data["char_name"],
+            "slug": template_data["char_slug"],
+            "archetype": template_data["char_archetype"],
+            "avatar_url": template_data["char_avatar_url"],
+            "is_canonical": True,
+        }
+
+    # Get the archetype required for this episode
+    required_archetype = template_data.get("char_archetype")
+    if not required_archetype:
+        # No character assigned, any archetype works
+        compatible_archetypes = None
+    else:
+        compatible_archetypes = get_compatible_archetypes(required_archetype)
+
+    # Get user's compatible characters
+    user_characters = []
+    if user_id:
+        if compatible_archetypes:
+            # Filter by compatible archetypes
+            user_chars_query = """
+                SELECT id, name, slug, archetype, avatar_url
+                FROM characters
+                WHERE created_by = :user_id
+                  AND is_user_created = TRUE
+                  AND status = 'active'
+                  AND archetype = ANY(:archetypes)
+                ORDER BY created_at DESC
+            """
+            user_rows = await db.fetch_all(user_chars_query, {
+                "user_id": str(user_id),
+                "archetypes": compatible_archetypes,
+            })
+        else:
+            # No archetype restriction, return all user characters
+            user_chars_query = """
+                SELECT id, name, slug, archetype, avatar_url
+                FROM characters
+                WHERE created_by = :user_id
+                  AND is_user_created = TRUE
+                  AND status = 'active'
+                ORDER BY created_at DESC
+            """
+            user_rows = await db.fetch_all(user_chars_query, {"user_id": str(user_id)})
+
+        for row in user_rows:
+            user_characters.append({
+                **dict(row),
+                "is_canonical": False,
+            })
+
+    return AvailableCharactersResponse(
+        canonical=canonical,
+        user_characters=user_characters,
+    )

@@ -83,6 +83,14 @@ from app.models.evaluation import (
     FLIRT_ARCHETYPES,
     generate_share_id,
 )
+from app.models.role import (
+    Role,
+    RoleCreate,
+    RoleUpdate,
+    can_character_play_role,
+    get_compatible_archetypes,
+    ARCHETYPE_COMPATIBILITY,
+)
 
 __all__ = [
     # User
@@ -160,4 +168,11 @@ __all__ = [
     "FlirtArchetype",
     "FLIRT_ARCHETYPES",
     "generate_share_id",
+    # Role (ADR-004)
+    "Role",
+    "RoleCreate",
+    "RoleUpdate",
+    "can_character_play_role",
+    "get_compatible_archetypes",
+    "ARCHETYPE_COMPATIBILITY",
 ]

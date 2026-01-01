@@ -4,7 +4,7 @@
 
 **Purpose:** Single source of truth for all platform terminology
 
-**Last Updated:** 2024-12-17
+**Last Updated:** 2025-01-01
 
 ---
 
@@ -15,8 +15,11 @@
 | **World** | Universe/setting where stories take place. Establishes genre, tone, and ambient context. | `worlds` | Characters inherit world's genre as default |
 | **Series** | Narrative container grouping episodes into a coherent experience. Can be standalone, serial, anthology, or crossover. | `series` | Optional — episodes can exist without a series |
 | **Character** | Persona/counterpart you experience stories WITH. Has personality, visual identity, and behavioral contract (system_prompt). | `characters` | Belongs to one primary world, can guest in others |
-| **Episode Template** | Pre-authored scenario — the atomic unit of experience. Defines situation, opening line, and episode frame. | `episode_templates` | Every episode has ONE anchor character |
+| **Episode Template** | Pre-authored scenario — the atomic unit of experience. Defines situation, opening line, and episode frame. | `episode_templates` | Every episode has ONE anchor role, fillable by compatible characters |
+| **Role** | Archetype slot in an episode that a character fills. Defines scene motivation (objective/obstacle/tactic) and compatibility constraints. | `roles` | Bridge between episode and character (ADR-004) |
 | **Avatar Kit** | Visual identity package for a character — prompts and anchor images for consistent generation. | `avatar_kits` | Contains appearance_prompt, style_prompt, primary_anchor |
+| **User Character** | Character created by a user (vs. canonical/platform character). Private to the creating user. | `characters` | `is_user_created = true` |
+| **Canonical Character** | Platform-authored character with full backstory, curated quality. The "official" version. | `characters` | `is_user_created = false` |
 
 ---
 
