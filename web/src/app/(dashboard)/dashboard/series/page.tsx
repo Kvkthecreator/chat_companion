@@ -13,7 +13,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { BookOpen, Clock, ChevronRight, MoreVertical, RotateCcw } from "lucide-react";
+import { BookOpen, Clock, ChevronRight, MoreVertical, RotateCcw, Sparkles } from "lucide-react";
 import { ResetSeriesModal } from "@/components/series/ResetSeriesModal";
 import type { ContinueWatchingItem } from "@/types";
 
@@ -97,9 +97,10 @@ export default function MySeriesPage() {
         </div>
       ) : (
         <div className="space-y-3">
+          {/* ADR-004: Key by (series_id, character_id) for distinct playthroughs */}
           {items.map((item) => (
             <Card
-              key={item.series_id}
+              key={`${item.series_id}-${item.character_id}`}
               className="cursor-pointer transition-all hover:-translate-y-0.5 hover:shadow-md group overflow-hidden"
             >
               <CardContent className="p-0">
@@ -127,6 +128,25 @@ export default function MySeriesPage() {
                         }}
                       />
                     </div>
+                    {/* Character avatar overlay (ADR-004) */}
+                    <div className="absolute top-1.5 right-1.5 flex items-center gap-1 bg-black/60 backdrop-blur-sm rounded-full pl-0.5 pr-2 py-0.5">
+                      <div className="h-5 w-5 rounded-full overflow-hidden bg-muted flex items-center justify-center shrink-0">
+                        {item.character_avatar_url ? (
+                          <img
+                            src={item.character_avatar_url}
+                            alt={item.character_name}
+                            className="h-full w-full object-cover"
+                          />
+                        ) : (
+                          <span className="text-[8px] font-medium text-white/80">
+                            {item.character_name.slice(0, 2).toUpperCase()}
+                          </span>
+                        )}
+                      </div>
+                      {item.character_is_user_created && (
+                        <Sparkles className="h-2.5 w-2.5 text-yellow-400" />
+                      )}
+                    </div>
                   </Link>
 
                   {/* Content - clickable */}
@@ -148,6 +168,11 @@ export default function MySeriesPage() {
                           </Badge>
                         )}
                       </div>
+
+                      {/* Playing as (ADR-004) */}
+                      <p className="text-xs text-muted-foreground mb-1">
+                        Playing as <span className="font-medium">{item.character_name}</span>
+                      </p>
 
                       <p className="text-sm text-muted-foreground line-clamp-1">
                         Up next: Episode {item.current_episode_number} - {item.current_episode_title}

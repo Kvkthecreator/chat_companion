@@ -779,6 +779,14 @@ class CurrentEpisodeInfo(BaseModel):
     status: str  # "not_started", "in_progress", "completed"
 
 
+class CharacterInfo(BaseModel):
+    """Character info for display in series context."""
+    id: str
+    name: str
+    avatar_url: Optional[str] = None
+    is_user_created: bool = False
+
+
 class SeriesUserContextResponse(BaseModel):
     """Full user context for a series - stats, progress, current episode."""
     series_id: str
@@ -786,6 +794,7 @@ class SeriesUserContextResponse(BaseModel):
     engagement: SeriesEngagementStats
     current_episode: Optional[CurrentEpisodeInfo] = None
     character_id: Optional[str] = None
+    character: Optional[CharacterInfo] = None  # ADR-004: Character details for display
 
 
 @router.get("/{series_id}/user-context", response_model=SeriesUserContextResponse)
@@ -912,6 +921,29 @@ async def get_series_user_context(
             status="not_started",
         )
 
+    # Fetch character details if we have a character_id (ADR-004)
+    character_info = None
+    if character_id:
+        char_query = """
+            SELECT id, name, avatar_url, is_user_created
+            FROM characters
+            WHERE id = :character_id
+        """
+        char_row = await db.fetch_one(char_query, {"character_id": character_id})
+        if char_row:
+            # Convert avatar storage path to signed URL
+            avatar_url = char_row["avatar_url"]
+            if avatar_url and not avatar_url.startswith("http"):
+                storage = StorageService.get_instance()
+                avatar_url = await storage.create_signed_url("scenes", avatar_url, expires_in=3600)
+
+            character_info = CharacterInfo(
+                id=str(char_row["id"]),
+                name=char_row["name"],
+                avatar_url=avatar_url,
+                is_user_created=char_row["is_user_created"] or False,
+            )
+
     return SeriesUserContextResponse(
         series_id=series_id_str,
         has_started=total_sessions > 0,
@@ -925,6 +957,7 @@ async def get_series_user_context(
         ),
         current_episode=current_episode,
         character_id=character_id,
+        character=character_info,
     )
 
 
@@ -933,7 +966,11 @@ async def get_series_user_context(
 # =============================================================================
 
 class ContinueWatchingItem(BaseModel):
-    """A series the user has started with their current progress."""
+    """A series playthrough the user has started with their current progress.
+
+    ADR-004: Each (series, character) pair is a distinct playthrough.
+    A user can have multiple entries for the same series with different characters.
+    """
     series_id: str
     series_title: str
     series_slug: str
@@ -945,8 +982,12 @@ class ContinueWatchingItem(BaseModel):
     current_episode_id: str
     current_episode_title: str
     current_episode_number: int
+
+    # Character info (ADR-004: character details for display)
     character_id: str
     character_name: str
+    character_avatar_url: Optional[str] = None
+    character_is_user_created: bool = False
 
     # Progress
     last_played_at: str
@@ -964,17 +1005,18 @@ async def get_continue_watching(
     limit: int = Query(10, ge=1, le=50),
     db=Depends(get_db),
 ):
-    """Get user's 'Continue Watching' list - series with active/recent sessions.
+    """Get user's 'Continue Watching' list - series playthroughs with active/recent sessions.
 
-    Returns series the user has interacted with, sorted by most recent activity.
-    Each item includes the current episode they're on.
+    ADR-004: Each (series, character) pair is a distinct playthrough.
+    A user can have multiple entries for the same series with different characters.
+    Returns playthroughs sorted by most recent activity.
     """
     user_id = getattr(request.state, "user_id", None)
     if not user_id:
         raise HTTPException(status_code=401, detail="Authentication required")
 
-    # Get user's most recent session per series, with series and episode info
-    # Only include sessions that have an episode template (exclude free chat sessions)
+    # ADR-004: Partition by (series_id, character_id) to get distinct playthroughs
+    # Each character's journey through a series is a separate entry
     # Excludes 'play' type series (viral/game content) from main app continue watching
     query = """
         WITH ranked_sessions AS (
@@ -985,7 +1027,10 @@ async def get_continue_watching(
                 s.character_id,
                 s.session_state,
                 s.started_at,
-                ROW_NUMBER() OVER (PARTITION BY s.series_id ORDER BY s.started_at DESC) as rn
+                ROW_NUMBER() OVER (
+                    PARTITION BY s.series_id, s.character_id
+                    ORDER BY s.started_at DESC
+                ) as rn
             FROM sessions s
             WHERE s.user_id = :user_id
             AND s.series_id IS NOT NULL
@@ -1005,7 +1050,9 @@ async def get_continue_watching(
             ser.total_episodes,
             et.title as episode_title,
             et.episode_number,
-            c.name as character_name
+            c.name as character_name,
+            c.avatar_url as character_avatar_url,
+            c.is_user_created as character_is_user_created
         FROM ranked_sessions rs
         JOIN series ser ON ser.id = rs.series_id
         LEFT JOIN episode_templates et ON et.id = rs.episode_template_id
@@ -1026,6 +1073,11 @@ async def get_continue_watching(
         if cover_url and not cover_url.startswith("http"):
             cover_url = await storage.create_signed_url("scenes", cover_url, expires_in=3600)
 
+        # Convert character avatar to signed URL if needed
+        char_avatar_url = row["character_avatar_url"]
+        if char_avatar_url and not char_avatar_url.startswith("http"):
+            char_avatar_url = await storage.create_signed_url("scenes", char_avatar_url, expires_in=3600)
+
         items.append(ContinueWatchingItem(
             series_id=str(row["series_id"]),
             series_title=row["series_title"],
@@ -1038,6 +1090,8 @@ async def get_continue_watching(
             current_episode_number=row["episode_number"] or 1,
             character_id=str(row["character_id"]),
             character_name=row["character_name"] or "Character",
+            character_avatar_url=char_avatar_url,
+            character_is_user_created=row["character_is_user_created"] or False,
             last_played_at=row["started_at"].isoformat() if row["started_at"] else "",
             session_state=row["session_state"] or "active",
         ))

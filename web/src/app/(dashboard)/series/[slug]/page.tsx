@@ -17,6 +17,8 @@ import {
   MessageSquare,
   Calendar,
   TrendingUp,
+  Sparkles,
+  RefreshCw,
 } from "lucide-react";
 import { CharacterSelectionModal } from "@/components/series/CharacterSelectionModal";
 import type {
@@ -65,6 +67,13 @@ export default function SeriesPage({ params }: PageProps) {
     canonicalCharacterId: string | null;
   } | null>(null);
   const [characterSelectionContext, setCharacterSelectionContext] = useState<CharacterSelectionContext | null>(null);
+  // Track locally selected character (for switching before navigation)
+  const [selectedCharacter, setSelectedCharacter] = useState<{
+    id: string;
+    name: string;
+    avatar_url: string | null;
+    is_user_created: boolean;
+  } | null>(null);
 
   useEffect(() => {
     async function loadData() {
@@ -129,6 +138,13 @@ export default function SeriesPage({ params }: PageProps) {
     loadCharacterSelection();
   }, [series?.id]);
 
+  // Initialize selected character from userContext (ADR-004)
+  useEffect(() => {
+    if (userContext?.character) {
+      setSelectedCharacter(userContext.character);
+    }
+  }, [userContext?.character]);
+
   // Determine if we should show character selection
   const hasUserCharacters = characterSelectionContext && characterSelectionContext.user_characters.length > 0;
 
@@ -139,15 +155,15 @@ export default function SeriesPage({ params }: PageProps) {
   ) => {
     if (startingEpisode) return;
 
-    // If user has compatible custom characters, show selection modal
-    if (hasUserCharacters && !userContext?.character_id) {
+    // If user has custom characters but hasn't selected one yet, show modal
+    if (hasUserCharacters && !selectedCharacter) {
       setPendingEpisode({ id: episodeId, title: episodeTitle, canonicalCharacterId });
       setCharacterSelectionOpen(true);
       return;
     }
 
-    // Otherwise, use the character they've been using (or canonical)
-    const characterId = userContext?.character_id || canonicalCharacterId;
+    // Use locally selected character, or fallback to userContext, or canonical
+    const characterId = selectedCharacter?.id || userContext?.character_id || canonicalCharacterId;
     if (!characterId) return;
 
     await startWithCharacter(episodeId, characterId);
@@ -167,14 +183,37 @@ export default function SeriesPage({ params }: PageProps) {
   };
 
   const handleCharacterSelected = (characterId: string) => {
-    if (!pendingEpisode) return;
+    // Find the selected character from context to update local state
+    const allCharacters = [
+      ...(characterSelectionContext?.canonical_character ? [characterSelectionContext.canonical_character] : []),
+      ...(characterSelectionContext?.user_characters || []),
+    ];
+    const selected = allCharacters.find((c) => c.id === characterId);
+    if (selected) {
+      setSelectedCharacter({
+        id: selected.id,
+        name: selected.name,
+        avatar_url: selected.avatar_url,
+        is_user_created: selected.is_user_created,
+      });
+    }
+
+    // If switching character (not starting an episode), just close modal
+    if (!pendingEpisode) {
+      setCharacterSelectionOpen(false);
+      return;
+    }
+
+    // Starting a specific episode with selected character
     startWithCharacter(pendingEpisode.id, characterId);
   };
 
   const handleContinue = () => {
-    if (!userContext?.current_episode || !userContext.character_id) return;
-    // For continue, go directly since they already have a character
-    startWithCharacter(userContext.current_episode.episode_id, userContext.character_id);
+    if (!userContext?.current_episode) return;
+    // Use locally selected character, or fallback to userContext
+    const characterId = selectedCharacter?.id || userContext.character_id;
+    if (!characterId) return;
+    startWithCharacter(userContext.current_episode.episode_id, characterId);
   };
 
   if (isLoading) {
@@ -273,6 +312,50 @@ export default function SeriesPage({ params }: PageProps) {
               {series.episodes.length !== 1 ? "s" : ""}
             </div>
           </div>
+
+          {/* Playing as chip (ADR-004) - Show when user has selected a character */}
+          {selectedCharacter && (
+            <div className="flex items-center gap-2 mt-4">
+              <span className="text-sm text-muted-foreground">Playing as</span>
+              <div className="flex items-center gap-2 bg-background/80 backdrop-blur-sm rounded-full pl-1 pr-3 py-1">
+                <div className="h-6 w-6 rounded-full overflow-hidden bg-muted flex items-center justify-center shrink-0">
+                  {selectedCharacter.avatar_url ? (
+                    <img
+                      src={selectedCharacter.avatar_url}
+                      alt={selectedCharacter.name}
+                      className="h-full w-full object-cover"
+                    />
+                  ) : (
+                    <span className="text-[10px] font-medium text-muted-foreground">
+                      {selectedCharacter.name.slice(0, 2).toUpperCase()}
+                    </span>
+                  )}
+                </div>
+                <span className="font-medium text-sm">{selectedCharacter.name}</span>
+                {selectedCharacter.is_user_created && (
+                  <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
+                    <Sparkles className="h-2.5 w-2.5 mr-0.5" />
+                    Custom
+                  </Badge>
+                )}
+              </div>
+              {/* Show Change button only if user has other characters to choose from */}
+              {hasUserCharacters && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 px-2 text-xs gap-1"
+                  onClick={() => {
+                    setPendingEpisode(null); // Not for a specific episode
+                    setCharacterSelectionOpen(true);
+                  }}
+                >
+                  <RefreshCw className="h-3 w-3" />
+                  Change
+                </Button>
+              )}
+            </div>
+          )}
         </div>
       </div>
 
@@ -495,13 +578,13 @@ export default function SeriesPage({ params }: PageProps) {
       )}
 
       {/* Character Selection Modal (ADR-004) */}
-      {series && pendingEpisode && (
+      {series && (
         <CharacterSelectionModal
           open={characterSelectionOpen}
           onOpenChange={setCharacterSelectionOpen}
           seriesId={series.id}
-          episodeId={pendingEpisode.id}
-          episodeTitle={pendingEpisode.title}
+          episodeId={pendingEpisode?.id}
+          episodeTitle={pendingEpisode?.title}
           onSelect={handleCharacterSelected}
         />
       )}

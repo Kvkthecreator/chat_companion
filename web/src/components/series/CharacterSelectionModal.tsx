@@ -6,6 +6,10 @@
  * ADR-004: ANY character can play ANY role. The modal shows:
  * - Canonical character (the "original casting")
  * - ALL user characters (no filtering)
+ *
+ * Used for:
+ * 1. Starting an episode (episodeId/episodeTitle provided)
+ * 2. Switching character for a series (no episode context)
  */
 
 import { useState, useEffect } from "react";
@@ -21,15 +25,15 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
-import { Play, Sparkles, User, Crown } from "lucide-react";
+import { Play, Sparkles, User, Crown, Check } from "lucide-react";
 import type { CharacterSelectionContext, CompatibleCharacter } from "@/types";
 
 interface CharacterSelectionModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   seriesId: string;
-  episodeId: string;
-  episodeTitle: string;
+  episodeId?: string | null;  // Optional - null when just switching character
+  episodeTitle?: string | null;  // Optional - null when just switching character
   onSelect: (characterId: string) => void;
 }
 
@@ -78,6 +82,7 @@ export function CharacterSelectionModal({
 
   const hasUserCharacters = context && context.user_characters.length > 0;
   const hasCanonical = context?.canonical_character != null;
+  const isStartingEpisode = !!episodeId;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -85,7 +90,9 @@ export function CharacterSelectionModal({
         <DialogHeader>
           <DialogTitle>Choose Your Character</DialogTitle>
           <DialogDescription>
-            Select who you want to play as in &ldquo;{episodeTitle}&rdquo;
+            {isStartingEpisode
+              ? `Select who you want to play as in "${episodeTitle}"`
+              : "Select which character to use for this series"}
           </DialogDescription>
         </DialogHeader>
 
@@ -145,7 +152,7 @@ export function CharacterSelectionModal({
               </div>
             )}
 
-            {/* Start Button */}
+            {/* Action Button */}
             <div className="pt-2">
               <Button
                 className="w-full gap-2"
@@ -154,11 +161,16 @@ export function CharacterSelectionModal({
                 disabled={!selectedId || isStarting}
               >
                 {isStarting ? (
-                  <>Starting...</>
-                ) : (
+                  isStartingEpisode ? "Starting..." : "Saving..."
+                ) : isStartingEpisode ? (
                   <>
                     <Play className="h-4 w-4" />
                     Start Episode
+                  </>
+                ) : (
+                  <>
+                    <Check className="h-4 w-4" />
+                    Select Character
                   </>
                 )}
               </Button>

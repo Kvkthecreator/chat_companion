@@ -502,7 +502,10 @@ export interface SeriesProgressResponse {
 }
 
 /**
- * Continue Watching item - a series the user has interacted with
+ * Continue Watching item - a series playthrough the user has interacted with.
+ *
+ * ADR-004: Each (series, character) pair is a distinct playthrough.
+ * A user can have multiple entries for the same series with different characters.
  */
 export interface ContinueWatchingItem {
   series_id: string;
@@ -514,8 +517,12 @@ export interface ContinueWatchingItem {
   current_episode_id: string;
   current_episode_title: string;
   current_episode_number: number;
+  // Character info (ADR-004)
   character_id: string;
   character_name: string;
+  character_avatar_url: string | null;
+  character_is_user_created: boolean;
+  // Progress
   last_played_at: string;
   session_state: string;
 }
@@ -578,6 +585,16 @@ export interface CurrentEpisodeInfo {
 }
 
 /**
+ * Character info for display in series context (ADR-004)
+ */
+export interface CharacterInfo {
+  id: string;
+  name: string;
+  avatar_url: string | null;
+  is_user_created: boolean;
+}
+
+/**
  * Full user context for a series - stats, progress, current episode
  */
 export interface SeriesUserContextResponse {
@@ -586,6 +603,7 @@ export interface SeriesUserContextResponse {
   engagement: SeriesEngagementStats;
   current_episode: CurrentEpisodeInfo | null;
   character_id: string | null;
+  character: CharacterInfo | null;
 }
 
 // Scene types

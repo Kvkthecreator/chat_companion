@@ -12,7 +12,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { ScrollRow } from "@/components/ui/scroll-row";
 import { SeriesDiscoveryCard, ContinueWatchingCard } from "@/components/series";
 import { cn } from "@/lib/utils";
-import { Play, Sparkles, BookOpen } from "lucide-react";
+import { Play, Sparkles, BookOpen, User as UserIcon } from "lucide-react";
 import type { User, SeriesSummary, ContinueWatchingItem } from "@/types";
 
 // Genre display labels
@@ -131,8 +131,9 @@ export default function DashboardPage() {
                   {GENRE_LABELS[genre] || genre}
                 </Badge>
                 <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                  {/* ADR-004: Key by (series_id, character_id) for distinct playthroughs */}
                   {items.map((item) => (
-                    <ContinueWatchingCard key={item.series_id} item={item} compact />
+                    <ContinueWatchingCard key={`${item.series_id}-${item.character_id}`} item={item} compact />
                   ))}
                 </div>
               </div>
@@ -205,6 +206,7 @@ export default function DashboardPage() {
 
 /**
  * Hero card for the most recent continue watching item
+ * ADR-004: Shows character info for the current playthrough
  */
 function HeroCard({ item }: { item: ContinueWatchingItem }) {
   const genreLabel = item.series_genre ? (GENRE_LABELS[item.series_genre] || item.series_genre) : null;
@@ -225,6 +227,29 @@ function HeroCard({ item }: { item: ContinueWatchingItem }) {
 
           {/* Gradient overlay */}
           <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/50 to-transparent" />
+
+          {/* Character avatar (ADR-004) - top right */}
+          <div className="absolute top-4 right-4 flex items-center gap-2 bg-black/60 backdrop-blur-sm rounded-full pl-1.5 pr-3 py-1.5">
+            <div className="h-7 w-7 rounded-full overflow-hidden bg-muted flex items-center justify-center shrink-0">
+              {item.character_avatar_url ? (
+                <img
+                  src={item.character_avatar_url}
+                  alt={item.character_name}
+                  className="h-full w-full object-cover"
+                />
+              ) : (
+                <span className="text-xs font-medium text-white/80">
+                  {item.character_name.slice(0, 2).toUpperCase()}
+                </span>
+              )}
+            </div>
+            <span className="text-white/90 font-medium text-sm">
+              {item.character_name}
+            </span>
+            {item.character_is_user_created && (
+              <Sparkles className="h-3.5 w-3.5 text-yellow-400" />
+            )}
+          </div>
 
           {/* Play button overlay */}
           <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">

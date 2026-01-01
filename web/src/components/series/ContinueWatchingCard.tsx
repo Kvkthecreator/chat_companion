@@ -2,8 +2,9 @@
 
 import Link from "next/link";
 import { Card } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
-import { Play } from "lucide-react";
+import { Play, Sparkles } from "lucide-react";
 import type { ContinueWatchingItem } from "@/types";
 
 interface ContinueWatchingCardProps {
@@ -15,6 +16,9 @@ interface ContinueWatchingCardProps {
 /**
  * Card for "Continue Watching" section.
  * Links directly to chat with the current episode.
+ *
+ * ADR-004: Each (series, character) pair is a distinct playthrough.
+ * Shows character avatar to distinguish between playthroughs.
  *
  * compact: Smaller card for grid layout (no genre badge, smaller text)
  */
@@ -44,6 +48,38 @@ export function ContinueWatchingCard({ item, className, compact }: ContinueWatch
 
           {/* Gradient overlay */}
           <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/50 to-transparent" />
+
+          {/* Character avatar (ADR-004) - top right corner */}
+          <div className="absolute top-2 right-2 flex items-center gap-1.5 bg-black/60 backdrop-blur-sm rounded-full pl-1 pr-2.5 py-1">
+            <div className={cn(
+              "rounded-full overflow-hidden bg-muted flex items-center justify-center shrink-0",
+              compact ? "h-5 w-5" : "h-6 w-6"
+            )}>
+              {item.character_avatar_url ? (
+                <img
+                  src={item.character_avatar_url}
+                  alt={item.character_name}
+                  className="h-full w-full object-cover"
+                />
+              ) : (
+                <span className={cn(
+                  "font-medium text-white/80",
+                  compact ? "text-[8px]" : "text-[10px]"
+                )}>
+                  {item.character_name.slice(0, 2).toUpperCase()}
+                </span>
+              )}
+            </div>
+            <span className={cn(
+              "text-white/90 font-medium truncate max-w-[80px]",
+              compact ? "text-[10px]" : "text-xs"
+            )}>
+              {item.character_name}
+            </span>
+            {item.character_is_user_created && (
+              <Sparkles className={cn("text-yellow-400", compact ? "h-2.5 w-2.5" : "h-3 w-3")} />
+            )}
+          </div>
 
           {/* Play indicator on hover */}
           <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">

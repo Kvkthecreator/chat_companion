@@ -524,14 +524,18 @@ class ConversationService:
     ) -> Session:
         """Get active session or create a new one.
 
-        Sessions are scoped by (user_id, series_id, episode_template_id) for:
+        ADR-004: Sessions are scoped by (user_id, character_id, series_id, episode_template_id):
+        - Character-level isolation: Each character has its own playthrough of a series
         - Series-level isolation: Each series has independent conversation history
         - Episode-level isolation: Each episode template has its own session
         - Free chat mode: episode_template_id = NULL represents unstructured chat
 
+        This means a user can play the same series with different characters,
+        and each (user, series, character) tuple gets its own distinct playthrough.
+
         Args:
             user_id: User UUID
-            character_id: Character UUID
+            character_id: Character UUID (determines which character's playthrough)
             scene: Optional custom scene description
             episode_template_id: Optional episode template ID (overrides scene)
         """
@@ -569,16 +573,18 @@ class ConversationService:
             if series_row:
                 series_id = series_row["id"]
 
-        # Check for existing session scoped by (user, series, episode_template)
-        # This ensures separate conversation histories per episode within a series
+        # Check for existing session scoped by (user, series, character, episode_template)
+        # ADR-004: Each (user, series, character) tuple gets its own playthrough
+        # This ensures separate conversation histories per character per series
         # IMPORTANT: We look for ANY existing session (active OR inactive) to preserve message history
         row = None
         if series_id and episode_template_id:
-            # Episode mode: find session for this specific episode template
+            # Episode mode: find session for this specific episode template AND character
             # First try active, then any session (to reactivate if needed)
             query = """
                 SELECT * FROM sessions
                 WHERE user_id = :user_id
+                AND character_id = :character_id
                 AND series_id = :series_id
                 AND episode_template_id = :episode_template_id
                 ORDER BY is_active DESC, started_at DESC
@@ -586,14 +592,16 @@ class ConversationService:
             """
             row = await self.db.fetch_one(query, {
                 "user_id": str(user_id),
+                "character_id": str(character_id),
                 "series_id": str(series_id),
                 "episode_template_id": str(episode_template_id),
             })
         elif series_id:
-            # Free chat mode within series: find session without episode_template
+            # Free chat mode within series: find session without episode_template, for this character
             query = """
                 SELECT * FROM sessions
                 WHERE user_id = :user_id
+                AND character_id = :character_id
                 AND series_id = :series_id
                 AND episode_template_id IS NULL
                 ORDER BY is_active DESC, started_at DESC
@@ -601,6 +609,7 @@ class ConversationService:
             """
             row = await self.db.fetch_one(query, {
                 "user_id": str(user_id),
+                "character_id": str(character_id),
                 "series_id": str(series_id),
             })
         else:
