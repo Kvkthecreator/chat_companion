@@ -359,6 +359,105 @@ export default function SeriesPage({ params }: PageProps) {
         </div>
       </div>
 
+      {/* Character Selection Section - Show when user has custom characters but hasn't selected yet */}
+      {hasUserCharacters && !selectedCharacter && !hasStarted && (
+        <section className="space-y-4">
+          <div className="flex items-center gap-2">
+            <Sparkles className="h-5 w-5 text-primary" />
+            <h2 className="text-xl font-semibold">Choose Your Character</h2>
+          </div>
+
+          <Card>
+            <CardContent className="p-4">
+              <p className="text-sm text-muted-foreground mb-4">
+                Select who you want to play as in this series
+              </p>
+
+              {/* Character options - horizontal scroll on mobile, grid on larger screens */}
+              <div className="flex gap-3 overflow-x-auto pb-2 sm:grid sm:grid-cols-2 sm:overflow-visible sm:pb-0">
+                {/* Canonical character */}
+                {characterSelectionContext?.canonical_character && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const char = characterSelectionContext.canonical_character!;
+                      setSelectedCharacter({
+                        id: char.id,
+                        name: char.name,
+                        avatar_url: char.avatar_url,
+                        is_user_created: false,
+                      });
+                    }}
+                    className="flex items-center gap-3 p-3 rounded-lg border border-border hover:border-primary hover:bg-accent/50 transition-all min-w-[200px] sm:min-w-0"
+                  >
+                    <div className="h-10 w-10 rounded-full overflow-hidden bg-muted flex items-center justify-center shrink-0">
+                      {characterSelectionContext.canonical_character.avatar_url ? (
+                        <img
+                          src={characterSelectionContext.canonical_character.avatar_url}
+                          alt={characterSelectionContext.canonical_character.name}
+                          className="h-full w-full object-cover"
+                        />
+                      ) : (
+                        <span className="text-xs font-medium text-muted-foreground">
+                          {characterSelectionContext.canonical_character.name.slice(0, 2).toUpperCase()}
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex-1 text-left">
+                      <div className="font-medium text-sm">{characterSelectionContext.canonical_character.name}</div>
+                      <div className="text-xs text-muted-foreground">Original</div>
+                    </div>
+                  </button>
+                )}
+
+                {/* User characters */}
+                {characterSelectionContext?.user_characters.map((char) => (
+                  <button
+                    key={char.id}
+                    type="button"
+                    onClick={() => {
+                      setSelectedCharacter({
+                        id: char.id,
+                        name: char.name,
+                        avatar_url: char.avatar_url,
+                        is_user_created: true,
+                      });
+                    }}
+                    className="flex items-center gap-3 p-3 rounded-lg border border-border hover:border-primary hover:bg-accent/50 transition-all min-w-[200px] sm:min-w-0"
+                  >
+                    <div className="h-10 w-10 rounded-full overflow-hidden bg-muted flex items-center justify-center shrink-0">
+                      {char.avatar_url ? (
+                        <img
+                          src={char.avatar_url}
+                          alt={char.name}
+                          className="h-full w-full object-cover"
+                        />
+                      ) : (
+                        <span className="text-xs font-medium text-muted-foreground">
+                          {char.name.slice(0, 2).toUpperCase()}
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex-1 text-left">
+                      <div className="flex items-center gap-1.5">
+                        <span className="font-medium text-sm">{char.name}</span>
+                        <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
+                          <Sparkles className="h-2.5 w-2.5 mr-0.5" />
+                          Custom
+                        </Badge>
+                      </div>
+                      <div className="text-xs text-muted-foreground capitalize">
+                        {char.archetype.replace(/_/g, " ")}
+                      </div>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        </section>
+      )}
+
       {/* Your Progress Section - Only if user has started */}
       {hasStarted && (
         <section className="space-y-4">
