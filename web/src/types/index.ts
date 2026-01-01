@@ -1423,23 +1423,29 @@ export type StreamEvent =
 // =============================================================================
 
 /**
- * Role - the bridge between episodes and characters.
- * Defines the archetype slot an episode requires.
+ * Role represents a "part" in an episode that a character plays.
+ *
+ * CINEMATIC CASTING (ADR-004 v2):
+ * Any character can play any role. The canonical_archetype is informational only -
+ * it indicates what the role was originally written for, but does NOT gate casting.
  */
 export interface Role {
   id: string;
   name: string;
   slug: string;
   description: string | null;
-  archetype: string;
-  compatible_archetypes: string[];
+  canonical_archetype: string;  // What role was written for (informational only)
   scene_objective: string | null;
   scene_obstacle: string | null;
   scene_tactic: string | null;
 }
 
 /**
- * A character that can fill a role.
+ * A character that can be cast in a role.
+ *
+ * CINEMATIC CASTING (ADR-004 v2):
+ * Named "Compatible" for backwards compat, but ALL characters can play ALL roles.
+ * No filtering is applied.
  */
 export interface CompatibleCharacter {
   id: string;
@@ -1454,12 +1460,16 @@ export interface CompatibleCharacter {
 
 /**
  * Context for character selection before starting an episode.
+ *
+ * CINEMATIC CASTING (ADR-004 v2):
+ * Returns ALL user characters regardless of archetype. Any character can play
+ * any role - the system adapts prompts via the Casting Adaptation Layer.
  */
 export interface CharacterSelectionContext {
   series_id: string;
   series_title: string;
   role: Role;
   canonical_character: CompatibleCharacter | null;
-  user_characters: CompatibleCharacter[];
+  user_characters: CompatibleCharacter[];  // ALL user characters (no filtering)
   can_use_canonical: boolean;
 }

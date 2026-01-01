@@ -14,6 +14,42 @@ Format: `[Document] vX.Y.Z - YYYY-MM-DD`
 
 ---
 
+## 2025-01-01
+
+### Added
+- **[ADR-004]** v2.0 - Cinematic Casting Model
+  - **Any character can play any role** — no archetype compatibility gating
+  - Role.compatible_archetypes removed, replaced with Role.canonical_archetype (informational only)
+  - Casting Adaptation Layer injected when character archetype differs from role
+  - User agency maximized: "MY character, MY interpretation"
+
+- **[CINEMATIC_CASTING.md]** v1.0.0 - Implementation specification
+  - `generate_casting_adaptation()` function specification
+  - Bridge guidance generation for archetype combinations
+  - Integration with 7-layer prompt architecture
+  - Migration plan from compatibility model
+
+### Changed
+- **[CONTEXT_LAYERS.md]** v2.0.0 - 7-Layer Architecture
+  - Added Layer 7: Casting Adaptation (conditional)
+  - Updated token budget to include casting layer (~75-150 tokens when active)
+  - Updated composition order to include casting as final layer
+  - Documented bridge guidance generation patterns
+
+- **[EPISODE-0_CANON.md]** - Cinematic Casting Integration
+  - Updated to 7-layer architecture (was 6-layer)
+  - Section 9 rewritten: "Cinematic Casting (ADR-004 v2)"
+  - Role abstraction updated: Role does NOT gate, Role does NOT enforce compatibility
+  - Added Casting Adaptation Layer documentation
+
+### Removed
+- **[Roles API]** Compatibility checking endpoints (planned)
+  - `GET /roles/{role_id}/compatible-characters` — no longer needed
+  - `POST /roles/check-compatibility` — no longer needed
+  - Archetype filtering in `get_character_selection_for_series` — show ALL user characters
+
+---
+
 ## 2024-12-30
 
 ### Changed

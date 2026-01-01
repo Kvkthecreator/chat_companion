@@ -1,10 +1,17 @@
 """Roles API routes.
 
-Roles are the bridge between episodes and characters (ADR-004).
-A Role defines the archetype slot an episode requires, which can be filled by
-any compatible character (canonical or user-created).
+Roles are the bridge between episodes and characters (ADR-004 v2 - Cinematic Casting).
+
+KEY PRINCIPLE: Any character can play any role. The system adapts prompts to bridge
+archetype differences rather than gating by compatibility.
+
+A Role defines:
+- The scene motivation (objective/obstacle/tactic) for the part
+- The canonical archetype (what the role was written for - informational only)
+- Does NOT enforce archetype compatibility
 
 Reference: docs/decisions/ADR-004-user-character-role-abstraction.md
+Reference: docs/implementation/CINEMATIC_CASTING.md
 """
 
 from typing import List, Optional
@@ -14,7 +21,6 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from pydantic import BaseModel, Field
 
 from app.deps import get_db
-from app.models.role import Role, can_character_play_role, get_compatible_archetypes
 from app.services.storage import StorageService
 
 
@@ -31,15 +37,19 @@ class RoleResponse(BaseModel):
     name: str
     slug: str
     description: Optional[str] = None
-    archetype: str
-    compatible_archetypes: List[str] = Field(default_factory=list)
+    canonical_archetype: str  # What the role was written for (informational only)
     scene_objective: Optional[str] = None
     scene_obstacle: Optional[str] = None
     scene_tactic: Optional[str] = None
 
 
 class CompatibleCharacter(BaseModel):
-    """A character that can fill a role."""
+    """A character that can be cast in a role.
+
+    Note: ALL characters can play ALL roles per Cinematic Casting model.
+    This model is named 'Compatible' for backwards compatibility but no
+    filtering is applied.
+    """
     id: str
     name: str
     slug: str
@@ -50,14 +60,12 @@ class CompatibleCharacter(BaseModel):
     is_canonical: bool  # True for platform characters
 
 
-class RoleWithCharactersResponse(RoleResponse):
-    """Role with list of compatible characters."""
-    canonical_character: Optional[CompatibleCharacter] = None  # The "default" character
-    compatible_characters: List[CompatibleCharacter] = Field(default_factory=list)
-
-
 class CharacterSelectionContext(BaseModel):
-    """Context for character selection before starting an episode."""
+    """Context for character selection before starting an episode.
+
+    Per Cinematic Casting (ADR-004 v2), ALL user characters are returned
+    regardless of archetype. The system adapts prompts when archetypes differ.
+    """
     series_id: str
     series_title: str
     role: RoleResponse
@@ -72,26 +80,18 @@ class CharacterSelectionContext(BaseModel):
 
 @router.get("", response_model=List[RoleResponse])
 async def list_roles(
-    archetype: Optional[str] = Query(None, description="Filter by primary archetype"),
     limit: int = Query(50, ge=1, le=100),
     db=Depends(get_db),
 ):
-    """List all roles with optional archetype filter."""
+    """List all roles."""
     query = """
-        SELECT id, name, slug, description, archetype, compatible_archetypes,
+        SELECT id, name, slug, description, archetype as canonical_archetype,
                scene_objective, scene_obstacle, scene_tactic
         FROM roles
-        WHERE 1=1
+        ORDER BY name
+        LIMIT :limit
     """
-    params = {"limit": limit}
-
-    if archetype:
-        query += " AND (archetype = :archetype OR :archetype = ANY(compatible_archetypes))"
-        params["archetype"] = archetype
-
-    query += " ORDER BY name LIMIT :limit"
-
-    rows = await db.fetch_all(query, params)
+    rows = await db.fetch_all(query, {"limit": limit})
 
     return [
         RoleResponse(
@@ -99,8 +99,7 @@ async def list_roles(
             name=row["name"],
             slug=row["slug"],
             description=row["description"],
-            archetype=row["archetype"],
-            compatible_archetypes=row["compatible_archetypes"] or [],
+            canonical_archetype=row["canonical_archetype"],
             scene_objective=row["scene_objective"],
             scene_obstacle=row["scene_obstacle"],
             scene_tactic=row["scene_tactic"],
@@ -116,7 +115,7 @@ async def get_role(
 ):
     """Get a specific role by ID."""
     query = """
-        SELECT id, name, slug, description, archetype, compatible_archetypes,
+        SELECT id, name, slug, description, archetype as canonical_archetype,
                scene_objective, scene_obstacle, scene_tactic
         FROM roles
         WHERE id = :id
@@ -131,131 +130,15 @@ async def get_role(
         name=row["name"],
         slug=row["slug"],
         description=row["description"],
-        archetype=row["archetype"],
-        compatible_archetypes=row["compatible_archetypes"] or [],
+        canonical_archetype=row["canonical_archetype"],
         scene_objective=row["scene_objective"],
         scene_obstacle=row["scene_obstacle"],
         scene_tactic=row["scene_tactic"],
     )
 
 
-@router.get("/{role_id}/compatible-characters", response_model=RoleWithCharactersResponse)
-async def get_role_with_compatible_characters(
-    role_id: UUID,
-    request: Request,
-    db=Depends(get_db),
-):
-    """Get a role with all characters that can fill it.
-
-    Returns:
-    - The role details
-    - The canonical character (if one exists for this role's series)
-    - All user-created characters that are archetype-compatible
-    """
-    user_id = getattr(request.state, "user_id", None)
-
-    # Get role
-    role_query = """
-        SELECT id, name, slug, description, archetype, compatible_archetypes,
-               scene_objective, scene_obstacle, scene_tactic
-        FROM roles
-        WHERE id = :id
-    """
-    role_row = await db.fetch_one(role_query, {"id": str(role_id)})
-
-    if not role_row:
-        raise HTTPException(status_code=404, detail="Role not found")
-
-    role_archetype = role_row["archetype"]
-    role_compatible = role_row["compatible_archetypes"] or []
-
-    # Build list of all compatible archetypes
-    all_compatible = [role_archetype] + list(role_compatible)
-
-    # Get canonical character for this role's series
-    # Find the series that uses this role, then get its canonical character
-    canonical_query = """
-        SELECT DISTINCT c.id, c.name, c.slug, c.archetype, c.mapped_archetype, c.avatar_url
-        FROM characters c
-        JOIN episode_templates et ON et.character_id = c.id
-        WHERE et.role_id = :role_id
-        AND c.is_user_created = FALSE
-        AND c.status = 'active'
-        LIMIT 1
-    """
-    canonical_row = await db.fetch_one(canonical_query, {"role_id": str(role_id)})
-
-    canonical_character = None
-    storage = StorageService.get_instance()
-
-    if canonical_row:
-        avatar_url = canonical_row["avatar_url"]
-        if avatar_url and not avatar_url.startswith("http"):
-            avatar_url = await storage.create_signed_url("avatars", avatar_url, expires_in=3600)
-
-        canonical_character = CompatibleCharacter(
-            id=str(canonical_row["id"]),
-            name=canonical_row["name"],
-            slug=canonical_row["slug"],
-            archetype=canonical_row["archetype"] or "",
-            mapped_archetype=canonical_row["mapped_archetype"],
-            avatar_url=avatar_url,
-            is_user_created=False,
-            is_canonical=True,
-        )
-
-    # Get user's compatible characters
-    compatible_characters = []
-    if user_id:
-        user_chars_query = """
-            SELECT id, name, slug, archetype, mapped_archetype, avatar_url
-            FROM characters
-            WHERE created_by = :user_id
-            AND is_user_created = TRUE
-            AND status = 'active'
-            AND (
-                mapped_archetype = ANY(:archetypes)
-                OR archetype = ANY(:archetypes)
-            )
-        """
-        user_char_rows = await db.fetch_all(user_chars_query, {
-            "user_id": user_id,
-            "archetypes": all_compatible,
-        })
-
-        for row in user_char_rows:
-            avatar_url = row["avatar_url"]
-            if avatar_url and not avatar_url.startswith("http"):
-                avatar_url = await storage.create_signed_url("avatars", avatar_url, expires_in=3600)
-
-            compatible_characters.append(CompatibleCharacter(
-                id=str(row["id"]),
-                name=row["name"],
-                slug=row["slug"],
-                archetype=row["archetype"] or "",
-                mapped_archetype=row["mapped_archetype"],
-                avatar_url=avatar_url,
-                is_user_created=True,
-                is_canonical=False,
-            ))
-
-    return RoleWithCharactersResponse(
-        id=str(role_row["id"]),
-        name=role_row["name"],
-        slug=role_row["slug"],
-        description=role_row["description"],
-        archetype=role_archetype,
-        compatible_archetypes=role_compatible,
-        scene_objective=role_row["scene_objective"],
-        scene_obstacle=role_row["scene_obstacle"],
-        scene_tactic=role_row["scene_tactic"],
-        canonical_character=canonical_character,
-        compatible_characters=compatible_characters,
-    )
-
-
 # =============================================================================
-# Series-Scoped Character Selection
+# Series-Scoped Character Selection (Cinematic Casting)
 # =============================================================================
 
 @router.get("/series/{series_id}/character-selection", response_model=CharacterSelectionContext)
@@ -266,12 +149,16 @@ async def get_character_selection_for_series(
 ):
     """Get character selection context for starting a series.
 
-    This is the primary endpoint for the pre-episode character selection UI.
+    CINEMATIC CASTING MODEL (ADR-004 v2):
+    Returns ALL user characters regardless of archetype. Any character can play
+    any role - the system adapts prompts via the Casting Adaptation Layer when
+    the character's archetype differs from the role's canonical archetype.
+
     Returns:
     - The series info
-    - The role required for this series
+    - The role (with canonical_archetype for reference)
     - The canonical (default) character
-    - User's characters that can fill the role
+    - ALL of the user's characters (no filtering)
     """
     user_id = getattr(request.state, "user_id", None)
 
@@ -279,7 +166,7 @@ async def get_character_selection_for_series(
     series_query = """
         SELECT s.id, s.title, s.slug, s.default_role_id,
                r.id as role_id, r.name as role_name, r.slug as role_slug,
-               r.description as role_description, r.archetype, r.compatible_archetypes,
+               r.description as role_description, r.archetype as canonical_archetype,
                r.scene_objective, r.scene_obstacle, r.scene_tactic
         FROM series s
         LEFT JOIN roles r ON r.id = s.default_role_id
@@ -295,10 +182,6 @@ async def get_character_selection_for_series(
             status_code=400,
             detail="Series does not have a role defined. Cannot select character."
         )
-
-    role_archetype = series_row["archetype"]
-    role_compatible = series_row["compatible_archetypes"] or []
-    all_compatible = [role_archetype] + list(role_compatible)
 
     # Get canonical character for this series
     canonical_query = """
@@ -331,7 +214,7 @@ async def get_character_selection_for_series(
             is_canonical=True,
         )
 
-    # Get user's compatible characters
+    # Get ALL user's characters (Cinematic Casting - no archetype filtering)
     user_characters = []
     if user_id:
         user_chars_query = """
@@ -340,15 +223,9 @@ async def get_character_selection_for_series(
             WHERE created_by = :user_id
             AND is_user_created = TRUE
             AND status = 'active'
-            AND (
-                mapped_archetype = ANY(:archetypes)
-                OR archetype = ANY(:archetypes)
-            )
+            ORDER BY created_at DESC
         """
-        user_char_rows = await db.fetch_all(user_chars_query, {
-            "user_id": user_id,
-            "archetypes": all_compatible,
-        })
+        user_char_rows = await db.fetch_all(user_chars_query, {"user_id": user_id})
 
         for row in user_char_rows:
             avatar_url = row["avatar_url"]
@@ -371,8 +248,7 @@ async def get_character_selection_for_series(
         name=series_row["role_name"],
         slug=series_row["role_slug"],
         description=series_row["role_description"],
-        archetype=role_archetype,
-        compatible_archetypes=role_compatible,
+        canonical_archetype=series_row["canonical_archetype"],
         scene_objective=series_row["scene_objective"],
         scene_obstacle=series_row["scene_obstacle"],
         scene_tactic=series_row["scene_tactic"],
@@ -389,75 +265,74 @@ async def get_character_selection_for_series(
 
 
 # =============================================================================
-# Character Compatibility Check
+# Casting Adaptation Check (Informational Only)
 # =============================================================================
 
-class CompatibilityCheckRequest(BaseModel):
-    """Request to check if a character can play a role."""
-    character_id: str
-    role_id: str
+class CastingAdaptationResponse(BaseModel):
+    """Information about casting adaptation for a character-role pairing.
 
-
-class CompatibilityCheckResponse(BaseModel):
-    """Result of compatibility check."""
-    compatible: bool
+    This is informational only - all characters can play all roles.
+    The response indicates whether the Casting Adaptation Layer will be
+    active for this pairing.
+    """
+    needs_adaptation: bool
     character_archetype: str
-    role_archetype: str
-    role_compatible_archetypes: List[str]
-    reason: Optional[str] = None
+    role_canonical_archetype: str
+    adaptation_note: Optional[str] = None
 
 
-@router.post("/check-compatibility", response_model=CompatibilityCheckResponse)
-async def check_character_role_compatibility(
-    data: CompatibilityCheckRequest,
+@router.get("/casting-info/{role_id}/{character_id}", response_model=CastingAdaptationResponse)
+async def get_casting_adaptation_info(
+    role_id: UUID,
+    character_id: UUID,
     db=Depends(get_db),
 ):
-    """Check if a character can play a specific role.
+    """Get information about how a character will play a role.
 
-    Used before session creation to validate character selection.
+    This is INFORMATIONAL ONLY - it does not gate the casting.
+    Returns whether the Casting Adaptation Layer will be active and
+    provides a preview of how the archetype mismatch will be bridged.
     """
     # Get character
     char_query = """
-        SELECT archetype, mapped_archetype
+        SELECT archetype, mapped_archetype, name
         FROM characters
         WHERE id = :id AND status = 'active'
     """
-    char_row = await db.fetch_one(char_query, {"id": data.character_id})
+    char_row = await db.fetch_one(char_query, {"id": str(character_id)})
 
     if not char_row:
         raise HTTPException(status_code=404, detail="Character not found")
 
     # Get role
     role_query = """
-        SELECT archetype, compatible_archetypes
+        SELECT archetype as canonical_archetype, name
         FROM roles
         WHERE id = :id
     """
-    role_row = await db.fetch_one(role_query, {"id": data.role_id})
+    role_row = await db.fetch_one(role_query, {"id": str(role_id)})
 
     if not role_row:
         raise HTTPException(status_code=404, detail="Role not found")
 
     # Use mapped_archetype if available, otherwise use archetype
     char_archetype = char_row["mapped_archetype"] or char_row["archetype"] or ""
-    role_archetype = role_row["archetype"]
-    role_compatible = role_row["compatible_archetypes"] or []
+    role_archetype = role_row["canonical_archetype"]
 
-    # Check compatibility
-    is_compatible = can_character_play_role(
-        char_archetype,
-        role_archetype,
-        role_compatible,
-    )
+    # Check if adaptation is needed
+    needs_adaptation = char_archetype != role_archetype
 
-    reason = None
-    if not is_compatible:
-        reason = f"Character archetype '{char_archetype}' is not compatible with role requiring '{role_archetype}'"
+    adaptation_note = None
+    if needs_adaptation:
+        adaptation_note = (
+            f"Your character ({char_row['name']}) brings a {char_archetype.replace('_', ' ')} "
+            f"interpretation to a role written for {role_archetype.replace('_', ' ')}. "
+            f"The Casting Adaptation Layer will bridge this for a unique experience."
+        )
 
-    return CompatibilityCheckResponse(
-        compatible=is_compatible,
+    return CastingAdaptationResponse(
+        needs_adaptation=needs_adaptation,
         character_archetype=char_archetype,
-        role_archetype=role_archetype,
-        role_compatible_archetypes=role_compatible,
-        reason=reason,
+        role_canonical_archetype=role_archetype,
+        adaptation_note=adaptation_note,
     )

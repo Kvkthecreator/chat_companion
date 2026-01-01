@@ -1,14 +1,16 @@
 # Context Layers
 
-> **Version**: 1.3.0
+> **Version**: 2.0.0
 > **Status**: Active
-> **Updated**: 2024-12-24
+> **Updated**: 2025-01-01
 
 ---
 
 ## Purpose
 
-This document defines the 6-layer context architecture that composes every character prompt. It specifies what each layer contributes and how layers interact.
+This document defines the **7-layer context architecture** that composes every character prompt. It specifies what each layer contributes and how layers interact.
+
+> **v2.0 Update**: Added Layer 7 (Casting Adaptation) per [ADR-004: Cinematic Casting](../../decisions/ADR-004-user-character-role-abstraction.md). Any character can now play any role, with prompt adaptation bridging archetype differences.
 
 ---
 
@@ -33,6 +35,9 @@ This document defines the 6-layer context architecture that composes every chara
 ├─────────────────────────────────────────────────────────────────┤
 │  LAYER 6: DIRECTOR GUIDANCE                                     │
 │  Per-turn. Pacing hint, tension note, genre beat.               │
+├─────────────────────────────────────────────────────────────────┤
+│  LAYER 7: CASTING ADAPTATION (conditional)                      │
+│  When character ≠ role archetype. Bridges the gap.              │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
@@ -359,33 +364,110 @@ DIRECTOR NOTE (internal guidance):
 
 ---
 
+## Layer 7: Casting Adaptation
+
+**Source**: Derived from Role + Character comparison
+**Refresh**: Per session (static once set)
+**Condition**: Only injected when `character.archetype ≠ role.canonical_archetype`
+**Status**: ACTIVE (ADR-004)
+
+### The Cinematic Casting Model
+
+Per [ADR-004](../../decisions/ADR-004-user-character-role-abstraction.md), any character can play any role. When a user casts a character whose archetype differs from the role's canonical archetype, this layer bridges the gap through **prompt adaptation** rather than **compatibility gating**.
+
+**Key Insight**: In cinema, a "shy barista" role becomes something different when played by a confident actor — that's a feature, not a bug. The narrative bends to the character's interpretation.
+
+### When This Layer Activates
+
+```
+Character archetype == Role canonical archetype?
+    YES → Layer 7 NOT injected (standard prompt)
+    NO  → Layer 7 IS injected (casting adaptation)
+```
+
+### Components
+
+| Component | Source | Purpose |
+|-----------|--------|---------|
+| Role Archetype | `role.canonical_archetype` | What the role was written for |
+| Character Archetype | `character.archetype` | What the character brings |
+| Bridge Guidance | Generated | How to play the tension productively |
+
+### Format in Prompt
+
+```
+CASTING ADAPTATION (your unique interpretation):
+This role was written for: shy, reserved barista
+You, Alex, bring: confident, bold personality
+
+How to play this naturally:
+- Your natural confidence meets a situation calling for restraint
+- Perhaps you're being careful because this MATTERS to you
+- Your boldness shows in subtle ways — a held gaze, a knowing smile
+- The vulnerability is unfamiliar territory, which makes it interesting
+
+The dramatic question remains the same; your approach to it is uniquely yours.
+```
+
+### Bridge Guidance Generation
+
+The bridge guidance is generated based on archetype combinations:
+
+| Character Archetype | Role Archetype | Bridge Theme |
+|---------------------|----------------|--------------|
+| confident → shy | Confidence masks nervousness, boldness as overcompensation |
+| shy → confident | Quiet intensity, weight to rare moments of speaking up |
+| warm → mysterious | Warmth held back, mystery through restraint not coldness |
+| mysterious → warm | Care through actions not words, depth over surface friendliness |
+| playful → intense | Humor as deflection, lightness meeting deep feeling |
+| intense → playful | Passion channeled into wit, feelings expressed through banter |
+
+### Quality Impact
+- **Positive**: Unexpected castings create unique story possibilities
+- **Positive**: User characters feel like "their interpretation" not "wrong choice"
+- **Risk**: Wildly mismatched castings may strain coherence
+- **Mitigation**: Adaptation reframes as "unique take" not "incompatible"
+
+### Design Principle: Additive, Not Overriding
+
+This layer **adds** guidance without overriding character identity:
+- Character personality (Layer 1) remains authoritative
+- Scene motivation (Layer 2) comes from Role, unchanged
+- Casting adaptation suggests how to BRIDGE, not how to CHANGE
+
+The LLM should understand: "You're still YOU, playing a role that expects something different. The tension between expectation and reality IS the drama."
+
+---
+
 ## Layer Composition Order
 
 Layers are assembled in this order (later = higher priority):
 
 1. Character system prompt (foundation)
-2. Episode dynamics (situation, frame, question)
+2. Episode dynamics (situation, frame, question, scene motivation from Role)
 3. Engagement context (relationship stats)
 4. Memory section (retrieved facts)
 5. Hook section (pending callbacks)
 6. Moment layer (immediate focus)
-7. Director note (guidance) ← NEW
+7. Director note (guidance)
+8. Casting adaptation (conditional — only when archetype mismatch)
 
 ---
 
 ## Token Budget
 
-| Layer | Est. Tokens | Priority |
-|-------|-------------|----------|
-| Character prompt | 300-500 | Critical |
-| Episode context | 150-250 | Critical |
-| Engagement | 50-100 | High |
-| Memories | 200-400 | High |
-| Hooks | 50-150 | Medium |
-| Message history | 1000-3000 | Sliding window |
-| Moment layer | 100-150 | Critical |
-| Director note | 50-100 | High |
-| **Total Input** | ~2000-4500 | |
+| Layer | Est. Tokens | Priority | Notes |
+|-------|-------------|----------|-------|
+| Character prompt | 300-500 | Critical | |
+| Episode context | 150-250 | Critical | Includes scene motivation from Role |
+| Engagement | 50-100 | High | |
+| Memories | 200-400 | High | |
+| Hooks | 50-150 | Medium | |
+| Message history | 1000-3000 | Sliding window | |
+| Moment layer | 100-150 | Critical | |
+| Director note | 50-100 | High | |
+| Casting adaptation | 75-150 | High | Conditional — 0 tokens when archetypes match |
+| **Total Input** | ~2000-4700 | | Max when casting adaptation active |
 
 ---
 
@@ -393,6 +475,7 @@ Layers are assembled in this order (later = higher priority):
 
 | Version | Date | Changes |
 |---------|------|---------|
+| 2.0.0 | 2025-01-01 | **Cinematic Casting**: Added Layer 7 (Casting Adaptation) per ADR-004. Any character can play any role; prompt adaptation bridges archetype differences. Updated from 6-layer to 7-layer architecture. |
 | 1.4.0 | 2024-12-23 | Resolved clarification items: turn_budget documented as Director domain, series_finale removed, genre hierarchy documented for future consolidation. |
 | 1.3.0 | 2024-12-23 | Added Episode Layer clarification items (turn_budget, series_finale, genre hierarchy). Hardened on Ticket + Moments model. |
 | 1.2.0 | 2024-12-23 | Simplified boundaries to flirting_level + nsfw_allowed only. Removed Character Dynamics UI (9 unused fields) |

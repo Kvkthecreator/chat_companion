@@ -1,7 +1,8 @@
-# ADR-004: User Character & Role Abstraction
+# ADR-004: User Character & Cinematic Casting
 
-> **Status**: ACCEPTED
+> **Status**: ACCEPTED (Revised)
 > **Date**: 2025-01-01
+> **Revised**: 2025-01-01
 > **Deciders**: Engineering
 > **Related**: [ADR-001](./ADR-001-genre-architecture.md), [ADR-002](./ADR-002-theatrical-architecture.md)
 
@@ -13,51 +14,85 @@ Episode-0 wants to enable **user-created characters** that can play in platform-
 
 To support user customization while preserving the quality of authored episodes, we need an architecture that:
 1. Decouples episodes from specific characters
-2. Allows any compatible character (canonical or user-created) to fill a role
-3. Preserves scene motivation and dramatic tension (the "authored" quality)
+2. Allows **any** character (canonical or user-created) to play any role
+3. Preserves scene motivation and dramatic tension through **prompt adaptation**
 
 ---
 
 ## Decision
 
-### Part 1: Role as Episode-Character Bridge
+### Part 1: The Cinematic Casting Model
 
-Introduce **Role** as a conceptual abstraction that defines the archetype slot an episode requires. A role can be filled by any compatible character.
+Adopt a **cinematic casting** philosophy: any character can play any role, just as any actor can be cast in any film role. The system adapts to the casting choice rather than gatekeeping it.
 
 ```
-EpisodeTemplate → defines → Role (archetype slot)
+Series/Episode → defines → Role (the part to be played)
                               ↓
                          "The barista in this café scene"
                               ↓
-                    filled by → Character (canonical OR user-created)
+                    cast as → ANY Character (canonical OR user-created)
+                              ↓
+                    adapted via → Casting Adaptation Layer (prompt injection)
 ```
 
-**Role** represents:
-- The **archetype** required (e.g., "warm café worker," "mysterious stranger")
-- The **constraints** a character must satisfy to play this role
-- The **scene motivation** (objective/obstacle/tactic) — lives with the role, not the character
+**Key Insight**: In cinema, a "shy barista" role written for one actor becomes something different when played by a confident actor — and that's not a bug, it's a feature. The same applies here:
+- A shy archetype playing a confident role brings **unexpected vulnerability**
+- A confident archetype playing a shy role brings **hidden depths**
+- The narrative bends to the character, not the other way around
 
-### Part 2: Explicit Role Table
+### Part 2: Role as Narrative Container (Not Gate)
 
-**Decision**: Create `roles` table upfront (not deferred).
+**Role** represents the narrative container — the "part" in the script:
+- The **scene motivation** (objective/obstacle/tactic) — what this part wants
+- The **canonical archetype** — what the role was originally written for (informational only)
+- The **situation and dramatic question** — the stage on which the character performs
 
-**Rationale**:
-- The conceptual work is done — Role is a real abstraction
-- Schema is simple (< 10 fields)
-- Avoids "implicit magic" where role is inferred from canonical character
-- Makes the architecture explicit and queryable
-- Scene motivation moves to its proper home (Role owns the "director's notes")
-- Lower migration cost now vs. retrofitting later
+**Role does NOT**:
+- Gate which characters can play it
+- Enforce archetype compatibility
+- Restrict user choice
 
-**Implementation**:
-- Create `roles` table with archetype, compatibility constraints, scene motivation
-- Add `role_id` to `episode_templates` and `sessions`
-- Existing episodes can have NULL `role_id` — implicit role derived from canonical character
-- New episodes should use explicit roles
+### Part 3: Casting Adaptation Layer
 
-### Part 3: User Character Scope
+When a character's archetype differs from the role's canonical archetype, the **Casting Adaptation Layer** injects prompt guidance that bridges the gap:
 
-User-created characters have **limited customization**:
+```
+CASTING ADAPTATION (when character differs from canonical role):
+Role written for: shy, reserved barista
+You are playing as: confident, bold personality
+
+How to bridge this:
+- Your natural confidence meets a situation that calls for vulnerability
+- The scene's shyness expectations become YOUR inner tension
+- You bring YOUR interpretation — confidence masking nervousness, boldness as overcompensation
+- The dramatic question remains the same; your approach to it is uniquely yours
+```
+
+This layer is **additive** — it enhances the prompt when needed, but doesn't modify the core character identity or scene motivation.
+
+### Part 4: Explicit Role Table
+
+**Decision**: Create `roles` table with scene motivation, canonical archetype (for reference), but NO compatibility constraints.
+
+**Schema**:
+```sql
+CREATE TABLE roles (
+  id UUID PRIMARY KEY,
+  series_id UUID REFERENCES series(id),
+  name TEXT NOT NULL,                    -- "The Barista", "The Stranger"
+  slug TEXT NOT NULL,
+  description TEXT,                      -- Role description
+  canonical_archetype TEXT NOT NULL,     -- What role was written for (informational)
+  scene_objective TEXT,                  -- What this role wants
+  scene_obstacle TEXT,                   -- What's stopping them
+  scene_tactic TEXT,                     -- How they're playing it
+  -- NO compatible_archetypes field
+);
+```
+
+### Part 5: User Character Scope
+
+User-created characters have **personality customization**:
 
 | Exposed | Not Exposed |
 |---------|-------------|
@@ -66,7 +101,33 @@ User-created characters have **limited customization**:
 | Archetype (dropdown) | Genre |
 | Flirting level | Scene motivation |
 
-Genre doctrine and scene motivation remain platform-controlled, preserving authored quality.
+The system generates appropriate backstory and system prompt based on archetype selection. Scene motivation comes from the Role, not the character.
+
+---
+
+## The Casting Adaptation Flow
+
+```
+User selects character for episode
+           ↓
+System loads Role (scene motivation, canonical archetype)
+           ↓
+System loads Character (personality, archetype, voice)
+           ↓
+Character archetype == Role canonical archetype?
+           ↓
+    YES → Standard prompt (no adaptation needed)
+    NO  → Inject Casting Adaptation Layer
+           ↓
+Build final prompt:
+  Layer 1: Character Identity
+  Layer 2: Episode Context
+  Layer 3: Engagement Context
+  Layer 4: Memory & Hooks
+  Layer 5: Conversation State
+  Layer 6: Director Guidance
+  Layer 7: Casting Adaptation (if applicable)  ← NEW
+```
 
 ---
 
@@ -74,54 +135,63 @@ Genre doctrine and scene motivation remain platform-controlled, preserving autho
 
 ### Positive
 
-1. **Authored episodes remain high quality** — dramatic tension, scene motivation, and genre doctrine are platform-controlled
-2. **User emotional investment increases** — "MY character in YOUR compelling situation"
-3. **Clean separation of concerns** — character is WHO, role is WHAT THEY DO in this scene
-4. **Downstream-ready** — Phase 2 (user-created episodes) and Phase 3 (shareable characters) become natural extensions
+1. **Maximum user agency** — users can cast ANY of their characters in ANY episode
+2. **Narrative richness** — unexpected castings create unique story possibilities
+3. **Simplified architecture** — no compatibility logic to maintain
+4. **Quality preserved** — scene motivation, genre doctrine, and dramatic tension remain platform-controlled
+5. **User investment** — "MY character, MY interpretation of YOUR story"
 
 ### Negative
 
-1. **Episode authoring changes** — new episodes should be written role-generically where possible
-2. **Complexity for content creators** — must think about role compatibility, not just specific characters
-3. **Implicit roles are less flexible** — Phase 1 limits customization to archetype-matching
+1. **Some castings may feel awkward** — a wildly mismatched character may strain the narrative
+2. **Prompt complexity** — adaptation layer adds tokens and complexity
+3. **Quality variance** — user choice introduces unpredictability
 
 ### Neutral
 
-1. **Existing episodes unchanged** — canonical character remains the default; user characters are additive
+1. **Existing episodes unchanged** — canonical character remains available as "original casting"
 2. **Memory scoping unchanged** — memories remain (user, character, series) scoped
+3. **Episode authoring unchanged** — episodes still written for canonical archetype
 
 ---
 
 ## Alternatives Considered
 
-### Alternative A: Full Character Replacement
+### Alternative A: Archetype Compatibility Gating
+
+Only allow characters with compatible archetypes to play a role.
+
+**Rejected**: Limits user agency, requires maintaining compatibility rules, creates frustrating UX ("why can't I use my character?"). The cinematic casting model is more flexible and user-empowering.
+
+### Alternative B: Full Character Replacement
 
 User fully replaces canonical character — including backstory, system prompt, etc.
 
 **Rejected**: Quality risk too high. User-authored backstory and system prompts would degrade episode coherence.
 
-### Alternative B: Separate User Character Track
+### Alternative C: Separate User Character Track
 
 User characters exist in a parallel experience — free chat only, no authored episodes.
 
-**Rejected**: Creates bifurcated product. Users either get premium authored experience OR degraded free-form. Harder to monetize, muddies value proposition.
+**Rejected**: Creates bifurcated product. Users either get premium authored experience OR degraded free-form.
 
-### Alternative C: Character "Skins" Only
+### Alternative D: Character "Skins" Only
 
 User customizes only visual appearance, not personality.
 
-**Rejected**: Too limited for emotional investment. Users want "their" character, not just "their" face on platform character.
+**Rejected**: Too limited for emotional investment. Users want "their" character, not just "their" face.
 
 ---
 
 ## Implementation Notes
 
-See: [USER_CHARACTER_CUSTOMIZATION.md](../implementation/USER_CHARACTER_CUSTOMIZATION.md)
+See: [CINEMATIC_CASTING.md](../implementation/CINEMATIC_CASTING.md)
 
-Key schema changes:
-- Add `is_user_created`, `is_public` to `characters` table
-- Phase 1: No new tables, role is implicit
-- Phase 2: Add `roles` table, `role_id` to `episode_templates` and `sessions`
+Key components:
+- `roles` table with scene motivation (no compatibility constraints)
+- `role_id` on `episode_templates` and `sessions`
+- Casting Adaptation Layer in prompt building
+- Character selection UI showing ALL user characters
 
 ---
 
@@ -130,3 +200,4 @@ Key schema changes:
 - [EPISODE-0_CANON.md](../EPISODE-0_CANON.md) — Platform philosophy
 - [ADR-001: Genre Architecture](./ADR-001-genre-architecture.md) — Genre belongs to Story
 - [ADR-002: Theatrical Architecture](./ADR-002-theatrical-architecture.md) — Scene motivation model
+- [CONTEXT_LAYERS.md](../quality/core/CONTEXT_LAYERS.md) — 7-layer prompt architecture

@@ -1,5 +1,18 @@
 "use client";
 
+/**
+ * CharacterSelectionModal - Pre-episode character selection
+ *
+ * CINEMATIC CASTING MODEL (ADR-004 v2):
+ * ANY character can play ANY role. The modal shows:
+ * - Canonical character (the "original casting")
+ * - ALL user characters (no archetype filtering)
+ * - "Unique Take" badge when character archetype differs from role
+ *
+ * The system adapts prompts via the Casting Adaptation Layer when
+ * archetypes differ - this creates unique interpretations, not incompatibility.
+ */
+
 import { useState, useEffect } from "react";
 import { api } from "@/lib/api/client";
 import {
@@ -13,8 +26,8 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
-import { Play, Sparkles, User, Crown } from "lucide-react";
-import type { CharacterSelectionContext, CompatibleCharacter } from "@/types";
+import { Play, Sparkles, User, Crown, Wand2 } from "lucide-react";
+import type { CharacterSelectionContext, CompatibleCharacter, Role } from "@/types";
 
 interface CharacterSelectionModalProps {
   open: boolean;
@@ -101,13 +114,14 @@ export function CharacterSelectionModal({
                 </div>
                 <CharacterOption
                   character={context.canonical_character!}
+                  role={context.role}
                   isSelected={selectedId === context.canonical_character!.id}
                   onSelect={() => setSelectedId(context.canonical_character!.id)}
                 />
               </div>
             )}
 
-            {/* User Characters */}
+            {/* User Characters - ALL characters shown (Cinematic Casting) */}
             {hasUserCharacters && (
               <div className="space-y-2">
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -119,6 +133,7 @@ export function CharacterSelectionModal({
                     <CharacterOption
                       key={char.id}
                       character={char}
+                      role={context.role}
                       isSelected={selectedId === char.id}
                       onSelect={() => setSelectedId(char.id)}
                     />
@@ -127,12 +142,12 @@ export function CharacterSelectionModal({
               </div>
             )}
 
-            {/* No compatible characters message */}
+            {/* No characters at all */}
             {!hasCanonical && !hasUserCharacters && (
               <div className="py-4 text-center text-muted-foreground">
-                <p>No compatible characters found.</p>
+                <p>No characters available.</p>
                 <p className="text-sm mt-1">
-                  Create a character with a matching archetype to play this episode.
+                  Create a character in My Characters to play this episode.
                 </p>
               </div>
             )}
@@ -164,11 +179,16 @@ export function CharacterSelectionModal({
 
 interface CharacterOptionProps {
   character: CompatibleCharacter;
+  role: Role;
   isSelected: boolean;
   onSelect: () => void;
 }
 
-function CharacterOption({ character, isSelected, onSelect }: CharacterOptionProps) {
+function CharacterOption({ character, role, isSelected, onSelect }: CharacterOptionProps) {
+  // Cinematic Casting: Check if this character brings a unique interpretation
+  const charArchetype = character.mapped_archetype || character.archetype;
+  const isUniqueTake = charArchetype !== role.canonical_archetype;
+
   return (
     <button
       type="button"
@@ -197,7 +217,7 @@ function CharacterOption({ character, isSelected, onSelect }: CharacterOptionPro
       </div>
 
       <div className="flex-1 text-left">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           <span className="font-medium">{character.name}</span>
           {character.is_user_created && (
             <Badge variant="secondary" className="text-xs">
@@ -205,15 +225,22 @@ function CharacterOption({ character, isSelected, onSelect }: CharacterOptionPro
               Custom
             </Badge>
           )}
+          {/* Unique Take badge - shown when archetype differs from role */}
+          {isUniqueTake && character.is_user_created && (
+            <Badge variant="outline" className="text-xs text-amber-600 border-amber-300">
+              <Wand2 className="h-3 w-3 mr-1" />
+              Unique Take
+            </Badge>
+          )}
         </div>
         <div className="text-sm text-muted-foreground capitalize">
-          {formatArchetype(character.mapped_archetype || character.archetype)}
+          {formatArchetype(charArchetype)}
         </div>
       </div>
 
       <div
         className={cn(
-          "h-5 w-5 rounded-full border-2 flex items-center justify-center",
+          "h-5 w-5 rounded-full border-2 flex items-center justify-center shrink-0",
           isSelected ? "border-primary bg-primary" : "border-muted-foreground/30"
         )}
       >
