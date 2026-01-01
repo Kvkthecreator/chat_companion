@@ -17,7 +17,6 @@ from app.services.usage import UsageService
 from app.services.rate_limiter import MessageRateLimiter, RateLimitExceededError
 from app.services.director import DirectorService
 from app.services.scene import SceneService
-from app.services.casting_adaptation import generate_casting_adaptation
 
 log = logging.getLogger(__name__)
 
@@ -329,18 +328,15 @@ class ConversationService:
         engagement = Engagement(**dict(eng_row)) if eng_row else None
         relationship = engagement  # Backwards compatibility alias
 
-        # Get series_id and role_id from session for memory retrieval and casting adaptation
+        # Get series_id from session for memory retrieval
         series_id = None
-        role_id = None
         series_genre_prompt = None  # Will hold formatted genre settings
         if episode_id:
-            session_query = "SELECT series_id, role_id FROM sessions WHERE id = :episode_id"
+            session_query = "SELECT series_id FROM sessions WHERE id = :episode_id"
             session_row = await self.db.fetch_one(session_query, {"episode_id": str(episode_id)})
             if session_row:
                 if session_row["series_id"]:
                     series_id = session_row["series_id"]
-                if session_row["role_id"]:
-                    role_id = session_row["role_id"]
 
                 # Fetch series genre_settings and format as prompt section
                 # Handle case where genre_settings column doesn't exist (migration pending)
@@ -490,36 +486,9 @@ class ConversationService:
                             user_id, character_id, template_row["series_id"], template_id
                         )
 
-        # ADR-004 v2: Cinematic Casting - Generate adaptation layer when archetypes differ
-        casting_adaptation = None
-        role_canonical_archetype = None
-        character_archetype = character.archetype or ""
-
-        if role_id:
-            # Fetch role's canonical archetype
-            role_query = "SELECT archetype, name FROM roles WHERE id = :role_id"
-            role_row = await self.db.fetch_one(role_query, {"role_id": str(role_id)})
-            if role_row and role_row["archetype"]:
-                role_canonical_archetype = role_row["archetype"]
-                # Use mapped_archetype if available (for user-created characters)
-                char_arch = character.mapped_archetype or character_archetype
-                # Generate casting adaptation if archetypes differ
-                casting_adaptation = generate_casting_adaptation(
-                    role_canonical_archetype=role_canonical_archetype,
-                    character_archetype=char_arch,
-                    role_name=role_row.get("name"),
-                    character_name=character.name,
-                )
-                if casting_adaptation:
-                    log.info(
-                        f"Casting adaptation active: character={character.name} "
-                        f"({char_arch}) playing role written for {role_canonical_archetype}"
-                    )
-
         return ConversationContext(
             character_system_prompt=character.system_prompt,
             character_name=character.name,
-            character_archetype=character_archetype,  # ADR-004 v2
             # NOTE: character_life_arc removed
             messages=messages,
             memories=memory_summaries,
@@ -544,9 +513,6 @@ class ConversationService:
             character_boundaries=character.boundaries,
             # Series genre settings (per GENRE_SETTINGS_ARCHITECTURE)
             series_genre_prompt=series_genre_prompt,
-            # Casting Adaptation (ADR-004 v2: Cinematic Casting)
-            role_canonical_archetype=role_canonical_archetype,
-            casting_adaptation=casting_adaptation,
         )
 
     async def get_or_create_episode(

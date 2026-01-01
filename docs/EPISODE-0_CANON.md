@@ -1,7 +1,7 @@
 # Episode-0 Platform Canon
 
 > This document defines what Episode-0 is, regardless of genre, theme, or studio.
-> Updated 2025-01-01 with **Cinematic Casting** model (ADR-004 v2): Any character can play any role.
+> Updated 2025-01-01: Any character can play any episode (ADR-004).
 
 ---
 
@@ -144,18 +144,17 @@ The platform engine is built on generic primitives:
 > and removed stage progression — connection depth is now implicit via memory accumulation and
 > episode count rather than explicit stage labels.
 
-> **Note (ADR-004 v2 - Cinematic Casting):** Role abstraction introduced to enable user-created characters
-> to play in platform-authored episodes. Key change: **any character can play any role** — no archetype
-> compatibility gating. The system adapts prompts via a Casting Adaptation Layer when the character's
-> archetype differs from the role's canonical archetype.
+> **Note (ADR-004):** Role abstraction introduced to enable user-created characters to play in
+> platform-authored episodes. Key principle: **any character can play any episode** — no compatibility
+> gating. Character + Episode compose naturally through the existing 6-layer architecture.
 
 These primitives power any genre. The theme is layered via studio configuration.
 
 ---
 
-## 7. The 7-Layer Context Architecture
+## 7. The 6-Layer Context Architecture
 
-Per CONTEXT_LAYERS.md v2.0, context flows through 7 layers:
+Per CONTEXT_LAYERS.md, context flows through 6 layers:
 
 | Layer | Owner | Responsibility |
 |-------|-------|----------------|
@@ -165,7 +164,6 @@ Per CONTEXT_LAYERS.md v2.0, context flows through 7 layers:
 | **4. Memory** | MemoryService | WHAT WE KNOW: extracted facts, preferences |
 | **5. Conversation** | Message history | IMMEDIATE: last 20 messages in current session |
 | **6. Director** | DirectorService | HOW TO PLAY: pacing, tension, genre doctrine |
-| **7. Casting Adaptation** | Conditional | BRIDGE: adapts when character ≠ role archetype |
 
 ### ADR-001: Genre Architecture Decision
 
@@ -209,63 +207,40 @@ Episode-0 is like **improv theater with a trained partner**:
 
 ---
 
-## 9. Cinematic Casting (ADR-004 v2)
+## 9. User Characters (ADR-004)
 
-Episode-0 enables **user-created characters** to play in platform-authored episodes through the **Cinematic Casting** model.
+Episode-0 enables **user-created characters** to play in platform-authored episodes.
 
-### The Insight
+### Core Principle
 
-In cinema, a "shy barista" role written for one actor becomes something **different** when played by a confident actor — and that's a feature, not a bug. The same applies here:
-
-- A shy archetype playing a confident role brings **unexpected vulnerability**
-- A confident archetype playing a shy role brings **hidden depths**
-- The narrative bends to the character, not the other way around
+**Any character can play any episode.** No compatibility gating. The existing 6-layer context architecture naturally handles character + episode composition.
 
 ### The Architecture
 
 ```
-Series/Episode → defines → Role (the part to be played)
+Series/Episode → defines → Role (scene motivation)
                               ↓
                          "The barista in this café scene"
                               ↓
-                    cast as → ANY Character (canonical OR user-created)
-                              ↓
-                    adapted via → Casting Adaptation Layer (when needed)
+                    played by → ANY Character (canonical OR user-created)
 ```
 
-**Role** represents:
-- The **scene motivation** (objective/obstacle/tactic) — what this part wants
-- The **canonical archetype** — what the role was originally written for (informational only)
-- The **situation** — the stage on which the character performs
+**Role** provides:
+- **Scene motivation** (objective/obstacle/tactic) — what this part wants
+- A name and description for the UI
+- Reusable across episodes
 
 **Role does NOT**:
 - Gate which characters can play it
-- Enforce archetype compatibility
-- Restrict user choice
-
-### Casting Adaptation Layer
-
-When character archetype differs from role's canonical archetype, the system injects adaptation guidance:
-
-```
-CASTING ADAPTATION (your unique interpretation):
-This role was written for: shy, reserved barista
-You, Alex, bring: confident, bold personality
-
-How to play this naturally:
-- Your natural confidence meets a situation calling for restraint
-- Perhaps you're being careful because this MATTERS to you
-- Your boldness shows in subtle ways — a held gaze, a knowing smile
-```
-
-This is **additive** — it enhances the prompt without overriding character identity.
+- Track "expected" archetypes
+- Require special adaptation
 
 ### Character Types
 
 | Type | Owner | Customization | Use Case |
 |------|-------|---------------|----------|
 | **Canonical** | Platform | Full control | Authored, quality-controlled characters |
-| **User-Created** | User | Limited (name, appearance, archetype, flirting level) | "My character, my interpretation" |
+| **User-Created** | User | Limited (name, appearance, archetype, flirting level) | "My character in your situation" |
 
 ### What Users Control vs. Platform Controls
 
@@ -275,13 +250,13 @@ This is **additive** — it enhances the prompt without overriding character ide
 | Appearance (for avatar) | Genre doctrine |
 | Archetype (dropdown) | Scene motivation |
 | Flirting level | Backstory |
-| **Which character plays which role** | Adaptation when needed |
+| **Which character plays which episode** | Episode structure |
 
 ### Why This Matters
 
-> "MY character, MY interpretation of YOUR compelling situation"
+> "MY character in YOUR compelling situation"
 
-The magic isn't just playing "your" character. It's seeing how **your** character uniquely interprets a **well-authored moment** — potentially in ways the original author never imagined.
+The magic is seeing how **your** character naturally interprets a **well-authored moment** through their personality.
 
 ---
 
@@ -360,7 +335,7 @@ These are **static rules** in `GENRE_DOCTRINES`, not generated per-turn.
 
 ## 12. Architecture Summary
 
-### The 7-Layer Context
+### The 6-Layer Context
 
 | Layer | Owner | Responsibility |
 |-------|-------|----------------|
@@ -370,7 +345,6 @@ These are **static rules** in `GENRE_DOCTRINES`, not generated per-turn.
 | **4. Memory** | MemoryService | WHAT WE KNOW: extracted facts, preferences |
 | **5. Conversation** | Message history | IMMEDIATE: last 20 messages in current session |
 | **6. Director** | DirectorService | PACING: where we are in the arc, genre doctrine |
-| **7. Casting Adaptation** | Conditional | BRIDGE: adapts when character ≠ role archetype |
 
 ### Data Flow (v2.2)
 
@@ -462,8 +436,7 @@ This is the difference between:
 - `docs/character-philosophy/Genre 02 — Psychological Thriller- Suspense.md` — Thriller studio doctrine
 - `docs/decisions/ADR-001-genre-architecture.md` — Genre belongs to Story, not Character
 - `docs/decisions/ADR-002-theatrical-architecture.md` — Theatrical production model
-- `docs/decisions/ADR-004-user-character-role-abstraction.md` — **Cinematic Casting** model
-- `docs/implementation/CINEMATIC_CASTING.md` — Cinematic Casting implementation details
+- `docs/decisions/ADR-004-user-character-role-abstraction.md` — User characters & role abstraction
 - `docs/quality/core/CHARACTER_DATA_MODEL.md` — Character data model (canonical + user-created)
-- `docs/quality/core/CONTEXT_LAYERS.md` — 7-layer prompt architecture
+- `docs/quality/core/CONTEXT_LAYERS.md` — 6-layer prompt architecture
 - `docs/quality/core/DIRECTOR_PROTOCOL.md` — Director Protocol v2.2 (stage manager model)

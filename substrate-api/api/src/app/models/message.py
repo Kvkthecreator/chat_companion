@@ -85,12 +85,11 @@ class ConversationContext(BaseModel):
     """Context assembled for LLM conversation.
 
     Reference: docs/EPISODE_DYNAMICS_CANON.md Section 6.5: Context Management Architecture
-    Reference: docs/quality/core/CONTEXT_LAYERS.md - 7-layer prompt architecture
+    Reference: docs/quality/core/CONTEXT_LAYERS.md - 6-layer prompt architecture
     """
 
     character_system_prompt: str
     character_name: str = ""
-    character_archetype: str = ""  # ADR-004 v2: For casting adaptation
     # NOTE: character_life_arc removed - backstory + archetype + genre doctrine provide depth
     messages: List[Dict[str, str]] = Field(default_factory=list)
     memories: List[MemorySummary] = Field(default_factory=list)
@@ -130,11 +129,6 @@ class ConversationContext(BaseModel):
 
     # Series Genre Settings (per GENRE_SETTINGS_ARCHITECTURE)
     series_genre_prompt: Optional[str] = None  # Pre-formatted genre settings section from Series
-
-    # Casting Adaptation (ADR-004 v2: Cinematic Casting)
-    # Layer 7: Injected when character archetype differs from role's canonical archetype
-    role_canonical_archetype: Optional[str] = None  # What the role was written for
-    casting_adaptation: Optional[str] = None  # Pre-formatted adaptation guidance
 
     # NOTE: STAGE_LABELS and stage progression removed - EP-01 pivot
     # Relationship context now uses dynamic (tone, tension, milestones) instead
@@ -410,23 +404,6 @@ SERIES GENRE SETTINGS
             enhanced_context += f"""
 
 {self.director_guidance}
-"""
-
-        # Casting Adaptation (ADR-004 v2: Cinematic Casting)
-        # Layer 7: Injected when character archetype differs from role's canonical archetype
-        # This helps bridge the gap between who the character IS and what the role EXPECTS
-        if self.casting_adaptation:
-            enhanced_context += f"""
-
-═══════════════════════════════════════════════════════════════
-CASTING ADAPTATION (Your unique interpretation)
-═══════════════════════════════════════════════════════════════
-
-{self.casting_adaptation}
-
-Remember: You are still YOU. This guidance helps bridge the gap between your
-natural personality and what this scene expects. The tension between expectation
-and reality IS the drama - lean into it authentically.
 """
 
         # Append enhanced context to system prompt
