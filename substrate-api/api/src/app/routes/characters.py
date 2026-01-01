@@ -36,7 +36,7 @@ log = logging.getLogger(__name__)
 router = APIRouter(prefix="/characters", tags=["Characters"])
 
 # Maximum user characters per user (free tier)
-MAX_USER_CHARACTERS_FREE = 3
+MAX_USER_CHARACTERS_FREE = 1
 
 
 @router.get("", response_model=List[CharacterSummary])

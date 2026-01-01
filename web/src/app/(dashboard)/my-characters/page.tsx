@@ -18,7 +18,7 @@ import {
 import { Plus, UserCircle2, AlertTriangle } from "lucide-react";
 import type { UserCharacter, UserCharacterCreate, UserCharacterUpdate } from "@/types";
 
-const MAX_FREE_CHARACTERS = 3;
+const MAX_FREE_CHARACTERS = 1;
 
 export default function MyCharactersPage() {
   const [characters, setCharacters] = useState<UserCharacter[]>([]);
