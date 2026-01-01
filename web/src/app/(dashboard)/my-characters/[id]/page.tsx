@@ -26,7 +26,7 @@ import {
   DialogClose,
 } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
-import { ArrowLeft, UserCircle2, Save, Trash2, Loader2, Sparkles } from "lucide-react";
+import { ArrowLeft, UserCircle2, Save, Trash2, Loader2, Sparkles, Download, X } from "lucide-react";
 import type { UserCharacter, UserArchetype, FlirtingLevel } from "@/types";
 
 interface CharacterDetailPageProps {
@@ -111,6 +111,9 @@ export default function CharacterDetailPage({ params }: CharacterDetailPageProps
   const [isGeneratingAvatar, setIsGeneratingAvatar] = useState(false);
   const [avatarError, setAvatarError] = useState<string | null>(null);
 
+  // Image lightbox
+  const [expandedImage, setExpandedImage] = useState<{ url: string; title: string } | null>(null);
+
   // Load character on mount
   useEffect(() => {
     loadCharacter();
@@ -127,6 +130,17 @@ export default function CharacterDetailPage({ params }: CharacterDetailPageProps
       setHasChanges(changed);
     }
   }, [name, archetype, flirtingLevel, appearancePrompt, character]);
+
+  // ESC key to close lightbox
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && expandedImage) {
+        setExpandedImage(null);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [expandedImage]);
 
   async function loadCharacter() {
     try {
@@ -263,11 +277,17 @@ export default function CharacterDetailPage({ params }: CharacterDetailPageProps
                   <span className="text-xs text-muted-foreground">Generating...</span>
                 </div>
               ) : character.avatar_url ? (
-                <img
-                  src={character.avatar_url}
-                  alt={character.name}
-                  className="w-full h-full object-cover"
-                />
+                <button
+                  type="button"
+                  className="w-full h-full cursor-pointer"
+                  onClick={() => setExpandedImage({ url: character.avatar_url!, title: character.name })}
+                >
+                  <img
+                    src={character.avatar_url}
+                    alt={character.name}
+                    className="w-full h-full object-cover"
+                  />
+                </button>
               ) : (
                 <div className="w-full h-full flex flex-col items-center justify-center gap-2">
                   <UserCircle2 className="w-12 h-12 text-muted-foreground/40" />
@@ -453,6 +473,70 @@ export default function CharacterDetailPage({ params }: CharacterDetailPageProps
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Image Lightbox Modal */}
+      {expandedImage && (
+        <div
+          className="fixed inset-0 z-50 bg-black/90 backdrop-blur-sm flex items-center justify-center"
+          onClick={() => setExpandedImage(null)}
+        >
+          {/* Top controls */}
+          <div className="absolute top-0 left-0 right-0 flex items-center justify-between p-4 z-10">
+            <p className="text-white/80 text-sm">{expandedImage.title}</p>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="text-white hover:bg-white/20"
+                title="Download image"
+                onClick={async (e) => {
+                  e.stopPropagation();
+                  try {
+                    const response = await fetch(expandedImage.url);
+                    const blob = await response.blob();
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement("a");
+                    a.href = url;
+                    a.download = `${expandedImage.title.toLowerCase().replace(/\s+/g, "-")}.png`;
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    window.URL.revokeObjectURL(url);
+                  } catch {
+                    window.open(expandedImage.url, "_blank");
+                  }
+                }}
+              >
+                <Download className="h-5 w-5" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="text-white hover:bg-white/20"
+                title="Close"
+                onClick={() => setExpandedImage(null)}
+              >
+                <X className="h-5 w-5" />
+              </Button>
+            </div>
+          </div>
+
+          {/* Main image */}
+          <div className="relative max-w-3xl w-full max-h-[85vh] px-4">
+            <img
+              src={expandedImage.url}
+              alt={expandedImage.title}
+              className="w-full h-auto max-h-[85vh] object-contain rounded-lg"
+              onClick={(e) => e.stopPropagation()}
+            />
+          </div>
+
+          {/* Bottom hint */}
+          <p className="absolute bottom-4 text-white/60 text-sm">
+            Press ESC or click backdrop to close
+          </p>
+        </div>
+      )}
     </div>
   );
 }
