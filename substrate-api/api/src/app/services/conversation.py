@@ -3,6 +3,7 @@
 import asyncio
 import json
 import logging
+import re
 from typing import AsyncIterator, Dict, List, Optional
 from uuid import UUID
 
@@ -548,10 +549,16 @@ class ConversationService:
 
         role_id = None  # Role for the session (ADR-004)
 
+        # For opening_line substitution: track canonical character name
+        canonical_character_name = None
+
         if episode_template_id:
             template_query = """
-                SELECT situation, title, opening_line, series_id, episode_cost, role_id
-                FROM episode_templates WHERE id = :template_id
+                SELECT et.situation, et.title, et.opening_line, et.series_id, et.episode_cost, et.role_id,
+                       c.name as canonical_character_name
+                FROM episode_templates et
+                LEFT JOIN characters c ON c.id = et.character_id
+                WHERE et.id = :template_id
             """
             template_row = await self.db.fetch_one(template_query, {"template_id": str(episode_template_id)})
             if template_row:
@@ -560,6 +567,7 @@ class ConversationService:
                 series_id = template_row["series_id"]
                 episode_cost = template_row["episode_cost"] or 0
                 role_id = template_row["role_id"]
+                canonical_character_name = template_row["canonical_character_name"]
 
         # If no series from template, try to get series from character
         if not series_id:
@@ -741,6 +749,23 @@ class ConversationService:
         # If template has an opening_line, save it as the first assistant message
         # This ensures the LLM has context of what the character "already said"
         if opening_line:
+            # ADR-004: Substitute canonical character name with selected character's name
+            # This allows user-created characters to play episodes authored for canonical characters
+            if canonical_character_name:
+                # Fetch selected character's name
+                char_name_query = "SELECT name FROM characters WHERE id = :character_id"
+                char_name_row = await self.db.fetch_one(char_name_query, {"character_id": str(character_id)})
+                if char_name_row and char_name_row["name"] != canonical_character_name:
+                    selected_character_name = char_name_row["name"]
+                    # Replace canonical name with selected character's name (case-insensitive)
+                    opening_line = re.sub(
+                        re.escape(canonical_character_name),
+                        selected_character_name,
+                        opening_line,
+                        flags=re.IGNORECASE
+                    )
+                    log.info(f"Substituted character name: {canonical_character_name} -> {selected_character_name}")
+
             await self._save_message(
                 episode_id=session.id,
                 role=MessageRole.ASSISTANT,
