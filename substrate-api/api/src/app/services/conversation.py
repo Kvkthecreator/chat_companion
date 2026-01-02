@@ -529,7 +529,10 @@ class ConversationService:
         - Character-level isolation: Each character has its own playthrough of a series
         - Series-level isolation: Each series has independent conversation history
         - Episode-level isolation: Each episode template has its own session
-        - Free chat mode: episode_template_id = NULL represents unstructured chat
+
+        Unified Template Model: Free chat now uses auto-generated templates
+        (is_free_chat=TRUE) instead of episode_template_id=NULL. This gives
+        free chat feature parity with episode chat.
 
         This means a user can play the same series with different characters,
         and each (user, series, character) tuple gets its own distinct playthrough.
@@ -540,6 +543,13 @@ class ConversationService:
             scene: Optional custom scene description
             episode_template_id: Optional episode template ID (overrides scene)
         """
+        # Unified Template Model: If no template provided, get/create free chat template
+        # This ensures ALL conversations have a template, enabling full Director features
+        if not episode_template_id:
+            free_chat_template = await self._get_or_create_free_chat_template(character_id)
+            episode_template_id = free_chat_template.id
+            log.debug(f"Using free chat template {episode_template_id} for character {character_id}")
+
         # Determine series_id from episode_template (if provided)
         series_id = None
         effective_scene = scene
@@ -552,6 +562,7 @@ class ConversationService:
         # For opening_line substitution: track canonical character name
         canonical_character_name = None
 
+        # Template is now guaranteed to exist (either passed in or free chat template)
         if episode_template_id:
             template_query = """
                 SELECT et.situation, et.title, et.opening_line, et.series_id, et.episode_cost, et.role_id,
@@ -585,10 +596,13 @@ class ConversationService:
         # ADR-004: Each (user, series, character) tuple gets its own playthrough
         # This ensures separate conversation histories per character per series
         # IMPORTANT: We look for ANY existing session (active OR inactive) to preserve message history
+        #
+        # Unified Template Model: episode_template_id is now always set (free chat uses is_free_chat templates)
+        # For backward compat during migration, we also check for legacy NULL sessions
         row = None
-        if series_id and episode_template_id:
-            # Episode mode: find session for this specific episode template AND character
-            # First try active, then any session (to reactivate if needed)
+
+        # Primary lookup: session with this specific episode_template_id
+        if series_id:
             query = """
                 SELECT * FROM sessions
                 WHERE user_id = :user_id
@@ -604,34 +618,53 @@ class ConversationService:
                 "series_id": str(series_id),
                 "episode_template_id": str(episode_template_id),
             })
-        elif series_id:
-            # Free chat mode within series: find session without episode_template, for this character
+        else:
+            # No series - look up by character and episode_template_id
             query = """
                 SELECT * FROM sessions
                 WHERE user_id = :user_id
                 AND character_id = :character_id
-                AND series_id = :series_id
-                AND episode_template_id IS NULL
+                AND episode_template_id = :episode_template_id
                 ORDER BY is_active DESC, started_at DESC
                 LIMIT 1
             """
             row = await self.db.fetch_one(query, {
                 "user_id": str(user_id),
                 "character_id": str(character_id),
-                "series_id": str(series_id),
+                "episode_template_id": str(episode_template_id),
             })
-        else:
-            # Legacy fallback: character-only scoping (no series), free chat only
-            # IMPORTANT: Must filter by episode_template_id IS NULL to avoid returning
-            # episode sessions when user navigates to /chat/{character_id} without ?episode=
-            query = """
-                SELECT * FROM sessions
-                WHERE user_id = :user_id AND character_id = :character_id
-                AND episode_template_id IS NULL
-                ORDER BY is_active DESC, started_at DESC
-                LIMIT 1
-            """
-            row = await self.db.fetch_one(query, {"user_id": str(user_id), "character_id": str(character_id)})
+
+        # Backward compat: Check if template is free chat and look for legacy NULL session
+        # This allows existing free chat sessions to continue working before backfill migration
+        if not row:
+            template_check = await self.db.fetch_one(
+                "SELECT is_free_chat FROM episode_templates WHERE id = :id",
+                {"id": str(episode_template_id)}
+            )
+            if template_check and template_check["is_free_chat"]:
+                # This is a free chat template - check for legacy session with NULL episode_template_id
+                legacy_query = """
+                    SELECT * FROM sessions
+                    WHERE user_id = :user_id AND character_id = :character_id
+                    AND episode_template_id IS NULL
+                    ORDER BY is_active DESC, started_at DESC
+                    LIMIT 1
+                """
+                legacy_row = await self.db.fetch_one(legacy_query, {
+                    "user_id": str(user_id),
+                    "character_id": str(character_id),
+                })
+                if legacy_row:
+                    # Found legacy session - migrate it to use the free chat template
+                    await self.db.execute(
+                        "UPDATE sessions SET episode_template_id = :template_id WHERE id = :session_id",
+                        {"template_id": str(episode_template_id), "session_id": str(legacy_row["id"])}
+                    )
+                    row = await self.db.fetch_one(
+                        "SELECT * FROM sessions WHERE id = :id",
+                        {"id": str(legacy_row["id"])}
+                    )
+                    log.info(f"Migrated legacy free chat session {legacy_row['id']} to template {episode_template_id}")
 
         if row:
             session = Session(**dict(row))
@@ -1144,6 +1177,95 @@ class ConversationService:
             return None
 
         return Session(**dict(row))
+
+    async def _get_or_create_free_chat_template(
+        self,
+        character_id: UUID,
+    ) -> EpisodeTemplate:
+        """Get or create a free chat template for a character.
+
+        Unified Template Model: Free chat now uses an auto-generated template
+        instead of having episode_template_id = NULL. This gives free chat
+        feature parity with episode chat (Director, visuals, turn tracking).
+
+        The template is created with:
+        - visual_mode = "none" (no auto-visuals by default)
+        - turn_budget = None (open-ended)
+        - episode_cost = 0 (free)
+        - is_free_chat = True (hidden from episode discovery)
+        """
+        import uuid as uuid_module
+
+        # Check for existing free chat template
+        query = """
+            SELECT * FROM episode_templates
+            WHERE character_id = :character_id AND is_free_chat = TRUE
+            LIMIT 1
+        """
+        row = await self.db.fetch_one(query, {"character_id": str(character_id)})
+
+        if row:
+            try:
+                return EpisodeTemplate(**{
+                    k: row[k] for k in row.keys()
+                    if k in EpisodeTemplate.model_fields
+                })
+            except Exception as e:
+                log.warning(f"Failed to parse existing free chat template: {e}")
+
+        # Get character info for template creation
+        char_row = await self.db.fetch_one(
+            "SELECT name, archetype FROM characters WHERE id = :id",
+            {"id": str(character_id)}
+        )
+
+        if not char_row:
+            raise ValueError(f"Character {character_id} not found")
+
+        character_name = char_row["name"]
+        archetype = char_row["archetype"] or "romantic"
+
+        # Create new free chat template
+        template_id = uuid_module.uuid4()
+
+        insert_query = """
+            INSERT INTO episode_templates (
+                id, character_id, title, slug, situation, opening_line,
+                genre, turn_budget, visual_mode, generation_budget,
+                episode_cost, is_free_chat, is_default, status, episode_number
+            )
+            VALUES (
+                :id, :character_id, :title, :slug, :situation, :opening_line,
+                :genre, :turn_budget, :visual_mode, :generation_budget,
+                :episode_cost, :is_free_chat, :is_default, :status, :episode_number
+            )
+            RETURNING *
+        """
+
+        new_row = await self.db.fetch_one(insert_query, {
+            "id": str(template_id),
+            "character_id": str(character_id),
+            "title": f"Chat with {character_name}",
+            "slug": f"free-chat-{character_id}",
+            "situation": f"An open conversation with {character_name}.",
+            "opening_line": "",  # No opening line for free chat
+            "genre": "romantic_tension",
+            "turn_budget": 0,  # 0 means open-ended
+            "visual_mode": VisualMode.NONE,  # Default: no auto-visuals
+            "generation_budget": 0,  # No auto-gens by default
+            "episode_cost": 0,  # Free
+            "is_free_chat": True,
+            "is_default": False,
+            "status": "active",
+            "episode_number": -1,  # -1 to avoid conflict with character's episode 0
+        })
+
+        log.info(f"Created free chat template for character {character_id}: {template_id}")
+
+        return EpisodeTemplate(**{
+            k: new_row[k] for k in new_row.keys()
+            if k in EpisodeTemplate.model_fields
+        })
 
     async def _format_genre_settings(
         self,

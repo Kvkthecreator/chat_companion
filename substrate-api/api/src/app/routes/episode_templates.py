@@ -158,6 +158,7 @@ async def list_all_episodes(
         JOIN characters c ON et.character_id = c.id
         WHERE et.status = 'active'
         AND c.status = 'active'
+        AND (et.is_free_chat IS NULL OR et.is_free_chat = FALSE)
     """
     params = {}
 
@@ -200,6 +201,7 @@ async def list_character_episodes(
         FROM episode_templates
         WHERE character_id = :character_id
         AND status = :status
+        AND (is_free_chat IS NULL OR is_free_chat = FALSE)
         ORDER BY sort_order, episode_number
     """
 

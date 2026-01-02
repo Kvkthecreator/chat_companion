@@ -105,6 +105,7 @@ class EpisodeTemplate(BaseModel):
 
     # Status
     is_default: bool = False
+    is_free_chat: bool = False  # System-generated template for free chat mode
     sort_order: int = 0
     status: str = "draft"
 

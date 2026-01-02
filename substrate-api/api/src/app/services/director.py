@@ -683,22 +683,21 @@ STATUS: going/closing/done"""
         character_name = character.get("name", "Character") if character else "Character"
 
         # 3. Semantic evaluation
-        if episode_template:
-            evaluation = await self.evaluate_exchange(
-                messages=messages,
-                character_name=character_name,
-                genre=getattr(episode_template, 'genre', 'romance'),
-                situation=episode_template.situation or "",
-                dramatic_question=episode_template.dramatic_question or "",
-            )
-        else:
-            # Free-form chat - minimal evaluation
-            evaluation = {"status": "going", "visual_type": "none", "raw_response": ""}
+        # Unified Template Model: episode_template now always exists (free chat uses is_free_chat templates)
+        # For free chat templates (is_free_chat=True), we still run full evaluation but with open-ended settings
+        evaluation = await self.evaluate_exchange(
+            messages=messages,
+            character_name=character_name,
+            genre=getattr(episode_template, 'genre', 'romance') if episode_template else 'romance',
+            situation=episode_template.situation if episode_template else "",
+            dramatic_question=episode_template.dramatic_question if episode_template else "",
+        )
 
         # 3.5. Fetch user preferences for visual_mode override
         user_preferences = await self._get_user_preferences(user_id)
 
         # 4. Decide actions (with user preference support)
+        # Unified Template Model: episode_template always exists now
         actions = await self.decide_actions(evaluation, episode_template, session, user_preferences) if episode_template else DirectorActions()
 
         # 5. Determine if we should suggest next episode (v2.6: decoupled from "completion")
@@ -726,24 +725,22 @@ STATUS: going/closing/done"""
 
         # Log visual decision to history (keep last 10)
         # v2.4: Capture deterministic trigger reason with user preference resolution
-        if episode_template:
-            # Resolve visual_mode with user preference (same as in decide_actions)
-            episode_visual_mode = getattr(episode_template, 'visual_mode', VisualMode.NONE)
-            resolved_visual_mode = self._resolve_visual_mode_with_user_preference(
-                episode_visual_mode,
-                user_preferences
-            )
+        # Unified Template Model: episode_template always exists now
+        # Resolve visual_mode with user preference (same as in decide_actions)
+        episode_visual_mode = getattr(episode_template, 'visual_mode', VisualMode.NONE) if episode_template else VisualMode.NONE
+        resolved_visual_mode = self._resolve_visual_mode_with_user_preference(
+            episode_visual_mode,
+            user_preferences
+        )
 
-            should_gen, trigger_reason = self._should_generate_visual_deterministic(
-                turn_count=new_turn_count,
-                turn_budget=getattr(episode_template, 'turn_budget', None),
-                visual_mode=resolved_visual_mode,  # Use resolved visual_mode
-                generations_used=getattr(session, 'generations_used', 0),
-                generation_budget=getattr(episode_template, 'generation_budget', 0),
-            )
-            decision_reason = trigger_reason if should_gen else trigger_reason
-        else:
-            decision_reason = "no_episode_template"
+        should_gen, trigger_reason = self._should_generate_visual_deterministic(
+            turn_count=new_turn_count,
+            turn_budget=getattr(episode_template, 'turn_budget', None) if episode_template else None,
+            visual_mode=resolved_visual_mode,  # Use resolved visual_mode
+            generations_used=getattr(session, 'generations_used', 0),
+            generation_budget=getattr(episode_template, 'generation_budget', 0) if episode_template else 0,
+        )
+        decision_reason = trigger_reason
 
         visual_decision = {
             "turn": new_turn_count,

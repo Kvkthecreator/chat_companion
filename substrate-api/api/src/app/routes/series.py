@@ -192,13 +192,14 @@ async def get_series_with_episodes(
             detail="Series not found"
         )
 
-    # Get episodes
+    # Get episodes (exclude free chat templates which are system-generated)
     episodes_query = """
         SELECT id, character_id, episode_number, episode_type, title, slug,
                situation, opening_line, episode_frame, background_image_url,
                dramatic_question, is_default, sort_order, status
         FROM episode_templates
         WHERE series_id = :series_id
+        AND (is_free_chat IS NULL OR is_free_chat = FALSE)
         ORDER BY sort_order, episode_number
     """
     episode_rows = await db.fetch_all(episodes_query, {"series_id": str(series_id)})
@@ -685,10 +686,11 @@ async def get_series_progress(
     if not user_id:
         raise HTTPException(status_code=401, detail="Authentication required")
 
-    # Get all episode templates for this series
+    # Get all episode templates for this series (exclude free chat templates)
     episodes_query = """
         SELECT id FROM episode_templates
         WHERE series_id = :series_id
+        AND (is_free_chat IS NULL OR is_free_chat = FALSE)
         ORDER BY sort_order, episode_number
     """
     episode_rows = await db.fetch_all(episodes_query, {"series_id": str(series_id)})
@@ -883,12 +885,13 @@ async def get_series_user_context(
     episodes_completed = sum(1 for s in episode_statuses.values() if s == "completed")
     episodes_in_progress = sum(1 for s in episode_statuses.values() if s == "in_progress")
 
-    # Get episode templates to find current/next episode
+    # Get episode templates to find current/next episode (exclude free chat templates)
     episodes_query = """
         SELECT id, episode_number, title, situation
         FROM episode_templates
         WHERE series_id = :series_id
         AND status = 'active'
+        AND (is_free_chat IS NULL OR is_free_chat = FALSE)
         ORDER BY sort_order, episode_number
     """
     episode_rows = await db.fetch_all(episodes_query, {"series_id": series_id_str})
