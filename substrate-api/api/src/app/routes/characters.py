@@ -8,9 +8,9 @@ import logging
 import re
 from datetime import datetime
 from typing import List, Optional
-from uuid import UUID
+from uuid import UUID, uuid4
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status, UploadFile, File, Form
 
 from app.deps import get_db
 from app.dependencies import get_current_user_id
@@ -853,4 +853,121 @@ async def generate_user_character_avatar(
         "kit_id": str(result.kit_id) if result.kit_id else None,
         "is_first_generation": is_first_generation,
         "sparks_spent": sparks_spent,
+    }
+
+
+# Maximum file size for avatar uploads (5MB)
+MAX_AVATAR_SIZE = 5 * 1024 * 1024
+ALLOWED_CONTENT_TYPES = {"image/jpeg", "image/png", "image/webp"}
+
+
+@router.post("/mine/{character_id}/upload-avatar")
+async def upload_user_character_avatar(
+    character_id: UUID,
+    file: UploadFile = File(...),
+    ip_acknowledgment: bool = Form(..., description="User acknowledges they have rights to upload this image"),
+    user_id: UUID = Depends(get_current_user_id),
+    db=Depends(get_db),
+):
+    """Upload a custom avatar image for a user-created character.
+
+    IMPORTANT: User must acknowledge IP rights before uploading.
+    The ip_acknowledgment field must be true, indicating user confirms:
+    - They own the rights to this image, OR
+    - They have permission to use it, OR
+    - The image is in the public domain
+
+    By uploading, user accepts full responsibility for any IP claims.
+    Fantazy will respond to DMCA takedown requests.
+
+    Constraints:
+    - Max file size: 5MB
+    - Allowed formats: JPEG, PNG, WebP
+    - No spark cost (free alternative to generation)
+
+    Returns the public URL of the uploaded avatar.
+    """
+    # Verify IP acknowledgment
+    if not ip_acknowledgment:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={
+                "error": "ip_acknowledgment_required",
+                "message": "You must confirm you have the rights to upload this image.",
+            },
+        )
+
+    # Verify ownership
+    check_query = """
+        SELECT id, name, active_avatar_kit_id
+        FROM characters
+        WHERE id = :character_id AND created_by = :user_id AND is_user_created = TRUE
+    """
+    existing = await db.fetch_one(check_query, {
+        "character_id": str(character_id),
+        "user_id": str(user_id),
+    })
+
+    if not existing:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Character not found or you don't have permission to edit it",
+        )
+
+    existing_data = dict(existing)
+
+    # Validate file type
+    content_type = file.content_type
+    if content_type not in ALLOWED_CONTENT_TYPES:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid file type. Allowed: JPEG, PNG, WebP",
+        )
+
+    # Read file and check size
+    file_content = await file.read()
+    if len(file_content) > MAX_AVATAR_SIZE:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"File too large. Maximum size: 5MB",
+        )
+
+    # Determine file extension
+    ext_map = {
+        "image/jpeg": "jpg",
+        "image/png": "png",
+        "image/webp": "webp",
+    }
+    ext = ext_map.get(content_type, "png")
+
+    # Generate storage path: user-uploads/{character_id}/{uuid}.{ext}
+    asset_id = uuid4()
+    storage_path = f"user-uploads/{character_id}/{asset_id}.{ext}"
+
+    # Upload to storage
+    storage = StorageService.get_instance()
+    await storage._upload("avatars", storage_path, file_content, content_type)
+
+    # Get public URL
+    public_url = storage.get_public_url("avatars", storage_path)
+
+    # Update character's avatar_url directly (no kit for uploads)
+    update_query = """
+        UPDATE characters
+        SET avatar_url = :avatar_url,
+            updated_at = NOW()
+        WHERE id = :character_id
+    """
+    await db.execute(update_query, {
+        "avatar_url": public_url,
+        "character_id": str(character_id),
+    })
+
+    log.info(f"User {user_id} uploaded avatar for character {character_id}: {storage_path}")
+
+    return {
+        "success": True,
+        "avatar_url": public_url,
+        "source": "uploaded",
+        "message": "Avatar uploaded successfully. You acknowledged having rights to this image.",
     }

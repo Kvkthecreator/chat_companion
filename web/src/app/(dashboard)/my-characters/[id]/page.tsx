@@ -25,8 +25,9 @@ import {
   DialogDescription,
   DialogClose,
 } from "@/components/ui/dialog";
+import { Checkbox } from "@/components/ui/checkbox";
 import { cn } from "@/lib/utils";
-import { ArrowLeft, UserCircle2, Save, Trash2, Loader2, Sparkles, Download, X } from "lucide-react";
+import { ArrowLeft, UserCircle2, Save, Trash2, Loader2, Sparkles, Download, X, Upload, ImagePlus } from "lucide-react";
 import type { UserCharacter, UserArchetype, FlirtingLevel, StylePreset } from "@/types";
 
 // =============================================================================
@@ -262,6 +263,14 @@ export default function CharacterDetailPage({ params }: CharacterDetailPageProps
   // Avatar regeneration confirmation modal
   const [avatarConfirmOpen, setAvatarConfirmOpen] = useState(false);
 
+  // Avatar upload state
+  const [uploadModalOpen, setUploadModalOpen] = useState(false);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [ipAcknowledged, setIpAcknowledged] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+
   // Build appearance prompt from selections
   const buildAppearancePrompt = (): string => {
     const parts: string[] = [];
@@ -484,6 +493,84 @@ export default function CharacterDetailPage({ params }: CharacterDetailPageProps
     }
   }
 
+  // Handle file selection for upload
+  function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Validate file type
+    const validTypes = ["image/jpeg", "image/png", "image/webp"];
+    if (!validTypes.includes(file.type)) {
+      setUploadError("Please select a JPEG, PNG, or WebP image.");
+      return;
+    }
+
+    // Validate file size (5MB max)
+    if (file.size > 5 * 1024 * 1024) {
+      setUploadError("Image must be less than 5MB.");
+      return;
+    }
+
+    setSelectedFile(file);
+    setUploadError(null);
+
+    // Create preview URL
+    const url = URL.createObjectURL(file);
+    setPreviewUrl(url);
+  }
+
+  // Handle avatar upload
+  async function handleUpload() {
+    if (!character || !selectedFile || !ipAcknowledged) return;
+
+    setIsUploading(true);
+    setUploadError(null);
+
+    try {
+      const result = await api.userCharacters.uploadAvatar(
+        character.id,
+        selectedFile,
+        ipAcknowledged
+      );
+
+      // Update character with new avatar
+      setCharacter({
+        ...character,
+        avatar_url: result.avatar_url,
+      });
+
+      // Close modal and reset state
+      setUploadModalOpen(false);
+      setSelectedFile(null);
+      setPreviewUrl(null);
+      setIpAcknowledged(false);
+    } catch (err) {
+      console.error("Failed to upload avatar:", err);
+      if (err instanceof APIError) {
+        const data = err.data as { detail?: string; message?: string } | null;
+        setUploadError(data?.message || data?.detail || "Failed to upload avatar");
+      } else {
+        setUploadError("Failed to upload avatar");
+      }
+    } finally {
+      setIsUploading(false);
+    }
+  }
+
+  // Clean up preview URL when modal closes
+  function handleUploadModalClose(open: boolean) {
+    if (!open) {
+      if (previewUrl) {
+        URL.revokeObjectURL(previewUrl);
+      }
+      setPreviewUrl(null);
+      setSelectedFile(null);
+      setIpAcknowledged(false);
+      setUploadError(null);
+    }
+    setUploadModalOpen(open);
+  }
+
   // Loading state
   if (isLoading) {
     return <DetailSkeleton />;
@@ -578,6 +665,17 @@ export default function CharacterDetailPage({ params }: CharacterDetailPageProps
                   Avatar will be generated when you save appearance changes
                 </p>
               )}
+
+              {/* Upload button */}
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setUploadModalOpen(true)}
+                className="gap-2 mt-2"
+              >
+                <Upload className="h-4 w-4" />
+                Upload Image
+              </Button>
             </div>
           </div>
         </CardContent>
@@ -869,6 +967,114 @@ export default function CharacterDetailPage({ params }: CharacterDetailPageProps
               <Sparkles className="h-4 w-4" />
               Use 5 Sparks
             </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Avatar Upload Modal */}
+      <Dialog open={uploadModalOpen} onOpenChange={handleUploadModalClose}>
+        <DialogContent className="sm:max-w-md">
+          <DialogClose />
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <ImagePlus className="h-5 w-5 text-primary" />
+              Upload Avatar
+            </DialogTitle>
+            <DialogDescription>
+              Upload your own image for {character.name}&apos;s avatar.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 mt-4">
+            {/* File input / preview */}
+            {previewUrl ? (
+              <div className="relative">
+                <img
+                  src={previewUrl}
+                  alt="Preview"
+                  className="w-full aspect-[3/4] object-cover rounded-lg border"
+                />
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  className="absolute top-2 right-2"
+                  onClick={() => {
+                    if (previewUrl) URL.revokeObjectURL(previewUrl);
+                    setPreviewUrl(null);
+                    setSelectedFile(null);
+                  }}
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+            ) : (
+              <label className="flex flex-col items-center justify-center w-full aspect-[3/4] border-2 border-dashed border-border rounded-lg cursor-pointer hover:border-primary/50 hover:bg-accent/50 transition-colors">
+                <Upload className="h-10 w-10 text-muted-foreground mb-2" />
+                <span className="text-sm text-muted-foreground">Click to select image</span>
+                <span className="text-xs text-muted-foreground mt-1">JPEG, PNG, or WebP (max 5MB)</span>
+                <input
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  onChange={handleFileSelect}
+                  className="hidden"
+                />
+              </label>
+            )}
+
+            {uploadError && (
+              <p className="text-sm text-destructive">{uploadError}</p>
+            )}
+
+            {/* IP Acknowledgment - Required checkbox with legal text */}
+            <div className="rounded-lg border border-amber-200 bg-amber-50 dark:border-amber-900 dark:bg-amber-950/30 p-3 space-y-3">
+              <p className="text-xs text-amber-800 dark:text-amber-200">
+                <strong>Important:</strong> By uploading, you confirm that you own the rights to this image
+                or have permission to use it. You accept responsibility for any intellectual property claims.
+              </p>
+              <div className="flex items-start gap-2">
+                <Checkbox
+                  id="ip-acknowledge"
+                  checked={ipAcknowledged}
+                  onCheckedChange={(checked) => setIpAcknowledged(checked === true)}
+                  disabled={isUploading}
+                />
+                <label
+                  htmlFor="ip-acknowledge"
+                  className="text-sm leading-tight cursor-pointer"
+                >
+                  I confirm I have the rights to use this image
+                </label>
+              </div>
+            </div>
+
+            {/* Actions */}
+            <div className="flex gap-3">
+              <Button
+                variant="outline"
+                onClick={() => handleUploadModalClose(false)}
+                disabled={isUploading}
+                className="flex-1"
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleUpload}
+                disabled={!selectedFile || !ipAcknowledged || isUploading}
+                className="flex-1 gap-2"
+              >
+                {isUploading ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Uploading...
+                  </>
+                ) : (
+                  <>
+                    <Upload className="h-4 w-4" />
+                    Upload
+                  </>
+                )}
+              </Button>
+            </div>
           </div>
         </DialogContent>
       </Dialog>

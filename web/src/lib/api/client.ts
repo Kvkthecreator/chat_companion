@@ -627,6 +627,45 @@ export const api = {
       request<import("@/types").AvailableCharactersResponse>(
         `/episode-templates/${templateId}/available-characters`
       ),
+    uploadAvatar: async (id: string, file: File, ipAcknowledgment: boolean) => {
+      const supabase = (await import("@/lib/supabase/client")).createClient();
+      const { data: { session } } = await supabase.auth.getSession();
+
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("ip_acknowledgment", String(ipAcknowledgment));
+
+      const headers: HeadersInit = {};
+      if (session?.access_token) {
+        headers["Authorization"] = `Bearer ${session.access_token}`;
+      }
+
+      const response = await fetch(
+        `${API_BASE_URL}/characters/mine/${id}/upload-avatar`,
+        {
+          method: "POST",
+          headers,
+          body: formData,
+        }
+      );
+
+      if (!response.ok) {
+        let data;
+        try {
+          data = await response.json();
+        } catch {
+          data = null;
+        }
+        throw new APIError(response.status, response.statusText, data);
+      }
+
+      return response.json() as Promise<{
+        success: boolean;
+        avatar_url: string;
+        source: string;
+        message: string;
+      }>;
+    },
   },
 
   // Credits (Sparks) endpoints
