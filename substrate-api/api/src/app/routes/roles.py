@@ -171,11 +171,14 @@ async def get_character_selection_for_series(
             detail="Series does not have a role defined. Cannot select character."
         )
 
-    # Get canonical character for this series
+    # Get canonical character for this series (with avatar kit for permanent URL)
     canonical_query = """
-        SELECT DISTINCT c.id, c.name, c.slug, c.archetype, c.avatar_url
+        SELECT DISTINCT c.id, c.name, c.slug, c.archetype, c.avatar_url,
+               aa.storage_path as anchor_path
         FROM characters c
         JOIN episode_templates et ON et.character_id = c.id
+        LEFT JOIN avatar_kits ak ON ak.id = c.active_avatar_kit_id
+        LEFT JOIN avatar_assets aa ON aa.id = ak.primary_anchor_id AND aa.is_active = TRUE
         WHERE et.series_id = :series_id
         AND c.is_user_created = FALSE
         AND c.status = 'active'
@@ -188,8 +191,14 @@ async def get_character_selection_for_series(
 
     if canonical_row:
         avatar_url = canonical_row["avatar_url"]
-        if avatar_url and not avatar_url.startswith("http"):
-            avatar_url = await storage.create_signed_url("avatars", avatar_url, expires_in=3600)
+        anchor_path = canonical_row["anchor_path"]
+
+        # Use permanent public URL from anchor_path if available
+        if anchor_path:
+            avatar_url = storage.get_public_url("avatars", anchor_path)
+        elif avatar_url and not avatar_url.startswith("http"):
+            # Fallback: use public URL for relative paths
+            avatar_url = storage.get_public_url("avatars", avatar_url)
 
         canonical_character = CompatibleCharacter(
             id=str(canonical_row["id"]),
@@ -205,19 +214,29 @@ async def get_character_selection_for_series(
     user_characters = []
     if user_id:
         user_chars_query = """
-            SELECT id, name, slug, archetype, avatar_url
-            FROM characters
-            WHERE created_by = :user_id
-            AND is_user_created = TRUE
-            AND status = 'active'
-            ORDER BY created_at DESC
+            SELECT c.id, c.name, c.slug, c.archetype, c.avatar_url,
+                   aa.storage_path as anchor_path
+            FROM characters c
+            LEFT JOIN avatar_kits ak ON ak.id = c.active_avatar_kit_id
+            LEFT JOIN avatar_assets aa ON aa.id = ak.primary_anchor_id AND aa.is_active = TRUE
+            WHERE c.created_by = :user_id
+            AND c.is_user_created = TRUE
+            AND c.status = 'active'
+            ORDER BY c.created_at DESC
         """
         user_char_rows = await db.fetch_all(user_chars_query, {"user_id": user_id})
 
         for row in user_char_rows:
             avatar_url = row["avatar_url"]
-            if avatar_url and not avatar_url.startswith("http"):
-                avatar_url = await storage.create_signed_url("avatars", avatar_url, expires_in=3600)
+            anchor_path = row["anchor_path"]
+
+            # For user-uploaded avatars (public URLs), keep the direct URL
+            # For kit-based avatars, use permanent public URL from anchor_path
+            is_uploaded_avatar = avatar_url and "user-uploads/" in avatar_url
+            if anchor_path and not is_uploaded_avatar:
+                avatar_url = storage.get_public_url("avatars", anchor_path)
+            elif avatar_url and not avatar_url.startswith("http"):
+                avatar_url = storage.get_public_url("avatars", avatar_url)
 
             user_characters.append(CompatibleCharacter(
                 id=str(row["id"]),
