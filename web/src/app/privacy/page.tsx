@@ -12,7 +12,7 @@ export default function PrivacyPage() {
         <li>You can request deletion of your account and associated data by contacting support.</li>
       </ul>
       <p className="mt-6 text-muted-foreground">
-        Questions? Reach us at privacy@fantazy.app.
+        Questions? Reach us at admin@ep-0.com.
       </p>
     </div>
   );

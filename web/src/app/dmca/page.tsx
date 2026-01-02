@@ -45,7 +45,7 @@ export default function DMCAPage() {
       </p>
       <div className="mt-4 rounded-lg border border-border bg-muted/30 p-4 text-muted-foreground">
         <p>
-          <strong>Email:</strong> dmca@fantazy.app
+          <strong>Email:</strong> admin@ep-0.com
         </p>
         <p className="mt-2">
           <strong>Subject line:</strong> DMCA Takedown Notice
@@ -87,7 +87,7 @@ export default function DMCAPage() {
 
       <h2 className="mt-8 text-lg font-medium">Questions</h2>
       <p className="mt-4 text-muted-foreground">
-        For general questions about our policies, please contact us at support@fantazy.app or see our{" "}
+        For general questions about our policies, please contact us at admin@ep-0.com or see our{" "}
         <Link href="/terms" className="text-primary underline underline-offset-2 hover:text-primary/80">
           Terms of Service
         </Link>

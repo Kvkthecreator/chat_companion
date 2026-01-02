@@ -44,7 +44,7 @@ export default function TermsPage() {
 
       <h2 className="mt-8 text-lg font-medium">Contact</h2>
       <p className="mt-4 text-muted-foreground">
-        For questions, contact us at support@fantazy.app.
+        For questions, contact us at admin@ep-0.com.
       </p>
     </div>
   );
