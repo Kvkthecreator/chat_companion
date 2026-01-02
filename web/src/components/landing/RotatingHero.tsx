@@ -3,19 +3,25 @@
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
+import { ChatPreview } from "./ChatPreview";
+
+// More specific, emotionally charged scenarios
+const SCENARIOS = [
+  { target: "idol", line: "He wasn't supposed to be at that club." },
+  { target: "crush", line: "You finally said something." },
+  { target: "stranger", line: "One conversation changed everything." },
+];
 
 interface RotatingHeroProps {
-  targets: string[];
   /** Number of full rotations before stopping (default: 3) */
   rotationCycles?: number;
-  /** Duration per word in ms (default: 1000) */
+  /** Duration per word in ms (default: 2500) */
   rotationSpeed?: number;
 }
 
 export function RotatingHero({
-  targets,
   rotationCycles = 3,
-  rotationSpeed = 1000,
+  rotationSpeed = 2500,
 }: RotatingHeroProps) {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isAnimating, setIsAnimating] = useState(false);
@@ -23,35 +29,31 @@ export function RotatingHero({
   const [cycleCount, setCycleCount] = useState(0);
   const [hasStopped, setHasStopped] = useState(false);
 
-  const totalRotations = rotationCycles * targets.length;
+  const totalRotations = rotationCycles * SCENARIOS.length;
 
   const rotate = useCallback(() => {
     if (hasStopped || isPaused) return;
 
     setIsAnimating(true);
 
-    // After fade out, change word
     setTimeout(() => {
       setCurrentIndex((prev) => {
-        const next = (prev + 1) % targets.length;
+        const next = (prev + 1) % SCENARIOS.length;
         return next;
       });
       setCycleCount((prev) => prev + 1);
       setIsAnimating(false);
-    }, 200); // Fade out duration
-  }, [hasStopped, isPaused, targets.length]);
+    }, 200);
+  }, [hasStopped, isPaused]);
 
-  // Check if we should stop rotating
   useEffect(() => {
     if (cycleCount >= totalRotations && !hasStopped) {
-      // Stop on "crush" (index 0) if possible
       if (currentIndex === 0) {
         setHasStopped(true);
       }
     }
   }, [cycleCount, totalRotations, currentIndex, hasStopped]);
 
-  // Rotation interval
   useEffect(() => {
     if (hasStopped) return;
 
@@ -59,7 +61,7 @@ export function RotatingHero({
     return () => clearInterval(interval);
   }, [rotate, rotationSpeed, hasStopped]);
 
-  const currentTarget = targets[currentIndex];
+  const current = SCENARIOS[currentIndex];
 
   return (
     <section
@@ -67,45 +69,93 @@ export function RotatingHero({
       onMouseEnter={() => setIsPaused(true)}
       onMouseLeave={() => setIsPaused(false)}
     >
+      {/* Background */}
       <div className="absolute inset-0">
-        <img
-          src="/playground-assets/classroom-bg.jpg"
-          alt=""
-          className="h-full w-full object-cover"
-        />
-        <div className="absolute inset-0 bg-gradient-to-r from-black/70 via-black/45 to-black/20" />
+        <div className="absolute inset-0 bg-gradient-to-br from-purple-950 via-slate-900 to-slate-950" />
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-pink-500/20 via-transparent to-transparent" />
       </div>
 
-      <div className="relative z-10 flex flex-col gap-5 p-8 sm:p-10 text-white drop-shadow-md">
-        {/* Headline with rotating word */}
-        <div className="space-y-3">
-          <h1 className="text-3xl font-bold leading-tight sm:text-4xl md:text-5xl">
-            <span className="block sm:inline">Relive the moment with your</span>{" "}
-            <span className="inline-flex items-baseline whitespace-nowrap">
-              <span
-                className={cn(
-                  "transition-opacity duration-200",
-                  isAnimating ? "opacity-0" : "opacity-100"
-                )}
-              >
-                &ldquo;{currentTarget}&rdquo;
-              </span>
-              <span className="ml-0.5">.</span>
+      <div className="relative z-10 grid gap-6 p-6 sm:p-8 md:grid-cols-2 md:gap-8 lg:p-10">
+        {/* Left: Copy */}
+        <div className="flex flex-col justify-center gap-5 text-white">
+          {/* Eyebrow */}
+          <div className="flex items-center gap-2">
+            <span className="rounded-full bg-white/10 px-3 py-1 text-xs font-medium backdrop-blur-sm">
+              Interactive Fiction
             </span>
-          </h1>
-          <p className="max-w-2xl text-base sm:text-lg text-white/85">
-            The scene&apos;s already started. You&apos;re already in it.
-          </p>
+          </div>
+
+          {/* Headline */}
+          <div className="space-y-3">
+            <h1 className="text-2xl font-bold leading-tight sm:text-3xl md:text-4xl">
+              <span className="block">The scene&apos;s already started.</span>
+              <span className="block mt-1">
+                <span
+                  className={cn(
+                    "inline-block transition-all duration-200",
+                    isAnimating
+                      ? "opacity-0 translate-y-2"
+                      : "opacity-100 translate-y-0"
+                  )}
+                >
+                  The{" "}
+                  <span className="bg-gradient-to-r from-pink-400 to-purple-400 bg-clip-text text-transparent">
+                    {current.target}
+                  </span>{" "}
+                  is waiting.
+                </span>
+              </span>
+            </h1>
+
+            {/* Rotating scenario line */}
+            <p
+              className={cn(
+                "max-w-md text-base text-white/70 transition-all duration-200 sm:text-lg",
+                isAnimating
+                  ? "opacity-0 translate-y-1"
+                  : "opacity-100 translate-y-0"
+              )}
+            >
+              {current.line}
+            </p>
+          </div>
+
+          {/* Value props */}
+          <ul className="flex flex-col gap-2 text-sm text-white/60">
+            <li className="flex items-center gap-2">
+              <span className="h-1.5 w-1.5 rounded-full bg-pink-400" />
+              They remember everything you say
+            </li>
+            <li className="flex items-center gap-2">
+              <span className="h-1.5 w-1.5 rounded-full bg-purple-400" />
+              Every reply changes the story
+            </li>
+            <li className="flex items-center gap-2">
+              <span className="h-1.5 w-1.5 rounded-full bg-blue-400" />
+              Silence feels like loss
+            </li>
+          </ul>
+
+          {/* CTA */}
+          <div className="flex flex-wrap items-center gap-3 pt-2">
+            <Link
+              href="/login?next=/discover"
+              className="rounded-full bg-white px-6 py-3 text-sm font-semibold text-slate-900 shadow-lg transition hover:bg-white/90"
+            >
+              Start free
+            </Link>
+            <Link
+              href="#series"
+              className="rounded-full border border-white/20 bg-white/5 px-6 py-3 text-sm font-medium text-white backdrop-blur-sm transition hover:bg-white/10"
+            >
+              See stories
+            </Link>
+          </div>
         </div>
 
-        {/* CTA */}
-        <div className="flex flex-wrap items-center gap-3 pt-2">
-          <Link
-            href="/login?next=/discover"
-            className="rounded-full bg-primary px-6 py-3 text-sm font-semibold text-primary-foreground shadow-sm transition hover:opacity-90"
-          >
-            Try Episode-0
-          </Link>
+        {/* Right: Chat Preview */}
+        <div className="hidden md:flex md:items-center md:justify-center">
+          <ChatPreview className="w-full max-w-sm" />
         </div>
       </div>
     </section>
