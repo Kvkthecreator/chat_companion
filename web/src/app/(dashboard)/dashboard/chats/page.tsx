@@ -70,7 +70,7 @@ export default function MyChatsPage() {
       <div>
         <h1 className="text-3xl font-bold tracking-tight">My Chats</h1>
         <p className="text-muted-foreground">
-          Free conversations with characters.
+          Open conversations with characters outside of episodes.
         </p>
       </div>
 

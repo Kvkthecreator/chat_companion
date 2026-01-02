@@ -48,7 +48,10 @@ async def get_user_chats(
 ):
     """Get user's free chat sessions with character info.
 
-    Returns free chat sessions only (episode_template_id IS NULL).
+    Returns free chat sessions - identified by:
+    - episode_template.is_free_chat = TRUE (unified template model)
+    - OR episode_template_id IS NULL (legacy sessions, backward compat)
+
     Sorted by most recent activity.
     """
     user_id = getattr(request.state, "user_id", None)
@@ -74,8 +77,12 @@ async def get_user_chats(
         FROM sessions s
         JOIN characters c ON c.id = s.character_id
         LEFT JOIN series ser ON ser.id = s.series_id
+        LEFT JOIN episode_templates et ON et.id = s.episode_template_id
         WHERE s.user_id = :user_id
-        AND s.episode_template_id IS NULL
+        AND (
+            et.is_free_chat = TRUE
+            OR s.episode_template_id IS NULL
+        )
         ORDER BY s.started_at DESC
         LIMIT :limit
     """
@@ -112,33 +119,60 @@ async def reset_free_chat(
 ):
     """Reset free chat sessions with a specific character.
 
-    This deletes only free chat sessions (episode_template_id IS NULL)
-    for this character. Episode-based sessions are not affected.
+    This deletes free chat sessions identified by:
+    - episode_template.is_free_chat = TRUE (unified template model)
+    - OR episode_template_id IS NULL (legacy sessions)
 
+    Episode-based sessions are not affected.
     This action is irreversible.
     """
     user_id = getattr(request.state, "user_id", None)
     if not user_id:
         raise HTTPException(status_code=401, detail="Authentication required")
 
-    # Delete free chat sessions only (messages cascade automatically)
+    # Delete free chat sessions (messages cascade automatically)
+    # Handles both unified template model and legacy NULL sessions
     delete_query = """
+        DELETE FROM sessions s
+        USING episode_templates et
+        WHERE s.user_id = :user_id
+        AND s.character_id = :character_id
+        AND s.episode_template_id = et.id
+        AND et.is_free_chat = TRUE
+    """
+    await db.execute(
+        delete_query, {"user_id": user_id, "character_id": str(character_id)}
+    )
+
+    # Also delete legacy NULL sessions (backward compat)
+    delete_legacy_query = """
         DELETE FROM sessions
         WHERE user_id = :user_id
         AND character_id = :character_id
         AND episode_template_id IS NULL
     """
     await db.execute(
-        delete_query, {"user_id": user_id, "character_id": str(character_id)}
+        delete_legacy_query, {"user_id": user_id, "character_id": str(character_id)}
     )
 
-    # Soft-delete memories from free chat sessions (episode_id IS NULL)
+    # Soft-delete memories from free chat sessions
+    # For unified model, we need to find sessions with is_free_chat templates
+    # For legacy, episode_id IS NULL in memory_events
     delete_memories_query = """
-        UPDATE memory_events
+        UPDATE memory_events me
         SET is_active = FALSE
-        WHERE user_id = :user_id
-        AND character_id = :character_id
-        AND episode_id IS NULL
+        WHERE me.user_id = :user_id
+        AND me.character_id = :character_id
+        AND (
+            me.episode_id IS NULL
+            OR me.episode_id IN (
+                SELECT s.id FROM sessions s
+                JOIN episode_templates et ON et.id = s.episode_template_id
+                WHERE s.user_id = :user_id
+                AND s.character_id = :character_id
+                AND et.is_free_chat = TRUE
+            )
+        )
     """
     await db.execute(
         delete_memories_query, {"user_id": user_id, "character_id": str(character_id)}
