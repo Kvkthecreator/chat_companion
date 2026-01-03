@@ -979,13 +979,14 @@ async def upload_user_character_avatar(
     # Create avatar_asset record for Kontext support
     await db.execute(
         """INSERT INTO avatar_assets
-           (id, avatar_kit_id, asset_type, expression, storage_path, is_active, is_canonical, file_size, created_at)
-           VALUES (:asset_id, :kit_id, 'portrait', 'uploaded', :storage_path, TRUE, TRUE, :file_size, NOW())""",
+           (id, avatar_kit_id, asset_type, expression, storage_path, source_type, is_active, is_canonical, file_size_bytes, mime_type, created_at)
+           VALUES (:asset_id, :kit_id, 'portrait', 'uploaded', :storage_path, 'manual_upload', TRUE, TRUE, :file_size, :mime_type, NOW())""",
         {
             "asset_id": str(asset_id),
             "kit_id": str(kit_id),
             "storage_path": storage_path,
             "file_size": len(file_content),
+            "mime_type": content_type,
         }
     )
 
