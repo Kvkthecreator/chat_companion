@@ -14,6 +14,7 @@ from fastapi.responses import JSONResponse
 
 from app.deps import close_db, get_db
 from middleware.auth import AuthMiddleware
+from middleware.security_headers import SecurityHeadersMiddleware
 
 # Routes
 from app.routes import (
@@ -150,6 +151,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Security headers middleware (clickjacking protection, etc.)
+app.add_middleware(SecurityHeadersMiddleware)
 
 # Auth middleware with exemptions
 app.add_middleware(
