@@ -228,8 +228,9 @@ function HeroCard({ item }: { item: ContinueWatchingItem }) {
           {/* Gradient overlay */}
           <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/50 to-transparent" />
 
-          {/* Character avatar (ADR-004) - top right */}
-          <div className="absolute top-4 right-4 flex items-center gap-2 bg-black/60 backdrop-blur-sm rounded-full pl-1.5 pr-3 py-1.5">
+          {/* Character avatar (ADR-004) - top right - "Playing as" indicator */}
+          <div className="absolute top-4 right-4 flex items-center gap-2 bg-black/60 backdrop-blur-sm rounded-full pl-2.5 pr-3 py-1.5">
+            <span className="text-white/60 text-xs">Playing as</span>
             <div className="h-7 w-7 rounded-full overflow-hidden bg-muted flex items-center justify-center shrink-0">
               {item.character_avatar_url ? (
                 <img

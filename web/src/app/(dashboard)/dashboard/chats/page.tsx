@@ -68,9 +68,10 @@ export default function MyChatsPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold tracking-tight">My Chats</h1>
+        <h1 className="text-3xl font-bold tracking-tight">Just Chat</h1>
         <p className="text-muted-foreground">
-          Open conversations with characters outside of episodes.
+          Open conversations outside of story episodes. For story-based chats, visit{" "}
+          <Link href="/dashboard" className="text-primary hover:underline">Dashboard</Link>.
         </p>
       </div>
 
@@ -184,9 +185,14 @@ function ChatCard({ item, onReset }: ChatCardProps) {
 
           {/* Content - clickable */}
           <Link href={chatUrl} className="flex-1 min-w-0">
-            <h3 className="font-semibold truncate">{item.character_name}</h3>
-            <p className="text-sm text-muted-foreground truncate capitalize">
-              {item.character_archetype || "Character"}
+            <div className="flex items-center gap-2">
+              <h3 className="font-semibold truncate">{item.character_name}</h3>
+              <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground shrink-0">
+                Just Chat
+              </span>
+            </div>
+            <p className="text-sm text-muted-foreground truncate">
+              Playing as <span className="capitalize">{item.character_archetype || "Character"}</span>
             </p>
 
             <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">

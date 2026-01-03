@@ -49,8 +49,14 @@ export function ContinueWatchingCard({ item, className, compact }: ContinueWatch
           {/* Gradient overlay */}
           <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/50 to-transparent" />
 
-          {/* Character avatar (ADR-004) - top right corner */}
-          <div className="absolute top-2 right-2 flex items-center gap-1.5 bg-black/60 backdrop-blur-sm rounded-full pl-1 pr-2.5 py-1">
+          {/* Character avatar (ADR-004) - top right corner - "Playing as" indicator */}
+          <div className="absolute top-2 right-2 flex items-center gap-1.5 bg-black/60 backdrop-blur-sm rounded-full pl-1.5 pr-2.5 py-1">
+            <span className={cn(
+              "text-white/60",
+              compact ? "text-[9px]" : "text-[10px]"
+            )}>
+              as
+            </span>
             <div className={cn(
               "rounded-full overflow-hidden bg-muted flex items-center justify-center shrink-0",
               compact ? "h-5 w-5" : "h-6 w-6"

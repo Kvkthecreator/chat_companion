@@ -14,7 +14,7 @@ const navigation = [
   { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
   { name: "Discover", href: "/discover", icon: Compass },
   { name: "My Series", href: "/dashboard/series", icon: BookOpen },
-  { name: "My Chats", href: "/dashboard/chats", icon: MessageCircle },
+  { name: "Just Chat", href: "/dashboard/chats", icon: MessageCircle },
   { name: "My Characters", href: "/my-characters", icon: UserCircle2 },
   { name: "Gallery", href: "/dashboard/story", icon: Images },
   // Memories page still exists at /dashboard/memories for debugging, but hidden from nav

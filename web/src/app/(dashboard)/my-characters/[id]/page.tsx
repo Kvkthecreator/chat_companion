@@ -28,7 +28,7 @@ import {
 } from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
 import { cn } from "@/lib/utils";
-import { ArrowLeft, UserCircle2, Save, Trash2, Loader2, Sparkles, Download, X, Upload, ImagePlus, MessageCircle } from "lucide-react";
+import { ArrowLeft, UserCircle2, Save, Trash2, Loader2, Sparkles, Download, X, Upload, ImagePlus, MessageCircle, Play, BookOpen } from "lucide-react";
 import type { UserCharacter, UserArchetype, FlirtingLevel, StylePreset } from "@/types";
 
 // =============================================================================
@@ -661,30 +661,46 @@ export default function CharacterDetailPage({ params }: CharacterDetailPageProps
         </div>
 
         {/* Actions */}
-        <div className="flex items-center gap-3 border-t bg-card/80 px-4 py-3">
-          <Link href={`/chat/${character.id}`} className="flex-1">
+        <div className="flex flex-col gap-3 border-t bg-card/80 px-4 py-4">
+          {/* Primary CTA - Play in a story */}
+          <Link href="/discover" className="w-full">
             <Button size="lg" className="w-full gap-2">
-              <MessageCircle className="h-5 w-5" />
-              Chat with {character.name}
+              <Play className="h-5 w-5" />
+              Play {character.name} in a Story
             </Button>
           </Link>
-          <Button
-            variant="outline"
-            size="lg"
-            onClick={() => setUploadModalOpen(true)}
-            className="gap-2"
-          >
-            <Upload className="h-4 w-4" />
-            Upload
-          </Button>
-          <Button
-            variant="outline"
-            size="lg"
-            onClick={() => setDeleteConfirmOpen(true)}
-            className="text-destructive hover:bg-destructive hover:text-destructive-foreground"
-          >
-            <Trash2 className="h-4 w-4" />
-          </Button>
+
+          {/* Secondary actions row */}
+          <div className="flex items-center gap-2">
+            {/* Just chat - de-emphasized */}
+            <Link href={`/chat/${character.id}`} className="flex-1">
+              <Button variant="outline" size="default" className="w-full gap-2 text-muted-foreground">
+                <MessageCircle className="h-4 w-4" />
+                Just Chat
+              </Button>
+            </Link>
+            <Button
+              variant="outline"
+              size="default"
+              onClick={() => setUploadModalOpen(true)}
+              className="gap-2"
+            >
+              <Upload className="h-4 w-4" />
+            </Button>
+            <Button
+              variant="outline"
+              size="default"
+              onClick={() => setDeleteConfirmOpen(true)}
+              className="text-destructive hover:bg-destructive hover:text-destructive-foreground"
+            >
+              <Trash2 className="h-4 w-4" />
+            </Button>
+          </div>
+
+          {/* Helper text */}
+          <p className="text-xs text-muted-foreground text-center">
+            Select a series from Discover, then choose {character.name} as your character
+          </p>
         </div>
 
         {avatarError && (
