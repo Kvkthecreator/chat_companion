@@ -263,10 +263,32 @@ class ConversationService:
         should_suggest_scene = self._should_suggest_scene(message_count)
 
         # Get current turn count from session for done event
-        # (Director will increment this in background, but we show current state)
+        # Director will increment this in background, but we predict the next state
         current_turn_count = episode.turn_count
+        next_turn_count = current_turn_count + 1  # Director increments by 1 per exchange
         turn_budget = episode_template.turn_budget if episode_template else None
-        pacing = self.director_service.determine_pacing(current_turn_count, turn_budget)
+        pacing = self.director_service.determine_pacing(next_turn_count, turn_budget)
+
+        # v2.8: Calculate suggest_next immediately (was deferred to background)
+        # Director v2.6: suggest_next triggers when turn exactly equals budget
+        # turn_budget of 0 means open-ended (never suggest)
+        suggest_next = (turn_budget is not None and turn_budget > 0 and next_turn_count == turn_budget)
+
+        # Build next_suggestion payload if we're suggesting next episode
+        next_suggestion = None
+        if suggest_next and episode_template and episode_template.series_id:
+            # Look up next episode in series
+            next_ep = await self._get_next_episode_in_series(
+                series_id=episode_template.series_id,
+                current_episode_number=episode_template.episode_number,
+            )
+            if next_ep:
+                next_suggestion = {
+                    "episode_id": str(next_ep["id"]),
+                    "title": next_ep["title"],
+                    "slug": next_ep["slug"],
+                    "episode_number": next_ep["episode_number"],
+                }
 
         # Build done event - sent IMMEDIATELY for fast perceived response
         done_event = {
@@ -274,11 +296,11 @@ class ConversationService:
             "content": response_content,
             "suggest_scene": should_suggest_scene,
             "episode_id": str(episode.id),
-            # Include current Director state (will be updated in background)
+            # Include predicted Director state (background will finalize)
             "director": {
-                "turn_count": current_turn_count,
-                "turns_remaining": max(0, turn_budget - current_turn_count) if turn_budget else None,
-                "suggest_next": False,  # Updated async if turn budget reached
+                "turn_count": next_turn_count,
+                "turns_remaining": max(0, turn_budget - next_turn_count) if turn_budget else None,
+                "suggest_next": suggest_next,
                 "is_complete": False,  # DEPRECATED: kept for backward compat
                 "status": "going",
                 "pacing": pacing,
@@ -286,6 +308,16 @@ class ConversationService:
         }
 
         yield json.dumps(done_event)
+
+        # v2.8: Emit next_episode_suggestion event if turn budget reached
+        if suggest_next:
+            suggestion_event = {
+                "type": "next_episode_suggestion",
+                "turn_count": next_turn_count,
+                "trigger": "turn_limit",
+                "next_suggestion": next_suggestion,
+            }
+            yield json.dumps(suggestion_event)
 
         # =====================================================================
         # DIRECTOR PHASE 2: Post-Evaluation (BACKGROUND - fire-and-forget)
@@ -1108,6 +1140,29 @@ class ConversationService:
             log.error(f"Background Director Phase 2 failed for episode {episode_id}: {e}")
 
     # NOTE: _process_exchange() removed - Director now owns memory/hook extraction (v2.3)
+
+    async def _get_next_episode_in_series(
+        self,
+        series_id: UUID,
+        current_episode_number: int,
+    ) -> Optional[Dict]:
+        """Get the next episode in a series by episode number.
+
+        v2.8: Used for next_episode_suggestion event payload.
+        Returns the next episode template if it exists.
+        """
+        query = """
+            SELECT id, title, slug, episode_number
+            FROM episode_templates
+            WHERE series_id = :series_id
+            AND episode_number = :next_number
+            AND status = 'active'
+        """
+        row = await self.db.fetch_one(query, {
+            "series_id": str(series_id),
+            "next_number": current_episode_number + 1,
+        })
+        return dict(row) if row else None
 
     async def _get_series_context(
         self,
