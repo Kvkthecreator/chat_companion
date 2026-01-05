@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Plus, Trash2, ChevronDown, ChevronRight, FileText, Camera, Package, Mic, Smartphone, AlertTriangle } from "lucide-react";
+import { Plus, Trash2, ChevronDown, ChevronRight, FileText, Camera, Package, Mic, Smartphone, AlertTriangle, Download, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -53,6 +53,7 @@ export function PropsEditor({ episodeId, episodeTitle }: PropsEditorProps) {
   const [editingProp, setEditingProp] = useState<EpisodeProp | null>(null);
   const [isCreating, setIsCreating] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [expandedImage, setExpandedImage] = useState<{ url: string; title: string } | null>(null);
 
   // Form state for create/edit
   const [formData, setFormData] = useState<Partial<PropCreate>>({
@@ -74,6 +75,17 @@ export function PropsEditor({ episodeId, episodeTitle }: PropsEditorProps) {
   useEffect(() => {
     loadProps();
   }, [episodeId]);
+
+  // ESC key to close lightbox
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && expandedImage) {
+        setExpandedImage(null);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [expandedImage]);
 
   const loadProps = async () => {
     try {
@@ -243,14 +255,29 @@ export function PropsEditor({ episodeId, episodeTitle }: PropsEditorProps) {
                     className="flex items-center justify-between p-3 rounded-lg border border-border bg-card"
                   >
                     <div className="flex items-center gap-3">
-                      <div className={cn(
-                        "w-8 h-8 rounded-lg flex items-center justify-center",
-                        prop.is_key_evidence
-                          ? "bg-amber-500/20 text-amber-600"
-                          : "bg-muted text-muted-foreground"
-                      )}>
-                        <Icon className="w-4 h-4" />
-                      </div>
+                      {/* Image thumbnail or icon */}
+                      {prop.image_url ? (
+                        <button
+                          type="button"
+                          className="w-12 h-12 rounded-lg overflow-hidden flex-shrink-0 hover:ring-2 hover:ring-primary/50 transition-all cursor-pointer bg-muted"
+                          onClick={() => setExpandedImage({ url: prop.image_url!, title: prop.name })}
+                        >
+                          <img
+                            src={prop.image_url}
+                            alt={prop.name}
+                            className="w-full h-full object-cover"
+                          />
+                        </button>
+                      ) : (
+                        <div className={cn(
+                          "w-12 h-12 rounded-lg flex items-center justify-center flex-shrink-0",
+                          prop.is_key_evidence
+                            ? "bg-amber-500/20 text-amber-600"
+                            : "bg-muted text-muted-foreground"
+                        )}>
+                          <Icon className="w-5 h-5" />
+                        </div>
+                      )}
                       <div>
                         <div className="flex items-center gap-2">
                           <span className="font-medium">{prop.name}</span>
@@ -432,14 +459,32 @@ export function PropsEditor({ episodeId, episodeTitle }: PropsEditorProps) {
                 </div>
               </div>
 
-              {/* Image URL */}
-              <div className="space-y-1">
+              {/* Image URL with preview */}
+              <div className="space-y-2">
                 <Label>Image URL (optional)</Label>
                 <Input
                   value={formData.image_url || ""}
                   onChange={(e) => setFormData({ ...formData, image_url: e.target.value })}
                   placeholder="https://..."
                 />
+                {formData.image_url && (
+                  <button
+                    type="button"
+                    className="relative w-full aspect-video rounded-lg overflow-hidden bg-muted hover:ring-2 hover:ring-primary/50 transition-all cursor-pointer"
+                    onClick={() => setExpandedImage({ url: formData.image_url!, title: formData.name || "Prop Image" })}
+                  >
+                    <img
+                      src={formData.image_url}
+                      alt={formData.name || "Prop preview"}
+                      className="w-full h-full object-cover"
+                    />
+                    <div className="absolute inset-0 bg-black/0 hover:bg-black/10 transition-colors flex items-center justify-center">
+                      <span className="opacity-0 hover:opacity-100 text-white text-sm bg-black/50 px-2 py-1 rounded">
+                        Click to expand
+                      </span>
+                    </div>
+                  </button>
+                )}
               </div>
 
               {/* Key Evidence and Badge Label */}
@@ -503,6 +548,68 @@ export function PropsEditor({ episodeId, episodeTitle }: PropsEditorProps) {
               Add Prop
             </Button>
           )}
+        </div>
+      )}
+
+      {/* Image Lightbox Modal */}
+      {expandedImage && (
+        <div
+          className="fixed inset-0 z-50 bg-black/90 backdrop-blur-sm flex items-center justify-center"
+          onClick={() => setExpandedImage(null)}
+        >
+          {/* Top controls */}
+          <div className="absolute top-0 left-0 right-0 flex items-center justify-between p-4 z-10">
+            <p className="text-white/80 text-sm">{expandedImage.title}</p>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="text-white hover:bg-white/20"
+                title="Download image"
+                onClick={async (e) => {
+                  e.stopPropagation();
+                  try {
+                    const response = await fetch(expandedImage.url);
+                    const blob = await response.blob();
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement("a");
+                    a.href = url;
+                    a.download = `${expandedImage.title.toLowerCase().replace(/\s+/g, "-")}.jpg`;
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    window.URL.revokeObjectURL(url);
+                  } catch {
+                    window.open(expandedImage.url, "_blank");
+                  }
+                }}
+              >
+                <Download className="w-5 h-5" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="text-white hover:bg-white/20"
+                title="Close"
+                onClick={() => setExpandedImage(null)}
+              >
+                <X className="w-5 h-5" />
+              </Button>
+            </div>
+          </div>
+
+          {/* Main image */}
+          <div className="relative max-w-5xl w-full max-h-[85vh] px-4">
+            <img
+              src={expandedImage.url}
+              alt={expandedImage.title}
+              className="w-full h-auto max-h-[85vh] object-contain rounded-lg"
+              onClick={(e) => e.stopPropagation()}
+            />
+          </div>
+
+          {/* Bottom hint */}
+          <p className="absolute bottom-4 text-white/60 text-sm">Press ESC or click backdrop to close</p>
         </div>
       )}
     </div>
