@@ -20,6 +20,7 @@ interface PropCardData {
   image_url: string | null;
   is_key_evidence: boolean;
   evidence_tags: string[];
+  badge_label?: string | null;  // Custom badge text, null/undefined = use default
 }
 
 interface PropCardProps {
@@ -50,6 +51,10 @@ export function PropCard({ prop, hasBackground, onReveal }: PropCardProps) {
   const hasImage = !!prop.image_url;
   const hasContent = !!prop.content;
 
+  // Badge label: use custom if provided, otherwise default based on is_key_evidence
+  const badgeLabel = prop.badge_label ?? (prop.is_key_evidence ? "Key Evidence" : null);
+  const showBadge = !!badgeLabel;
+
   // Toggle expanded state for content
   const handleClick = () => {
     if (hasContent) {
@@ -65,20 +70,20 @@ export function PropCard({ prop, hasBackground, onReveal }: PropCardProps) {
         className={cn(
           "relative overflow-hidden rounded-2xl shadow-2xl cursor-pointer",
           "ring-1 transition-all duration-300",
-          prop.is_key_evidence
+          showBadge
             ? "ring-amber-500/40 hover:ring-amber-500/60"
             : "ring-white/20 hover:ring-white/40",
           // Noir/evidence aesthetic
           "bg-gradient-to-br from-slate-900/95 via-gray-900/95 to-slate-950/95"
         )}
       >
-        {/* Key evidence indicator */}
-        {prop.is_key_evidence && (
+        {/* Badge indicator (custom label or default "Key Evidence") */}
+        {showBadge && (
           <div className="absolute top-3 right-3 z-10">
             <div className="flex items-center gap-1.5 px-2 py-1 rounded-full bg-amber-500/20 border border-amber-500/30">
               <AlertTriangle className="w-3 h-3 text-amber-400" />
               <span className="text-[10px] font-medium uppercase tracking-wider text-amber-400">
-                Key Evidence
+                {badgeLabel}
               </span>
             </div>
           </div>
@@ -125,13 +130,13 @@ export function PropCard({ prop, hasBackground, onReveal }: PropCardProps) {
             {/* Icon */}
             <div className={cn(
               "flex-shrink-0 w-10 h-10 rounded-xl flex items-center justify-center",
-              prop.is_key_evidence
+              showBadge
                 ? "bg-amber-500/20 border border-amber-500/30"
                 : "bg-white/10 border border-white/20"
             )}>
               <Icon className={cn(
                 "w-5 h-5",
-                prop.is_key_evidence ? "text-amber-400" : "text-white/70"
+                showBadge ? "text-amber-400" : "text-white/70"
               )} />
             </div>
 
@@ -160,7 +165,7 @@ export function PropCard({ prop, hasBackground, onReveal }: PropCardProps) {
             )}>
               <div className={cn(
                 "p-4 rounded-xl border",
-                prop.is_key_evidence
+                showBadge
                   ? "bg-amber-950/30 border-amber-500/20"
                   : "bg-black/30 border-white/10"
               )}>

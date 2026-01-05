@@ -1423,6 +1423,7 @@ export interface StreamPropRevealEvent {
     image_url: string | null;
     is_key_evidence: boolean;
     evidence_tags: string[];
+    badge_label: string | null;  // Custom badge text, null = use default based on is_key_evidence
   };
   turn: number;
   trigger: "automatic" | "character_showed" | "player_asked";

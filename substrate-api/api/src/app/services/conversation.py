@@ -1250,7 +1250,7 @@ class ConversationService:
             SELECT p.id, p.name, p.slug, p.prop_type, p.description,
                    p.content, p.content_format, p.image_url,
                    p.reveal_mode, p.reveal_turn_hint, p.is_key_evidence,
-                   p.evidence_tags, p.display_order
+                   p.evidence_tags, p.display_order, p.badge_label
             FROM props p
             LEFT JOIN session_props sp ON sp.prop_id = p.id AND sp.session_id = :session_id
             WHERE p.episode_template_id = :template_id
@@ -1301,6 +1301,7 @@ class ConversationService:
                     "image_url": row["image_url"],
                     "is_key_evidence": row["is_key_evidence"],
                     "evidence_tags": evidence_tags,
+                    "badge_label": row["badge_label"],  # Custom badge text (null = use default)
                 },
                 "turn": current_turn,
                 "trigger": "automatic",
