@@ -37,6 +37,7 @@ from app.routes import (
     subscription,
     users,
     games,
+    webhooks,
 )
 
 log = logging.getLogger("uvicorn.error")
@@ -184,6 +185,7 @@ app.include_router(credits.router, tags=["Credits"])
 app.include_router(credits.topup_router, tags=["Top-Up"])
 app.include_router(studio.router, tags=["Studio"])
 app.include_router(games.router, tags=["Games"])
+app.include_router(webhooks.router, tags=["Webhooks"])
 
 
 @app.get("/")
