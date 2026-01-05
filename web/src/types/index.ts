@@ -1576,3 +1576,74 @@ export interface PropRevealResponse {
   revealed_turn: number;
   prop: SessionProp;
 }
+
+// =============================================================================
+// Episode Props (Studio/Authoring - ADR-005)
+// =============================================================================
+
+/**
+ * Prop for episode template (authoring context, no session state)
+ */
+export interface EpisodeProp {
+  id: string;
+  name: string;
+  slug: string;
+  prop_type: PropType;
+  description: string;
+  content: string | null;
+  content_format: string | null;
+  image_url: string | null;
+  reveal_mode: PropRevealMode;
+  reveal_turn_hint: number | null;
+  is_key_evidence: boolean;
+  badge_label?: string | null;
+  evidence_tags: string[];
+  display_order: number;
+}
+
+/**
+ * Response for listing episode props
+ */
+export interface EpisodePropsResponse {
+  props: EpisodeProp[];
+  episode_id: string;
+  episode_title: string;
+}
+
+/**
+ * Create prop request
+ */
+export interface PropCreate {
+  name: string;
+  slug: string;
+  prop_type: PropType;
+  description: string;
+  content?: string | null;
+  content_format?: string | null;
+  image_url?: string | null;
+  reveal_mode?: PropRevealMode;
+  reveal_turn_hint?: number | null;
+  is_key_evidence?: boolean;
+  badge_label?: string | null;
+  evidence_tags?: string[];
+  display_order?: number;
+}
+
+/**
+ * Update prop request
+ */
+export interface PropUpdate {
+  name?: string;
+  slug?: string;
+  prop_type?: PropType;
+  description?: string;
+  content?: string | null;
+  content_format?: string | null;
+  image_url?: string | null;
+  reveal_mode?: PropRevealMode;
+  reveal_turn_hint?: number | null;
+  is_key_evidence?: boolean;
+  badge_label?: string | null;
+  evidence_tags?: string[];
+  display_order?: number;
+}

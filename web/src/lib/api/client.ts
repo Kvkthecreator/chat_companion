@@ -229,6 +229,26 @@ export const api = {
       request<import("@/types").EpisodeTemplate>(
         `/episode-templates/character/${characterId}/default`
       ),
+    // Props (ADR-005: Canonical Story Objects)
+    getProps: (templateId: string) =>
+      request<import("@/types").EpisodePropsResponse>(
+        `/episode-templates/${templateId}/props`
+      ),
+    createProp: (templateId: string, data: import("@/types").PropCreate) =>
+      request<import("@/types").EpisodeProp>(
+        `/episode-templates/${templateId}/props`,
+        { method: "POST", body: JSON.stringify(data) }
+      ),
+    updateProp: (templateId: string, propId: string, data: import("@/types").PropUpdate) =>
+      request<import("@/types").EpisodeProp>(
+        `/episode-templates/${templateId}/props/${propId}`,
+        { method: "PATCH", body: JSON.stringify(data) }
+      ),
+    deleteProp: (templateId: string, propId: string) =>
+      request<null>(
+        `/episode-templates/${templateId}/props/${propId}`,
+        { method: "DELETE" }
+      ),
   },
 
   // Series endpoints (narrative containers - per CONTENT_ARCHITECTURE_CANON.md)

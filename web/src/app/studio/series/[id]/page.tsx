@@ -19,6 +19,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import type { Series, CharacterSummary, World, GenreSettings, GenreSettingsOptions } from '@/types'
+import { PropsEditor } from '@/components/studio/PropsEditor'
 
 interface PageProps {
   params: Promise<{ id: string }>
@@ -1020,6 +1021,12 @@ export default function SeriesDetailPage({ params }: PageProps) {
                               />
                             </div>
                           </div>
+
+                          {/* Props Editor (ADR-005: Canonical Story Objects) */}
+                          <PropsEditor
+                            episodeId={editingEpisode.id}
+                            episodeTitle={editingEpisode.title}
+                          />
 
                           {/* Current Background Preview (expanded view) */}
                           {episode.background_image_url && (
