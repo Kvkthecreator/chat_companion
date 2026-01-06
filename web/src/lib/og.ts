@@ -12,10 +12,10 @@
 export const BRAND = {
   name: "episode-0",
   shortName: "ep-0",
-  tagline: "Relive fantasies with your favorite characters",
-  description: "Free interactive stories with AI characters who remember. Your choices shape the story.",
+  tagline: "Free AI stories that remember you",
+  description: "Choose your story. Shape the ending. Free interactive fiction with AI characters who remember everything.",
   url: "https://ep-0.com",
-  features: ["Free interactive stories", "AI characters who remember", "Your choices matter"],
+  features: ["100% Free", "No sign-up required", "Characters remember"],
 } as const;
 
 // =============================================================================
