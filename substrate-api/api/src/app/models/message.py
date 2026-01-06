@@ -255,14 +255,14 @@ Recent beats: {beat_flow}"""
     def _format_props(self) -> str:
         """Format props for LLM context.
 
-        ADR-005: Props are canonical story objects with exact, immutable content.
-        Layer 2.5 in Context Architecture (between Episode and Engagement).
+        ADR-005 v2: Props are canonical story objects. Director-owned revelation.
 
-        Props are formatted with clear revelation state so the LLM knows:
-        - What props exist in this scene
-        - Which have been revealed to the player
-        - Exact canonical content (for revealed props)
-        - How/when to reveal unrevealed props
+        The character knows about props naturally (like an actor knows their props).
+        No revelation instructions - the Director detects when props are mentioned
+        and handles revelation tracking separately.
+
+        For revealed props: Full canonical content available for consistent reference.
+        For unrevealed props: Character knows they exist but content is hidden.
         """
         if not self.props:
             return ""
@@ -270,34 +270,17 @@ Recent beats: {beat_flow}"""
         lines = []
 
         for prop in self.props:
-            # Header with revelation state
-            state_tag = "[REVEALED]" if prop.is_revealed else "[NOT YET SHOWN]"
-            evidence_tag = " [KEY EVIDENCE]" if prop.is_key_evidence else ""
-            lines.append(f"\nPROP: {prop.name} {state_tag}{evidence_tag}")
-            lines.append(f"Type: {prop.prop_type}")
-            lines.append(f"Description: {prop.description}")
+            evidence_tag = " [KEY]" if prop.is_key_evidence else ""
+            lines.append(f"\n• {prop.name}{evidence_tag} ({prop.prop_type})")
+            lines.append(f"  {prop.description}")
 
-            if prop.is_revealed:
-                # Player has seen this - show full canonical content
-                if prop.content:
-                    format_note = f" ({prop.content_format})" if prop.content_format else ""
-                    lines.append(f"Content{format_note}: {prop.content}")
-                lines.append("[Reference this naturally. Player has seen it.]")
-            else:
-                # Not yet revealed - give guidance on when/how to reveal
-                if prop.reveal_mode == "automatic":
-                    hint = f"turn {prop.reveal_turn_hint}" if prop.reveal_turn_hint else "the right moment"
-                    lines.append(f"[Reveal automatically around {hint}.]")
-                elif prop.reveal_mode == "character_initiated":
-                    lines.append("[You have this but haven't shown it yet. Introduce when dramatically appropriate.]")
-                elif prop.reveal_mode == "player_requested":
-                    lines.append("[Only reveal if player specifically asks to see it.]")
-                elif prop.reveal_mode == "gated":
-                    lines.append("[Requires prior revelation before this can be shown.]")
-
-                # For unrevealed props, don't show exact content - just tease
-                if prop.content and prop.prop_type in ("document", "digital", "recording"):
-                    lines.append("[Exact content available when revealed.]")
+            if prop.is_revealed and prop.content:
+                # Player has seen this - show full canonical content for consistency
+                format_note = f" [{prop.content_format}]" if prop.content_format else ""
+                lines.append(f"  Content{format_note}: \"{prop.content}\"")
+            elif not prop.is_revealed and prop.content:
+                # Prop exists but content not yet revealed - just note it has content
+                lines.append("  (has content - not yet shown)")
 
         return "\n".join(lines)
 

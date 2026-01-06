@@ -30,11 +30,13 @@ const PROP_TYPES: { value: PropType; label: string; icon: typeof FileText }[] = 
   { value: "digital", label: "Digital", icon: Smartphone },
 ];
 
+// ADR-005 v2: Director owns all revelation detection.
+// - Structural (mystery/thriller): automatic mode reveals at authored turn
+// - Semantic (romance/drama): Director detects when character mentions prop
 const REVEAL_MODES: { value: PropRevealMode; label: string; description: string }[] = [
-  { value: "automatic", label: "Automatic", description: "Revealed when turn count reaches hint" },
-  { value: "character_initiated", label: "Character Initiated", description: "Character shows it naturally" },
-  { value: "player_requested", label: "Player Requested", description: "Player must ask to see it" },
-  { value: "gated", label: "Gated", description: "Requires prior prop or condition" },
+  { value: "character_initiated", label: "Natural", description: "Director detects when character mentions it (romance/drama)" },
+  { value: "automatic", label: "At Turn", description: "Reveal at specific turn (mystery/thriller - use turn hint)" },
+  { value: "player_requested", label: "On Request", description: "Director detects when player asks and character shows" },
 ];
 
 const CONTENT_FORMATS = [
@@ -288,7 +290,11 @@ export function PropsEditor({ episodeId, episodeTitle }: PropsEditorProps) {
                           )}
                         </div>
                         <div className="text-xs text-muted-foreground">
-                          {prop.reveal_mode} • Turn {prop.reveal_turn_hint ?? "any"}
+                          {prop.reveal_mode === "automatic"
+                            ? `At turn ${prop.reveal_turn_hint ?? "?"}`
+                            : prop.reveal_mode === "character_initiated"
+                              ? "Natural reveal"
+                              : "On request"}
                         </div>
                       </div>
                     </div>
@@ -420,44 +426,45 @@ export function PropsEditor({ episodeId, episodeTitle }: PropsEditorProps) {
                 />
               </div>
 
-              {/* Content Format and Turn Hint */}
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-1">
-                  <Label>Content Format</Label>
-                  <Select
-                    value={formData.content_format || "none"}
-                    onValueChange={(v) => setFormData({ ...formData, content_format: v === "none" ? "" : v })}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select format" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {CONTENT_FORMATS.map((format) => (
-                        <SelectItem key={format.value} value={format.value}>
-                          {format.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
+              {/* Content Format */}
+              <div className="space-y-1">
+                <Label>Content Format</Label>
+                <Select
+                  value={formData.content_format || "none"}
+                  onValueChange={(v) => setFormData({ ...formData, content_format: v === "none" ? "" : v })}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select format" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {CONTENT_FORMATS.map((format) => (
+                      <SelectItem key={format.value} value={format.value}>
+                        {format.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
 
+              {/* Turn Hint - Only shown for automatic mode (mystery/thriller) */}
+              {formData.reveal_mode === "automatic" && (
                 <div className="space-y-1">
-                  <Label>Reveal Turn Hint</Label>
+                  <Label>Reveal at Turn</Label>
                   <Input
                     type="number"
                     min={0}
                     value={formData.reveal_turn_hint ?? ""}
                     onChange={(e) => setFormData({
                       ...formData,
-                      reveal_turn_hint: e.target.value ? parseInt(e.target.value) : undefined,
+                      reveal_turn_hint: e.target.value ? parseInt(e.target.value, 10) : undefined
                     })}
-                    placeholder="e.g., 3"
+                    placeholder="0"
                   />
                   <p className="text-xs text-muted-foreground">
-                    Turn number when prop should be revealed (for automatic mode)
+                    Director will reveal this prop at this turn (0 = opening line). Used for mystery/thriller pacing.
                   </p>
                 </div>
-              </div>
+              )}
 
               {/* Image URL with preview */}
               <div className="space-y-2">

@@ -1,6 +1,6 @@
 # Context Layers
 
-> **Version**: 1.6.0
+> **Version**: 1.7.0
 > **Status**: Active
 > **Updated**: 2025-01-06
 
@@ -202,34 +202,32 @@ Props are **canonical story objects** with exact, immutable content. They solve 
 | `recording` | Voicemail, video | Transcript |
 | `digital` | Text message, email | Exact digital content |
 
-### Revelation Mechanics
+### Revelation Mechanics (v2 - Director-Owned)
 
-Props track whether player has "seen" them:
+Props track whether player has "seen" them. **Director owns all revelation via dual paths:**
 
-| Mode | Behavior |
-|------|----------|
-| `character_initiated` | Character shows prop naturally in conversation |
-| `player_requested` | Player must ask to see it ("show me the note") |
-| `automatic` | Revealed at specific turn |
-| `gated` | Requires prior prop to be revealed first |
+| Mode | v2 Behavior |
+|------|-------------|
+| `automatic` | **STRUCTURAL**: Director reveals at `reveal_turn_hint` (mystery/thriller pacing) |
+| `character_initiated` | **SEMANTIC**: Director detects when character mentions prop (keyword matching) |
+| `player_requested` | **SEMANTIC**: Director detects when shown after player asks |
+| `gated` | **Deprecated** - order emerges from narrative |
 
-### Format in Prompt
+**Key v2 change:** No revelation instructions in prompt. Character knows props naturally; Director observes and records. Mystery/thriller use `automatic` for plot-critical pacing; romance/drama use semantic detection.
+
+### Format in Prompt (v2)
 
 ```
-═══════════════════════════════════════════════════════════════
-PROPS IN THIS SCENE
-═══════════════════════════════════════════════════════════════
+• The Yellow Note [KEY] (document)
+  A torn piece of yellow legal paper with hasty handwriting
+  (has content - not yet shown)
 
-PROP: The Yellow Note [NOT YET SHOWN]
-Description: A torn piece of yellow legal paper with hasty handwriting
-Reveal mode: character_initiated
-[You have this but haven't shown it yet. Introduce when dramatically appropriate.]
-
-PROP: The Anonymous Text [REVEALED]
-Description: Screenshot of the text message that started everything
-Content: "Don't trust Daniel. Ask him what really happened at 10:47."
-[Reference this naturally. Player has seen it.]
+• The Anonymous Text (digital)
+  Screenshot of the text message that started everything
+  Content: "Don't trust Daniel. Ask him what really happened at 10:47."
 ```
+
+No revelation instructions - character references props naturally when appropriate.
 
 ### Quality Impact
 
@@ -491,6 +489,8 @@ Layers are assembled in this order (later = higher priority):
 
 | Version | Date | Changes |
 |---------|------|---------|
+| 1.7.1 | 2025-01-06 | **ADR-005 v2 fix**: Restored `automatic` mode for STRUCTURAL revelation (mystery/thriller). Director now has dual paths: STRUCTURAL (turn-based) + SEMANTIC (keyword detection). |
+| 1.7.0 | 2025-01-06 | **ADR-005 v2**: Director-owned prop revelation. `gated` mode deprecated. Character knows props naturally; Director detects mentions. |
 | 1.6.0 | 2025-01-06 | Updated Layer 2.5 Props status to IMPLEMENTED. Added badge_label and progression gate fields. Added Frontend Integration section with PropCard, ItemsDrawer, ChatHeader components. |
 | 1.5.0 | 2025-01-01 | Clarified that any character can play any episode (ADR-004). No special adaptation layer needed — Character + Episode naturally compose. |
 | 1.4.0 | 2024-12-23 | Resolved clarification items: turn_budget documented as Director domain, series_finale removed, genre hierarchy documented for future consolidation. |

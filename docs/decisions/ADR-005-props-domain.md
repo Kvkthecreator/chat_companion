@@ -1,8 +1,8 @@
 # ADR-005: Props Domain - Canonical Story Objects
 
-> **Status**: Implemented
+> **Status**: Implemented (v2 - Director-owned revelation)
 > **Date**: 2025-01-05
-> **Last Updated**: 2025-01-06
+> **Last Updated**: 2025-01-06 (v2 refactor)
 > **Deciders**: Architecture Review
 
 ---
@@ -146,65 +146,70 @@ CREATE INDEX idx_session_props_session ON session_props(session_id);
 
 ## Context Injection
 
-### Director Integration
+### v2: Director-Owned Revelation
 
-Props are injected in Layer 2.5, between Episode Context and Engagement:
+**Key architectural change in v2:** The Director (not the character) owns prop revelation detection.
+
+Previously, character context included revelation instructions like "[Introduce when dramatically appropriate]". This was problematic because:
+1. The character LLM might or might not mention the prop
+2. The system had no way to detect if the character actually revealed it
+3. The `automatic` mode triggered at fixed turns regardless of conversation flow
+
+**v2 approach:** Character knows props naturally (like an actor knows their props). The Director observes each exchange and detects when props are mentioned via keyword matching. This is efficient (no LLM call) and conversation-emergent.
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│  CHARACTER LLM                                               │
+│  - Receives props in context (knows what exists)             │
+│  - NO revelation instructions (just be the character)        │
+│  - Naturally mentions props when it makes sense              │
+└─────────────────────────────────────────────────────────────┘
+                            ↓
+┌─────────────────────────────────────────────────────────────┐
+│  DIRECTOR.detect_prop_revelations() [POST-RESPONSE]          │
+│  - Scans assistant response for prop name/slug mentions      │
+│  - If detected: INSERT into session_props, emit prop_reveal  │
+│  - No LLM call required (keyword matching)                   │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### Character Context (v2)
+
+Props are listed simply for character awareness, without revelation instructions:
 
 ```python
-# In ConversationContext.to_messages() or build_episode_dynamics()
-
-def _format_props_context(self, available_props, revealed_props):
-    """Format props for LLM context injection."""
-    if not available_props:
+def _format_props(self) -> str:
+    """Format props for LLM context - v2: No revelation instructions."""
+    if not self.props:
         return ""
 
-    sections = []
+    lines = []
+    for prop in self.props:
+        evidence_tag = " [KEY]" if prop.is_key_evidence else ""
+        lines.append(f"\n• {prop.name}{evidence_tag} ({prop.prop_type})")
+        lines.append(f"  {prop.description}")
 
-    # Props available to show this episode
-    sections.append("═══════════════════════════════════════════════════════════════")
-    sections.append("PROPS IN THIS SCENE")
-    sections.append("═══════════════════════════════════════════════════════════════")
+        if prop.is_revealed and prop.content:
+            # Show full canonical content for revealed props
+            lines.append(f'  Content: "{prop.content}"')
+        elif not prop.is_revealed and prop.content:
+            lines.append("  (has content - not yet shown)")
 
-    for prop in available_props:
-        is_revealed = prop.id in revealed_props
-
-        if is_revealed:
-            # Player has seen this - character can reference freely
-            sections.append(f"""
-PROP: {prop.name} [REVEALED]
-Description: {prop.description}
-{f'Content: "{prop.content}"' if prop.content else ''}
-[Reference this naturally. Player has seen it.]
-""")
-        else:
-            # Not yet revealed - character knows it exists
-            sections.append(f"""
-PROP: {prop.name} [NOT YET SHOWN]
-Description: {prop.description}
-Reveal mode: {prop.reveal_mode}
-[You have this but haven't shown it yet. Introduce when dramatically appropriate.]
-""")
-
-    return "\n".join(sections)
+    return "\n".join(lines)
 ```
 
-### Prompt Output Example
+### Revelation Modes (v2)
 
-```
-═══════════════════════════════════════════════════════════════
-PROPS IN THIS SCENE
-═══════════════════════════════════════════════════════════════
+| Mode | v1 Behavior | v2 Behavior |
+|------|-------------|-------------|
+| `automatic` | Turn-based trigger | **STRUCTURAL**: Director reveals at `reveal_turn_hint` (mystery/thriller) |
+| `character_initiated` | Instructed to reveal | **SEMANTIC**: Director detects when character mentions |
+| `player_requested` | Instructed to wait for ask | **SEMANTIC**: Director detects when shown after ask |
+| `gated` | Required prior prop | **Deprecated** - order emerges from narrative |
 
-PROP: The Yellow Note [NOT YET SHOWN]
-Description: A torn piece of yellow legal paper with hasty handwriting, creased from being folded multiple times
-Reveal mode: character_initiated
-[You have this but haven't shown it yet. Introduce when dramatically appropriate.]
-
-PROP: The Anonymous Text [REVEALED]
-Description: A screenshot of the text message that started everything
-Content: "Don't trust Daniel. Ask him what really happened at 10:47."
-[Reference this naturally. Player has seen it.]
-```
+In v2, Director owns all revelation detection via two paths:
+- **STRUCTURAL** (`automatic` mode): Props reveal at authored turn - for mystery/thriller where props are plot-critical
+- **SEMANTIC** (other modes): Keyword detection when character mentions prop naturally - for romance/drama
 
 ---
 
@@ -350,11 +355,12 @@ Props aren't mandatory but **enhance** any series with tangible story elements.
 - [x] Generate prop images via existing image scripts
 - [x] Basic API endpoints: GET /sessions/{id}/props, POST /sessions/{id}/props/{prop_id}/reveal
 
-### Phase 2: Context Integration ✅
-- [x] Director injects available props into context (via `_format_props_context`)
+### Phase 2: Context Integration ✅ (v2 refactored)
+- [x] Director injects available props into context (via `_format_props`)
 - [x] Track prop revelations in session_props
-- [x] Automatic revelation when `reveal_mode='automatic'` and `reveal_turn_hint <= current_turn`
-- [ ] LLM evaluation detects prop mentions (deferred - semantic detection)
+- [x] **v2: Director-owned revelation with dual paths:**
+  - STRUCTURAL: `reveal_mode='automatic'` + `reveal_turn_hint` triggers at authored turn
+  - SEMANTIC: Keyword detection when character mentions prop naturally
 
 ### Phase 3: Frontend ✅
 - [x] `prop_reveal` SSE event handling (in `useChat.ts`)
@@ -370,6 +376,7 @@ Props aren't mandatory but **enhance** any series with tangible story elements.
 ### Phase 4: Studio UI ✅
 - [x] PropsEditor component with full CRUD
 - [x] Prop form with all fields (name, slug, type, reveal mode, content, etc.)
+- [x] Turn hint field (conditionally shown for `automatic` mode)
 - [x] Image thumbnails with expand/download lightbox
 - [x] Form validation (name, slug, description required)
 - [ ] Preview props in episode preview - future enhancement
@@ -427,7 +434,7 @@ Props aren't mandatory but **enhance** any series with tangible story elements.
 
 ## Open Questions
 
-1. **Prop revelation detection**: ✅ Resolved - Using turn-based automatic revelation for `reveal_mode='automatic'`. Semantic detection (LLM analyzes if prop was mentioned) deferred to future audit. See `DIRECTOR_UI_TOOLKIT.md` for UPSTREAM-DRIVEN vs RUNTIME-DRIVEN distinction.
+1. **Prop revelation detection**: ✅ Resolved in v2 - Director-owned detection via dual paths. STRUCTURAL: `automatic` mode reveals at authored turn (mystery/thriller). SEMANTIC: keyword detection for other modes (romance/drama). No LLM call required. `gated` mode deprecated.
 2. **Cross-series props**: Can the same prop (e.g., character's signature item) appear in multiple series?
 3. **User-created props**: Future consideration - can users add props in user-generated episodes?
 

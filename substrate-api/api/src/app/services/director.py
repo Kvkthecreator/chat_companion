@@ -390,6 +390,8 @@ class DirectorOutput:
 
     v2.6: Renamed is_complete → suggest_next, completion_trigger → suggestion_trigger
     to decouple suggestion flow from "completion" semantics. See EPISODE_STATUS_MODEL.md.
+
+    ADR-005 v2: Director owns prop revelation detection.
     """
     # Core state
     turn_count: int
@@ -406,6 +408,9 @@ class DirectorOutput:
     extracted_memories: List[Any] = field(default_factory=list)  # List[ExtractedMemory]
     beat_data: Optional[Dict[str, Any]] = None
     extracted_hooks: List[Any] = field(default_factory=list)  # List[ExtractedHook]
+
+    # ADR-005 v2: Props revealed this turn (Director-detected)
+    revealed_props: List[Dict[str, Any]] = field(default_factory=list)
 
     # Legacy compatibility
     structured_response: Optional[Dict[str, Any]] = None
@@ -890,6 +895,24 @@ STATUS: going/closing/done"""
             log.error(f"Director memory/hook extraction failed: {e}")
             # Don't fail the entire exchange if memory extraction fails
 
+        # 8.5. ADR-005 v2: Prop revelation detection (Director-owned)
+        revealed_props = []
+        if episode_template and messages:
+            try:
+                # Get the last assistant message
+                assistant_messages = [m for m in messages if m.get("role") == "assistant"]
+                if assistant_messages:
+                    last_response = assistant_messages[-1].get("content", "")
+                    revealed_props = await self.detect_prop_revelations(
+                        session_id=session.id,
+                        episode_template_id=episode_template.id,
+                        assistant_response=last_response,
+                        current_turn=new_turn_count,
+                    )
+            except Exception as e:
+                log.error(f"Director prop detection failed: {e}")
+                # Don't fail the entire exchange if prop detection fails
+
         # 9. Build output
         return DirectorOutput(
             turn_count=new_turn_count,
@@ -900,6 +923,7 @@ STATUS: going/closing/done"""
             extracted_memories=extracted_memories,
             extracted_hooks=extracted_hooks,
             beat_data=beat_data,
+            revealed_props=revealed_props,
         )
 
     async def _get_character(self, character_id: UUID) -> Optional[Dict[str, Any]]:
@@ -909,6 +933,119 @@ STATUS: going/closing/done"""
             {"character_id": str(character_id)}
         )
         return dict(row) if row else None
+
+    # =========================================================================
+    # ADR-005 v2: PROP REVELATION DETECTION
+    # =========================================================================
+
+    async def detect_prop_revelations(
+        self,
+        session_id: UUID,
+        episode_template_id: UUID,
+        assistant_response: str,
+        current_turn: int,
+    ) -> List[Dict[str, Any]]:
+        """Detect which props should be revealed this turn.
+
+        ADR-005 v2: Director owns prop revelation detection.
+
+        Two revelation paths (both Director-owned):
+        1. STRUCTURAL (mystery/thriller): reveal_mode='automatic' + reveal_turn_hint
+           Props that are plot-critical reveal at authored turns regardless of mention
+        2. SEMANTIC (romance/drama): Keyword detection when character mentions prop
+
+        Returns list of prop data dicts for newly revealed props.
+        """
+        # Get unrevealed props for this episode (include reveal_mode and turn_hint)
+        query = """
+            SELECT p.id, p.name, p.slug, p.prop_type, p.description,
+                   p.content, p.content_format, p.image_url,
+                   p.is_key_evidence, p.evidence_tags, p.badge_label,
+                   p.reveal_mode, p.reveal_turn_hint
+            FROM props p
+            LEFT JOIN session_props sp ON sp.prop_id = p.id AND sp.session_id = :session_id
+            WHERE p.episode_template_id = :template_id
+            AND sp.id IS NULL  -- Not yet revealed
+        """
+        rows = await self.db.fetch_all(query, {
+            "session_id": str(session_id),
+            "template_id": str(episode_template_id),
+        })
+
+        if not rows:
+            return []
+
+        revealed = []
+        response_lower = assistant_response.lower()
+
+        for row in rows:
+            should_reveal = False
+            reveal_trigger = "director_detected"
+
+            # Path 1: STRUCTURAL - automatic reveal at authored turn (mystery/thriller)
+            if row["reveal_mode"] == "automatic" and row["reveal_turn_hint"] is not None:
+                if current_turn >= row["reveal_turn_hint"]:
+                    should_reveal = True
+                    reveal_trigger = "automatic"
+                    log.debug(f"Prop {row['name']}: automatic reveal at turn {current_turn} (hint={row['reveal_turn_hint']})")
+
+            # Path 2: SEMANTIC - keyword detection (all modes)
+            if not should_reveal:
+                prop_name = row["name"].lower()
+                prop_slug = row["slug"].lower().replace("-", " ").replace("_", " ")
+
+                # Check if prop name or slug appears in response
+                # Also check key terms from the prop name (e.g., "note" from "The Yellow Note")
+                name_words = [w for w in prop_name.split() if len(w) > 3]  # Skip short words
+
+                mentioned = (
+                    prop_name in response_lower or
+                    prop_slug in response_lower or
+                    any(word in response_lower for word in name_words if word not in ("the", "this", "that"))
+                )
+
+                if mentioned:
+                    should_reveal = True
+                    reveal_trigger = "semantic"
+
+            if should_reveal:
+                # Record revelation
+                insert_query = """
+                    INSERT INTO session_props (session_id, prop_id, revealed_turn, reveal_trigger)
+                    VALUES (:session_id, :prop_id, :revealed_turn, :reveal_trigger)
+                    ON CONFLICT (session_id, prop_id) DO NOTHING
+                    RETURNING id
+                """
+                result = await self.db.fetch_one(insert_query, {
+                    "session_id": str(session_id),
+                    "prop_id": str(row["id"]),
+                    "revealed_turn": current_turn,
+                    "reveal_trigger": reveal_trigger,  # Use determined trigger type
+                })
+
+                # Only add to revealed list if actually inserted (not a duplicate)
+                if result:
+                    evidence_tags = row["evidence_tags"] or []
+                    if isinstance(evidence_tags, str):
+                        evidence_tags = json.loads(evidence_tags)
+
+                    prop_data = {
+                        "id": str(row["id"]),
+                        "name": row["name"],
+                        "slug": row["slug"],
+                        "prop_type": row["prop_type"],
+                        "description": row["description"],
+                        "content": row["content"],
+                        "content_format": row["content_format"],
+                        "image_url": row["image_url"],
+                        "is_key_evidence": row["is_key_evidence"],
+                        "evidence_tags": evidence_tags,
+                        "badge_label": row["badge_label"],
+                    }
+                    revealed.append(prop_data)
+                    log.info(f"Director prop revelation: {row['name']} at turn {current_turn} (trigger={reveal_trigger})")
+
+        return revealed
 
     async def _get_user_preferences(self, user_id: UUID) -> Dict[str, Any]:
         """Fetch user preferences from database."""

@@ -35,6 +35,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- **ADR-005 v2**: Director-owned prop revelation (refactor)
+  - Director now owns all prop revelation via dual paths:
+    - **STRUCTURAL**: `automatic` mode reveals at `reveal_turn_hint` (mystery/thriller pacing)
+    - **SEMANTIC**: Keyword detection when character mentions prop (romance/drama)
+  - Character knows props naturally; no revelation instructions in prompt
+  - Deprecated `gated` reveal mode (order emerges from narrative)
+  - PropsEditor shows turn hint field conditionally for `automatic` mode
+  - See: [ADR-005 v2](docs/decisions/ADR-005-props-domain.md)
+
 - Updated [EPISODE-0_CANON.md](docs/EPISODE-0_CANON.md) with Role architecture (Section 9)
 - Updated [CHARACTER_DATA_MODEL.md](docs/quality/core/CHARACTER_DATA_MODEL.md) v2.0.0 with user character types
 
