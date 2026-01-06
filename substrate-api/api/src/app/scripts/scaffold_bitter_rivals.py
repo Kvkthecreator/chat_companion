@@ -1,31 +1,31 @@
-"""Scaffold The Arrangement Series.
+"""Scaffold Bitter Rivals Series.
 
 CANON COMPLIANT: docs/CONTENT_ARCHITECTURE_CANON.md
-GENRE: fake_dating (Escape Room Archetype - Performance Path)
+GENRE: enemies_to_lovers (Escape Room Archetype - Rivalry Path)
 WORLD: flexible (works with any user-created character)
 TARGET: Fanfic audience, user-created characters
 
 Concept:
-- User's OC needs a fake date/partner for [reason TBD by character]
-- They make an arrangement - rules, boundaries, terms
-- The performance becomes too natural too fast
-- "It's fake" stops being convincing to either of them
+- User's OC is their insufferable rival in [context TBD by character]
+- Forced to work together on something neither can do alone
+- Banter-forward with crackling tension underneath
+- The hate is a mask. They both know it. Neither will admit it.
 
 Key Fanfic Tropes:
-- "We're just pretending" (narrator: they were not just pretending)
-- The practice kiss that goes too long
-- Jealousy that "doesn't count" because it's not real
-- The moment they forget they're acting
+- "I hate you" (but I can't stop thinking about you)
+- Forced proximity through competition
+- The moment they realize it was never hate
+- Tension through verbal sparring
 
 This series demonstrates:
-- User-created character as NPC (the fake partner)
-- Fake-dating arc across 4 episodes
-- Trope-aware styling for fanfic audience
-- Props as arrangement artifacts that gain emotional weight
+- User-created character as NPC (OC is the love interest)
+- Enemies-to-lovers arc across 4 episodes
+- Banter-forward styling for fanfic audience
+- Props as rivalry trophies that become meaningful
 
 Usage:
-    python -m app.scripts.scaffold_the_arrangement
-    python -m app.scripts.scaffold_the_arrangement --dry-run
+    python -m app.scripts.scaffold_bitter_rivals
+    python -m app.scripts.scaffold_bitter_rivals --dry-run
 """
 
 import asyncio
@@ -44,164 +44,164 @@ DATABASE_URL = os.getenv(
 )
 
 # =============================================================================
-# FAKE DATING STYLE CONSTANTS
+# ENEMIES-TO-LOVERS STYLE CONSTANTS
 # =============================================================================
 
-FD_STYLE = "soft romantic photography, warm lighting, intimate framing, candid couple moments, emotional authenticity"
-FD_QUALITY = "masterpiece, best quality, highly detailed, natural warmth, emotional resonance"
-FD_NEGATIVE = "anime, cartoon, harsh lighting, low quality, blurry, text, watermark, staged, stiff"
+ETL_STYLE = "dramatic cinematic photography, high contrast lighting, tension in the frame, two silhouettes, charged atmosphere"
+ETL_QUALITY = "masterpiece, best quality, highly detailed, dramatic shadows, emotional intensity"
+ETL_NEGATIVE = "anime, cartoon, bright cheerful, low quality, blurry, text, watermark, multiple people beyond two"
 
 # =============================================================================
 # SERIES METADATA
 # =============================================================================
 
 SERIES_DATA = {
-    "title": "The Arrangement",
-    "slug": "the-arrangement",
-    "description": "You needed a fake date. They needed... something. The arrangement was supposed to be simple: pretend in public, strangers in private. But they're too good at this. Too natural. And somewhere between the first held hand and the practiced smile, you stopped being able to tell where the act ends.",
-    "tagline": "Pretend long enough and the lie becomes the truth.",
-    "genre": "fake_dating",
+    "title": "Bitter Rivals",
+    "slug": "bitter-rivals",
+    "description": "They're your rival in everything. Top of every list, always one step ahead or behind. You've hated them since the day you met. At least, that's what you tell yourself. When you're forced to work together, the hate starts to feel like something else entirely.",
+    "tagline": "The hate was never hate. You both knew it.",
+    "genre": "enemies_to_lovers",
     "series_type": "serial",
     "visual_style": {
-        "rendering": FD_STYLE,
-        "quality": FD_QUALITY,
-        "negative": FD_NEGATIVE,
-        "palette": "warm romantic tones, soft lighting, intimate framing, natural warmth",
+        "rendering": ETL_STYLE,
+        "quality": ETL_QUALITY,
+        "negative": ETL_NEGATIVE,
+        "palette": "high contrast, charged shadows, tension lighting, dramatic depth",
     },
 }
 
 # =============================================================================
 # PROPS DEFINITIONS (ADR-005 - AUTOMATIC REVEALS)
 # =============================================================================
-# Fake dating uses automatic reveals for pacing.
-# Props are arrangement artifacts that gain emotional weight.
+# Enemies-to-lovers uses automatic reveals for pacing.
+# Props are rivalry artifacts that gain new meaning.
 
 EPISODE_PROPS = {
-    # Episode 0: The Terms
-    # Goal: Establish the arrangement, set the rules, begin the performance
+    # Episode 0: The Assignment
+    # Goal: Forced to be partners, hostility is palpable
     0: [
         {
-            "name": "The Agreement",
-            "slug": "the-agreement",
+            "name": "The Scoreboard",
+            "slug": "the-scoreboard",
             "prop_type": "document",
-            "description": "Written on a napkin, because this was supposed to be simple. The terms of your arrangement. Rules about touching, about kissing, about what this is and isn't. Their handwriting is neater than you expected.",
-            "content": "Terms:\n1. Public only\n2. No kissing unless necessary\n3. First names only - no pet names\n4. Ends after [the event]\n5. This changes nothing between us\n\nSigned: _____ & _____",
+            "description": "A running tally of every time you've beaten them. And every time they've beaten you. The margins are razor thin. They've been keeping track too.",
+            "content": "Wins: You - 47, Them - 48. Last updated: yesterday. In their handwriting: 'Enjoy second place.'",
             "content_format": "handwritten",
             "reveal_mode": "automatic",
             "reveal_turn_hint": 0,
             "is_key_evidence": True,
-            "badge_label": "The Terms",
-            "evidence_tags": ["agreement", "rules", "boundaries"],
+            "badge_label": "History",
+            "evidence_tags": ["rivalry", "obsession", "equal"],
             "display_order": 0,
         },
         {
-            "name": "The First Touch",
-            "slug": "first-touch",
+            "name": "Their Tell",
+            "slug": "their-tell",
             "prop_type": "object",
-            "description": "They reached for your hand in front of someone. Just part of the act. But their palm was warm and their fingers found the spaces between yours like they'd done it before.",
+            "description": "You've watched them long enough to know when they're nervous. The way they tap their finger, adjust their collar. You're not sure when you started noticing.",
+            "content": None,
+            "content_format": None,
+            "reveal_mode": "automatic",
+            "reveal_turn_hint": 4,
+            "is_key_evidence": False,
+            "badge_label": "Observation",
+            "evidence_tags": ["watching", "detail", "intimacy"],
+            "display_order": 1,
+        },
+    ],
+    # Episode 1: Common Ground
+    # Goal: Working together reveals uncomfortable similarities
+    1: [
+        {
+            "name": "The Same Strategy",
+            "slug": "same-strategy",
+            "prop_type": "document",
+            "description": "You both had the same plan. Down to the details. They look at you differently after that - like they're seeing you for the first time.",
+            "content": "Two pages of notes, side by side. Almost identical reasoning. Different handwriting, same conclusion.",
+            "content_format": None,
+            "reveal_mode": "automatic",
+            "reveal_turn_hint": 2,
+            "is_key_evidence": True,
+            "badge_label": "Mirror",
+            "evidence_tags": ["parallel", "recognition", "unnerving"],
+            "display_order": 0,
+        },
+        {
+            "name": "Reluctant Compliment",
+            "slug": "reluctant-compliment",
+            "prop_type": "object",
+            "description": "They said something almost nice. Then immediately took it back. But you heard it. And they know you heard it.",
             "content": None,
             "content_format": None,
             "reveal_mode": "automatic",
             "reveal_turn_hint": 5,
             "is_key_evidence": False,
-            "badge_label": "First Crack",
-            "evidence_tags": ["physical", "unexpected", "awareness"],
+            "badge_label": "Crack",
+            "evidence_tags": ["slip", "genuine", "denial"],
             "display_order": 1,
         },
     ],
-    # Episode 1: The Performance
-    # Goal: The act in public, recovering in private, lines start to blur
-    1: [
+    # Episode 2: The Truce
+    # Goal: A crisis forces real cooperation, walls start crumbling
+    2: [
         {
-            "name": "The Practice Kiss",
-            "slug": "practice-kiss",
+            "name": "Their Real Laugh",
+            "slug": "real-laugh",
             "prop_type": "object",
-            "description": "'We should practice. So it looks natural.' That was the excuse. Neither of you practiced stopping.",
+            "description": "Not the smirk they use in competition. An actual laugh. Surprised out of them. At something you said. You want to hear it again.",
             "content": None,
             "content_format": None,
             "reveal_mode": "automatic",
             "reveal_turn_hint": 3,
             "is_key_evidence": True,
-            "badge_label": "Rehearsal",
-            "evidence_tags": ["physical", "excuse", "lingering"],
+            "badge_label": "Unguarded",
+            "evidence_tags": ["genuine", "surprise", "want"],
             "display_order": 0,
         },
         {
-            "name": "The Pet Name",
-            "slug": "pet-name",
+            "name": "The Almost-Moment",
+            "slug": "almost-moment",
             "prop_type": "object",
-            "description": "Rule #3: No pet names. They broke it first. Just once. In front of someone. But when they apologized later, they didn't sound sorry.",
-            "content": None,
-            "content_format": None,
-            "reveal_mode": "automatic",
-            "reveal_turn_hint": 6,
-            "is_key_evidence": False,
-            "badge_label": "Rule Broken",
-            "evidence_tags": ["slip", "denial", "telling"],
-            "display_order": 1,
-        },
-    ],
-    # Episode 2: The Cracks
-    # Goal: Jealousy, performance bleeding into reality, harder to separate
-    2: [
-        {
-            "name": "The Jealousy",
-            "slug": "the-jealousy",
-            "prop_type": "object",
-            "description": "Someone flirted with you. It's not real, so it shouldn't matter. You watched their jaw tighten anyway. Asked them about it later. 'I was acting,' they said. They weren't.",
-            "content": None,
-            "content_format": None,
-            "reveal_mode": "automatic",
-            "reveal_turn_hint": 2,
-            "is_key_evidence": True,
-            "badge_label": "Real Feeling",
-            "evidence_tags": ["jealousy", "denial", "possessive"],
-            "display_order": 0,
-        },
-        {
-            "name": "The Private Moment",
-            "slug": "private-moment",
-            "prop_type": "object",
-            "description": "No one was watching. No performance needed. But when you looked up, they were looking at you the same way they do in public. Old habit, they said. Neither of you believed it.",
+            "description": "Something shifted. A pause that lasted too long. Eyes that dropped to lips. Neither of you acknowledged it. But it happened.",
             "content": None,
             "content_format": None,
             "reveal_mode": "automatic",
             "reveal_turn_hint": 7,
             "is_key_evidence": True,
-            "badge_label": "No Audience",
-            "evidence_tags": ["private", "unguarded", "truth"],
+            "badge_label": "Turning Point",
+            "evidence_tags": ["tension", "unspoken", "charged"],
             "display_order": 1,
         },
     ],
-    # Episode 3: The End
-    # Goal: The arrangement is over - but what now?
+    # Episode 3: The Truth
+    # Goal: No more pretending, confrontation of what this really is
     3: [
         {
-            "name": "The End of the Arrangement",
-            "slug": "arrangement-ends",
+            "name": "The Question",
+            "slug": "the-question",
             "prop_type": "object",
-            "description": "The event is over. The arrangement fulfilled. You should go back to normal. Neither of you has moved. 'So,' they say. 'This is done.' But they haven't let go of your hand.",
+            "description": "'Why do you hate me?' They finally ask. But the way they ask... they already know the answer isn't hate.",
             "content": None,
             "content_format": None,
             "reveal_mode": "automatic",
             "reveal_turn_hint": 2,
             "is_key_evidence": True,
-            "badge_label": "Over?",
-            "evidence_tags": ["ending", "hesitation", "choice"],
+            "badge_label": "Confrontation",
+            "evidence_tags": ["direct", "vulnerability", "truth"],
             "display_order": 0,
         },
         {
-            "name": "The Real Question",
-            "slug": "the-question",
+            "name": "The Admission",
+            "slug": "the-admission",
             "prop_type": "object",
-            "description": "'Was any of it real?' One of you asks. The answer matters more than either expected. This is the moment. What comes next?",
+            "description": "One of you says it first. The thing you've both been pretending wasn't true. The rivalry was never about winning. It was about not losing them.",
             "content": None,
             "content_format": None,
             "reveal_mode": "automatic",
-            "reveal_turn_hint": 5,
+            "reveal_turn_hint": 6,
             "is_key_evidence": True,
             "badge_label": "The Truth",
-            "evidence_tags": ["confrontation", "vulnerability", "finally"],
+            "evidence_tags": ["confession", "release", "finally"],
             "display_order": 1,
         },
     ],
@@ -214,67 +214,67 @@ EPISODE_PROPS = {
 EPISODES = [
     {
         "episode_number": 0,
-        "title": "The Terms",
-        "situation": "You need a fake date. For reasons. They agreed - also for reasons. Now you're sitting across from each other, negotiating terms like this is a business deal. It should feel clinical. It doesn't.",
-        "dramatic_question": "Can you set rules for something that's already more complicated than you're admitting?",
-        "opening_line": "*They slide a napkin across the table, pen in hand.* 'If we're doing this, we should have terms. You know. So neither of us gets... confused.'",
-        "scene_objective": "Establish the arrangement. Negotiate terms. Show the chemistry that makes those terms feel like they're already in trouble.",
+        "title": "The Assignment",
+        "situation": "You've been paired with them. Of all people. The one person you can't stand - the one who matches you in everything, beats you half the time, and never lets you forget it. You'll have to work together. The thought is unbearable. Almost.",
+        "dramatic_question": "Can you work with someone you've spent years competing against - and why does their presence affect you this much?",
+        "opening_line": "*They're already there when you arrive, leaning against the wall with that infuriating smirk.* 'Well. This should be interesting.'",
+        "scene_objective": "Establish the rivalry dynamic. Banter is sharp but underneath there's something else - awareness, obsession disguised as competition.",
         "turn_budget": 10,
         "starter_prompts": [
-            "What counts as 'necessary'?",
-            "This stays professional.",
-            "Why are you helping me with this?",
+            "Of course they stuck me with you.",
+            "Don't expect me to carry you through this.",
+            "Try not to slow me down.",
         ],
     },
     {
         "episode_number": 1,
-        "title": "The Performance",
-        "situation": "The first public outing. You're supposed to look like a couple. You're supposed to be acting. The problem is they're too good at this. And you're having trouble remembering your lines.",
-        "dramatic_question": "When does the performance stop being a performance?",
-        "opening_line": "*You're about to walk in together. They reach for your hand and lean close.* 'Ready? Remember - we're in love.' *Their smile doesn't quite reach their eyes. Or maybe it does.*",
-        "scene_objective": "First public performance. The touching, the closeness, the pet names. Show the act working too well.",
+        "title": "Common Ground",
+        "situation": "Working together is going better than expected. Worse than expected. You keep finishing each other's thoughts. They're smart - really smart - and watching them work is... You need to focus. This is still a competition, even if you're on the same side.",
+        "dramatic_question": "What happens when your rival starts to feel less like an enemy and more like an equal - someone who actually sees you?",
+        "opening_line": "*They slide their notes across the table, then freeze when they see yours.* '...You have got to be kidding me.'",
+        "scene_objective": "Reveal uncomfortable similarities. The animosity becomes harder to maintain when you realize how alike you are.",
         "turn_budget": 10,
         "starter_prompts": [
-            "You're a surprisingly good actor.",
-            "That was... convincing.",
-            "We should probably practice more.",
+            "Great minds think alike. Unfortunately.",
+            "Stop agreeing with me, it's unsettling.",
+            "This doesn't mean anything.",
         ],
     },
     {
         "episode_number": 2,
-        "title": "The Cracks",
-        "situation": "The arrangement is working. Too well. Someone flirted with you at the last event and they didn't handle it like someone who's pretending. Neither did you. The lines are blurring and you're not sure you want to redraw them.",
-        "dramatic_question": "What happens when the feelings stop being fake before the arrangement ends?",
-        "opening_line": "*They find you after.* 'That person at the party - were they bothering you?' *Their voice is casual. Their eyes are not.*",
-        "scene_objective": "Jealousy that shouldn't exist. Private moments that feel too real. The cracks in the performance become undeniable.",
+        "title": "The Truce",
+        "situation": "Something's changed. The barbs don't land the same way. When you argue now, it feels like something else. They've started looking at you differently. Or maybe you've started noticing. The competition isn't the problem anymore. The problem is what's underneath it.",
+        "dramatic_question": "When the rivalry stops being a shield, what are you left with - and are you brave enough to face it?",
+        "opening_line": "*They catch you staring and don't look away.* 'See something you like?' *But there's no edge to it. Just a question.*",
+        "scene_objective": "Build genuine tension. This is where the denial starts to crack. Physical awareness, loaded silences, almost-moments.",
         "turn_budget": 12,
         "starter_prompts": [
-            "You seemed upset earlier. Why?",
-            "We weren't even performing then.",
+            "We should probably talk about... never mind.",
+            "Why are you looking at me like that?",
             "This is getting complicated.",
         ],
     },
     {
         "episode_number": 3,
-        "title": "The End",
-        "situation": "The event is over. The arrangement is fulfilled. Contract complete. Except neither of you is acting like it. The performance should be over. So why does stopping feel like the lie?",
-        "dramatic_question": "When the arrangement ends, what's left that's real?",
-        "opening_line": "*It's done. You're standing outside, the reason for this finished.* 'Well,' they say, not quite meeting your eyes. 'We did it. Deal's done.' *They don't move to leave.*",
-        "scene_objective": "The ending that could be a beginning. The question that needs asking. This is the confession scene - make it earned.",
+        "title": "The Truth",
+        "situation": "No more games. No more competition. Something happened - or almost happened - and you can't pretend anymore. They're not your rival. They never really were. The question is whether you're brave enough to admit what they actually are.",
+        "dramatic_question": "When you finally admit the truth - to yourself and to them - what happens to everything you thought you knew?",
+        "opening_line": "*They find you alone, and for once, neither of you has a clever comeback.* 'We need to talk. Actually talk.'",
+        "scene_objective": "Emotional climax. The walls come down. This is the confession scene fanfic readers live for.",
         "turn_budget": 12,
         "starter_prompts": [
-            "So what happens now?",
-            "Was any of it real for you?",
-            "I don't want to stop pretending.",
+            "I never hated you. I think you know that.",
+            "Tell me I'm not imagining this.",
+            "What are we doing?",
         ],
     },
 ]
 
 
 async def main(dry_run: bool = False):
-    """Scaffold The Arrangement series."""
+    """Scaffold the Bitter Rivals series."""
     print("=" * 60)
-    print("SCAFFOLDING: The Arrangement (Fake Dating)")
+    print("SCAFFOLDING: Bitter Rivals (Enemies to Lovers)")
     print("=" * 60)
 
     if dry_run:
@@ -392,9 +392,9 @@ async def main(dry_run: bool = False):
             print("SCAFFOLD COMPLETE")
             print(f"Series ID: {series_id}")
             print("\nNext steps:")
-            print("1. Create/assign a user character to play as the fake partner")
-            print("2. Generate images: python -m app.scripts.generate_the_arrangement_images")
-            print("3. Activate via SQL: UPDATE series SET status = 'active' WHERE slug = 'the-arrangement'")
+            print("1. Create/assign a user character to play as the rival")
+            print("2. Generate images: python -m app.scripts.generate_bitter_rivals_images")
+            print("3. Activate via SQL: UPDATE series SET status = 'active' WHERE slug = 'bitter-rivals'")
         print("=" * 60)
 
     finally:
@@ -403,7 +403,7 @@ async def main(dry_run: bool = False):
 
 if __name__ == "__main__":
     import argparse
-    parser = argparse.ArgumentParser(description="Scaffold The Arrangement series")
+    parser = argparse.ArgumentParser(description="Scaffold Bitter Rivals series")
     parser.add_argument("--dry-run", action="store_true", help="Preview without database changes")
     args = parser.parse_args()
 

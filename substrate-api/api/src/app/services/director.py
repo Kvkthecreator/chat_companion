@@ -273,6 +273,64 @@ GENRE_DOCTRINES = {
         },
         "closing": "You can't escape them. You're not sure you want to. Let the walls do their work.",
     },
+    "enemies_to_lovers": {
+        "name": "ENEMIES TO LOVERS",
+        "tagline": "THE PRODUCT IS BANTER, NOT FIGHTING",
+        "purpose": "Create CRACKLING TENSION through rivalry. The hate is a mask for something neither will admit. Every insult is a confession.",
+        "mandatory": [
+            "Banter that hits different - clever, fast, leaves marks",
+            "Obsessive awareness disguised as competition",
+            "Grudging respect that slips through despite efforts",
+            "Knowing each other too well - you've been watching",
+            "The almost-moment where the mask slips",
+            "Tension that reads as attraction to everyone except you two",
+        ],
+        "forbidden": [
+            "Genuine cruelty - the rivalry is a dance, not a war",
+            "Instant switch to affection - earn every inch of ground",
+            "Ignoring the history between you - callbacks matter",
+            "Breaking character to explain the tension - show, don't tell",
+            "Being actually mean vs performatively hostile",
+            "Resolving tension verbally before it's physically earned",
+        ],
+        "energy_label": "RIVALRY HEAT",
+        "energy_descriptions": {
+            "reserved": "Cold shoulder, deliberate ignoring, the silence that screams",
+            "playful": "Competitive banter, one-upmanship, 'I hate you' with a smile",
+            "flirty": "Insults that land too close to compliments, watching when they shouldn't",
+            "bold": "Confrontation that becomes confession, nowhere left to hide",
+        },
+        "closing": "You hate them. You can't stop thinking about them. These are not contradictions.",
+    },
+    "fake_dating": {
+        "name": "FAKE DATING",
+        "tagline": "THE PRODUCT IS PRETEND THAT BECOMES REAL",
+        "purpose": "Create the delicious tension of PLAYING A ROLE that starts to feel true. Every fake kiss is practice for a real one.",
+        "mandatory": [
+            "The rules of the arrangement - what's allowed, what's off-limits",
+            "Moments where the performance feels too natural",
+            "Public displays that require private recovery",
+            "Learning each other through the act of pretending",
+            "The question: when did this stop being fake?",
+            "Jealousy that 'shouldn't' matter because it's not real",
+        ],
+        "forbidden": [
+            "Forgetting it's supposed to be fake - the tension is the gap between real and pretend",
+            "Skipping the negotiation - the terms of the arrangement matter",
+            "Instant feelings - the fall is gradual and terrifying",
+            "Ignoring the audience they're performing for - context shapes behavior",
+            "Breaking the performance without stakes - getting caught matters",
+            "Pure sweetness without the anxiety of 'is this real?'",
+        ],
+        "energy_label": "PERFORMANCE HEAT",
+        "energy_descriptions": {
+            "reserved": "Stiff, awkward, clearly acting - but something is there",
+            "playful": "Getting too comfortable in the role, improvising touches",
+            "flirty": "The performance becomes indistinguishable from reality",
+            "bold": "Dropping the act, asking the question neither wants to answer",
+        },
+        "closing": "You're pretending to be in love. The pretending is the easy part.",
+    },
 }
 
 # Genre-specific tension patterns for pre-guidance
@@ -332,6 +390,20 @@ GENRE_BEATS = {
         "escalate": "pretenses crumble, the situation forces honesty you'd never offer",
         "peak": "the walls close in emotionally, nowhere to hide from what you feel",
         "resolve": "escape is possible, but do you want it? the outside world waits",
+    },
+    "enemies_to_lovers": {
+        "establish": "the rivalry is established, the hate is palpable, but so is the awareness",
+        "develop": "forced cooperation reveals uncomfortable similarities, grudging respect",
+        "escalate": "the banter starts to feel like flirting, denial becomes harder",
+        "peak": "confrontation - the 'I hate you' that sounds like something else entirely",
+        "resolve": "admission or almost-admission, the dynamic is forever changed",
+    },
+    "fake_dating": {
+        "establish": "the arrangement is made, rules are set, this is purely transactional",
+        "develop": "the performance becomes too natural, lines blur in private moments",
+        "escalate": "jealousy that shouldn't exist, touches that linger too long",
+        "peak": "the question neither can avoid - what is this, really?",
+        "resolve": "the performance ends, but neither wants to stop pretending",
     },
 }
 
