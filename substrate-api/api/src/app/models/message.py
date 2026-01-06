@@ -448,10 +448,11 @@ PROPS IN THIS SCENE (Layer 2.5 - canonical story objects)
 {props_text}
 
 PROP GUIDELINES:
-- Reference revealed props naturally in conversation
-- For unrevealed props, follow the reveal guidance above
-- Prop content is CANONICAL - quote it exactly when shown
-- When revealing a prop, describe it vividly before showing content
+- These props exist in the scene - reference them naturally when relevant
+- For revealed props: quote canonical content exactly
+- For unrevealed props: you know they exist, weave them into conversation naturally
+- Describe props vividly when bringing them up (what it looks like, feels like)
+- Props create shared moments - use them to build tension or connection
 """
 
         moment_layer_text = self._format_moment_layer()

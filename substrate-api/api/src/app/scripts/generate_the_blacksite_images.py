@@ -104,7 +104,7 @@ thriller aesthetic, final obstacle, tension at highest point, no people""",
     },
 }
 
-# Prop image configurations
+# Prop image configurations - slugs must match scaffold output
 PROP_IMAGES = {
     "subject-tag": {
         "prompt": """close-up photograph of white plastic hospital wristband on concrete surface,
@@ -120,46 +120,46 @@ harsh lighting through vent slats, claustrophobic metal interior, thriller aesth
 single object, evidence photography style, high contrast""",
         "negative": THRILLER_NEGATIVE,
     },
-    "keycard-green": {
+    "keycard-level-1": {
         "prompt": """close-up photograph of green access keycard on concrete floor,
-'LEVEL 2 ACCESS' printed on surface, magnetic stripe visible, slightly scuffed,
+'LEVEL 1 ACCESS' printed on surface, magnetic stripe visible, slightly scuffed,
 harsh fluorescent lighting, clinical sterile atmosphere, thriller aesthetic,
 single object, evidence photography style, high contrast""",
         "negative": THRILLER_NEGATIVE,
     },
-    "patrol-schedule": {
-        "prompt": """close-up photograph of torn piece of paper with handwritten schedule,
-times listed (02:00, 02:45, 03:30), 'PATROL ROTATION' header, coffee stain in corner,
-harsh lighting, clinical atmosphere, thriller aesthetic, evidence photography style,
-single object, no hands visible, high contrast""",
-        "negative": THRILLER_NEGATIVE,
-    },
-    "specimen-log": {
-        "prompt": """close-up photograph of damaged laboratory logbook, pages water-stained,
-entries partially redacted with black marker, dates visible from months ago,
-last entry has 'DISCONTINUED' stamped in red, scientific charts visible,
-harsh lighting, thriller aesthetic, evidence photography style, biohazard atmosphere""",
-        "negative": THRILLER_NEGATIVE,
-    },
-    "alex-note": {
-        "prompt": """close-up photograph of folded paper with handwritten note,
-clean precise handwriting reading partial text about 'door codes change',
-slightly worn from being carried, harsh lighting, thriller aesthetic,
-single object, evidence photography style, high contrast, trust building moment""",
-        "negative": THRILLER_NEGATIVE,
-    },
-    "override-device": {
-        "prompt": """close-up photograph of small jury-rigged electronic device,
-exposed wires and circuitry, small LED light, modified security badge reader,
-signs of improvised construction, harsh lighting, thriller aesthetic,
-single object, evidence photography style, high contrast""",
-        "negative": THRILLER_NEGATIVE,
-    },
-    "exit-map": {
+    "facility-map-partial": {
         "prompt": """close-up photograph of crude hand-drawn facility map on paper,
-corridors marked with X's and arrows, 'SURFACE ACCESS' circled, multiple annotations,
-escape route marked in thick line, worn from handling, harsh lighting,
-thriller aesthetic, evidence photography style, planning document""",
+corridors marked with X's and question marks, 'YOU ARE HERE' circled, partial layout,
+torn edges suggest missing sections, harsh lighting, thriller aesthetic,
+evidence photography style, planning document, high contrast""",
+        "negative": THRILLER_NEGATIVE,
+    },
+    "subject-file-yours": {
+        "prompt": """close-up photograph of manila folder with classified documents,
+'SUBJECT A-7749' stamped on cover, pages partially visible with redacted text,
+medical charts and observation notes, harsh lighting, thriller aesthetic,
+evidence photography style, clinical atmosphere, disturbing contents implied""",
+        "negative": THRILLER_NEGATIVE,
+    },
+    "alex-id-badge": {
+        "prompt": """close-up photograph of cracked security ID badge,
+photo partially visible, 'RESEARCH STAFF' text, barcode and access chip,
+signs of being hidden or damaged intentionally, harsh lighting, thriller aesthetic,
+single object, evidence photography style, high contrast, identity revelation""",
+        "negative": THRILLER_NEGATIVE,
+    },
+    "override-code": {
+        "prompt": """close-up photograph of digital screen showing override code sequence,
+glowing green text on dark terminal, partial code visible '7749-ALPHA-OVERRIDE',
+reflection on screen surface, harsh lighting, thriller aesthetic,
+evidence photography style, hacking atmosphere, escape imminent""",
+        "negative": THRILLER_NEGATIVE,
+    },
+    "surveillance-recording": {
+        "prompt": """close-up photograph of old security monitor showing grainy footage,
+timestamp visible, corridor with moving figures, static and scan lines,
+evidence of something that happened, harsh lighting, thriller aesthetic,
+evidence photography style, truth revealed, high contrast""",
         "negative": THRILLER_NEGATIVE,
     },
 }
@@ -173,7 +173,7 @@ async def generate_avatar(db: Database, storage: StorageService, image_service: 
 
     # Get Alex's character and kit
     char = await db.fetch_one(
-        "SELECT id, name, active_avatar_kit_id, avatar_url FROM characters WHERE slug = 'alex'"
+        "SELECT id, name, active_avatar_kit_id, avatar_url FROM characters WHERE slug = 'alex-blacksite'"
     )
     if not char:
         print("ERROR: Alex character not found! Run scaffold_the_blacksite.py first.")
@@ -555,7 +555,7 @@ async def activate_content(db: Database):
 
     # Activate character
     await db.execute(
-        "UPDATE characters SET status = 'active' WHERE slug = 'alex'"
+        "UPDATE characters SET status = 'active' WHERE slug = 'alex-blacksite'"
     )
     print("  ✓ Alex character activated")
 

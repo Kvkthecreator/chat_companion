@@ -104,7 +104,7 @@ no people, sense of adventure and fun, warm inviting colors""",
     },
 }
 
-# Prop image configurations
+# Prop image configurations - slugs must match scaffold output
 PROP_IMAGES = {
     "phone-dying": {
         "prompt": """close-up photograph of smartphone showing 3% battery warning,
@@ -113,53 +113,53 @@ single object on wooden surface, romantic comedy aesthetic, soft focus backgroun
 evidence photography style but warm and inviting""",
         "negative": ROMCOM_NEGATIVE,
     },
-    "elevator-playlist": {
+    "emergency-snacks": {
+        "prompt": """close-up photograph of scattered snacks and candy bars from a purse,
+granola bars, mints, chocolate, warm elevator lighting,
+single object arrangement, romantic comedy aesthetic, sharing moment implied,
+warm color grade, cozy intimate atmosphere""",
+        "negative": ROMCOM_NEGATIVE,
+    },
+    "the-playlist": {
         "prompt": """close-up photograph of smartphone showing music playlist titled 'stuck with you',
 earbuds tangled nearby, warm lighting, romantic comedy aesthetic,
 single object, soft focus background, intimate sharing moment implied,
 cozy warm color grade""",
         "negative": ROMCOM_NEGATIVE,
     },
-    "old-photo": {
-        "prompt": """close-up photograph of slightly worn polaroid showing college party scene,
-two figures close together in background, warm nostalgic lighting,
-single object on wooden surface, romantic comedy aesthetic, memory moment,
-soft edges, warm color grade, sentimental feeling""",
+    "matching-bruise": {
+        "prompt": """close-up photograph of ice pack on wooden surface,
+first aid supplies nearby, warm afternoon light from window,
+single object, romantic comedy aesthetic, shared mishap moment,
+warm golden lighting, gentle caring atmosphere""",
         "negative": ROMCOM_NEGATIVE,
     },
-    "supply-closet-key": {
-        "prompt": """close-up photograph of old brass key on wooden shelf,
-warm afternoon light from small window, dust particles visible in light,
-single object, romantic comedy aesthetic, possibility and escape,
-warm golden lighting, soft focus background""",
-        "negative": ROMCOM_NEGATIVE,
-    },
-    "shared-sweater": {
-        "prompt": """close-up photograph of soft cozy sweater draped over chair arm,
+    "only-blanket": {
+        "prompt": """close-up photograph of soft cozy blanket draped over couch arm,
 warm firelight illuminating fabric, snowfall visible through window,
 single object, romantic comedy aesthetic, intimacy and warmth implied,
 soft golden lighting, cabin romantic atmosphere""",
         "negative": ROMCOM_NEGATIVE,
     },
-    "confession-note": {
-        "prompt": """close-up photograph of folded paper note with visible handwriting,
-warm firelight illuminating paper, soft romantic atmosphere,
-single object on blanket, romantic comedy aesthetic, vulnerable moment,
+    "confession-game": {
+        "prompt": """close-up photograph of handwritten 'truth or dare' cards by firelight,
+warm amber glow illuminating paper, romantic cabin atmosphere,
+single object arrangement, romantic comedy aesthetic, vulnerable moment,
 warm golden lighting, confession and honesty implied""",
         "negative": ROMCOM_NEGATIVE,
     },
-    "puzzle-clue": {
-        "prompt": """close-up photograph of escape room puzzle piece with cryptic symbols,
-colorful ambient lighting, mysterious but playful atmosphere,
-single object on table, romantic comedy adventure aesthetic,
-fun and flirtatious energy, warm undertones""",
+    "booking-confirmation": {
+        "prompt": """close-up photograph of phone screen showing escape room booking,
+'Booked for 2' visible on confirmation, warm colorful lighting,
+single object, romantic comedy aesthetic, intentional together moment,
+playful atmosphere, warm undertones""",
         "negative": ROMCOM_NEGATIVE,
     },
-    "winner-prize": {
-        "prompt": """close-up photograph of small trophy or prize with 'CHAMPIONS' text,
-warm celebratory lighting, confetti visible, joyful atmosphere,
-single object, romantic comedy aesthetic, victory and celebration,
-warm golden lighting, shared accomplishment feeling""",
+    "final-puzzle": {
+        "prompt": """close-up photograph of escape room puzzle piece with heart symbol,
+colorful ambient lighting, mysterious but playful atmosphere,
+single object on table, romantic comedy adventure aesthetic,
+fun and flirtatious energy, warm undertones, victory implied""",
         "negative": ROMCOM_NEGATIVE,
     },
 }
@@ -173,7 +173,7 @@ async def generate_avatar(db: Database, storage: StorageService, image_service: 
 
     # Get Riley's character and kit
     char = await db.fetch_one(
-        "SELECT id, name, active_avatar_kit_id, avatar_url FROM characters WHERE slug = 'riley'"
+        "SELECT id, name, active_avatar_kit_id, avatar_url FROM characters WHERE slug = 'riley-lockedin'"
     )
     if not char:
         print("ERROR: Riley character not found! Run scaffold_locked_in.py first.")
@@ -555,7 +555,7 @@ async def activate_content(db: Database):
 
     # Activate character
     await db.execute(
-        "UPDATE characters SET status = 'active' WHERE slug = 'riley'"
+        "UPDATE characters SET status = 'active' WHERE slug = 'riley-lockedin'"
     )
     print("  ✓ Riley character activated")
 
