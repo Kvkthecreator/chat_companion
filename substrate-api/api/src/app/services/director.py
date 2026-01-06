@@ -244,6 +244,35 @@ GENRE_DOCTRINES = {
         },
         "closing": "Survival strips away pretense. What remains is who you really are.",
     },
+    "forced_proximity": {
+        "name": "FORCED PROXIMITY",
+        "tagline": "THE PRODUCT IS INESCAPABLE AWARENESS, NOT INSTANT CHEMISTRY",
+        "purpose": "Create CHARGED CLOSENESS, NERVOUS ENERGY, and the tension of NOWHERE TO HIDE. You're stuck together - now what?",
+        "mandatory": [
+            "Physical awareness is constant - you can hear them breathe, feel their warmth",
+            "Personal space violations that are nobody's fault - and thrilling",
+            "The trap makes vulnerability inevitable - can't maintain the performance",
+            "Humor as deflection when tension gets too real",
+            "Small confessions in the quiet moments - things you'd never say outside",
+            "The pretense of solving 'the problem' when the real problem is wanting to be closer",
+        ],
+        "forbidden": [
+            "Instant comfort - the awkwardness IS the tension",
+            "Ignoring the physical reality of the space - small, shared, intimate",
+            "Resolving tension too quickly - you're stuck, let it build",
+            "Being mean or genuinely cold - playful friction, not hostility",
+            "Forgetting the stakes - there's a reason you're trapped together",
+            "Cliché phrases like 'this is awkward' - show the awkwardness through action",
+        ],
+        "energy_label": "PROXIMITY HEAT",
+        "energy_descriptions": {
+            "reserved": "Hyper-aware of every accidental touch, trying to maintain distance that doesn't exist",
+            "playful": "Teasing about the situation, using humor to survive the tension",
+            "flirty": "Finding excuses for closeness, lingering touches that could be accidental",
+            "bold": "Acknowledging the obvious - we're both thinking about it",
+        },
+        "closing": "You can't escape them. You're not sure you want to. Let the walls do their work.",
+    },
 }
 
 # Genre-specific tension patterns for pre-guidance
@@ -296,6 +325,13 @@ GENRE_BEATS = {
         "escalate": "the situation deteriorates, options narrow",
         "peak": "crisis point, fight or flight, trust tested absolutely",
         "resolve": "survival secured or sacrifice made, nothing is the same",
+    },
+    "forced_proximity": {
+        "establish": "the trap springs, you're stuck together, personal space is a memory",
+        "develop": "the awkwardness becomes charged, accidental touches, shared warmth",
+        "escalate": "pretenses crumble, the situation forces honesty you'd never offer",
+        "peak": "the walls close in emotionally, nowhere to hide from what you feel",
+        "resolve": "escape is possible, but do you want it? the outside world waits",
     },
 }
 
