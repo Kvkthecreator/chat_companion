@@ -1,8 +1,8 @@
 # Director UI Toolkit
 
-> **Version**: 2.3.0
+> **Version**: 2.4.0
 > **Status**: Canonical
-> **Updated**: 2024-12-24
+> **Updated**: 2025-01-06
 
 ---
 
@@ -68,6 +68,7 @@ The Director emits these events through the conversation stream:
 | `visual_pending` | Visual moment detected (if auto-gen enabled) | `{ visual_type, visual_hint }` | SceneCard (skeleton) | Free (included in episode cost) |
 | `visual_ready` | Image generation complete | `{ image_url, caption }` | SceneCard | — |
 | `instruction_card` | Game-like moment | `{ content }` | InstructionCard | Free |
+| `prop_reveal` | Prop revealed (automatic or player-triggered) | `{ prop, turn, trigger }` | PropCard, ItemsDrawer | Free |
 
 **Note**: `sparks_deducted` field removed in v2.0. Auto-gen is included in episode entry cost (Ticket + Moments model). Manual "Capture Moment" charges separately (1 Spark T2I / 3 Sparks Kontext Pro).
 
@@ -361,6 +362,50 @@ See: [IMAGE_GENERATION.md](../modalities/IMAGE_GENERATION.md) for quality standa
 
 ---
 
+### PropCard (ADR-005)
+
+**Purpose**: Display revealed props inline in chat with noir/evidence aesthetic.
+
+**Content Source**: `prop_reveal` SSE event
+- `prop.name` - Display name
+- `prop.prop_type` - document, photo, object, recording, digital
+- `prop.description` - Physical description
+- `prop.content` - Canonical text/transcript (expandable)
+- `prop.image_url` - Pre-generated visual
+- `prop.badge_label` - Custom badge or default "Key Evidence"
+- `prop.evidence_tags` - Categorization pills
+
+**When Shown**: After `prop_reveal` event during streaming
+
+**Visual Design**:
+- Noir/mystery inspired aesthetic (desaturated, high contrast)
+- Slate/gray gradient with amber accents for key evidence
+- Click-to-expand content section
+- Image loading states with spinner and fallback
+- Evidence tags as rounded pills
+
+---
+
+### ItemsDrawer (ADR-006)
+
+**Purpose**: Genre-agnostic collection drawer showing all revealed props.
+
+**Content Source**: `revealedProps` state in `useChat` hook
+
+**When Shown**: User clicks briefcase icon in ChatHeader (visible even with 0 items)
+
+**Visual Design**:
+- Bottom sheet on mobile, side panel on desktop
+- Header: "Items" with count ("3 collected • 2 key")
+- Pulse animation when new items discovered
+- Empty state messaging encourages exploration
+
+**Integration**:
+- ChatHeader displays briefcase icon with item summary
+- Visible in series context only (hidden for free chat)
+
+---
+
 ## Director State
 
 The Director maintains state surfaced to frontend on every exchange:
@@ -528,6 +573,7 @@ The `useChat` hook exposes Director state:
 
 | Version | Date | Changes |
 |---------|------|---------|
+| 2.4.0 | 2025-01-06 | **Props UI Components**: Added PropCard and ItemsDrawer specifications. Added `prop_reveal` SSE event. Props now fully integrated with Director UI toolkit (ADR-005, ADR-006 Option B). |
 | 2.3.0 | 2024-12-24 | **Simplified interjection model**: EpisodeOpeningCard now persists as first chat item (not ephemeral). Deprecated StageDirection component (`episode_frame` is for Character LLM, not user display). Streamlined interjection reference table. |
 | 2.2.0 | 2024-12-24 | **Architectural addition**: Interjection System Architecture section documenting upstream vs runtime categorization, implementation decision tree, service boundaries, error handling strategies |
 | 2.1.0 | 2024-12-24 | Added EpisodeOpeningCard specification (authored scene setup card before conversation start) |

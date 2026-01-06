@@ -1,7 +1,8 @@
 # ADR-006: Props as Progression System
 
-> **Status**: Draft / Under Consideration
+> **Status**: Option B Implemented
 > **Date**: 2025-01-05
+> **Last Updated**: 2025-01-06
 > **Deciders**: Product Review
 > **Depends on**: ADR-005 (Props Domain)
 
@@ -140,18 +141,24 @@ Test the hypothesis with minimal changes before full commitment.
 **Implementation (minimal):**
 
 ```sql
--- Just add to existing props table
+-- Just add to existing props table (migration 054)
 ALTER TABLE props ADD COLUMN IF NOT EXISTS
     is_progression_gate BOOLEAN DEFAULT FALSE;
 
 ALTER TABLE props ADD COLUMN IF NOT EXISTS
     gates_episode_id UUID REFERENCES episode_templates(id);
+
+-- Custom badge labels for genre-agnostic display
+ALTER TABLE props ADD COLUMN IF NOT EXISTS
+    badge_label VARCHAR(100);  -- e.g., "Key Evidence", "Keepsake", "Critical Intel"
 ```
 
-**Frontend changes:**
-- Show "X props collected" badge on character card
-- Episode selector shows lock icon if prerequisites not met
-- Simple "You need to discover [prop name] first" message
+**Frontend changes (✅ Implemented):**
+- ItemsDrawer shows all collected props with count ("3 collected • 2 key")
+- PropCard displays custom `badge_label` or defaults to "Key Evidence"
+- ChatHeader briefcase icon visible even with 0 items (sets expectations)
+- Pulse animation when new items discovered
+- Genre-agnostic "Items" naming (works for evidence, keepsakes, supplies)
 
 **Success metrics:**
 - Do users mention/ask about props more?
@@ -166,7 +173,7 @@ ALTER TABLE props ADD COLUMN IF NOT EXISTS
 
 ## Recommendation
 
-**Start with Option B (Lightweight Experiment).**
+**Start with Option B (Lightweight Experiment).** ✅ **IMPLEMENTED**
 
 Rationale:
 1. Validates hypothesis before major investment
@@ -175,6 +182,30 @@ Rationale:
 4. Can iterate toward Option A if metrics support it
 
 The risk of overbuilding is higher than the risk of underbuilding. Props-as-progression is exciting but unproven. Let users tell us if they want it.
+
+### Option B Implementation Status (2025-01-06)
+
+**Schema (migration 054):**
+- [x] `is_progression_gate` column on props table
+- [x] `gates_episode_id` column on props table
+- [x] `badge_label` column for custom badges
+
+**Frontend:**
+- [x] ItemsDrawer component (bottom sheet mobile, side panel desktop)
+- [x] PropCard with badge_label support
+- [x] ChatHeader briefcase icon with item count
+- [x] Pulse animation on new discoveries
+- [x] Items button visible with 0 items (anticipation)
+- [x] PropsEditor in Studio with progression gate fields
+
+**Content:**
+- [x] "The Last Message" scaffolded with progression gates
+- [x] Custom badge labels ("Inciting Evidence", "Key Evidence")
+
+**Not Yet Implemented (Option A scope):**
+- [ ] `user_props` permanent collection table
+- [ ] Episode gating enforcement
+- [ ] Monetization hooks (sparks to unlock early)
 
 ---
 

@@ -2,6 +2,7 @@
 
 > **Status**: Implemented
 > **Date**: 2025-01-05
+> **Last Updated**: 2025-01-06
 > **Deciders**: Architecture Review
 
 ---
@@ -211,7 +212,7 @@ Content: "Don't trust Daniel. Ask him what really happened at 10:47."
 
 ### New SSE Event: `prop_reveal`
 
-When a prop is revealed (detected via LLM evaluation or explicit player action):
+When a prop is revealed (turn-based automatic revelation or explicit player action):
 
 ```json
 {
@@ -219,30 +220,50 @@ When a prop is revealed (detected via LLM evaluation or explicit player action):
   "prop": {
     "id": "uuid",
     "name": "The Yellow Note",
+    "slug": "yellow-note",
     "prop_type": "document",
     "description": "A torn piece of yellow legal paper...",
     "content": "I have to finish this or he'll never stop watching us...",
     "content_format": "handwritten",
-    "image_url": "https://..."
+    "image_url": "https://...",
+    "is_key_evidence": true,
+    "evidence_tags": ["handwriting", "timeline"],
+    "badge_label": "Key Evidence"
   },
   "turn": 5,
-  "trigger": "character_showed"
+  "trigger": "automatic"
 }
 ```
 
 ### UI Components
 
-1. **PropCard** - Inline card shown when prop is revealed (similar to InlineSuggestionCard)
-2. **PropDrawer** - Collapsible drawer showing all revealed props (evidence board)
-3. **PropModal** - Full view of prop with image and content
+1. **PropCard** - Inline card shown when prop is revealed with noir/evidence aesthetic
+   - Displays: icon, name, type, description, expandable content
+   - Badge label support (custom or default "Key Evidence")
+   - Evidence tags as pills
+   - Image loading states with spinner and fallback
+   - Click to expand/collapse content
 
-### Evidence Drawer (Mystery/Thriller)
+2. **ItemsDrawer** - Genre-agnostic collapsible drawer showing all revealed props
+   - Bottom sheet on mobile, side panel on desktop
+   - Header displays item count and key evidence count
+   - Pulse animation when new items discovered
+   - Empty state messaging encourages continued interaction
+   - Briefcase icon in ChatHeader with "X collected • Y key" summary
+   - Visible even with 0 items (sets player expectations)
 
-For investigative genres, surface an "Evidence" or "Clues" drawer:
+3. **PropsEditor** (Studio) - Full CRUD for props per episode
+   - Create/edit/delete props with form validation
+   - Image thumbnails with expand/download lightbox
+   - Fields: name, slug, type, reveal mode, description, content, format, turn hint, badges, tags
+
+### Items Drawer (All Genres)
+
+Genre-agnostic "Items" drawer works for evidence, keepsakes, supplies:
 
 ```
 ┌─────────────────────────────────┐
-│ 📋 Evidence (3 items)      [▼] │
+│ 🗂️ Items (3 collected • 2 key) │
 ├─────────────────────────────────┤
 │ ○ The Anonymous Text            │
 │ ○ The Yellow Note               │
@@ -340,13 +361,18 @@ Props aren't mandatory but **enhance** any series with tangible story elements.
 - [x] `StreamPropRevealEvent` type definition
 - [x] PropCard component with image, description, expandable content
 - [x] PropCard rendering in ChatContainer (after instruction cards)
-- [ ] Evidence drawer (mystery/thriller) - future enhancement
+- [x] ItemsDrawer component (genre-agnostic items collection)
+- [x] ChatHeader integration with briefcase icon and item count
+- [x] Pulse animation on new item discovery
+- [x] Items button visible even with 0 items (sets expectations)
 - [ ] Prop detail modal - future enhancement
 
-### Phase 4: Studio UI
-- [ ] Props editor in episode template form
-- [ ] Prop image generation/upload
-- [ ] Preview props in episode preview
+### Phase 4: Studio UI ✅
+- [x] PropsEditor component with full CRUD
+- [x] Prop form with all fields (name, slug, type, reveal mode, content, etc.)
+- [x] Image thumbnails with expand/download lightbox
+- [x] Form validation (name, slug, description required)
+- [ ] Preview props in episode preview - future enhancement
 
 ---
 

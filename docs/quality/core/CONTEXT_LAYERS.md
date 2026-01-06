@@ -1,8 +1,8 @@
 # Context Layers
 
-> **Version**: 1.5.0
+> **Version**: 1.6.0
 > **Status**: Active
-> **Updated**: 2025-01-01
+> **Updated**: 2025-01-06
 
 ---
 
@@ -168,7 +168,7 @@ How you're playing it: {scene_tactic}
 
 **Source**: `props` table (authored), `session_props` table (revelation tracking)
 **Refresh**: Per episode (static), per turn (revelation state)
-**Status**: PROPOSED (ADR-005)
+**Status**: ✅ IMPLEMENTED (ADR-005, ADR-006 Option B)
 
 ### Purpose
 
@@ -189,6 +189,8 @@ Props are **canonical story objects** with exact, immutable content. They solve 
 | Content | `props.content` | Exact text/transcript (canonical) |
 | Image | `props.image_url` | Pre-generated visual |
 | Reveal State | `session_props` | Has player seen this? |
+| Badge Label | `props.badge_label` | Custom badge (e.g., "Key Evidence", "Keepsake") |
+| Progression Gate | `props.is_progression_gate` | Gates episode unlock (ADR-006) |
 
 ### Prop Types
 
@@ -245,7 +247,15 @@ Content: "Don't trust Daniel. Ask him what really happened at 10:47."
 | Thriller | Maps, supplies, warning signs |
 | Drama | Heirlooms, contracts, photos |
 
+### Frontend Integration
+
+Props are surfaced via SSE `prop_reveal` events and displayed in:
+- **PropCard** - Inline card with noir/evidence aesthetic, badge labels, expandable content
+- **ItemsDrawer** - Genre-agnostic collection drawer (bottom sheet mobile, side panel desktop)
+- **ChatHeader** - Briefcase icon with "X collected • Y key" summary
+
 See: [ADR-005: Props Domain](../../decisions/ADR-005-props-domain.md)
+See: [ADR-006: Props Progression](../../decisions/ADR-006-props-progression-system.md)
 
 ---
 
@@ -481,6 +491,7 @@ Layers are assembled in this order (later = higher priority):
 
 | Version | Date | Changes |
 |---------|------|---------|
+| 1.6.0 | 2025-01-06 | Updated Layer 2.5 Props status to IMPLEMENTED. Added badge_label and progression gate fields. Added Frontend Integration section with PropCard, ItemsDrawer, ChatHeader components. |
 | 1.5.0 | 2025-01-01 | Clarified that any character can play any episode (ADR-004). No special adaptation layer needed — Character + Episode naturally compose. |
 | 1.4.0 | 2024-12-23 | Resolved clarification items: turn_budget documented as Director domain, series_finale removed, genre hierarchy documented for future consolidation. |
 | 1.3.0 | 2024-12-23 | Added Episode Layer clarification items (turn_budget, series_finale, genre hierarchy). Hardened on Ticket + Moments model. |
