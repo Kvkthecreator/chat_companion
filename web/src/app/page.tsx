@@ -204,11 +204,14 @@ export default async function Home() {
               <div className="relative">
                 {/* Character card mock */}
                 <div className="w-64 rounded-2xl border bg-muted/50 p-4 shadow-xl">
-                  {/* Avatar placeholder */}
+                  {/* Avatar - show example character */}
                   <div className="mx-auto mb-4 h-32 w-32 overflow-hidden rounded-xl bg-gradient-to-br from-purple-400 to-pink-400">
-                    <div className="flex h-full w-full items-center justify-center text-4xl text-white/80">
-                      ?
-                    </div>
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src="https://lfwhdzwbikyzalpbwfnd.supabase.co/storage/v1/object/public/avatars/characters/user-example/anchor.webp"
+                      alt="Example character"
+                      className="h-full w-full object-cover"
+                    />
                   </div>
                   {/* Name input mock */}
                   <div className="mb-3 rounded-lg border bg-background px-3 py-2 text-center text-sm text-muted-foreground">

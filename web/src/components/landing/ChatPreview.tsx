@@ -2,6 +2,11 @@
 
 import { cn } from "@/lib/utils";
 
+// K-pop Boy Idol character avatar from Supabase storage (avatars bucket)
+// Falls back to gradient initial if image not found
+const DEFAULT_AVATAR_URL =
+  "https://lfwhdzwbikyzalpbwfnd.supabase.co/storage/v1/object/public/avatars/characters/min-soo/anchor.webp";
+
 interface MockMessage {
   role: "user" | "character";
   content: string;
@@ -28,15 +33,16 @@ const PREVIEW_MESSAGES: MockMessage[] = [
 
 interface ChatPreviewProps {
   characterName?: string;
-  characterAvatar?: string;
+  characterAvatarUrl?: string;
   className?: string;
 }
 
 export function ChatPreview({
   characterName = "Min Soo",
-  characterAvatar = "M",
+  characterAvatarUrl,
   className,
 }: ChatPreviewProps) {
+  const avatarUrl = characterAvatarUrl || DEFAULT_AVATAR_URL;
   return (
     <div
       className={cn(
@@ -46,8 +52,18 @@ export function ChatPreview({
     >
       {/* Header */}
       <div className="flex items-center gap-3 border-b bg-card/80 px-4 py-3">
-        <div className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-pink-400 to-purple-500 text-sm font-medium text-white shadow-lg ring-2 ring-white/20">
-          {characterAvatar}
+        <div className="relative h-9 w-9 overflow-hidden rounded-full shadow-lg ring-2 ring-white/20">
+          <img
+            src={avatarUrl}
+            alt={characterName}
+            className="h-full w-full object-cover"
+            onError={(e) => {
+              // Fallback to gradient with initial if image fails
+              const target = e.target as HTMLImageElement;
+              target.style.display = "none";
+              target.parentElement!.innerHTML = `<div class="flex h-full w-full items-center justify-center bg-gradient-to-br from-pink-400 to-purple-500 text-sm font-medium text-white">${characterName[0]}</div>`;
+            }}
+          />
         </div>
         <div>
           <p className="text-sm font-medium text-foreground">{characterName}</p>
