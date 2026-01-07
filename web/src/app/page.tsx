@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { SectionHeader } from "@/components/ui/section-header";
-import { RotatingHero, SeriesCard } from "@/components/landing";
+import { RotatingHero, SeriesCard, AvatarGallery } from "@/components/landing";
 import { Logo } from "@/components/Logo";
 
 // Server-side fetch for featured series
@@ -201,39 +201,7 @@ export default async function Home() {
 
             {/* Right: Visual */}
             <div className="flex items-center justify-center">
-              <div className="relative">
-                {/* Character card mock */}
-                <div className="w-64 rounded-2xl border bg-muted/50 p-4 shadow-xl">
-                  {/* Avatar - show example character */}
-                  <div className="mx-auto mb-4 h-32 w-32 overflow-hidden rounded-xl bg-gradient-to-br from-purple-400 to-pink-400">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src="https://lfwhdzwbikyzalpbwfnd.supabase.co/storage/v1/object/public/avatars/characters/user-example/anchor.webp"
-                      alt="Example character"
-                      className="h-full w-full object-cover"
-                    />
-                  </div>
-                  {/* Name input mock */}
-                  <div className="mb-3 rounded-lg border bg-background px-3 py-2 text-center text-sm text-muted-foreground">
-                    Your name here
-                  </div>
-                  {/* Archetype chips */}
-                  <div className="flex flex-wrap justify-center gap-1.5">
-                    <span className="rounded-full bg-purple-100 dark:bg-purple-900/50 px-2 py-0.5 text-xs text-purple-700 dark:text-purple-300">
-                      Bold
-                    </span>
-                    <span className="rounded-full bg-pink-100 dark:bg-pink-900/50 px-2 py-0.5 text-xs text-pink-700 dark:text-pink-300">
-                      Mysterious
-                    </span>
-                    <span className="rounded-full bg-blue-100 dark:bg-blue-900/50 px-2 py-0.5 text-xs text-blue-700 dark:text-blue-300">
-                      Caring
-                    </span>
-                  </div>
-                </div>
-                {/* Decorative elements */}
-                <div className="absolute -right-4 -top-4 h-8 w-8 rounded-full bg-purple-400/20 blur-xl" />
-                <div className="absolute -bottom-4 -left-4 h-12 w-12 rounded-full bg-pink-400/20 blur-xl" />
-              </div>
+              <AvatarGallery />
             </div>
           </div>
         </section>
