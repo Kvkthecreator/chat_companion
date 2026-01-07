@@ -1988,7 +1988,7 @@ async def generate_episode_backgrounds(
 ):
     """Generate background images for episode templates.
 
-    Uses FLUX 1.1 Pro to generate atmospheric scene backgrounds based on
+    Uses FLUX Schnell (ADR-007) to generate atmospheric scene backgrounds based on
     each episode's episode_frame prompt. Backgrounds are 16:9 landscape
     images with no characters.
 
@@ -2001,7 +2001,8 @@ async def generate_episode_backgrounds(
     from app.services.storage import StorageService
 
     storage = StorageService.get_instance()
-    image_service = ImageService.get_client("replicate", "black-forest-labs/flux-1.1-pro")
+    # ADR-007: Use FLUX Schnell for backgrounds (no characters, style-first OK)
+    image_service = ImageService.get_client("replicate", "black-forest-labs/flux-schnell")
 
     # Build query
     conditions = ["et.episode_frame IS NOT NULL", "et.episode_frame != ''"]

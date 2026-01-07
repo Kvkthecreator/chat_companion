@@ -578,10 +578,19 @@ class ImageService:
     """
 
     # Default provider/model for the app
-    # Using FLUX Dev for T2I - slower but respects negative prompts properly
-    # FLUX Schnell doesn't actually support negative_prompt parameter
+    # ADR-007: Switched to FLUX Schnell ($0.003) from FLUX Dev ($0.05)
+    # Style-first prompting eliminates negative prompt dependency
+    # 94% cost reduction for T2I generation
     DEFAULT_PROVIDER = "replicate"
-    DEFAULT_MODEL = "black-forest-labs/flux-dev"
+    DEFAULT_MODEL = "black-forest-labs/flux-schnell"
+
+    # Model routing constants for explicit use-case selection
+    # Avatar generation and Kontext still use premium models
+    MODEL_AVATAR = "black-forest-labs/flux-1.1-pro"      # $0.05 - identity-defining
+    MODEL_KONTEXT = "black-forest-labs/flux-kontext-pro"  # $0.04 - reference-based
+    MODEL_T2I = "black-forest-labs/flux-schnell"          # $0.003 - style-first OK
+    MODEL_OBJECT = "black-forest-labs/flux-schnell"       # $0.003 - no character
+    MODEL_ATMOSPHERE = "black-forest-labs/flux-schnell"   # $0.003 - no character
 
     # API key environment variable mapping
     API_KEY_ENV_VARS = {

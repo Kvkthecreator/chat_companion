@@ -162,7 +162,8 @@ async def main(dry_run: bool = False):
     db = Database(DATABASE_URL)
     await db.connect()
     storage = StorageService.get_instance()
-    image_service = ImageService.get_client("replicate", "black-forest-labs/flux-1.1-pro")
+    # ADR-007: Use FLUX Schnell for props (object close-ups, no characters)
+    image_service = ImageService.get_client("replicate", "black-forest-labs/flux-schnell")
 
     try:
         await generate_prop_images(db, storage, image_service)

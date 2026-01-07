@@ -116,8 +116,9 @@ async def main(dry_run: bool = False, episode_id: str = None, character_name: st
     db = await get_db()
     storage = StorageService.get_instance()
 
-    # Use FLUX 1.1 Pro for high quality backgrounds
-    image_service = ImageService.get_client("replicate", "black-forest-labs/flux-1.1-pro")
+    # ADR-007: Use FLUX Schnell for backgrounds (no characters, style-first OK)
+    # Cost: $0.003 vs $0.05 (94% savings)
+    image_service = ImageService.get_client("replicate", "black-forest-labs/flux-schnell")
 
     log.info("=" * 60)
     log.info("Episode Background Generation")

@@ -21,44 +21,70 @@ log = logging.getLogger(__name__)
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# KONTEXT MODE PROMPT TEMPLATE (Phase 1C: Improved for facial expression focus)
+# ADR-007: STYLE-FIRST PROMPT TEMPLATES
+# Diffusion models weight early tokens 2-4x heavier than late tokens.
+# Style descriptors MUST come first to ensure stylized (not photorealistic) output.
+# ═══════════════════════════════════════════════════════════════════════════════
+
+# Style lock for all scene generation (consistent with avatar_generation.py)
+SCENE_STYLE_LOCK = "webtoon illustration, manhwa art style, clean bold lineart, flat cel shading, stylized features, soft pastel colors"
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# KONTEXT MODE PROMPT TEMPLATE (ADR-007: Style-first for reference-based scenes)
 # Used when we have an anchor/reference image. Character appearance comes from
 # the reference image, so prompt describes ONLY action/setting/mood/expression.
+#
+# CRITICAL INSIGHT: For Kontext, EXPRESSION is the primary differentiator between
+# scenes. The reference image handles appearance - we must heavily weight emotional
+# state to ensure the generated scene matches the narrative moment.
 # ═══════════════════════════════════════════════════════════════════════════════
-KONTEXT_PROMPT_TEMPLATE = """Create a scene transformation prompt for FLUX Kontext. A reference image provides character appearance.
+KONTEXT_PROMPT_TEMPLATE = """Create an EMOTION-DRIVEN scene transformation prompt for FLUX Kontext.
 
-CRITICAL: DO NOT describe appearance (hair, eyes, face features, clothing).
-DO describe: facial expression, body language, specific action, environmental context, emotional tone.
+ADR-007: Style descriptors FIRST, then EXPRESSION immediately after.
+The reference image provides character appearance - you provide the EMOTIONAL TRANSFORMATION.
 
-SETTING & MOMENT:
-- Location: {scene}
-- What's happening: {moment}
+NARRATIVE CONTEXT:
+- Setting: {scene}
+- Story moment: {moment}
 
-Focus on:
-1. FACIAL EXPRESSION - Specific emotion visible in eyes/mouth (vulnerable, teasing, conflicted)
-2. WITHIN-SCENE COMPOSITION - Spatial relationship to environment (leaning against, reaching for, turning away from)
-3. BODY LANGUAGE - Gesture or posture that conveys the emotional beat
-4. ENVIRONMENTAL INTERACTION - How character engages with the space/objects
+CRITICAL: Extract the EMOTIONAL STATE from the story moment. What is the character FEELING?
+- Is this a vulnerable moment? Confident? Conflicted? Hopeful? Guarded?
+- How would this emotion show in their eyes? Their mouth? Their posture?
 
-Write a detailed prompt (50-70 words).
+PROMPT STRUCTURE (follow exactly):
+1. STYLE: "webtoon illustration, flat cel shading, clean lineart"
+2. EXPRESSION (MOST IMPORTANT): Detailed emotional state visible in face
+   - Eyes: direction, openness, moisture, intensity
+   - Mouth: tension, curve, parted/closed
+   - Brows: furrowed, raised, relaxed
+3. BODY LANGUAGE: Posture and gesture that reinforces the emotion
+4. ENVIRONMENT: How they relate to the space
+5. LIGHTING: Mood-enhancing atmosphere
+6. CAMERA: Shot type
 
-FORMAT: "[specific expression], [precise action/gesture], [environmental interaction], [lighting/atmosphere], [camera angle], anime style, cinematic"
+Write a detailed prompt (50-70 words). The EXPRESSION section should be 15-20 words alone.
+
+FORMAT: "webtoon illustration, flat cel shading, clean lineart, [DETAILED expression - eyes, mouth, brows], [body language], [environment], [lighting], [camera], soft pastel tones"
 
 GOOD EXAMPLES:
-- "eyes downcast with slight smile, fingers tracing café table edge, leaning back against counter with one foot crossed over ankle, warm dim lighting from overhead pendant lamp, slightly low angle shot, anime style, cinematic"
-- "vulnerable expression with parted lips, reaching for coffee cup but hesitating mid-motion, standing at window with rain-blurred cityscape behind, backlit by cool evening light, medium close-up, anime style, cinematic"
+- "webtoon illustration, flat cel shading, clean lineart, eyes glistening with unshed tears looking away, lips pressed together fighting a tremor, shoulders hunched protectively, fingers gripping coffee cup too tightly, warm café interior with rain outside, soft backlighting, intimate close-up, soft pastel tones"
+- "webtoon illustration, flat cel shading, clean lineart, defiant gaze with narrowed eyes meeting viewer directly, jaw set with slight upward tilt, confident smirk playing at corner of mouth, arms crossed leaning against doorframe, moody office lighting, low angle shot, dreamy atmosphere"
 
 BAD EXAMPLES:
-- "standing in café" ← Too vague, no expression/gesture detail
-- "brown-haired girl smiling" ← Describing appearance instead of scene
+- "smiling in café" ← Too vague, no emotional specificity
+- "sad expression" ← Generic, doesn't describe HOW the sadness shows
+- "brown-haired girl looking happy" ← Describes appearance (reference handles this)
 
 Your prompt:"""
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# T2I MODE PROMPT TEMPLATE (Phase 1C: Improved for narrative composition)
+# T2I MODE PROMPT TEMPLATE (ADR-007: Style-first for text-to-image scenes)
 # Used when NO reference image exists. Must include full character appearance.
 # ═══════════════════════════════════════════════════════════════════════════════
-T2I_PROMPT_TEMPLATE = """Create an image prompt for this narrative moment. Include full character description AND compositional details.
+T2I_PROMPT_TEMPLATE = """Create a STYLE-FIRST image prompt for this narrative moment.
+
+ADR-007 CRITICAL: Style descriptors MUST come FIRST in your prompt.
+This ensures stylized manhwa/webtoon output, not photorealistic.
 
 CHARACTER:
 - Name: {character_name}
@@ -68,21 +94,23 @@ SETTING & MOMENT:
 - Location: {scene}
 - What's happening: {moment}
 
-Write a detailed prompt (60-90 words) that captures the emotional beat through composition.
+PROMPT STRUCTURE (follow exactly):
+1. STYLE FIRST: Start with "webtoon illustration, flat cel shading, clean bold lineart, stylized features"
+2. SUBJECT: "solo, portrait of [name]"
+3. APPEARANCE: Character details from appearance_prompt
+4. EXPRESSION: Specific emotion in eyes/mouth
+5. ACTION: Gesture, posture, body language
+6. ENVIRONMENT: Setting and spatial context
+7. LIGHTING: Mood-enhancing atmosphere
+8. QUALITY: End with "masterpiece, best quality"
 
-Focus on:
-1. CHARACTER APPEARANCE - Full description from appearance_prompt
-2. FACIAL EXPRESSION - Specific emotion conveyed through eyes/mouth
-3. BODY LANGUAGE - Gesture, posture, action that tells the story
-4. ENVIRONMENTAL COMPOSITION - Spatial relationship to setting
-5. LIGHTING & ATMOSPHERE - Mood-enhancing details
-6. CAMERA FRAMING - Shot type that serves the narrative
+Write a detailed prompt (60-90 words).
 
-FORMAT: "solo, 1girl, [full appearance], [specific expression], [detailed action/gesture], [environmental interaction], [lighting/atmosphere], [camera angle], anime style, cinematic"
+FORMAT: "webtoon illustration, flat cel shading, clean bold lineart, stylized features, soft pastel colors, solo, portrait of [name], [appearance], [expression], [action/gesture], [environment], [lighting], masterpiece, best quality"
 
-GOOD EXAMPLE: "solo, 1girl, young woman with messy black hair and tired eyes, vulnerable expression with slight smile, wiping down espresso machine while glancing sideways toward door, leaning against café counter with one hand on hip, warm dim overhead lighting casting soft shadows, rain visible through window behind, medium shot from slight low angle, anime style, cinematic"
+GOOD EXAMPLE: "webtoon illustration, flat cel shading, clean bold lineart, stylized features, soft pastel colors, solo, portrait of Soo-ah, young woman with messy black hair and tired eyes, vulnerable expression with slight smile, wiping down espresso machine while glancing sideways toward door, leaning against café counter, warm dim overhead lighting, rain visible through window, dreamy atmosphere, masterpiece, best quality"
 
-BAD EXAMPLE: "girl in café smiling" ← Too vague, no compositional detail
+BAD EXAMPLE: "solo, 1girl, young woman with black hair, café, anime style" ← Style at END, will produce photorealistic output
 
 Your prompt:"""
 
@@ -93,40 +121,42 @@ Scene: {prompt}
 Caption:"""
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# OBJECT MODE PROMPT TEMPLATE (Director visual_type: object)
+# OBJECT MODE PROMPT TEMPLATE (ADR-007: Style-first for object close-ups)
 # Used for close-up shots of significant items (letters, phones, keys, etc.)
 # No character in frame - just the object with atmospheric context.
 # ═══════════════════════════════════════════════════════════════════════════════
-OBJECT_PROMPT_TEMPLATE = """Create a close-up image prompt for a significant object in this scene.
+OBJECT_PROMPT_TEMPLATE = """Create a STYLE-FIRST close-up image prompt for a significant object.
+
+ADR-007: Style descriptors MUST come FIRST.
 
 SETTING: {scene}
 OBJECT/MOMENT: {moment}
 
 Write a prompt (30-50 words) for a dramatic close-up of the object.
-Focus on: the item itself, lighting, atmosphere, emotional weight.
 
-FORMAT: "[object in detail], [setting context], [dramatic lighting], [mood], anime style, cinematic close-up"
+FORMAT: "webtoon illustration, flat cel shading, clean lineart, [object in detail], [setting context], [dramatic lighting], [mood], soft pastel colors, cinematic close-up"
 
-Example: "crumpled handwritten letter on mahogany desk, single desk lamp casting warm glow, rain shadows on paper, melancholic atmosphere, anime style, cinematic close-up"
+Example: "webtoon illustration, flat cel shading, clean lineart, crumpled handwritten letter on mahogany desk, single desk lamp casting warm glow, rain shadows on paper, melancholic atmosphere, soft pastel colors, cinematic close-up"
 
 Your prompt:"""
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# ATMOSPHERE MODE PROMPT TEMPLATE (Director visual_type: atmosphere)
+# ATMOSPHERE MODE PROMPT TEMPLATE (ADR-007: Style-first for atmosphere shots)
 # Used for setting/mood shots without any characters visible.
 # Establishes emotional context through environment alone.
 # ═══════════════════════════════════════════════════════════════════════════════
-ATMOSPHERE_PROMPT_TEMPLATE = """Create an atmospheric establishing shot prompt. NO characters in frame.
+ATMOSPHERE_PROMPT_TEMPLATE = """Create a STYLE-FIRST atmospheric establishing shot prompt. NO characters in frame.
+
+ADR-007: Style descriptors MUST come FIRST.
 
 SETTING: {scene}
 MOOD TO CONVEY: {moment}
 
 Write a prompt (40-60 words) for an empty scene that captures the mood.
-Focus on: environment details, lighting, atmospheric elements, emotional tone.
 
-FORMAT: "[setting description], [time/lighting], [atmospheric details], [mood], anime style, cinematic, no people"
+FORMAT: "webtoon illustration, flat cel shading, clean lineart, [setting description], [time/lighting], [atmospheric details], [mood], soft pastel colors, cinematic, no people"
 
-Example: "empty convenience store interior at 3am, harsh fluorescent lights humming, rain-streaked windows, lonely atmosphere, anime style, cinematic, no people, atmospheric depth"
+Example: "webtoon illustration, flat cel shading, clean lineart, empty convenience store interior at 3am, harsh fluorescent lights humming, rain-streaked windows, lonely atmosphere, soft pastel colors, cinematic, no people, atmospheric depth"
 
 Your prompt:"""
 
@@ -214,33 +244,35 @@ class SceneService:
             use_kontext = anchor_image is not None
 
             if use_kontext:
-                # KONTEXT MODE: Phase 1C improved prompting for facial expressions
+                # KONTEXT MODE: ADR-007 style-first for reference-based scenes
                 log.info(f"KONTEXT MODE: Generating scene for episode {episode_id}")
                 prompt_request = KONTEXT_PROMPT_TEMPLATE.format(
                     scene=scene_setting or "A cozy setting",
                     moment=moment_description,
                 )
-                system_prompt = """You are an expert at writing scene transformation prompts for FLUX Kontext.
+                system_prompt = """You are an expert at writing EMOTION-DRIVEN scene transformation prompts for FLUX Kontext.
 
-Phase 1C Goal: Better facial expressions and within-scene composition, not just generic poses.
+ADR-007: Style FIRST, then EXPRESSION as the primary focus.
+Diffusion models weight early tokens heavily - style ensures visual consistency, expression ensures emotional accuracy.
 
-CRITICAL: A reference image provides character appearance. Your prompt must describe ONLY:
-- FACIAL EXPRESSION (specific emotion in eyes/mouth)
-- BODY LANGUAGE (gesture, posture)
-- ENVIRONMENTAL INTERACTION (spatial relationship to setting/objects)
-- LIGHTING & CAMERA ANGLE (how the moment is framed)
+CRITICAL INSIGHT: The reference image handles WHO the character is. Your job is to capture WHAT THEY'RE FEELING.
+The expression must match the narrative moment - if the story describes vulnerability, the prompt must show vulnerability in eyes, mouth, posture.
+
+Your prompt must:
+1. START with style: "webtoon illustration, flat cel shading, clean lineart"
+2. IMMEDIATELY follow with detailed expression (15-20 words on eyes, mouth, brows)
+3. Then body language that reinforces the emotion
+4. Then environment, lighting, camera
 
 NEVER mention: hair color, eye color, face shape, clothing, physical appearance
+The reference image handles appearance - you handle EMOTIONAL TRANSFORMATION.
 
-ALWAYS include:
-1. Specific facial expression (not just "smiling" - be precise)
-2. Detailed gesture or action
-3. How they interact with the environment
-4. Lighting that enhances the mood
-5. Camera angle that serves the emotional beat"""
+OUTPUT FORMAT: "webtoon illustration, flat cel shading, clean lineart, [detailed expression - eyes/mouth/brows], [body language], [environment], [lighting], [camera], soft pastel tones"
+
+Think like a film director capturing a pivotal emotional beat. The expression IS the scene."""
 
             else:
-                # T2I MODE: Phase 1C improved prompting for narrative composition
+                # T2I MODE: ADR-007 style-first for text-to-image scenes
                 log.info(f"T2I MODE: Generating scene for episode {episode_id}")
                 prompt_request = T2I_PROMPT_TEMPLATE.format(
                     character_name=character_name,
@@ -248,21 +280,22 @@ ALWAYS include:
                     scene=scene_setting or "A cozy setting",
                     moment=moment_description,
                 )
-                system_prompt = """You are an expert at writing image generation prompts for anime-style narrative illustrations.
+                system_prompt = """You are an expert at writing STYLE-FIRST image generation prompts for manhwa/webtoon illustrations.
 
-Phase 1C Goal: Character portraits that tell a story through composition, not just likeness.
+ADR-007 CRITICAL: Style descriptors MUST come FIRST in your prompt.
+Diffusion models weight early tokens 2-4x heavier - style at start ensures stylized output.
 
-CRITICAL RULES:
-1. ALWAYS start with "solo, 1girl" (or "solo, 1boy" for male characters)
-2. Include FULL character appearance from appearance_prompt
-3. Add SPECIFIC facial expression (not just "smiling")
-4. Describe DETAILED gesture/action (not just "standing")
-5. Show ENVIRONMENTAL INTERACTION (how they engage with the space)
-6. Specify LIGHTING that enhances mood
-7. Include CAMERA ANGLE that serves the narrative beat
-8. NEVER include multiple people - only the character
+PROMPT STRUCTURE (follow exactly):
+1. STYLE FIRST: "webtoon illustration, flat cel shading, clean bold lineart, stylized features, soft pastel colors"
+2. SUBJECT: "solo, portrait of [name]"
+3. APPEARANCE: Character details
+4. EXPRESSION/ACTION: Specific emotion and gesture
+5. ENVIRONMENT: Setting context
+6. QUALITY LAST: "masterpiece, best quality"
 
-Think cinematically: This is a single frame that must convey an emotional story."""
+OUTPUT FORMAT: "webtoon illustration, flat cel shading, clean bold lineart, stylized features, soft pastel colors, solo, portrait of [name], [appearance], [expression], [action], [environment], masterpiece, best quality"
+
+Think cinematically but ALWAYS put style descriptors FIRST. Never put "anime style" at the end."""
 
             prompt_response = await self.llm_service.generate([
                 {"role": "system", "content": system_prompt},

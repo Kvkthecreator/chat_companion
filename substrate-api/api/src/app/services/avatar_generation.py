@@ -513,6 +513,13 @@ def assemble_avatar_prompt(
 ) -> PromptAssembly:
     """Assemble complete avatar generation prompt from character data.
 
+    ADR-007: STYLE-FIRST ARCHITECTURE
+    =================================
+    Diffusion models weight early tokens 2-4x heavier than late tokens.
+    Style descriptors MUST come first to ensure stylized (not photorealistic) output.
+
+    Prompt structure: [STYLE] → [SUBJECT] → [COMPOSITION] → [QUALITY]
+
     Args:
         name: Character name
         archetype: Character archetype (used for default mood/expression)
@@ -520,12 +527,12 @@ def assemble_avatar_prompt(
         boundaries: Character boundaries (for intimacy level)
         content_rating: 'sfw' or 'adult'
         custom_appearance: Custom appearance description override
-        style_preset: Visual style ('anime', 'semi_realistic', 'painterly', 'webtoon')
+        style_preset: Visual style ('anime', 'semi_realistic', 'painterly', 'webtoon', 'manhwa')
         expression_preset: Expression ('warm', 'intense', 'playful', 'mysterious', 'confident')
         pose_preset: Pose ('portrait', 'casual', 'dramatic', 'candid')
-        style_notes: Free-text additional style/atmosphere notes (e.g., "sunset lighting", "wearing glasses")
+        style_notes: Free-text additional style/atmosphere notes
         world_name: World name for style defaults (e.g., "K-World", "Real Life")
-        series_genre: Series genre for mood defaults (e.g., "romantic_tension", "thriller")
+        series_genre: Series genre for mood defaults
         backstory: Character backstory for additional context extraction
     """
     effective_role = role_frame or archetype
@@ -542,8 +549,32 @@ def assemble_avatar_prompt(
         flirting_level = boundaries.get("flirting_level", "playful")
     intimacy = FLIRTING_LEVEL_MODIFIERS.get(flirting_level, DEFAULT_FLIRTING_MODIFIER)
 
-    # Build appearance - custom appearance or archetype-derived
-    appearance_parts = [f"portrait of {name}"]
+    # =========================================================================
+    # ADR-007: STYLE-FIRST - Get style lock (manhwa default)
+    # =========================================================================
+    # Use hardened style lock dict for comprehensive style control
+    # Default to manhwa for consistent stylized output
+    effective_preset = style_preset or "manhwa"
+    style_lock = get_style_lock(effective_preset)
+
+    # Build style prompt from lock (FIRST in final prompt)
+    style_parts = [
+        style_lock["style"],      # "webtoon illustration, manhwa art style, clean bold lineart, flat cel shading"
+        style_lock["rendering"],  # "stylized features, soft pastel color palette, smooth skin rendering"
+    ]
+
+    # Add world-specific style modifiers if applicable
+    if world_name and world_name in WORLD_AVATAR_STYLES:
+        world_style = WORLD_AVATAR_STYLES[world_name]
+        style_parts.append(world_style["lighting"])
+
+    style_prompt = ", ".join(filter(None, style_parts))
+
+    # =========================================================================
+    # ADR-007: SUBJECT - Character appearance (SECOND in final prompt)
+    # =========================================================================
+    # Start with "solo" to enforce single character
+    appearance_parts = ["solo", f"portrait of {name}"]
     if custom_appearance:
         appearance_parts.append(custom_appearance)
     appearance_parts.append(role_visual["wardrobe"])
@@ -557,7 +588,9 @@ def assemble_avatar_prompt(
 
     appearance_prompt = ", ".join(filter(None, appearance_parts))
 
-    # Build composition - pose preset or archetype-derived
+    # =========================================================================
+    # ADR-007: COMPOSITION - Pose and environment (THIRD in final prompt)
+    # =========================================================================
     composition_parts = [COMPOSITION_DEFAULTS["framing"]]
 
     if pose_preset and pose_preset in POSE_PRESETS:
@@ -568,35 +601,48 @@ def assemble_avatar_prompt(
 
     composition_parts.append(role_visual["setting"])
     composition_parts.append(COMPOSITION_DEFAULTS["lighting"])
-    composition_prompt = ", ".join(filter(None, composition_parts))
 
-    # Style: prefer preset, then world style, fall back to default fantazy style
-    if style_preset and style_preset in STYLE_PRESETS:
-        style_prompt = f"{STYLE_PRESETS[style_preset]}, {FANTAZY_STYLE_LOCK}"
-    elif world_name and world_name in WORLD_AVATAR_STYLES:
-        # Use world-specific styling when no explicit preset
-        world_style = WORLD_AVATAR_STYLES[world_name]
-        style_prompt = f"{world_style['style']}, {world_style['lighting']}, {world_style['quality']}"
-    else:
-        style_prompt = FANTAZY_STYLE_LOCK
-
-    # Add genre-specific mood if available and no expression preset
+    # Add genre mood to composition context
     if series_genre and series_genre in GENRE_AVATAR_MOODS and not expression_preset:
         genre_mood = GENRE_AVATAR_MOODS[series_genre]
-        style_prompt = f"{style_prompt}, {genre_mood}"
+        composition_parts.append(genre_mood)
 
-    negative_prompt = FANTAZY_NEGATIVE_PROMPT
+    composition_prompt = ", ".join(filter(None, composition_parts))
+
+    # =========================================================================
+    # ADR-007: QUALITY - Quality markers (LAST in final prompt)
+    # =========================================================================
+    quality_prompt = style_lock["quality"]  # "masterpiece, best quality, professional manhwa art..."
+
+    # =========================================================================
+    # ADR-007: NEGATIVE PROMPT - Now optional, style-first handles stylization
+    # =========================================================================
+    # Use style-specific negative from lock, supplemented by content rating
+    negative_prompt = style_lock.get("negative", "")
     if content_rating == "sfw":
-        negative_prompt += ", nsfw, nude, explicit, revealing, suggestive"
+        negative_prompt = f"{negative_prompt}, nsfw, nude, explicit, revealing, suggestive" if negative_prompt else "nsfw, nude, explicit, revealing, suggestive"
+    # Add single-character enforcement
+    negative_prompt = f"multiple people, two people, group, crowd, {negative_prompt}" if negative_prompt else "multiple people, two people, group, crowd"
 
-    # Build full prompt, appending style_notes if provided
-    full_prompt = f"{appearance_prompt}, {composition_prompt}, {style_prompt}"
+    # =========================================================================
+    # ADR-007: FINAL ASSEMBLY - Style FIRST for maximum model weight
+    # =========================================================================
+    # Order: [STYLE] → [SUBJECT] → [COMPOSITION] → [QUALITY]
+    prompt_sections = [
+        style_prompt,        # Style FIRST (highest token weight)
+        appearance_prompt,   # Subject SECOND
+        composition_prompt,  # Composition THIRD
+        quality_prompt,      # Quality LAST
+    ]
+
+    full_prompt = ", ".join(prompt_sections)
+
+    # Add optional style notes at end
     if style_notes and style_notes.strip():
         full_prompt = f"{full_prompt}, {style_notes.strip()}"
 
     # Extract character essence from backstory if no custom appearance
     if backstory and not custom_appearance:
-        # Add first sentence of backstory as character context
         first_line = backstory.split('.')[0] if '.' in backstory else backstory[:80]
         if len(first_line) < 80:
             full_prompt = f"{full_prompt}, {first_line}"
