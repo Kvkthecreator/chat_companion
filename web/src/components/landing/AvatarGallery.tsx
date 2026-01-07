@@ -3,38 +3,70 @@
 import { useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
 
-// Example character avatars from Supabase storage
-// These showcase the variety users can create
-const EXAMPLE_AVATARS = [
-  {
-    name: "Bold",
-    // Each has gradient fallback if image doesn't load
-    gradient: "from-purple-400 to-pink-400",
-  },
-  {
-    name: "Mysterious",
-    gradient: "from-slate-400 to-purple-500",
-  },
-  {
-    name: "Caring",
-    gradient: "from-pink-400 to-rose-400",
-  },
-  {
-    name: "Playful",
-    gradient: "from-amber-400 to-orange-400",
-  },
+// Character slugs to showcase in the gallery
+const SHOWCASE_CHARACTERS = ["bree", "ethan", "haru", "minji"];
+
+interface CharacterAvatar {
+  name: string;
+  slug: string;
+  avatar_url: string | null;
+  archetype: string;
+}
+
+// Fallback gradients if images don't load
+const FALLBACK_GRADIENTS = [
+  "from-purple-400 to-pink-400",
+  "from-slate-400 to-purple-500",
+  "from-pink-400 to-rose-400",
+  "from-amber-400 to-orange-400",
 ];
 
 export function AvatarGallery() {
   const [activeIndex, setActiveIndex] = useState(0);
+  const [characters, setCharacters] = useState<CharacterAvatar[]>([]);
+  const [imageErrors, setImageErrors] = useState<Set<number>>(new Set());
+
+  // Fetch characters from API
+  useEffect(() => {
+    fetch(`${process.env.NEXT_PUBLIC_API_URL || "https://api.ep-0.com"}/characters?limit=50`)
+      .then((res) => res.json())
+      .then((data) => {
+        // Filter to showcase characters only
+        const showcaseChars = SHOWCASE_CHARACTERS.map((slug) =>
+          data.find((c: CharacterAvatar) => c.slug === slug)
+        ).filter(Boolean) as CharacterAvatar[];
+
+        if (showcaseChars.length > 0) {
+          setCharacters(showcaseChars);
+        }
+      })
+      .catch(() => {
+        // Silently fail - will show placeholders
+      });
+  }, []);
 
   // Auto-rotate through avatars
   useEffect(() => {
+    const count = characters.length || 4;
     const interval = setInterval(() => {
-      setActiveIndex((prev) => (prev + 1) % EXAMPLE_AVATARS.length);
-    }, 2000);
+      setActiveIndex((prev) => (prev + 1) % count);
+    }, 2500);
     return () => clearInterval(interval);
-  }, []);
+  }, [characters.length]);
+
+  const handleImageError = (index: number) => {
+    setImageErrors((prev) => new Set(prev).add(index));
+  };
+
+  // Format archetype for display
+  const formatArchetype = (archetype: string) => {
+    return archetype
+      .split("_")
+      .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(" ");
+  };
+
+  const displayItems = characters.length > 0 ? characters : null;
 
   return (
     <div className="relative">
@@ -43,53 +75,70 @@ export function AvatarGallery() {
         {/* Main avatar - rotates */}
         <div
           className={cn(
-            "mx-auto mb-4 h-32 w-32 overflow-hidden rounded-xl bg-gradient-to-br transition-all duration-500",
-            EXAMPLE_AVATARS[activeIndex].gradient
+            "mx-auto mb-4 h-32 w-32 overflow-hidden rounded-xl transition-all duration-500",
+            !displayItems || imageErrors.has(activeIndex)
+              ? `bg-gradient-to-br ${FALLBACK_GRADIENTS[activeIndex % FALLBACK_GRADIENTS.length]}`
+              : "bg-muted"
           )}
         >
-          <div className="flex h-full w-full items-center justify-center text-4xl text-white/80">
-            {EXAMPLE_AVATARS[activeIndex].name[0]}
-          </div>
+          {displayItems && displayItems[activeIndex]?.avatar_url && !imageErrors.has(activeIndex) ? (
+            <img
+              src={displayItems[activeIndex].avatar_url!}
+              alt={displayItems[activeIndex].name}
+              className="h-full w-full object-cover"
+              onError={() => handleImageError(activeIndex)}
+            />
+          ) : (
+            <div className="flex h-full w-full items-center justify-center text-4xl text-white/80">
+              {displayItems?.[activeIndex]?.name?.[0] || "?"}
+            </div>
+          )}
         </div>
 
         {/* Name input mock */}
         <div className="mb-3 rounded-lg border bg-background px-3 py-2 text-center text-sm text-muted-foreground">
-          Your name here
+          {displayItems?.[activeIndex]?.name || "Your name here"}
         </div>
 
-        {/* Archetype chips - highlight active */}
-        <div className="flex flex-wrap justify-center gap-1.5">
-          {EXAMPLE_AVATARS.map((avatar, i) => (
-            <button
-              key={avatar.name}
-              onClick={() => setActiveIndex(i)}
-              className={cn(
-                "rounded-full px-2 py-0.5 text-xs transition-all",
-                i === activeIndex
-                  ? "bg-purple-600 text-white scale-105"
-                  : "bg-purple-100 dark:bg-purple-900/50 text-purple-700 dark:text-purple-300 hover:bg-purple-200 dark:hover:bg-purple-800/50"
-              )}
-            >
-              {avatar.name}
-            </button>
-          ))}
+        {/* Archetype label */}
+        <div className="mb-3 text-center">
+          <span className="rounded-full bg-purple-600 px-3 py-1 text-xs font-medium text-white">
+            {displayItems?.[activeIndex]
+              ? formatArchetype(displayItems[activeIndex].archetype)
+              : "Your Archetype"}
+          </span>
         </div>
 
         {/* Mini gallery preview */}
-        <div className="mt-4 flex justify-center gap-2">
-          {EXAMPLE_AVATARS.map((avatar, i) => (
+        <div className="flex justify-center gap-2">
+          {(displayItems || Array(4).fill(null)).map((char, i) => (
             <button
-              key={`thumb-${avatar.name}`}
+              key={char?.slug || i}
               onClick={() => setActiveIndex(i)}
               className={cn(
-                "h-8 w-8 rounded-lg bg-gradient-to-br transition-all",
-                avatar.gradient,
+                "h-10 w-10 overflow-hidden rounded-lg transition-all",
                 i === activeIndex
                   ? "ring-2 ring-purple-500 ring-offset-2 ring-offset-background scale-110"
                   : "opacity-60 hover:opacity-100"
               )}
             >
-              <span className="sr-only">{avatar.name}</span>
+              {char?.avatar_url && !imageErrors.has(i) ? (
+                <img
+                  src={char.avatar_url}
+                  alt={char.name}
+                  className="h-full w-full object-cover"
+                  onError={() => handleImageError(i)}
+                />
+              ) : (
+                <div
+                  className={cn(
+                    "h-full w-full bg-gradient-to-br flex items-center justify-center text-white text-sm font-medium",
+                    FALLBACK_GRADIENTS[i % FALLBACK_GRADIENTS.length]
+                  )}
+                >
+                  {char?.name?.[0] || "?"}
+                </div>
+              )}
             </button>
           ))}
         </div>

@@ -1,11 +1,7 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
-
-// K-pop Boy Idol character avatar from Supabase storage (avatars bucket)
-// Falls back to gradient initial if image not found
-const DEFAULT_AVATAR_URL =
-  "https://lfwhdzwbikyzalpbwfnd.supabase.co/storage/v1/object/public/avatars/characters/min-soo/anchor.webp";
 
 interface MockMessage {
   role: "user" | "character";
@@ -42,7 +38,25 @@ export function ChatPreview({
   characterAvatarUrl,
   className,
 }: ChatPreviewProps) {
-  const avatarUrl = characterAvatarUrl || DEFAULT_AVATAR_URL;
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(characterAvatarUrl || null);
+
+  // Fetch Min Soo's avatar from API if not provided
+  useEffect(() => {
+    if (characterAvatarUrl) return;
+
+    fetch(`${process.env.NEXT_PUBLIC_API_URL || "https://api.ep-0.com"}/characters?limit=50`)
+      .then((res) => res.json())
+      .then((characters) => {
+        const minSoo = characters.find((c: { slug: string }) => c.slug === "min-soo");
+        if (minSoo?.avatar_url) {
+          setAvatarUrl(minSoo.avatar_url);
+        }
+      })
+      .catch(() => {
+        // Silently fail - fallback will show
+      });
+  }, [characterAvatarUrl]);
+
   return (
     <div
       className={cn(
@@ -53,17 +67,22 @@ export function ChatPreview({
       {/* Header */}
       <div className="flex items-center gap-3 border-b bg-card/80 px-4 py-3">
         <div className="relative h-9 w-9 overflow-hidden rounded-full shadow-lg ring-2 ring-white/20">
-          <img
-            src={avatarUrl}
-            alt={characterName}
-            className="h-full w-full object-cover"
-            onError={(e) => {
-              // Fallback to gradient with initial if image fails
-              const target = e.target as HTMLImageElement;
-              target.style.display = "none";
-              target.parentElement!.innerHTML = `<div class="flex h-full w-full items-center justify-center bg-gradient-to-br from-pink-400 to-purple-500 text-sm font-medium text-white">${characterName[0]}</div>`;
-            }}
-          />
+          {avatarUrl ? (
+            <img
+              src={avatarUrl}
+              alt={characterName}
+              className="h-full w-full object-cover"
+              onError={(e) => {
+                const target = e.target as HTMLImageElement;
+                target.style.display = "none";
+                target.parentElement!.innerHTML = `<div class="flex h-full w-full items-center justify-center bg-gradient-to-br from-pink-400 to-purple-500 text-sm font-medium text-white">${characterName[0]}</div>`;
+              }}
+            />
+          ) : (
+            <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-pink-400 to-purple-500 text-sm font-medium text-white">
+              {characterName[0]}
+            </div>
+          )}
         </div>
         <div>
           <p className="text-sm font-medium text-foreground">{characterName}</p>
