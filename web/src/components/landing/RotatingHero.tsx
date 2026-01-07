@@ -120,19 +120,24 @@ export function RotatingHero({
             </p>
           </div>
 
+          {/* Clarity line for cold traffic */}
+          <p className="text-sm text-white/50 max-w-md">
+            Interactive stories where you text with characters and shape what happens next.
+          </p>
+
           {/* Value props */}
           <ul className="flex flex-col gap-2 text-sm text-white/60">
             <li className="flex items-center gap-2">
               <span className="h-1.5 w-1.5 rounded-full bg-pink-400" />
-              They remember everything you say
+              AI characters that remember your choices
             </li>
             <li className="flex items-center gap-2">
               <span className="h-1.5 w-1.5 rounded-full bg-purple-400" />
-              Every reply changes the story
+              Your replies shape the story
             </li>
             <li className="flex items-center gap-2">
               <span className="h-1.5 w-1.5 rounded-full bg-blue-400" />
-              Silence feels like loss
+              Romance, drama, tension — your call
             </li>
           </ul>
 
@@ -142,7 +147,7 @@ export function RotatingHero({
               href="/login?next=/discover"
               className="rounded-full bg-white px-6 py-3 text-sm font-semibold text-slate-900 shadow-lg transition hover:bg-white/90"
             >
-              Start free
+              Play free
             </Link>
             <Link
               href="#series"
@@ -151,6 +156,7 @@ export function RotatingHero({
               See stories
             </Link>
           </div>
+          <p className="text-xs text-white/40">No credit card required</p>
         </div>
 
         {/* Right: Chat Preview */}

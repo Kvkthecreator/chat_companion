@@ -236,9 +236,12 @@ export default async function Home() {
         </section>
 
         {/* Social proof / Trust */}
-        <section className="text-center">
+        <section className="text-center space-y-2">
           <p className="text-sm text-muted-foreground">
-            Free to start. No credit card required.
+            Join readers exploring interactive romance stories
+          </p>
+          <p className="text-xs text-muted-foreground/60">
+            Free to play. No credit card required.
           </p>
         </section>
 
