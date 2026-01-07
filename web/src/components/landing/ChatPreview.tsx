@@ -17,7 +17,7 @@ export function ChatPreview({
   const [avatarUrl, setAvatarUrl] = useState<string | null>(characterAvatarUrl || null);
   const [sceneUrl, setSceneUrl] = useState<string | null>(null);
 
-  // Fetch Min Soo's avatar and K-pop series cover from API
+  // Fetch Min Soo's avatar and a non-featured series cover for scene image
   useEffect(() => {
     if (characterAvatarUrl) return;
 
@@ -32,13 +32,16 @@ export function ChatPreview({
       })
       .catch(() => {});
 
-    // Fetch series cover for scene image
-    fetch(`${process.env.NEXT_PUBLIC_API_URL || "https://api.ep-0.com"}/series?featured=true&limit=6`)
+    // Fetch a non-featured series cover for scene image (to avoid duplicating the series cards below)
+    fetch(`${process.env.NEXT_PUBLIC_API_URL || "https://api.ep-0.com"}/series?limit=30`)
       .then((res) => res.json())
       .then((series) => {
-        const kpopSeries = series.find((s: { slug: string }) => s.slug === "k-pop-boy-idol");
-        if (kpopSeries?.cover_image_url) {
-          setSceneUrl(kpopSeries.cover_image_url);
+        // Use "locked-in" or "the-arrangement" - not in featured list
+        const sceneSeries = series.find(
+          (s: { slug: string }) => s.slug === "locked-in" || s.slug === "the-arrangement"
+        );
+        if (sceneSeries?.cover_image_url) {
+          setSceneUrl(sceneSeries.cover_image_url);
         }
       })
       .catch(() => {});
