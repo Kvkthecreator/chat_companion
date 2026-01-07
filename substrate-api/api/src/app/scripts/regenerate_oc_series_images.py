@@ -312,10 +312,10 @@ async def main(series_filter: str = None, dry_run: bool = False):
 
     storage = StorageService()
 
-    # Use Replicate FLUX Dev with improved prompts
+    # ADR-007: Use FLUX Schnell for backgrounds/covers (no characters, style-first OK)
     # The key improvement is prompt structure (style + genre FIRST)
-    # If Gemini API is available in future, switch back
-    image_service = ImageService.get_client("replicate", "black-forest-labs/flux-dev")
+    # Schnell at $0.003/image vs Dev at $0.05/image = 94% savings
+    image_service = ImageService.get_client("replicate", "black-forest-labs/flux-schnell")
     print(f"Using provider: {image_service.provider.value}, model: {image_service.model}")
 
     try:
