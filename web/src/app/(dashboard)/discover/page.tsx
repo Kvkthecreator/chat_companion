@@ -12,19 +12,32 @@ import { BookOpen, Sparkles, Heart, Search, Skull, Drama, Clapperboard, Grid3X3 
 
 // Genre display config with icons
 const GENRE_CONFIG: Record<string, { label: string; icon: React.ReactNode }> = {
+  // Core Romance
   romance: { label: "Romance", icon: <Heart className="h-5 w-5 text-pink-500" /> },
   dark_romance: { label: "Dark Romance", icon: <Heart className="h-5 w-5 text-rose-700" /> },
   romantic_tension: { label: "Romantic Tension", icon: <Heart className="h-5 w-5 text-red-400" /> },
   enemies_to_lovers: { label: "Enemies to Lovers", icon: <Heart className="h-5 w-5 text-orange-500" /> },
   fake_dating: { label: "Fake Dating", icon: <Heart className="h-5 w-5 text-amber-500" /> },
+  // BL/GL
+  bl: { label: "Boys Love", icon: <Heart className="h-5 w-5 text-sky-500" /> },
+  gl: { label: "Girls Love", icon: <Heart className="h-5 w-5 text-fuchsia-500" /> },
+  // Thrillers & Mystery
   mystery: { label: "Mystery", icon: <Search className="h-5 w-5 text-indigo-500" /> },
   survival_thriller: { label: "Survival Thriller", icon: <Skull className="h-5 w-5 text-slate-500" /> },
-  fantasy_action: { label: "Fantasy Action", icon: <Sparkles className="h-5 w-5 text-purple-500" /> },
-  drama: { label: "Drama", icon: <Drama className="h-5 w-5 text-blue-500" /> },
+  psychological: { label: "Psychological", icon: <Skull className="h-5 w-5 text-zinc-600" /> },
+  // Settings & Aesthetics
+  historical: { label: "Historical", icon: <BookOpen className="h-5 w-5 text-amber-700" /> },
+  workplace: { label: "Workplace", icon: <Clapperboard className="h-5 w-5 text-slate-600" /> },
+  cozy: { label: "Cozy", icon: <Sparkles className="h-5 w-5 text-amber-400" /> },
   slice_of_life: { label: "Slice of Life", icon: <Clapperboard className="h-5 w-5 text-green-500" /> },
+  // Fantasy & Action
+  fantasy_action: { label: "Fantasy Action", icon: <Sparkles className="h-5 w-5 text-purple-500" /> },
   otome_isekai: { label: "Otome Isekai", icon: <Sparkles className="h-5 w-5 text-violet-500" /> },
+  // Asian Media Aesthetics
   ai_shoujo: { label: "AI Shoujo", icon: <Sparkles className="h-5 w-5 text-cyan-500" /> },
   shoujo: { label: "Shoujo", icon: <Heart className="h-5 w-5 text-pink-400" /> },
+  // General
+  drama: { label: "Drama", icon: <Drama className="h-5 w-5 text-blue-500" /> },
 };
 
 // Priority order for genre rows (most popular/engaging first)
@@ -32,9 +45,15 @@ const GENRE_PRIORITY = [
   "romance",
   "romantic_tension",
   "dark_romance",
+  "bl",
+  "gl",
   "enemies_to_lovers",
   "mystery",
+  "psychological",
   "survival_thriller",
+  "historical",
+  "workplace",
+  "cozy",
   "otome_isekai",
   "shoujo",
   "ai_shoujo",
