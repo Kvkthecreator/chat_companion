@@ -3,10 +3,11 @@
 import { useEffect, useState } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { api } from '@/lib/api/client'
 import type { AdminStatsResponse, AdminUserEngagement, AdminSignupDay } from '@/types'
-import { Users, DollarSign, MessageSquare, Sparkles, TrendingUp, Calendar } from 'lucide-react'
+import { Users, DollarSign, MessageSquare, Sparkles, TrendingUp, Download, Activity } from 'lucide-react'
 
 function formatCurrency(cents: number): string {
   return `$${(cents / 100).toFixed(2)}`
@@ -27,27 +28,84 @@ function formatDateTime(dateStr: string): string {
   })
 }
 
+function exportToCSV(stats: AdminStatsResponse) {
+  const { overview, users, signups_by_day } = stats
+
+  // Build CSV content
+  let csv = 'EP-0 Analytics Export\n'
+  csv += `Generated: ${new Date().toISOString()}\n\n`
+
+  // Overview
+  csv += 'OVERVIEW\n'
+  csv += `Total Users,${overview.total_users}\n`
+  csv += `Users (7d),${overview.users_7d}\n`
+  csv += `Users (30d),${overview.users_30d}\n`
+  csv += `Premium Users,${overview.premium_users}\n`
+  csv += `Conversion Rate,${overview.total_users > 0 ? ((overview.premium_users / overview.total_users) * 100).toFixed(1) : 0}%\n`
+  csv += `Total Revenue,$${(overview.total_revenue_cents / 100).toFixed(2)}\n`
+  csv += `Total Messages,${overview.total_messages}\n`
+  csv += `Total Sessions,${overview.total_sessions}\n`
+  csv += `Avg Messages/Session,${overview.total_sessions > 0 ? (overview.total_messages / overview.total_sessions).toFixed(1) : 0}\n\n`
+
+  // Signups
+  csv += 'DAILY SIGNUPS (Last 30 Days)\n'
+  csv += 'Date,Count\n'
+  signups_by_day.forEach(day => {
+    csv += `${day.date},${day.count}\n`
+  })
+  csv += '\n'
+
+  // Users
+  csv += 'USERS\n'
+  csv += 'Name,Status,Messages,Images,Sparks,Sessions,Signed Up\n'
+  users.forEach(user => {
+    csv += `"${user.display_name}",${user.subscription_status},${user.messages_sent_count},${user.flux_generations_used},${user.spark_balance},${user.session_count},${user.created_at}\n`
+  })
+
+  // Download
+  const blob = new Blob([csv], { type: 'text/csv' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = `ep0-analytics-${new Date().toISOString().split('T')[0]}.csv`
+  a.click()
+  URL.revokeObjectURL(url)
+}
+
 function SimpleBarChart({ data }: { data: AdminSignupDay[] }) {
   if (data.length === 0) {
     return <div className="text-muted-foreground text-sm">No signup data yet</div>
   }
 
   const maxCount = Math.max(...data.map(d => d.count), 1)
+  const totalSignups = data.reduce((sum, d) => sum + d.count, 0)
 
   return (
-    <div className="flex items-end gap-1 h-32">
-      {data.map((day, i) => (
-        <div key={i} className="flex-1 flex flex-col items-center gap-1">
-          <div
-            className="w-full bg-primary/80 rounded-t min-h-[4px] transition-all"
-            style={{ height: `${(day.count / maxCount) * 100}%` }}
-            title={`${day.date}: ${day.count} signups`}
-          />
-          <span className="text-[10px] text-muted-foreground rotate-45 origin-left whitespace-nowrap">
-            {formatDate(day.date)}
-          </span>
-        </div>
-      ))}
+    <div className="space-y-4">
+      <div className="text-sm text-muted-foreground">
+        {totalSignups} signups in the last 30 days
+      </div>
+      <div className="flex items-end gap-1 h-40 pb-8">
+        {data.map((day, i) => (
+          <div key={i} className="flex-1 flex flex-col items-center relative group">
+            {/* Bar */}
+            <div className="w-full flex-1 flex items-end">
+              <div
+                className="w-full bg-primary rounded-t min-h-[8px] transition-all hover:bg-primary/80"
+                style={{ height: `${Math.max((day.count / maxCount) * 100, 5)}%` }}
+              />
+            </div>
+            {/* Count on hover */}
+            <div className="absolute -top-6 left-1/2 -translate-x-1/2 bg-foreground text-background px-1.5 py-0.5 rounded text-xs opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
+              {day.count}
+            </div>
+            {/* Date label */}
+            <span className="absolute -bottom-6 text-[9px] text-muted-foreground -rotate-45 origin-top-left whitespace-nowrap">
+              {formatDate(day.date)}
+            </span>
+          </div>
+        ))}
+      </div>
     </div>
   )
 }
@@ -127,16 +185,22 @@ export default function AdminPage() {
   return (
     <div className="space-y-8">
       {/* Header */}
-      <div>
-        <p className="text-sm font-medium uppercase tracking-wide text-muted-foreground">Admin</p>
-        <h1 className="mt-2 text-3xl font-semibold">Analytics Dashboard</h1>
-        <p className="mt-2 text-muted-foreground">
-          Product metrics and user engagement
-        </p>
+      <div className="flex items-start justify-between">
+        <div>
+          <p className="text-sm font-medium uppercase tracking-wide text-muted-foreground">Admin</p>
+          <h1 className="mt-2 text-3xl font-semibold">Analytics Dashboard</h1>
+          <p className="mt-2 text-muted-foreground">
+            Product metrics and user engagement
+          </p>
+        </div>
+        <Button variant="outline" size="sm" onClick={() => exportToCSV(stats)} className="gap-2">
+          <Download className="h-4 w-4" />
+          Export CSV
+        </Button>
       </div>
 
       {/* Overview Cards */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Total Users</CardTitle>
@@ -190,6 +254,23 @@ export default function AdminPage() {
             </p>
           </CardContent>
         </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Engagement</CardTitle>
+            <Activity className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">
+              {overview.total_sessions > 0
+                ? (overview.total_messages / overview.total_sessions).toFixed(1)
+                : '0'}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              avg msgs/session
+            </p>
+          </CardContent>
+        </Card>
       </div>
 
       {/* Signup Trends */}
@@ -225,7 +306,6 @@ export default function AdminPage() {
                   <th className="text-right py-2 px-2 font-medium">Sparks</th>
                   <th className="text-right py-2 px-2 font-medium">Sessions</th>
                   <th className="text-left py-2 px-2 font-medium">Signed Up</th>
-                  <th className="text-left py-2 px-2 font-medium">Last Active</th>
                 </tr>
               </thead>
               <tbody>
@@ -253,9 +333,6 @@ export default function AdminPage() {
                     </td>
                     <td className="py-2 px-2 text-muted-foreground">
                       {formatDate(user.created_at)}
-                    </td>
-                    <td className="py-2 px-2 text-muted-foreground">
-                      {user.last_active ? formatDateTime(user.last_active) : '-'}
                     </td>
                   </tr>
                 ))}
