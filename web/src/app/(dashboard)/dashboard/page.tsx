@@ -11,22 +11,19 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ScrollRow } from "@/components/ui/scroll-row";
 import { SeriesDiscoveryCard, ContinueWatchingCard } from "@/components/series";
-import { cn } from "@/lib/utils";
-import { Play, Sparkles, BookOpen, User as UserIcon } from "lucide-react";
+import { Play, Sparkles, BookOpen, Heart, Search, Skull } from "lucide-react";
 import type { User, SeriesSummary, ContinueWatchingItem } from "@/types";
 
-// Genre display labels
-const GENRE_LABELS: Record<string, string> = {
-  slice_of_life: "Slice of Life",
-  romance: "Romance",
-  drama: "Drama",
-  comedy: "Comedy",
-  fantasy: "Fantasy",
-  mystery: "Mystery",
-  thriller: "Thriller",
-  sci_fi: "Sci-Fi",
-  horror: "Horror",
-  action: "Action",
+// Genre display config (matching discover page)
+const GENRE_CONFIG: Record<string, { label: string; icon: React.ReactNode }> = {
+  romance: { label: "Romance", icon: <Heart className="h-5 w-5 text-pink-500" /> },
+  dark_romance: { label: "Dark Romance", icon: <Heart className="h-5 w-5 text-rose-700" /> },
+  romantic_tension: { label: "Romantic Tension", icon: <Heart className="h-5 w-5 text-red-400" /> },
+  enemies_to_lovers: { label: "Enemies to Lovers", icon: <Heart className="h-5 w-5 text-orange-500" /> },
+  mystery: { label: "Mystery", icon: <Search className="h-5 w-5 text-indigo-500" /> },
+  survival_thriller: { label: "Survival Thriller", icon: <Skull className="h-5 w-5 text-slate-500" /> },
+  otome_isekai: { label: "Otome Isekai", icon: <Sparkles className="h-5 w-5 text-violet-500" /> },
+  shoujo: { label: "Shoujo", icon: <Heart className="h-5 w-5 text-pink-400" /> },
 };
 
 export default function DashboardPage() {
@@ -50,7 +47,7 @@ export default function DashboardPage() {
         // Load data in parallel
         const [userData, continueData, seriesData] = await Promise.all([
           api.users.me().catch(() => null),
-          api.series.getContinueWatching(10).catch(() => ({ items: [] })),
+          api.series.getContinueWatching(20).catch(() => ({ items: [] })),
           api.series.list({ status: "active" }).catch(() => []),
         ]);
 
@@ -79,7 +76,7 @@ export default function DashboardPage() {
   const heroItem = continueWatching[0];
   const otherContinueWatching = continueWatching.slice(1);
 
-  // Group continue watching by genre
+  // Group continue watching by genre for horizontal rows
   const continueByGenre = otherContinueWatching.reduce((acc, item) => {
     const genre = item.series_genre || "other";
     if (!acc[genre]) acc[genre] = [];
@@ -87,8 +84,16 @@ export default function DashboardPage() {
     return acc;
   }, {} as Record<string, ContinueWatchingItem[]>);
 
+  // Sort genres by item count (most items first)
+  const sortedGenres = Object.entries(continueByGenre)
+    .sort(([, a], [, b]) => b.length - a.length)
+    .map(([genre]) => genre);
+
   // Featured series for new users
   const featuredSeries = discoverSeries.find(s => s.is_featured) || discoverSeries[0];
+
+  // Check if user is "new" (no continue watching)
+  const isNewUser = continueWatching.length === 0;
 
   return (
     <div className="space-y-8 pb-8">
@@ -111,52 +116,125 @@ export default function DashboardPage() {
         </Card>
       )}
 
+      {/* New User: Featured Series CTA (prominent, at top) */}
+      {isNewUser && featuredSeries && (
+        <Link href={`/series/${featuredSeries.slug}`}>
+          <Card className="overflow-hidden hover:shadow-lg transition-all group cursor-pointer ring-2 ring-primary/30 hover:ring-primary/50 bg-gradient-to-r from-primary/10 via-background to-background">
+            <div className="flex flex-col sm:flex-row">
+              {/* Image section */}
+              <div className="relative sm:w-1/2 aspect-video sm:aspect-auto overflow-hidden">
+                {featuredSeries.cover_image_url ? (
+                  <img
+                    src={featuredSeries.cover_image_url}
+                    alt={featuredSeries.title}
+                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                  />
+                ) : (
+                  <div className="w-full h-full min-h-[200px] bg-gradient-to-br from-blue-600/40 via-purple-500/30 to-pink-500/20" />
+                )}
+                <div className="absolute inset-0 bg-gradient-to-r from-transparent to-black/60 sm:bg-gradient-to-l" />
+              </div>
+
+              {/* Content section */}
+              <div className="flex-1 p-6 sm:p-8 flex flex-col justify-center">
+                <Badge variant="secondary" className="w-fit mb-3 bg-primary/20 text-primary border-primary/30">
+                  Start Here
+                </Badge>
+                <h2 className="text-2xl sm:text-3xl font-bold mb-2">
+                  {featuredSeries.title}
+                </h2>
+                {featuredSeries.tagline && (
+                  <p className="text-muted-foreground mb-4 italic">
+                    {featuredSeries.tagline}
+                  </p>
+                )}
+                <p className="text-sm text-muted-foreground mb-6">
+                  Episode 0 is free. Step into your first story.
+                </p>
+                <Button size="lg" className="w-fit group-hover:bg-primary/90">
+                  <Play className="h-5 w-5 mr-2" fill="currentColor" />
+                  Step In
+                </Button>
+              </div>
+            </div>
+          </Card>
+        </Link>
+      )}
+
       {/* Hero Section - Resume Most Recent */}
       {heroItem && (
         <HeroCard item={heroItem} />
       )}
 
-      {/* Continue Watching - Grouped by Genre */}
-      {Object.keys(continueByGenre).length > 0 && (
-        <section className="space-y-4">
+      {/* Continue Watching - Horizontal Scroll Rows by Genre */}
+      {sortedGenres.length > 0 && (
+        <section className="space-y-6">
           <div className="flex items-center gap-2">
             <Play className="h-5 w-5 text-primary" />
             <h2 className="text-lg font-semibold">Continue Watching</h2>
           </div>
 
-          <div className="space-y-6">
-            {Object.entries(continueByGenre).map(([genre, items]) => (
-              <div key={genre} className="space-y-3">
-                <Badge variant="secondary" className="text-xs">
-                  {GENRE_LABELS[genre] || genre}
-                </Badge>
-                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                  {/* ADR-004: Key by (series_id, character_id) for distinct playthroughs */}
-                  {items.map((item) => (
-                    <ContinueWatchingCard key={`${item.series_id}-${item.character_id}`} item={item} compact />
-                  ))}
+          {sortedGenres.map((genre) => {
+            const items = continueByGenre[genre];
+            const config = GENRE_CONFIG[genre] || { label: genre, icon: <Play className="h-5 w-5" /> };
+
+            // If only 1-2 items in a genre, show inline without scroll
+            if (items.length <= 2) {
+              return (
+                <div key={genre} className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    {config.icon}
+                    <span className="text-sm font-medium text-muted-foreground">{config.label}</span>
+                  </div>
+                  <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                    {items.map((item) => (
+                      <ContinueWatchingCard
+                        key={`${item.series_id}-${item.character_id}`}
+                        item={item}
+                        compact
+                      />
+                    ))}
+                  </div>
                 </div>
-              </div>
-            ))}
-          </div>
+              );
+            }
+
+            // 3+ items: horizontal scroll row
+            return (
+              <ScrollRow
+                key={genre}
+                title={config.label}
+                icon={config.icon}
+              >
+                {items.map((item) => (
+                  <div
+                    key={`${item.series_id}-${item.character_id}`}
+                    className="flex-shrink-0 snap-start w-[280px] sm:w-[320px]"
+                  >
+                    <ContinueWatchingCard item={item} />
+                  </div>
+                ))}
+              </ScrollRow>
+            );
+          })}
         </section>
       )}
 
-      {/* Discover New Series Row */}
+      {/* Discover New Series Row - Always visible */}
       {discoverSeries.length > 0 && (
         <ScrollRow
           title="Discover New Stories"
           icon={<Sparkles className="h-5 w-5 text-primary" />}
         >
           {discoverSeries.slice(0, 10).map((series) => (
-            <div key={series.id} className="flex-shrink-0 snap-start w-[280px] sm:w-[320px]">
+            <div key={series.id} className="flex-shrink-0 snap-start w-[260px] sm:w-[280px]">
               <SeriesDiscoveryCard series={series} />
             </div>
           ))}
           {/* "See All" card */}
           <Link
             href="/discover"
-            className="flex-shrink-0 snap-start w-[280px] sm:w-[320px]"
+            className="flex-shrink-0 snap-start w-[260px] sm:w-[280px]"
           >
             <Card className="h-full aspect-[16/10] flex items-center justify-center bg-muted/50 hover:bg-muted transition-colors cursor-pointer group">
               <div className="text-center">
@@ -170,7 +248,7 @@ export default function DashboardPage() {
         </ScrollRow>
       )}
 
-      {/* Empty state - no activity at all */}
+      {/* Empty state - no series available at all */}
       {continueWatching.length === 0 && discoverSeries.length === 0 && (
         <Card className="py-12">
           <CardContent className="flex flex-col items-center justify-center text-center">
@@ -187,53 +265,6 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
       )}
-
-      {/* New user with no activity but series available - prominent CTA */}
-      {continueWatching.length === 0 && featuredSeries && (
-        <section className="space-y-4">
-          <Link href={`/series/${featuredSeries.slug}`}>
-            <Card className="overflow-hidden hover:shadow-lg transition-all group cursor-pointer ring-2 ring-primary/30 hover:ring-primary/50 bg-gradient-to-r from-primary/10 via-background to-background">
-              <div className="flex flex-col sm:flex-row">
-                {/* Image section */}
-                <div className="relative sm:w-1/2 aspect-video sm:aspect-auto overflow-hidden">
-                  {featuredSeries.cover_image_url ? (
-                    <img
-                      src={featuredSeries.cover_image_url}
-                      alt={featuredSeries.title}
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                    />
-                  ) : (
-                    <div className="w-full h-full min-h-[200px] bg-gradient-to-br from-blue-600/40 via-purple-500/30 to-pink-500/20" />
-                  )}
-                  <div className="absolute inset-0 bg-gradient-to-r from-transparent to-black/60 sm:bg-gradient-to-l" />
-                </div>
-
-                {/* Content section */}
-                <div className="flex-1 p-6 sm:p-8 flex flex-col justify-center">
-                  <Badge variant="secondary" className="w-fit mb-3 bg-primary/20 text-primary border-primary/30">
-                    Start Here
-                  </Badge>
-                  <h2 className="text-2xl sm:text-3xl font-bold mb-2">
-                    {featuredSeries.title}
-                  </h2>
-                  {featuredSeries.tagline && (
-                    <p className="text-muted-foreground mb-4 italic">
-                      {featuredSeries.tagline}
-                    </p>
-                  )}
-                  <p className="text-sm text-muted-foreground mb-6">
-                    Episode 0 is free. Step into your first story.
-                  </p>
-                  <Button size="lg" className="w-fit group-hover:bg-primary/90">
-                    <Play className="h-5 w-5 mr-2" fill="currentColor" />
-                    Step In
-                  </Button>
-                </div>
-              </div>
-            </Card>
-          </Link>
-        </section>
-      )}
     </div>
   );
 }
@@ -243,7 +274,8 @@ export default function DashboardPage() {
  * ADR-004: Shows character info for the current playthrough
  */
 function HeroCard({ item }: { item: ContinueWatchingItem }) {
-  const genreLabel = item.series_genre ? (GENRE_LABELS[item.series_genre] || item.series_genre) : null;
+  const config = GENRE_CONFIG[item.series_genre || ""] || null;
+  const genreLabel = config?.label || item.series_genre;
 
   return (
     <Link href={`/chat/${item.character_id}?episode=${item.current_episode_id}`}>
@@ -337,10 +369,19 @@ function DashboardSkeleton() {
       <Skeleton className="h-48 sm:h-64 w-full rounded-xl" />
       {/* Row skeleton */}
       <div className="space-y-3">
-        <Skeleton className="h-5 w-32" />
+        <Skeleton className="h-6 w-40" />
         <div className="flex gap-3 overflow-hidden">
           {[...Array(4)].map((_, i) => (
             <Skeleton key={i} className="flex-shrink-0 w-[280px] sm:w-[320px] aspect-[16/9] rounded-xl" />
+          ))}
+        </div>
+      </div>
+      {/* Second row skeleton */}
+      <div className="space-y-3">
+        <Skeleton className="h-6 w-32" />
+        <div className="flex gap-3 overflow-hidden">
+          {[...Array(4)].map((_, i) => (
+            <Skeleton key={i} className="flex-shrink-0 w-[260px] sm:w-[280px] aspect-[16/10] rounded-xl" />
           ))}
         </div>
       </div>
