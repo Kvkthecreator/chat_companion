@@ -20,6 +20,7 @@ import {
 } from '@/components/ui/select'
 import type { Series, CharacterSummary, World, GenreSettings, GenreSettingsOptions } from '@/types'
 import { PropsEditor } from '@/components/studio/PropsEditor'
+import { Users } from 'lucide-react'
 
 interface PageProps {
   params: Promise<{ id: string }>
@@ -1082,16 +1083,17 @@ export default function SeriesDetailPage({ params }: PageProps) {
 
         {/* Characters Tab */}
         <TabsContent value="characters" className="space-y-6 mt-6">
-          <h2 className="text-xl font-semibold">Featured Characters</h2>
-
           {characters.length === 0 ? (
-            <Card>
-              <CardContent className="py-12 text-center">
-                <p className="text-muted-foreground">
-                  No characters linked to this series yet.
+            <Card className="border-dashed">
+              <CardContent className="py-16 text-center">
+                <div className="mx-auto w-12 h-12 rounded-full bg-muted flex items-center justify-center mb-4">
+                  <Users className="h-6 w-6 text-muted-foreground" />
+                </div>
+                <p className="text-muted-foreground font-medium">
+                  No featured characters yet
                 </p>
-                <p className="text-sm text-muted-foreground mt-2">
-                  Link characters via the series.featured_characters array.
+                <p className="text-sm text-muted-foreground mt-1 max-w-sm mx-auto">
+                  Characters are automatically linked when episodes are added to this series.
                 </p>
               </CardContent>
             </Card>
@@ -1099,10 +1101,10 @@ export default function SeriesDetailPage({ params }: PageProps) {
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {characters.map((char) => (
                 <Link key={char.id} href={`/studio/characters/${char.id}`}>
-                  <Card className="h-full transition hover:border-foreground/30 cursor-pointer">
+                  <Card className="h-full transition hover:border-foreground/30 hover:shadow-sm cursor-pointer">
                     <CardContent className="pt-6">
-                      <div className="flex items-start gap-3">
-                        <div className="h-12 w-12 rounded-full bg-primary/20 flex items-center justify-center text-lg flex-shrink-0">
+                      <div className="flex items-start gap-4">
+                        <div className="h-14 w-14 rounded-full bg-primary/10 flex items-center justify-center text-lg flex-shrink-0 ring-2 ring-primary/20">
                           {char.avatar_url ? (
                             <img
                               src={char.avatar_url}
@@ -1110,12 +1112,17 @@ export default function SeriesDetailPage({ params }: PageProps) {
                               className="h-full w-full rounded-full object-cover"
                             />
                           ) : (
-                            char.name[0].toUpperCase()
+                            <span className="text-xl font-medium text-primary/60">
+                              {char.name[0].toUpperCase()}
+                            </span>
                           )}
                         </div>
                         <div className="flex-1 min-w-0">
                           <p className="font-medium truncate">{char.name}</p>
                           <p className="text-sm text-muted-foreground capitalize">{char.archetype}</p>
+                          {char.backstory && (
+                            <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{char.backstory}</p>
+                          )}
                         </div>
                       </div>
                     </CardContent>
