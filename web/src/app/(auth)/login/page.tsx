@@ -74,10 +74,10 @@ export default function LoginPage() {
                   <span className="text-xl font-semibold">episode-0</span>
                 </Link>
                 <div className="flex items-center justify-center gap-2 text-xs uppercase tracking-[0.12em] text-muted-foreground">
-                  cozy • romcom • memory
+                  live • shape • remember
                 </div>
                 <h1 className="mt-2 text-xl font-semibold">Welcome back</h1>
-                <p className="text-sm text-muted-foreground">Sign in to continue your story.</p>
+                <p className="text-sm text-muted-foreground">Step back into your story.</p>
               </div>
 
               {error && (

@@ -99,8 +99,8 @@ export default function DashboardPage() {
         </h1>
         <p className="text-muted-foreground">
           {continueWatching.length > 0
-            ? "Continue your stories or discover something new."
-            : "Start your first story adventure."}
+            ? "Your stories are waiting."
+            : "Your first story is waiting. Step in."}
         </p>
       </div>
 
@@ -177,9 +177,9 @@ export default function DashboardPage() {
             <div className="w-16 h-16 rounded-full bg-gradient-to-br from-pink-400 to-purple-500 flex items-center justify-center text-white text-2xl mb-4">
               <Sparkles className="h-8 w-8" />
             </div>
-            <h3 className="text-lg font-semibold mb-2">Start Your First Story</h3>
+            <h3 className="text-lg font-semibold mb-2">Step Into Your First Story</h3>
             <p className="text-sm text-muted-foreground max-w-sm mb-4">
-              Discover series and characters waiting to meet you.
+              Pick a moment. Shape what happens. Live it.
             </p>
             <Button asChild>
               <Link href="/discover">Discover Stories</Link>
@@ -222,11 +222,11 @@ export default function DashboardPage() {
                     </p>
                   )}
                   <p className="text-sm text-muted-foreground mb-6">
-                    Episode 0 is free. Jump into your first interactive story.
+                    Episode 0 is free. Step into your first story.
                   </p>
                   <Button size="lg" className="w-fit group-hover:bg-primary/90">
                     <Play className="h-5 w-5 mr-2" fill="currentColor" />
-                    Start Your First Story
+                    Step In
                   </Button>
                 </div>
               </div>

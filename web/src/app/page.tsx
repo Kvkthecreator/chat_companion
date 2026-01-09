@@ -40,7 +40,7 @@ export default async function Home() {
               <h1 className="text-xl font-bold leading-tight text-foreground">
                 episode-0
               </h1>
-              <p className="text-xs text-muted-foreground">Your story awaits</p>
+              <p className="text-xs text-muted-foreground">Live the story</p>
             </div>
           </Link>
 
@@ -71,8 +71,8 @@ export default async function Home() {
         {series.length > 0 && (
           <section id="series" className="space-y-4">
             <SectionHeader
-              title="Pick your story"
-              description="Curated scenarios. Real emotional stakes. Choose one and step in."
+              title="Step into a story"
+              description="Every story starts with a moment. You decide what happens next."
             />
             <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
               {series.map(
@@ -209,10 +209,10 @@ export default async function Home() {
         {/* Social proof / Trust */}
         <section className="text-center space-y-2">
           <p className="text-sm text-muted-foreground">
-            Join readers exploring interactive romance stories
+            Join thousands living stories, not just watching them
           </p>
           <p className="text-xs text-muted-foreground/60">
-            Free to play. No credit card required.
+            Free to start. No credit card required.
           </p>
         </section>
 

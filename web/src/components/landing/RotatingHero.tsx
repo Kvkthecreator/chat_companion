@@ -5,11 +5,11 @@ import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { ChatPreview } from "./ChatPreview";
 
-// More specific, emotionally charged scenarios
+// Scenarios reframed around being IN the moment
 const SCENARIOS = [
-  { target: "idol", line: "He wasn't supposed to be at that club." },
-  { target: "crush", line: "You finally said something." },
-  { target: "stranger", line: "One conversation changed everything." },
+  { target: "confession", line: "You're in it. What do you say?" },
+  { target: "confrontation", line: "Your move. No script." },
+  { target: "turning point", line: "Everything changes now. You decide." },
 ];
 
 interface RotatingHeroProps {
@@ -81,30 +81,15 @@ export function RotatingHero({
           {/* Eyebrow */}
           <div className="flex items-center gap-2">
             <span className="rounded-full bg-white/10 px-3 py-1 text-xs font-medium backdrop-blur-sm">
-              Interactive Fiction
+              Live the story
             </span>
           </div>
 
           {/* Headline */}
           <div className="space-y-3">
             <h1 className="text-2xl font-bold leading-tight sm:text-3xl md:text-4xl">
-              <span className="block">The scene&apos;s already started.</span>
-              <span className="block mt-1">
-                <span
-                  className={cn(
-                    "inline-block transition-all duration-200",
-                    isAnimating
-                      ? "opacity-0 translate-y-2"
-                      : "opacity-100 translate-y-0"
-                  )}
-                >
-                  The{" "}
-                  <span className="bg-gradient-to-r from-pink-400 to-purple-400 bg-clip-text text-transparent">
-                    {current.target}
-                  </span>{" "}
-                  is waiting.
-                </span>
-              </span>
+              <span className="block">Don&apos;t watch the story.</span>
+              <span className="block mt-1">Live it.</span>
             </h1>
 
             {/* Rotating scenario line */}
@@ -116,28 +101,32 @@ export function RotatingHero({
                   : "opacity-100 translate-y-0"
               )}
             >
-              {current.line}
+              The{" "}
+              <span className="bg-gradient-to-r from-pink-400 to-purple-400 bg-clip-text text-transparent">
+                {current.target}
+              </span>
+              . {current.line}
             </p>
           </div>
 
           {/* Clarity line for cold traffic */}
           <p className="text-sm text-white/50 max-w-md">
-            Interactive stories where you text with characters and shape what happens next.
+            Step into scenes that respond to you. Shape what happens next.
           </p>
 
           {/* Value props */}
           <ul className="flex flex-col gap-2 text-sm text-white/60">
             <li className="flex items-center gap-2">
               <span className="h-1.5 w-1.5 rounded-full bg-pink-400" />
-              AI characters that remember your choices
+              Stories that remember you
             </li>
             <li className="flex items-center gap-2">
               <span className="h-1.5 w-1.5 rounded-full bg-purple-400" />
-              Your replies shape the story
+              Your choices change everything
             </li>
             <li className="flex items-center gap-2">
               <span className="h-1.5 w-1.5 rounded-full bg-blue-400" />
-              Romance, drama, tension — your call
+              Romance. Drama. Thriller. You&apos;re the lead.
             </li>
           </ul>
 
