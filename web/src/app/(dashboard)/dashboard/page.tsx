@@ -188,16 +188,50 @@ export default function DashboardPage() {
         </Card>
       )}
 
-      {/* New user with no activity but series available */}
+      {/* New user with no activity but series available - prominent CTA */}
       {continueWatching.length === 0 && featuredSeries && (
         <section className="space-y-4">
-          <div className="flex items-center gap-2">
-            <Sparkles className="h-5 w-5 text-primary" />
-            <h2 className="text-lg font-semibold">Start Here</h2>
-          </div>
-          <div className="max-w-2xl">
-            <SeriesDiscoveryCard series={featuredSeries} featured />
-          </div>
+          <Link href={`/series/${featuredSeries.slug}`}>
+            <Card className="overflow-hidden hover:shadow-lg transition-all group cursor-pointer ring-2 ring-primary/30 hover:ring-primary/50 bg-gradient-to-r from-primary/10 via-background to-background">
+              <div className="flex flex-col sm:flex-row">
+                {/* Image section */}
+                <div className="relative sm:w-1/2 aspect-video sm:aspect-auto overflow-hidden">
+                  {featuredSeries.cover_image_url ? (
+                    <img
+                      src={featuredSeries.cover_image_url}
+                      alt={featuredSeries.title}
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                    />
+                  ) : (
+                    <div className="w-full h-full min-h-[200px] bg-gradient-to-br from-blue-600/40 via-purple-500/30 to-pink-500/20" />
+                  )}
+                  <div className="absolute inset-0 bg-gradient-to-r from-transparent to-black/60 sm:bg-gradient-to-l" />
+                </div>
+
+                {/* Content section */}
+                <div className="flex-1 p-6 sm:p-8 flex flex-col justify-center">
+                  <Badge variant="secondary" className="w-fit mb-3 bg-primary/20 text-primary border-primary/30">
+                    Start Here
+                  </Badge>
+                  <h2 className="text-2xl sm:text-3xl font-bold mb-2">
+                    {featuredSeries.title}
+                  </h2>
+                  {featuredSeries.tagline && (
+                    <p className="text-muted-foreground mb-4 italic">
+                      {featuredSeries.tagline}
+                    </p>
+                  )}
+                  <p className="text-sm text-muted-foreground mb-6">
+                    Episode 0 is free. Jump into your first interactive story.
+                  </p>
+                  <Button size="lg" className="w-fit group-hover:bg-primary/90">
+                    <Play className="h-5 w-5 mr-2" fill="currentColor" />
+                    Start Your First Story
+                  </Button>
+                </div>
+              </div>
+            </Card>
+          </Link>
         </section>
       )}
     </div>
