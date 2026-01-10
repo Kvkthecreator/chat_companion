@@ -361,6 +361,11 @@ export default function StudioPage() {
                         <div className="flex-1 min-w-0">
                           <p className="font-medium truncate">{s.title}</p>
                           <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                            {s.genre && (
+                              <span className="rounded-full bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary capitalize">
+                                {s.genre.replace(/_/g, ' ')}
+                              </span>
+                            )}
                             <span className="capitalize">{s.series_type}</span>
                             {s.world_id && (
                               <>
