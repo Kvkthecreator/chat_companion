@@ -406,16 +406,6 @@ export function ChatContainer({ characterId, episodeTemplateId }: ChatContainerP
             />
           ) : (
             <>
-              {/* Episode Opening Card */}
-              {episodeTemplate?.situation && (
-                <EpisodeOpeningCard
-                  title={episodeTemplate.title}
-                  situation={episodeTemplate.situation}
-                  characterName={character.name}
-                  hasBackground={hasBackground}
-                />
-              )}
-
               {/* Chat items (messages + scenes + props) */}
               {chatItems.map((item) =>
                 item.type === "message" ? (
