@@ -1169,6 +1169,27 @@ def build_fashion_empire_ceo_cover_prompt() -> tuple[str, str]:
     )
 
 
+def build_summers_end_cover_prompt() -> tuple[str, str]:
+    """Series cover prompt for Summer's End (shoujo manga style - Haruki Mizuno reunion romance)."""
+    # Based on scaffold_shoujo_reunion.py cover_prompt (lines 156-166)
+    # Nostalgic summer shoujo aesthetic with bittersweet reunion theme
+    prompt = """shoujo manga illustration, nostalgic summer aesthetic, soft golden hour lighting, wistful romantic atmosphere.
+Romantic shoujo manga cover illustration.
+A young man and woman standing apart but looking at each other.
+Summer sunset background, warm oranges and soft purples.
+Sunflower field or festival lanterns in soft focus.
+His hand reaching toward her but not quite touching.
+Nostalgic, bittersweet atmosphere.
+Golden light catching floating dust or fireflies.
+Text space at top for title.
+Second chance romance visual, beautiful and aching.
+masterpiece, best quality, expressive eyes, warm sunset colors, soft lens flare, dreamy summer feeling, cicada summer atmosphere"""
+
+    negative = "photorealistic, 3D render, harsh shadows, winter, cold colors, dark atmosphere, action-focused, horror"
+
+    return prompt, negative
+
+
 # Series cover prompt lookup
 SERIES_COVER_PROMPTS = {
     "stolen-moments": build_stolen_moments_cover_prompt,
@@ -1179,6 +1200,7 @@ SERIES_COVER_PROMPTS = {
     "penthouse-secrets": build_penthouse_secrets_cover_prompt,
     "code-violet": build_code_violet_cover_prompt,
     "fashion-empire-ceo": build_fashion_empire_ceo_cover_prompt,
+    "summers-end": build_summers_end_cover_prompt,
 }
 
 
