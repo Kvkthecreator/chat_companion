@@ -522,6 +522,127 @@ Total: 40 series, ~300+ episodes
 
 ---
 
+## Phase 4: The Clarity (Jan 14, 2026)
+
+### Technical Validation Complete
+
+**Activation fix timeline:**
+- **Jan 12**: Opening messages display as chat bubbles ✅
+- **Jan 12**: Starter prompts added to database ✅
+- **Jan 14**: Starter prompts now visible in UI ✅ (was hidden in EmptyState)
+
+**Root cause:** Starter prompts only rendered when `chatItems.length === 0`, but backend auto-injected opening message, so prompts never showed. Fixed by rendering prompts after messages when user hasn't sent first message yet.
+
+**Technical foundation is now solid.** Users see:
+1. Opening message as chat bubble (992+ chars)
+2. 3 clickable starter prompts below
+3. Clear guidance for first interaction
+
+### Strategic Realization: Right Product, Wrong Audience
+
+**Key insight from reviewing ADRs 000-007:**
+
+The episode structure is NOT the problem — **it's the core differentiator.**
+
+**What we learned:**
+```
+Assumption: OI/manhwa fans will try chat-based stories
+Reality: They want VISUAL content (webtoons, art panels)
+
+New understanding: We're not "between" Character.AI and visual novels
+We're ORTHOGONAL — offering something neither can provide:
+  - Character.AI can't add structure (breaks their model)
+  - Visual novels can't match our speed/cost/agency
+```
+
+**The product positioning is sound:**
+- ✅ Structured narrative (vs Character.AI's infinite)
+- ✅ Chat-based agency (vs visual novels' rigid paths)
+- ✅ AI-native speed (vs expensive production)
+- ✅ Bootstrap-compatible (finite content, clear monetization)
+
+**The distribution targeting was wrong:**
+- ❌ r/OtomeIsekai → Passive consumers (webtoon readers)
+- ❌ r/manhwa → Visual media fans
+- ✅ Need: Interactive fiction enthusiasts, Character.AI power users
+
+### Market Position Clarified
+
+**ep-0 is NOT:**
+- A Character.AI clone with episodes (downgrade from infinite)
+- A visual novel with worse graphics (downgrade from polish)
+- A webtoon you chat with (format confusion)
+
+**ep-0 IS:**
+- Character.AI + narrative structure = Stories with beginnings/endings
+- Visual novels + dynamic conversation = More agency, less cost
+- Interactive fiction + AI generation = Faster content, visual elements
+
+**Target users:**
+1. **Character.AI power users** frustrated by lack of structure
+2. **Interactive fiction readers** (Choice of Games, Twine enthusiasts)
+3. **Visual novel fans on budget** (college students, casual players)
+4. **Romance readers who want agency** (not passive consumption)
+
+**This is a real market.** Choice of Games has paying users. Character.AI has 20M+ MAU. The intersection exists — we were just looking in the wrong subreddits.
+
+### Architectural Validation
+
+All ADRs (001-007) align with this understanding:
+
+**ADR-002 (Theatrical Architecture):**
+- Episode structure = MOAT, not limitation
+- Enables authored quality at bootstrap scale
+- Character.AI can't copy this
+
+**ADR-004 (User Characters):**
+- "Any character can play any episode"
+- Already supports character-first discovery
+- No hard fork needed between character/story focus
+
+**ADR-001, 003, 005-007:**
+- All support the "structured narrative chat" thesis
+- Genre targeting, image generation, props system
+- Built for THIS positioning, not borrowed from others
+
+**Conclusion:** Architecture is solid. Distribution needs complete revision.
+
+---
+
+## Current Status (Jan 14, 2026): Validated Product, Need Distribution Reset
+
+### What's Validated
+
+1. ✅ **Technical execution works** - UX bugs fixed, product is stable
+2. ✅ **Product architecture is sound** - ADRs support the core thesis
+3. ✅ **Founding principles hold** - Bootstrap constraints drove right innovations
+4. ✅ **Monetization model viable** - Free Episode 0 + paid continuations
+
+### What's Invalidated
+
+1. ❌ **OI/manhwa targeting** - Wrong audience (want visuals, not chat)
+2. ❌ **"Better than Character.AI" positioning** - We're different, not better
+3. ❌ **Reddit as primary channel** - Maybe viable, but wrong subreddits
+
+### What's Unknown
+
+1. ❓ **Will Character.AI users want structure?** - Need to test
+2. ❓ **Will IF readers accept AI chat?** - Need to validate
+3. ❓ **What's the right acquisition channel?** - TikTok? Discord? Direct?
+
+### Next Phase: Distribution Experiments
+
+**Hypothesis to test:**
+```
+IF we target interactive fiction / Character.AI audiences
+AND show them structured episodic chat format
+THEN activation rate will be 40-60% (vs current 0-25%)
+```
+
+**Test plan documented in:** [GTM_DISTRIBUTION_RESET.md](../marketing/GTM_DISTRIBUTION_RESET.md)
+
+---
+
 ## Conclusion
 
 **ep-0 represents a bet that structured narrative chat experiences can compete in the entertainment space.**
@@ -532,13 +653,16 @@ We've iterated from:
 - Broad romance → Niche genres
 - Generic landing → Series-specific targeting
 - "Play Now" → "Start Chat"
+- Visual media fans → Interactive fiction enthusiasts ← **NEW**
 
-**We're now testing:** Can we find the audience that wants this format?
+**Current understanding:** We're building the right product for the wrong audience.
 
-**The next 7 days will tell us if we're building the right thing for the wrong people, or the wrong thing entirely.**
+**The core bet remains valid.** Episode structure is our moat, not our limitation. We just need to find users who want structured stories in chat format — they exist (Character.AI power users, IF readers, budget VN fans), we were just looking in the wrong places.
+
+**Next 7-14 days:** Test distribution with intent-matched audiences.
 
 ---
 
-**Last updated:** 2026-01-12
+**Last updated:** 2026-01-14
 **Author:** Kevin Kim (Founder)
 **Review cycle:** After each major validation/invalidation event
