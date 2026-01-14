@@ -22,21 +22,20 @@ export async function generateMetadata({
     const series = allSeries.find((s: { slug: string }) => s.slug === slug);
 
     if (series) {
-      const title = `${series.title} | ${BRAND.shortName}`;
       const description = series.tagline || series.description || BRAND.description;
 
       return {
-        title,
+        title: series.title,  // Template adds "| ep-0"
         description,
         openGraph: {
-          title,
+          title: `${series.title} | ${BRAND.shortName}`,
           description,
           url: `${BRAND.url}/series/${slug}`,
           images: series.cover_image_url ? [{ url: series.cover_image_url }] : undefined,
         },
         twitter: {
           card: "summary_large_image",
-          title,
+          title: `${series.title} | ${BRAND.shortName}`,
           description,
         },
       };
@@ -46,7 +45,7 @@ export async function generateMetadata({
   }
 
   return {
-    title: `Series | ${BRAND.shortName}`,
+    title: "Series",  // Template adds "| ep-0"
     description: BRAND.description,
   };
 }

@@ -1,6 +1,11 @@
+import type { Metadata } from "next";
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import { isInternalEmail } from '@/lib/internal-access'
+
+export const metadata: Metadata = {
+  title: "Studio",
+};
 
 export const dynamic = 'force-dynamic'
 

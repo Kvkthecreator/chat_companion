@@ -132,7 +132,10 @@ export function getGradientBackground(theme: OGTheme = "default"): string {
 export function getBaseMetadata() {
   return {
     metadataBase: new URL(BRAND.url),
-    title: `${BRAND.name} — ${BRAND.tagline}`,
+    title: {
+      default: `${BRAND.name} — ${BRAND.tagline}`,
+      template: `%s | ${BRAND.shortName}`,
+    },
     description: BRAND.description,
     icons: {
       icon: "/branding/ep0-icon.png",
