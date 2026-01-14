@@ -160,7 +160,7 @@ app.add_middleware(SecurityHeadersMiddleware)
 # Auth middleware with exemptions
 app.add_middleware(
     AuthMiddleware,
-    exempt_paths={"/", "/health", "/docs", "/openapi.json", "/redoc"},
+    exempt_paths={"/", "/health", "/docs", "/openapi.json", "/redoc", "/sessions/guest"},
     exempt_prefixes={"/health/", "/characters", "/webhooks", "/studio/admin", "/episode-templates", "/series", "/worlds", "/roles", "/games/r", "/games/quiz"},
 )
 
