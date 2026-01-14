@@ -635,3 +635,260 @@ async def reveal_prop(
         revealed_turn=revealed_turn,
         prop=session_prop,
     )
+
+
+# =============================================================================
+# Guest Sessions (Anonymous Episode 0 trials)
+# =============================================================================
+
+import hashlib
+import uuid as uuid_lib
+from datetime import timezone
+
+
+class GuestSessionCreate(BaseModel):
+    """Data for creating a guest session."""
+    character_id: UUID
+    episode_template_id: UUID  # Must be Episode 0
+    guest_session_id: Optional[str] = None  # Client-provided or auto-generated
+
+
+class GuestSessionResponse(BaseModel):
+    """Response for guest session creation."""
+    session_id: str
+    guest_session_id: str
+    messages_remaining: int  # 5 minus current message count
+    episode_template_id: str
+    character_id: str
+
+
+class ConvertGuestSessionRequest(BaseModel):
+    """Request to convert guest session to authenticated."""
+    guest_session_id: str
+
+
+class ConvertGuestSessionResponse(BaseModel):
+    """Response after converting guest session."""
+    session_id: str
+    message_count: int
+    converted: bool
+
+
+@router.post("/guest", response_model=GuestSessionResponse, status_code=status.HTTP_201_CREATED)
+async def create_guest_session(
+    data: GuestSessionCreate,
+    request: Request,
+    db=Depends(get_db),
+):
+    """Create an anonymous guest session for Episode 0 trial.
+
+    Rate limiting: Max 3 guest sessions per IP per 24 hours.
+    Message limit: 5 messages per guest session (enforced in conversation endpoint).
+
+    This endpoint:
+    - Allows anonymous users to try Episode 0 without signing up
+    - Stores session with user_id = NULL and guest_session_id for tracking
+    - Returns guest_session_id for client to store in localStorage
+    - Enforces IP-based rate limiting to prevent abuse
+    """
+    # Get client IP for rate limiting
+    forwarded_for = request.headers.get("X-Forwarded-For")
+    client_ip = forwarded_for.split(",")[0].strip() if forwarded_for else request.client.host
+    ip_hash = hashlib.sha256(client_ip.encode()).hexdigest()
+
+    # Check IP-based rate limit (prevent abuse)
+    count_query = """
+        SELECT COUNT(*) as session_count
+        FROM sessions
+        WHERE guest_ip_hash = :ip_hash
+        AND guest_created_at > NOW() - INTERVAL '24 hours'
+    """
+    row = await db.fetch_one(count_query, {"ip_hash": ip_hash})
+
+    if row and row["session_count"] >= 3:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="Guest session limit reached. Please sign up to continue chatting."
+        )
+
+    # Verify episode template exists and is Episode 0
+    template_query = """
+        SELECT episode_number, series_id, character_id
+        FROM episode_templates
+        WHERE id = :template_id
+    """
+    template = await db.fetch_one(template_query, {"template_id": str(data.episode_template_id)})
+
+    if not template:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Episode template not found"
+        )
+
+    if template["episode_number"] != 0:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Guest sessions are only allowed for Episode 0. Sign up to access other episodes."
+        )
+
+    # Generate or use provided guest_session_id
+    guest_session_id = data.guest_session_id or str(uuid_lib.uuid4())
+
+    # Check if guest session already exists (user resuming)
+    existing_query = """
+        SELECT id, message_count, user_id
+        FROM sessions
+        WHERE guest_session_id = :guest_id
+    """
+    existing = await db.fetch_one(existing_query, {"guest_id": guest_session_id})
+
+    if existing:
+        # Check if session was already converted
+        if existing["user_id"]:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="This guest session has been converted. Please log in to continue."
+            )
+
+        # Resume existing guest session
+        return GuestSessionResponse(
+            session_id=str(existing["id"]),
+            guest_session_id=guest_session_id,
+            messages_remaining=max(0, 5 - (existing["message_count"] or 0)),
+            episode_template_id=str(data.episode_template_id),
+            character_id=str(data.character_id),
+        )
+
+    # Create new guest session
+    insert_query = """
+        INSERT INTO sessions (
+            user_id,
+            character_id,
+            episode_template_id,
+            series_id,
+            episode_number,
+            guest_session_id,
+            guest_created_at,
+            guest_ip_hash,
+            session_state
+        )
+        VALUES (
+            NULL,
+            :character_id,
+            :episode_template_id,
+            :series_id,
+            0,
+            :guest_session_id,
+            :created_at,
+            :ip_hash,
+            'active'
+        )
+        RETURNING id
+    """
+
+    row = await db.fetch_one(
+        insert_query,
+        {
+            "character_id": str(data.character_id),
+            "episode_template_id": str(data.episode_template_id),
+            "series_id": str(template["series_id"]) if template["series_id"] else None,
+            "guest_session_id": guest_session_id,
+            "created_at": datetime.now(timezone.utc),
+            "ip_hash": ip_hash,
+        },
+    )
+
+    return GuestSessionResponse(
+        session_id=str(row["id"]),
+        guest_session_id=guest_session_id,
+        messages_remaining=5,
+        episode_template_id=str(data.episode_template_id),
+        character_id=str(data.character_id),
+    )
+
+
+@router.post("/guest/convert", response_model=ConvertGuestSessionResponse)
+async def convert_guest_session(
+    data: ConvertGuestSessionRequest,
+    user_id: UUID = Depends(get_current_user_id),
+    db=Depends(get_db),
+):
+    """Convert a guest session to an authenticated user's session.
+
+    Called after user signs up - links the guest conversation to their account.
+    All messages are preserved and the session becomes theirs.
+
+    This endpoint:
+    - Updates session.user_id from NULL to the authenticated user's ID
+    - Sets session.guest_converted_at timestamp for analytics
+    - Creates or updates engagement record
+    - Returns session details for frontend to continue conversation
+    """
+    # Find guest session
+    query = """
+        SELECT id, character_id, message_count, user_id
+        FROM sessions
+        WHERE guest_session_id = :guest_id
+    """
+    session = await db.fetch_one(query, {"guest_id": data.guest_session_id})
+
+    if not session:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Guest session not found. It may have expired (24 hour limit)."
+        )
+
+    # Check if already converted
+    if session["user_id"]:
+        if str(session["user_id"]) == str(user_id):
+            # Already converted to this user - return success
+            return ConvertGuestSessionResponse(
+                session_id=str(session["id"]),
+                message_count=session["message_count"] or 0,
+                converted=True,
+            )
+        else:
+            # Converted to different user - conflict
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="This guest session belongs to another user."
+            )
+
+    # Convert session to authenticated
+    update_query = """
+        UPDATE sessions
+        SET
+            user_id = :user_id,
+            guest_converted_at = NOW()
+        WHERE guest_session_id = :guest_id
+        AND user_id IS NULL
+        RETURNING id, message_count
+    """
+    result = await db.fetch_one(update_query, {
+        "user_id": str(user_id),
+        "guest_id": data.guest_session_id,
+    })
+
+    if not result:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to convert guest session. Please try again."
+        )
+
+    # Create or update engagement record
+    eng_query = """
+        INSERT INTO engagements (user_id, character_id)
+        VALUES (:user_id, :character_id)
+        ON CONFLICT (user_id, character_id) DO UPDATE
+        SET updated_at = NOW()
+    """
+    await db.execute(eng_query, {
+        "user_id": str(user_id),
+        "character_id": str(session["character_id"]),
+    })
+
+    return ConvertGuestSessionResponse(
+        session_id=str(result["id"]),
+        message_count=result["message_count"] or 0,
+        converted=True,
+    )

@@ -18,7 +18,7 @@ export class APIError extends Error {
   }
 }
 
-async function getAuthHeaders(): Promise<HeadersInit> {
+async function getAuthHeaders(includeGuestSession = true): Promise<HeadersInit> {
   const supabase = createClient();
   const {
     data: { session },
@@ -30,6 +30,17 @@ async function getAuthHeaders(): Promise<HeadersInit> {
 
   if (session?.access_token) {
     headers["Authorization"] = `Bearer ${session.access_token}`;
+  } else if (includeGuestSession && typeof window !== 'undefined') {
+    // No auth session - check for guest session
+    const guestData = localStorage.getItem('ep0_guest_session_id');
+    if (guestData) {
+      try {
+        const parsed = JSON.parse(guestData);
+        headers["X-Guest-Session-Id"] = parsed.guest_session_id;
+      } catch {
+        // Invalid data, ignore
+      }
+    }
   }
 
   return headers;
@@ -203,6 +214,38 @@ export const api = {
       request<import("@/types").PropRevealResponse>(
         `/sessions/${sessionId}/props/${propId}/reveal${trigger ? `?reveal_trigger=${trigger}` : ""}`,
         { method: "POST" }
+      ),
+    // Guest sessions (Episode 0 trials)
+    createGuest: async (data: {
+      character_id: string;
+      episode_template_id: string;
+      guest_session_id?: string;
+    }) => {
+      // Don't include guest header when creating a new session
+      const headers = await getAuthHeaders(false);
+      const response = await fetch(`${API_BASE_URL}/sessions/guest`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify(data),
+      });
+      if (!response.ok) {
+        throw new APIError(response.status, response.statusText, await response.json());
+      }
+      return response.json() as Promise<{
+        session_id: string;
+        guest_session_id: string;
+        messages_remaining: number;
+        episode_template_id: string;
+        character_id: string;
+      }>;
+    },
+    convertGuest: (guestSessionId: string) =>
+      request<{ session_id: string; message_count: number; converted: boolean }>(
+        "/sessions/guest/convert",
+        {
+          method: "POST",
+          body: JSON.stringify({ guest_session_id: guestSessionId }),
+        }
       ),
   },
 

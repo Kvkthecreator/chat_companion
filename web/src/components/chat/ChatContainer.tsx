@@ -4,6 +4,7 @@ import React, { useRef, useEffect, useMemo, useState, useCallback } from "react"
 import { useChat, RevealedProp } from "@/hooks/useChat";
 import { useCharacter } from "@/hooks/useCharacters";
 import { useScenes } from "@/hooks/useScenes";
+import { useGuestSession } from "@/hooks/useGuestSession";
 import { ChatHeader } from "./ChatHeader";
 import { CharacterInfoSheet } from "./CharacterInfoSheet";
 import { MessageBubble, StreamingBubble } from "./MessageBubble";
@@ -19,7 +20,10 @@ import { InlineSuggestionCard } from "./InlineSuggestionCard";
 import { Skeleton } from "@/components/ui/skeleton";
 import { QuotaExceededModal } from "@/components/usage";
 import { InsufficientSparksModal } from "@/components/sparks";
+import { SignupModal } from "@/components/guest/SignupModal";
+import { GuestBanner } from "@/components/guest/GuestBanner";
 import { api } from "@/lib/api/client";
+import { createClient } from "@/lib/supabase/client";
 import type { Message, EpisodeImage, EpisodeTemplate, InsufficientSparksError, EpisodeAccessError, RateLimitError } from "@/types";
 import { cn } from "@/lib/utils";
 
@@ -61,6 +65,59 @@ export function ChatContainer({ characterId, episodeTemplateId }: ChatContainerP
   }>>([]);
   const [seriesTitle, setSeriesTitle] = useState<string | null>(null);  // ADR-004: Series title for header
   const { character, isLoading: isLoadingCharacter } = useCharacter(characterId);
+
+  // Guest session management
+  const { guestSessionId, messagesRemaining, isGuest, createGuestSession, updateMessagesRemaining, clearGuestSession } = useGuestSession();
+  const [showSignupModal, setShowSignupModal] = useState(false);
+  const [user, setUser] = useState<any>(null);
+
+  // Check authentication status
+  useEffect(() => {
+    const supabase = createClient();
+    supabase.auth.getUser().then(({ data: { user } }) => setUser(user));
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null);
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  // Initialize guest session if not authenticated and Episode 0
+  useEffect(() => {
+    if (!user && episodeTemplateId && !guestSessionId && episodeTemplate?.episode_number === 0) {
+      api.episodes.createGuest({
+        character_id: characterId,
+        episode_template_id: episodeTemplateId,
+      })
+        .then((response) => {
+          createGuestSession({
+            guest_session_id: response.guest_session_id,
+            session_id: response.session_id,
+            messages_remaining: response.messages_remaining,
+          });
+        })
+        .catch((err) => {
+          console.error("Failed to create guest session:", err);
+        });
+    }
+  }, [user, episodeTemplateId, characterId, guestSessionId, episodeTemplate?.episode_number, createGuestSession]);
+
+  // Convert guest session after login
+  useEffect(() => {
+    if (user && guestSessionId) {
+      api.episodes.convertGuest(guestSessionId)
+        .then(() => {
+          clearGuestSession();
+          // Reload to show authenticated session
+          window.location.reload();
+        })
+        .catch((err) => {
+          console.error("Failed to convert guest session:", err);
+          clearGuestSession();
+        });
+    }
+  }, [user, guestSessionId, clearGuestSession]);
 
   // Load episode template ONLY if explicitly provided via URL param
   // Free chat mode (no episodeTemplateId) should NOT load any episode template
@@ -211,6 +268,33 @@ export function ChatContainer({ characterId, episodeTemplateId }: ChatContainerP
       setShowSparksModal(true);
     },
   });
+
+  // Wrap sendMessage to handle guest session limits
+  const handleSendMessage = async (content: string) => {
+    // Check guest message limit before sending
+    if (isGuest && messagesRemaining !== null && messagesRemaining <= 0) {
+      setShowSignupModal(true);
+      return;
+    }
+
+    try {
+      // Call the original sendMessage from useChat
+      await sendMessage(content);
+
+      // Decrement messages remaining for guest users after successful send
+      if (isGuest && messagesRemaining !== null) {
+        updateMessagesRemaining(messagesRemaining - 1);
+      }
+    } catch (error: any) {
+      // Check if this is the guest message limit error from API
+      if (error?.detail?.error === 'guest_message_limit') {
+        setShowSignupModal(true);
+      } else {
+        // Let other errors propagate to useChat's error handlers
+        throw error;
+      }
+    }
+  };
 
   // Store refreshScenes in ref for use in visual_pending callback
   useEffect(() => {
@@ -391,6 +475,14 @@ export function ChatContainer({ characterId, episodeTemplateId }: ChatContainerP
         />
       </div>
 
+      {/* Guest banner - show for guest users */}
+      {isGuest && messagesRemaining !== null && (
+        <GuestBanner
+          messagesRemaining={messagesRemaining}
+          onSignup={() => setShowSignupModal(true)}
+        />
+      )}
+
       {/* Messages area */}
       <div className="flex-1 overflow-y-auto min-h-0">
         <div className="mx-auto max-w-2xl px-3 py-2 sm:px-4 sm:py-4">
@@ -402,7 +494,7 @@ export function ChatContainer({ characterId, episodeTemplateId }: ChatContainerP
               characterAvatar={character.avatar_url}
               episodeTemplate={episodeTemplate}
               hasBackground={hasBackground}
-              onSelect={sendMessage}
+              onSelect={handleSendMessage}
             />
           ) : (
             <>
@@ -504,7 +596,7 @@ export function ChatContainer({ characterId, episodeTemplateId }: ChatContainerP
                     {episodeTemplate.starter_prompts.slice(0, 3).map((prompt: string, i: number) => (
                       <button
                         key={i}
-                        onClick={() => sendMessage(prompt)}
+                        onClick={() => handleSendMessage(prompt)}
                         className={cn(
                           "w-full text-left px-4 py-2.5 rounded-xl text-sm transition-all backdrop-blur-sm",
                           hasBackground
@@ -532,7 +624,7 @@ export function ChatContainer({ characterId, episodeTemplateId }: ChatContainerP
           : "border-t border-border bg-card"
       )}>
         <MessageInput
-          onSend={sendMessage}
+          onSend={handleSendMessage}
           onVisualize={handleVisualize}
           disabled={isSending || isLoadingChat}
           isGeneratingScene={isGeneratingScene}
@@ -587,6 +679,14 @@ export function ChatContainer({ characterId, episodeTemplateId }: ChatContainerP
         onClose={() => setShowItemsDrawer(false)}
         hasBackground={hasBackground}
         characterName={character.name}
+      />
+
+      {/* Guest signup modal */}
+      <SignupModal
+        open={showSignupModal}
+        onClose={() => setShowSignupModal(false)}
+        guestSessionId={guestSessionId}
+        trigger="message_limit"
       />
     </div>
   );

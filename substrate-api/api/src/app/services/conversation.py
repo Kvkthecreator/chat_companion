@@ -39,39 +39,59 @@ class ConversationService:
 
     async def send_message(
         self,
-        user_id: UUID,
+        user_id: Optional[UUID],
         character_id: UUID,
         content: str,
         episode_template_id: Optional[UUID] = None,
+        guest_session_id: Optional[str] = None,
     ) -> Message:
         """Send a message and get a response.
 
+        Supports both authenticated users and guest sessions.
+
         This orchestrates the full conversation flow:
-        1. Check rate limit (abuse prevention)
-        2. Get or create active episode (with episode_template_id if provided)
+        1. Check rate limit (abuse prevention) - skip for guests
+        2. Get or create active episode (or use existing guest session)
         3. Build conversation context
         4. Save user message
         5. Generate LLM response
         6. Save assistant message
         7. Run Director for ALL episodes (memory, hooks, turn counting, completion)
-        8. Record message for rate limiting
+        8. Record message for rate limiting - skip for guests
         """
-        # Check rate limit (messages are FREE but rate-limited for abuse prevention)
-        subscription_status = await self._get_user_subscription_status(user_id)
-        rate_check = await self.rate_limiter.check_rate_limit(user_id, subscription_status)
+        # Check rate limit (skip for guest sessions)
+        if user_id:
+            subscription_status = await self._get_user_subscription_status(user_id)
+            rate_check = await self.rate_limiter.check_rate_limit(user_id, subscription_status)
 
-        if not rate_check.allowed:
-            raise RateLimitExceededError(
-                message=rate_check.message or "Rate limit exceeded",
-                reset_at=rate_check.reset_at,
-                cooldown_seconds=rate_check.cooldown_seconds,
-                remaining=rate_check.remaining,
+            if not rate_check.allowed:
+                raise RateLimitExceededError(
+                    message=rate_check.message or "Rate limit exceeded",
+                    reset_at=rate_check.reset_at,
+                    cooldown_seconds=rate_check.cooldown_seconds,
+                    remaining=rate_check.remaining,
+                )
+
+        # Get episode (either find existing guest session or create for authenticated user)
+        if guest_session_id:
+            # For guests, find the existing session by guest_session_id
+            episode_query = """
+                SELECT * FROM sessions
+                WHERE guest_session_id = :guest_id
+                AND character_id = :character_id
+            """
+            episode_row = await self.db.fetch_one(episode_query, {
+                "guest_id": guest_session_id,
+                "character_id": str(character_id),
+            })
+            if not episode_row:
+                raise ValueError(f"Guest session {guest_session_id} not found")
+            episode = Session(**dict(episode_row))
+        else:
+            # For authenticated users, get or create episode
+            episode = await self.get_or_create_episode(
+                user_id, character_id, episode_template_id=episode_template_id
             )
-
-        # Get or create episode (with episode_template_id for proper session scoping)
-        episode = await self.get_or_create_episode(
-            user_id, character_id, episode_template_id=episode_template_id
-        )
 
         # Get episode template if session has one (for Director integration)
         episode_template = await self._get_episode_template(episode.episode_template_id)
@@ -86,12 +106,13 @@ class ConversationService:
             content=content,
         )
 
-        # Track message for analytics (non-blocking, fire-and-forget)
-        await self.usage_service.increment_message_count(
-            user_id=str(user_id),
-            character_id=str(character_id),
-            episode_id=str(episode.id),
-        )
+        # Track message for analytics (skip for guests - no user_id)
+        if user_id:
+            await self.usage_service.increment_message_count(
+                user_id=str(user_id),
+                character_id=str(character_id),
+                episode_id=str(episode.id),
+            )
 
         # Add user message to context
         context.messages.append({"role": "user", "content": content})
@@ -112,15 +133,17 @@ class ConversationService:
         )
 
         # Mark hooks as triggered (batch into single query for efficiency)
-        if context.hooks:
+        # Skip for guests - they don't have hooks/memories
+        if context.hooks and user_id:
             hook_ids = [str(hook.id) for hook in context.hooks]
             await self.db.execute(
                 "UPDATE hooks SET triggered_at = NOW() WHERE id = ANY(:hook_ids)",
                 {"hook_ids": hook_ids},
             )
 
-        # Record message for rate limiting (after successful send)
-        await self.rate_limiter.record_message(user_id)
+        # Record message for rate limiting (skip for guests)
+        if user_id:
+            await self.rate_limiter.record_message(user_id)
 
         # Director Phase 2: Run in background (v2.7 - fire-and-forget for fast response)
         full_messages = context.messages + [{"role": "assistant", "content": llm_response.content}]
@@ -361,11 +384,15 @@ class ConversationService:
 
     async def get_context(
         self,
-        user_id: UUID,
+        user_id: Optional[UUID],
         character_id: UUID,
         episode_id: Optional[UUID] = None,
     ) -> ConversationContext:
-        """Build conversation context for LLM."""
+        """Build conversation context for LLM.
+
+        Supports both authenticated users and guest sessions (user_id = None).
+        For guests, engagement/memories/hooks are skipped.
+        """
         # Get character
         char_query = "SELECT * FROM characters WHERE id = :character_id"
         char_row = await self.db.fetch_one(char_query, {"character_id": str(character_id)})
@@ -373,13 +400,15 @@ class ConversationService:
             raise ValueError(f"Character {character_id} not found")
         character = Character(**dict(char_row))
 
-        # Get engagement (was relationship)
-        eng_query = """
-            SELECT * FROM engagements
-            WHERE user_id = :user_id AND character_id = :character_id
-        """
-        eng_row = await self.db.fetch_one(eng_query, {"user_id": str(user_id), "character_id": str(character_id)})
-        engagement = Engagement(**dict(eng_row)) if eng_row else None
+        # Get engagement (skip for guests - no user_id)
+        engagement = None
+        if user_id:
+            eng_query = """
+                SELECT * FROM engagements
+                WHERE user_id = :user_id AND character_id = :character_id
+            """
+            eng_row = await self.db.fetch_one(eng_query, {"user_id": str(user_id), "character_id": str(character_id)})
+            engagement = Engagement(**dict(eng_row)) if eng_row else None
         relationship = engagement  # Backwards compatibility alias
 
         # Get series_id from session for memory retrieval
@@ -426,33 +455,37 @@ class ConversationService:
                 for row in reversed(msg_rows)
             ]
 
-        # Get relevant memories (series-scoped if available)
-        memories = await self.memory_service.get_relevant_memories(
-            user_id, character_id, limit=10, series_id=series_id
-        )
-        memory_summaries = [
-            MemorySummary(
-                id=m.id,
-                type=m.type.value,
-                summary=m.summary,
-                importance_score=float(m.importance_score),
+        # Get relevant memories (skip for guests - no user_id)
+        memory_summaries = []
+        if user_id:
+            memories = await self.memory_service.get_relevant_memories(
+                user_id, character_id, limit=10, series_id=series_id
             )
-            for m in memories
-        ]
+            memory_summaries = [
+                MemorySummary(
+                    id=m.id,
+                    type=m.type.value,
+                    summary=m.summary,
+                    importance_score=float(m.importance_score),
+                )
+                for m in memories
+            ]
 
-        # Get active hooks
-        hooks = await self.memory_service.get_active_hooks(
-            user_id, character_id, limit=5
-        )
-        hook_summaries = [
-            HookSummary(
-                id=h.id,
-                type=h.type.value,
-                content=h.content,
-                suggested_opener=h.suggested_opener,
+        # Get active hooks (skip for guests - no user_id)
+        hook_summaries = []
+        if user_id:
+            hooks = await self.memory_service.get_active_hooks(
+                user_id, character_id, limit=5
             )
-            for h in hooks
-        ]
+            hook_summaries = [
+                HookSummary(
+                    id=h.id,
+                    type=h.type.value,
+                    content=h.content,
+                    suggested_opener=h.suggested_opener,
+                )
+                for h in hooks
+            ]
 
         # Calculate time since first met
         time_since_first_met = ""
@@ -479,12 +512,15 @@ class ConversationService:
         # NOTE: character_life_arc removed - backstory + archetype + genre doctrine provide depth
         # Character's emotional state comes from episode situation, not a separate life_arc field
 
-        # Get relationship dynamic (Phase 4: Beat-aware system)
-        relationship_dynamic_data = await self.memory_service.get_relationship_dynamic(
-            user_id, character_id
-        )
-        relationship_dynamic = relationship_dynamic_data.get("dynamic", {}) if relationship_dynamic_data else {}
-        relationship_milestones = relationship_dynamic_data.get("milestones", []) if relationship_dynamic_data else []
+        # Get relationship dynamic (skip for guests - no user_id)
+        relationship_dynamic = {}
+        relationship_milestones = []
+        if user_id:
+            relationship_dynamic_data = await self.memory_service.get_relationship_dynamic(
+                user_id, character_id
+            )
+            relationship_dynamic = relationship_dynamic_data.get("dynamic", {}) if relationship_dynamic_data else {}
+            relationship_milestones = relationship_dynamic_data.get("milestones", []) if relationship_dynamic_data else []
 
         # Get episode dynamics from episode_template (per EPISODE_DYNAMICS_CANON.md)
         episode_situation = None  # Physical setting/scenario - CRITICAL for grounding
