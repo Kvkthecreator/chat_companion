@@ -484,6 +484,40 @@ export function ChatContainer({ characterId, episodeTemplateId }: ChatContainerP
                   onDismiss={dismissSuggestion}
                 />
               )}
+
+              {/* Starter prompts - show when user hasn't sent any message yet */}
+              {(() => {
+                const userMessages = messages.filter(m => m.role === 'user');
+                const hasStarterPrompts = episodeTemplate?.starter_prompts && episodeTemplate.starter_prompts.length > 0;
+                const shouldShowPrompts = userMessages.length === 0 && hasStarterPrompts;
+
+                if (!shouldShowPrompts) return null;
+
+                return (
+                  <div className="mt-4 space-y-2 w-full max-w-md mx-auto">
+                    <p className={cn(
+                      "text-xs mb-1 text-center",
+                      hasBackground ? "text-white/70" : "text-muted-foreground"
+                    )}>
+                      Try one of these openers:
+                    </p>
+                    {episodeTemplate.starter_prompts.slice(0, 3).map((prompt: string, i: number) => (
+                      <button
+                        key={i}
+                        onClick={() => sendMessage(prompt)}
+                        className={cn(
+                          "w-full text-left px-4 py-2.5 rounded-xl text-sm transition-all backdrop-blur-sm",
+                          hasBackground
+                            ? "bg-white/10 hover:bg-white/15 text-white"
+                            : "border border-border/70 bg-card hover:border-primary/40 hover:shadow-sm"
+                        )}
+                      >
+                        &quot;{prompt}&quot;
+                      </button>
+                    ))}
+                  </div>
+                );
+              })()}
             </>
           )}
           <div ref={messagesEndRef} />
