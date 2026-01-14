@@ -192,10 +192,20 @@ export default function SeriesPageClient({ params }: PageProps) {
   ) => {
     if (startingEpisode) return;
 
-    // If not authenticated, redirect to login with return URL
-    if (!isAuthenticated) {
+    // Check if this is Episode 0 (guest mode allowed)
+    const episode = series?.episodes.find(ep => ep.id === episodeId);
+    const isEpisode0 = episode?.episode_number === 0;
+
+    // If not authenticated and NOT Episode 0, redirect to login
+    if (!isAuthenticated && !isEpisode0) {
       const returnUrl = `/chat/${canonicalCharacterId}?episode=${episodeId}`;
       router.push(`/login?next=${encodeURIComponent(returnUrl)}`);
+      return;
+    }
+
+    // For Episode 0 guest access, go directly to chat without authentication
+    if (!isAuthenticated && isEpisode0 && canonicalCharacterId) {
+      router.push(`/chat/${canonicalCharacterId}?episode=${episodeId}`);
       return;
     }
 
