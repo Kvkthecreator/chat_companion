@@ -593,7 +593,8 @@ class ConversationService:
                     scene_tactic = template_row["scene_tactic"]
 
                     # If part of a series, get series context from previous episodes
-                    if template_row["series_id"]:
+                    # Skip for guests - they don't have prior episode history
+                    if template_row["series_id"] and user_id:
                         series_context = await self._get_series_context(
                             user_id, character_id, template_row["series_id"], template_id
                         )
