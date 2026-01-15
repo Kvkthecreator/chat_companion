@@ -91,6 +91,7 @@ class EpisodeTemplate(EpisodeTemplateBase):
     is_default: bool
     sort_order: int
     status: str
+    starter_prompts: List[str] = []  # Alternative opening suggestions for UI
 
     class Config:
         from_attributes = True
@@ -237,7 +238,8 @@ async def get_episode_template(
                situation, opening_line, background_image_url,
                episode_frame, is_default, sort_order, status,
                episode_type, dramatic_question,
-               scene_objective, scene_obstacle, scene_tactic
+               scene_objective, scene_obstacle, scene_tactic,
+               starter_prompts
         FROM episode_templates
         WHERE id = :id
     """
@@ -266,7 +268,8 @@ async def get_default_episode(
                situation, opening_line, background_image_url,
                episode_frame, is_default, sort_order, status,
                episode_type, dramatic_question,
-               scene_objective, scene_obstacle, scene_tactic
+               scene_objective, scene_obstacle, scene_tactic,
+               starter_prompts
         FROM episode_templates
         WHERE character_id = :character_id
         AND is_default = TRUE
@@ -335,7 +338,8 @@ async def create_episode_template(
                   situation, opening_line, background_image_url,
                   episode_frame, is_default, sort_order, status,
                   episode_type, dramatic_question,
-                  scene_objective, scene_obstacle, scene_tactic
+                  scene_objective, scene_obstacle, scene_tactic,
+                  starter_prompts
     """
 
     row = await db.fetch_one(query, {
@@ -431,7 +435,8 @@ async def update_episode_template(
                   situation, opening_line, background_image_url,
                   episode_frame, is_default, sort_order, status,
                   episode_type, dramatic_question,
-                  scene_objective, scene_obstacle, scene_tactic
+                  scene_objective, scene_obstacle, scene_tactic,
+                  starter_prompts
     """
 
     row = await db.fetch_one(query, values)
@@ -459,7 +464,8 @@ async def activate_episode_template(
                   situation, opening_line, background_image_url,
                   episode_frame, is_default, sort_order, status,
                   episode_type, dramatic_question,
-                  scene_objective, scene_obstacle, scene_tactic
+                  scene_objective, scene_obstacle, scene_tactic,
+                  starter_prompts
     """
 
     row = await db.fetch_one(query, {"id": str(template_id)})
