@@ -3,6 +3,7 @@ import { Inter } from "next/font/google";
 import { Analytics } from "@vercel/analytics/react";
 import "./globals.css";
 import { ThemeProvider } from "@/components/theme-provider";
+import { GuestSessionConverter } from "@/components/guest/GuestSessionConverter";
 import { getBaseMetadata } from "@/lib/og";
 
 const inter = Inter({
@@ -22,6 +23,7 @@ export default function RootLayout({
     <html lang="en" suppressHydrationWarning>
       <body className={`${inter.className} antialiased bg-background text-foreground`}>
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
+          <GuestSessionConverter />
           {children}
         </ThemeProvider>
         <Analytics />

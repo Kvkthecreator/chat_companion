@@ -24,11 +24,8 @@ export function SignupModal({
   trigger,
 }: SignupModalProps) {
   const handleSignup = () => {
-    // Store guest session ID in sessionStorage for conversion after login
-    if (guestSessionId) {
-      sessionStorage.setItem("converting_guest_session", guestSessionId);
-    }
-    // Redirect to login with return URL
+    // Guest session ID stays in localStorage - GuestSessionConverter handles conversion after login
+    // Redirect to login with return URL so user comes back to the chat page
     window.location.href = "/login?next=" + encodeURIComponent(window.location.pathname);
   };
 
