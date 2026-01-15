@@ -30,11 +30,15 @@ export function EpisodeSelector({
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [isStarting, setIsStarting] = useState(false);
 
+  // Track which episodes have existing sessions (already paid)
+  const [startedEpisodeIds, setStartedEpisodeIds] = useState<Set<string>>(new Set());
+
   // Confirmation modal state
   const [pendingEpisode, setPendingEpisode] = useState<EpisodeTemplateSummary | null>(null);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
 
   useEffect(() => {
+    // Load episode templates
     api.episodeTemplates.listForCharacter(characterId)
       .then(setTemplates)
       .catch((err) => {
@@ -42,19 +46,38 @@ export function EpisodeSelector({
         setTemplates([]);
       })
       .finally(() => setIsLoading(false));
+
+    // Load user's existing sessions to know which episodes are already started
+    api.sessions.list({ character_id: characterId })
+      .then((sessions) => {
+        const startedIds = new Set<string>();
+        sessions.forEach((session) => {
+          if (session.episode_template_id) {
+            startedIds.add(session.episode_template_id);
+          }
+        });
+        setStartedEpisodeIds(startedIds);
+      })
+      .catch(() => {
+        // If fetch fails (e.g., not logged in), assume no sessions
+        setStartedEpisodeIds(new Set());
+      });
   }, [characterId]);
 
   const handleSelect = (template: EpisodeTemplateSummary) => {
     if (isStarting) return;
 
-    // If episode has a cost, show confirmation modal
-    if (template.episode_cost > 0) {
+    // Check if episode was already started (already paid)
+    const hasAlreadyStarted = startedEpisodeIds.has(template.id);
+
+    // If episode has a cost AND hasn't been started, show confirmation modal
+    if (template.episode_cost > 0 && !hasAlreadyStarted) {
       setPendingEpisode(template);
       setShowConfirmModal(true);
       return;
     }
 
-    // Free episode - start directly
+    // Free episode or already started - start directly
     startEpisode(template);
   };
 
