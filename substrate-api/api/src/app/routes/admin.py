@@ -43,6 +43,10 @@ class OverviewStats(BaseModel):
     total_revenue_cents: int
     total_messages: int
     total_sessions: int
+    # Guest session stats
+    guest_sessions_total: int = 0
+    guest_sessions_24h: int = 0
+    guest_sessions_converted: int = 0
 
 
 class SignupDay(BaseModel):
@@ -78,7 +82,17 @@ class Purchase(BaseModel):
     sparks_amount: int
     price_cents: int
     status: str
+
+
+class GuestSession(BaseModel):
+    id: str
+    guest_session_id: str
+    character_name: str
+    message_count: int
     created_at: str
+    ip_hash: Optional[str] = None
+    converted: bool = False
+    converted_at: Optional[str] = None
 
 
 class AdminStatsResponse(BaseModel):
@@ -86,6 +100,7 @@ class AdminStatsResponse(BaseModel):
     signups_by_day: List[SignupDay]
     users: List[UserEngagement]
     purchases: List[Purchase]
+    guest_sessions: List[GuestSession] = []
 
 
 # =============================================================================
@@ -137,6 +152,7 @@ async def get_admin_stats(
     thirty_days_ago = now - timedelta(days=30)
 
     # Overview stats - run queries in parallel conceptually (sequential for simplicity)
+    one_day_ago = now - timedelta(days=1)
     overview_query = """
     SELECT
         (SELECT COUNT(*) FROM users) as total_users,
@@ -145,11 +161,15 @@ async def get_admin_stats(
         (SELECT COUNT(*) FROM users WHERE subscription_status = 'premium') as premium_users,
         (SELECT COALESCE(SUM(price_cents), 0) FROM topup_purchases WHERE status = 'completed') as total_revenue_cents,
         (SELECT COALESCE(SUM(messages_sent_count), 0) FROM users) as total_messages,
-        (SELECT COUNT(*) FROM sessions) as total_sessions
+        (SELECT COUNT(*) FROM sessions) as total_sessions,
+        (SELECT COUNT(*) FROM sessions WHERE guest_session_id IS NOT NULL) as guest_sessions_total,
+        (SELECT COUNT(*) FROM sessions WHERE guest_session_id IS NOT NULL AND guest_created_at > :one_day_ago) as guest_sessions_24h,
+        (SELECT COUNT(*) FROM sessions WHERE guest_session_id IS NOT NULL AND guest_converted_at IS NOT NULL) as guest_sessions_converted
     """
     overview_row = await db.fetch_one(overview_query, {
         "seven_days_ago": seven_days_ago,
-        "thirty_days_ago": thirty_days_ago
+        "thirty_days_ago": thirty_days_ago,
+        "one_day_ago": one_day_ago,
     })
 
     overview = OverviewStats(
@@ -160,6 +180,9 @@ async def get_admin_stats(
         total_revenue_cents=overview_row["total_revenue_cents"],
         total_messages=overview_row["total_messages"],
         total_sessions=overview_row["total_sessions"],
+        guest_sessions_total=overview_row["guest_sessions_total"] or 0,
+        guest_sessions_24h=overview_row["guest_sessions_24h"] or 0,
+        guest_sessions_converted=overview_row["guest_sessions_converted"] or 0,
     )
 
     # Signups by day (last 30 days)
@@ -255,9 +278,41 @@ async def get_admin_stats(
         for row in purchases_rows
     ]
 
+    # Guest sessions (recent)
+    guest_sessions_query = """
+    SELECT
+        s.id,
+        s.guest_session_id,
+        s.guest_created_at,
+        s.guest_ip_hash,
+        s.guest_converted_at,
+        c.name as character_name,
+        (SELECT COUNT(*) FROM messages WHERE episode_id = s.id) as message_count
+    FROM sessions s
+    LEFT JOIN characters c ON s.character_id = c.id
+    WHERE s.guest_session_id IS NOT NULL
+    ORDER BY s.guest_created_at DESC
+    LIMIT 50
+    """
+    guest_rows = await db.fetch_all(guest_sessions_query)
+    guest_sessions = [
+        GuestSession(
+            id=str(row["id"]),
+            guest_session_id=row["guest_session_id"] or "",
+            character_name=row["character_name"] or "Unknown",
+            message_count=row["message_count"] or 0,
+            created_at=row["guest_created_at"].isoformat() if row["guest_created_at"] else "",
+            ip_hash=row["guest_ip_hash"][:8] + "..." if row["guest_ip_hash"] else None,  # Truncate for privacy
+            converted=row["guest_converted_at"] is not None,
+            converted_at=row["guest_converted_at"].isoformat() if row["guest_converted_at"] else None,
+        )
+        for row in guest_rows
+    ]
+
     return AdminStatsResponse(
         overview=overview,
         signups_by_day=signups_by_day,
         users=users,
         purchases=purchases,
+        guest_sessions=guest_sessions,
     )

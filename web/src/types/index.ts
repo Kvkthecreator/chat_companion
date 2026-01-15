@@ -1664,6 +1664,10 @@ export interface AdminOverviewStats {
   total_revenue_cents: number;
   total_messages: number;
   total_sessions: number;
+  // Guest session stats
+  guest_sessions_total: number;
+  guest_sessions_24h: number;
+  guest_sessions_converted: number;
 }
 
 /**
@@ -1712,6 +1716,20 @@ export interface AdminPurchase {
 }
 
 /**
+ * Guest session data for admin
+ */
+export interface AdminGuestSession {
+  id: string;
+  guest_session_id: string;
+  character_name: string;
+  message_count: number;
+  created_at: string;
+  ip_hash?: string | null;
+  converted: boolean;
+  converted_at?: string | null;
+}
+
+/**
  * Full admin stats response
  */
 export interface AdminStatsResponse {
@@ -1719,4 +1737,5 @@ export interface AdminStatsResponse {
   signups_by_day: AdminSignupDay[];
   users: AdminUserEngagement[];
   purchases: AdminPurchase[];
+  guest_sessions: AdminGuestSession[];
 }

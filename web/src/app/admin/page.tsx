@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { api } from '@/lib/api/client'
 import type { AdminStatsResponse, AdminUserEngagement, AdminSignupDay } from '@/types'
-import { Users, DollarSign, MessageSquare, Sparkles, TrendingUp, Download, Activity } from 'lucide-react'
+import { Users, DollarSign, MessageSquare, Sparkles, TrendingUp, Download, Activity, UserX } from 'lucide-react'
 
 function formatCurrency(cents: number): string {
   return `$${(cents / 100).toFixed(2)}`
@@ -180,7 +180,7 @@ export default function AdminPage() {
 
   if (!stats) return null
 
-  const { overview, signups_by_day, users, purchases } = stats
+  const { overview, signups_by_day, users, purchases, guest_sessions } = stats
 
   return (
     <div className="space-y-8">
@@ -200,7 +200,7 @@ export default function AdminPage() {
       </div>
 
       {/* Overview Cards */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Total Users</CardTitle>
@@ -268,6 +268,19 @@ export default function AdminPage() {
             </div>
             <p className="text-xs text-muted-foreground">
               avg msgs/session
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Guest Sessions</CardTitle>
+            <UserX className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{overview.guest_sessions_total}</div>
+            <p className="text-xs text-muted-foreground">
+              +{overview.guest_sessions_24h} today, {overview.guest_sessions_converted} converted
             </p>
           </CardContent>
         </Card>
@@ -442,6 +455,58 @@ export default function AdminPage() {
                       </td>
                       <td className="py-2 px-2 text-muted-foreground">
                         {formatDateTime(purchase.created_at)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Guest Sessions Table */}
+      {guest_sessions.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <UserX className="h-4 w-4" />
+              Guest Sessions (Episode 0 Trials)
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b">
+                    <th className="text-left py-2 px-2 font-medium">Guest ID</th>
+                    <th className="text-left py-2 px-2 font-medium">Character</th>
+                    <th className="text-right py-2 px-2 font-medium">Messages</th>
+                    <th className="text-left py-2 px-2 font-medium">IP Hash</th>
+                    <th className="text-left py-2 px-2 font-medium">Status</th>
+                    <th className="text-left py-2 px-2 font-medium">Created</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {guest_sessions.map((session) => (
+                    <tr key={session.id} className="border-b border-border/50 hover:bg-muted/50">
+                      <td className="py-2 px-2 font-mono text-xs">
+                        {session.guest_session_id.slice(0, 8)}...
+                      </td>
+                      <td className="py-2 px-2">{session.character_name}</td>
+                      <td className="text-right py-2 px-2 tabular-nums">{session.message_count}</td>
+                      <td className="py-2 px-2 font-mono text-xs text-muted-foreground">
+                        {session.ip_hash || '-'}
+                      </td>
+                      <td className="py-2 px-2">
+                        {session.converted ? (
+                          <Badge variant="default" className="bg-green-500">Converted</Badge>
+                        ) : (
+                          <Badge variant="secondary">Guest</Badge>
+                        )}
+                      </td>
+                      <td className="py-2 px-2 text-muted-foreground">
+                        {formatDateTime(session.created_at)}
                       </td>
                     </tr>
                   ))}
