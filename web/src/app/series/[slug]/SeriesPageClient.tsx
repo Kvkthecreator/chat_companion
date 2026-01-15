@@ -747,16 +747,8 @@ export default function SeriesPageClient({ params }: PageProps) {
                               Continue
                             </Badge>
                           )}
-                          {hasStartedEpisode && !isCurrent && isAuthenticated && (
-                            <Badge
-                              variant="outline"
-                              className="text-[10px] border-muted-foreground/50 text-muted-foreground"
-                            >
-                              Started
-                            </Badge>
-                          )}
-                          {/* Spark cost badge for paid episodes */}
-                          {episode.episode_cost > 0 && (
+                          {/* Spark cost badge - only for paid episodes NOT yet started */}
+                          {episode.episode_cost > 0 && !hasStartedEpisode && (
                             <Badge
                               variant="secondary"
                               className="text-[10px] bg-amber-500/90 text-white border-0 flex items-center gap-0.5"
