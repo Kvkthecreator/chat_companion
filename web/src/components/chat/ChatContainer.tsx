@@ -56,6 +56,7 @@ export function ChatContainer({ characterId, episodeTemplateId }: ChatContainerP
   const [showItemsDrawer, setShowItemsDrawer] = useState(false);
   const [hasNewProp, setHasNewProp] = useState(false);
   const previousPropCountRef = useRef(0);
+  const guestSessionCreatingRef = useRef(false);
   const [episodeTemplate, setEpisodeTemplate] = useState<EpisodeTemplate | null>(null);
   const [seriesEpisodes, setSeriesEpisodes] = useState<Array<{
     id: string;
@@ -86,6 +87,10 @@ export function ChatContainer({ characterId, episodeTemplateId }: ChatContainerP
   // Initialize guest session if not authenticated and Episode 0
   useEffect(() => {
     if (!user && episodeTemplateId && !guestSessionId && episodeTemplate?.episode_number === 0) {
+      // Prevent race condition: don't create multiple sessions simultaneously
+      if (guestSessionCreatingRef.current) return;
+      guestSessionCreatingRef.current = true;
+
       api.episodes.createGuest({
         character_id: characterId,
         episode_template_id: episodeTemplateId,
@@ -99,6 +104,7 @@ export function ChatContainer({ characterId, episodeTemplateId }: ChatContainerP
         })
         .catch((err) => {
           console.error("Failed to create guest session:", err);
+          guestSessionCreatingRef.current = false;
         });
     }
   }, [user, episodeTemplateId, characterId, guestSessionId, episodeTemplate?.episode_number, createGuestSession]);
