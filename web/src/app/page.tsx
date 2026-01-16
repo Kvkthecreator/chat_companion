@@ -84,17 +84,25 @@ export default async function Home() {
                   total_episodes: number;
                   cover_image_url: string | null;
                   genre: string | null;
-                }) => (
-                  <SeriesCard
-                    key={s.id}
-                    title={s.title}
-                    tagline={s.tagline}
-                    episodeCount={s.total_episodes}
-                    coverUrl={s.cover_image_url}
-                    href={`/series/${s.slug}`}
-                    genre={s.genre}
-                  />
-                )
+                  episode_0_id: string | null;
+                  episode_0_character_id: string | null;
+                }) => {
+                  // Direct link to Episode 0 chat if available, otherwise series page
+                  const href = s.episode_0_id && s.episode_0_character_id
+                    ? `/chat/${s.episode_0_character_id}?episode=${s.episode_0_id}`
+                    : `/series/${s.slug}`;
+                  return (
+                    <SeriesCard
+                      key={s.id}
+                      title={s.title}
+                      tagline={s.tagline}
+                      episodeCount={s.total_episodes}
+                      coverUrl={s.cover_image_url}
+                      href={href}
+                      genre={s.genre}
+                    />
+                  );
+                }
               )}
             </div>
             <div>

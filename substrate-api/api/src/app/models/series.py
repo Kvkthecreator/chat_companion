@@ -133,6 +133,9 @@ class SeriesSummary(BaseModel):
     total_episodes: int = 0
     cover_image_url: Optional[str] = None
     is_featured: bool = False
+    # Episode 0 direct link data (for landing page optimization)
+    episode_0_id: Optional[str] = None
+    episode_0_character_id: Optional[str] = None
 
 
 class Series(BaseModel):

@@ -103,35 +103,41 @@ async def list_series(
 
     By default, excludes 'play' type series (viral/game content for /play route).
     Use include_play=true or series_type=play to access them.
+
+    Includes Episode 0 data (episode_0_id, episode_0_character_id) for direct chat links.
     """
+    # Join with episode_templates to get Episode 0 data for direct links
     query = """
-        SELECT id, title, slug, tagline, series_type, total_episodes,
-               cover_image_url, is_featured, genre
-        FROM series
+        SELECT s.id, s.title, s.slug, s.tagline, s.series_type, s.total_episodes,
+               s.cover_image_url, s.is_featured, s.genre,
+               et.id as episode_0_id,
+               et.character_id as episode_0_character_id
+        FROM series s
+        LEFT JOIN episode_templates et ON et.series_id = s.id AND et.episode_number = 0
         WHERE 1=1
     """
     params = {}
 
     if status_filter:
-        query += " AND status = :status"
+        query += " AND s.status = :status"
         params["status"] = status_filter
 
     if world_id:
-        query += " AND world_id = :world_id"
+        query += " AND s.world_id = :world_id"
         params["world_id"] = str(world_id)
 
     if series_type:
         # If explicitly filtering by series_type, use that
-        query += " AND series_type = :series_type"
+        query += " AND s.series_type = :series_type"
         params["series_type"] = series_type
     elif not include_play:
         # By default, exclude 'play' type from main app queries
-        query += " AND series_type != 'play'"
+        query += " AND s.series_type != 'play'"
 
     if featured:
-        query += " AND is_featured = TRUE"
+        query += " AND s.is_featured = TRUE"
 
-    query += " ORDER BY is_featured DESC, created_at DESC LIMIT :limit"
+    query += " ORDER BY s.is_featured DESC, s.created_at DESC LIMIT :limit"
     params["limit"] = limit
 
     rows = await db.fetch_all(query, params)
@@ -145,6 +151,11 @@ async def list_series(
         if cover_url and not cover_url.startswith("http"):
             cover_url = await storage.create_signed_url("scenes", cover_url, expires_in=3600)
         data["cover_image_url"] = cover_url
+        # Convert UUID to string for episode_0 fields
+        if data.get("episode_0_id"):
+            data["episode_0_id"] = str(data["episode_0_id"])
+        if data.get("episode_0_character_id"):
+            data["episode_0_character_id"] = str(data["episode_0_character_id"])
         results.append(SeriesSummary(**data))
 
     return results
