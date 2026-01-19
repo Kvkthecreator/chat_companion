@@ -4,11 +4,12 @@ import re
 from typing import Any, Dict, List, Optional
 from uuid import UUID
 
-from fastapi import APIRouter, Body, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Body, Depends, HTTPException, Query, Request, status
 from pydantic import BaseModel, Field
 
 from app.deps import get_db
 from app.dependencies import get_current_user_id
+from app.routes.admin import verify_admin_access
 from app.models.character import (
     ARCHETYPES,
     PERSONALITY_PRESETS,
@@ -1096,6 +1097,8 @@ async def delete_gallery_item(
 
 @router.get("/admin/diagnose-images")
 async def diagnose_images(
+    request: Request,
+    user_id: UUID = Depends(get_current_user_id),
     db=Depends(get_db),
 ):
     """Diagnose image storage issues for characters and series.
@@ -1105,7 +1108,10 @@ async def diagnose_images(
     - Characters with expired signed URLs vs storage paths
     - Series with/without cover images
     - Episode templates with/without backgrounds
+
+    Requires admin access.
     """
+    await verify_admin_access(request, user_id, db)
     from app.services.storage import StorageService
 
     storage = StorageService.get_instance()
@@ -1219,13 +1225,18 @@ async def diagnose_images(
 
 @router.post("/admin/activate-all-kits")
 async def activate_all_kits(
+    request: Request,
+    user_id: UUID = Depends(get_current_user_id),
     db=Depends(get_db),
 ):
     """Activate all draft avatar kits.
 
     This simplifies kit management - all kits are now active by default.
     This endpoint fixes any existing draft kits.
+
+    Requires admin access.
     """
+    await verify_admin_access(request, user_id, db)
     result = await db.execute(
         "UPDATE avatar_kits SET status = 'active', updated_at = NOW() WHERE status = 'draft'"
     )
@@ -1243,9 +1254,11 @@ async def activate_all_kits(
 
 @router.post("/admin/create-kit-from-storage")
 async def create_kit_from_storage(
+    request: Request,
     character_id: str,
     storage_path: str,
     bucket: str = "scenes",
+    user_id: UUID = Depends(get_current_user_id),
     db=Depends(get_db),
 ):
     """Create an avatar kit for a character using an existing storage path.
@@ -1253,11 +1266,14 @@ async def create_kit_from_storage(
     This copies the image from the source bucket to the avatars bucket and
     creates a kit with it as the primary anchor.
 
+    Requires admin access.
+
     Args:
         character_id: UUID of the character
         storage_path: Path in the source bucket (e.g., 'series/weekend-regular/cover.png')
         bucket: Source bucket name (default: 'scenes')
     """
+    await verify_admin_access(request, user_id, db)
     import uuid
     from app.services.storage import StorageService
 
@@ -1348,13 +1364,17 @@ async def create_kit_from_storage(
 
 @router.post("/admin/fix-avatar-urls")
 async def fix_avatar_urls(
+    request: Request,
     user_id: UUID = Depends(get_current_user_id),
     db=Depends(get_db),
 ):
     """Fix avatar_url for characters with hero avatars but missing URL.
 
     This is a calibration/admin endpoint to fix data inconsistencies.
+
+    Requires admin access.
     """
+    await verify_admin_access(request, user_id, db)
     from app.services.storage import StorageService
 
     storage = StorageService.get_instance()
@@ -1406,11 +1426,14 @@ class BatchCreateRequest(BaseModel):
 
 @router.post("/admin/batch-create")
 async def batch_create_characters(
+    request: Request,
     data: BatchCreateRequest,
     user_id: UUID = Depends(get_current_user_id),
     db=Depends(get_db),
 ):
     """Batch create characters for calibration sprint.
+
+    Requires admin access.
 
     Each character config should have:
     - name: str
@@ -1419,6 +1442,7 @@ async def batch_create_characters(
     - content_rating: str (optional, default sfw)
     - appearance_hint: str (optional, for avatar generation)
     """
+    await verify_admin_access(request, user_id, db)
     from app.services.conversation_ignition import generate_opening_beat
     from app.models.character import PERSONALITY_PRESETS, DEFAULT_BOUNDARIES
 
@@ -1981,9 +2005,11 @@ class BackgroundGenerationResponse(BaseModel):
 
 @router.post("/admin/generate-episode-backgrounds")
 async def generate_episode_backgrounds(
+    request: Request,
     character: Optional[str] = Query(None, description="Generate for specific character only"),
     episode_number: Optional[int] = Query(None, description="Generate for specific episode number only"),
     force: bool = Query(False, description="Force regenerate even if background exists"),
+    user_id: UUID = Depends(get_current_user_id),
     db=Depends(get_db),
 ):
     """Generate background images for episode templates.
@@ -1992,10 +2018,13 @@ async def generate_episode_backgrounds(
     each episode's episode_frame prompt. Backgrounds are 16:9 landscape
     images with no characters.
 
+    Requires admin access.
+
     Pass ?character=Luna to generate for a specific character.
     Pass ?episode_number=0 to generate only Episode 0s.
     Pass ?force=true to regenerate even if background already exists.
     """
+    await verify_admin_access(request, user_id, db)
     import asyncio
     from app.services.image import ImageService
     from app.services.storage import StorageService
@@ -2156,18 +2185,21 @@ CALIBRATION_APPEARANCE_HINTS = {
 
 @router.post("/admin/generate-calibration-avatars")
 async def generate_calibration_avatars(
+    request: Request,
     name: Optional[str] = Query(None, description="Generate for specific character only"),
     force: bool = Query(False, description="Force regenerate even if avatar exists"),
+    user_id: UUID = Depends(get_current_user_id),
     db=Depends(get_db),
 ):
     """Generate hero avatars for calibration characters.
 
-    This endpoint is auth-exempt for calibration sprint use only.
+    Requires admin access.
     Uses FLUX for image generation with new prompt assembly contract.
 
     Pass ?name=Luna to generate for a specific character (avoids rate limits).
     Pass ?force=true to regenerate even if avatar already exists.
     """
+    await verify_admin_access(request, user_id, db)
     import asyncio
 
     service = get_avatar_generation_service()
