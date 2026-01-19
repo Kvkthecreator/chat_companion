@@ -6,8 +6,8 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { api } from '@/lib/api/client'
-import type { AdminStatsResponse, AdminUserEngagement, AdminSignupDay } from '@/types'
-import { Users, DollarSign, MessageSquare, Sparkles, TrendingUp, Download, Activity, UserX } from 'lucide-react'
+import type { AdminStatsResponse, AdminUserEngagement, AdminSignupDay, ActivationFunnelResponse } from '@/types'
+import { Users, DollarSign, MessageSquare, Sparkles, TrendingUp, Download, Activity, UserX, Filter, AlertTriangle, CheckCircle, ArrowDown } from 'lucide-react'
 
 function formatCurrency(cents: number): string {
   return `$${(cents / 100).toFixed(2)}`
@@ -110,8 +110,127 @@ function SimpleBarChart({ data }: { data: AdminSignupDay[] }) {
   )
 }
 
+// Funnel visualization component
+function FunnelChart({ data }: { data: ActivationFunnelResponse['funnel'] }) {
+  return (
+    <div className="space-y-2">
+      {data.map((step, i) => {
+        const prevPercentage = i > 0 ? data[i - 1].percentage : 100
+        const dropoff = prevPercentage - step.percentage
+        const isSignificantDrop = dropoff > 15
+
+        return (
+          <div key={step.step} className="relative">
+            <div className="flex items-center gap-3">
+              <div className="w-32 text-sm text-right text-muted-foreground truncate" title={step.step}>
+                {step.step}
+              </div>
+              <div className="flex-1 relative">
+                <div className="h-8 bg-muted rounded overflow-hidden">
+                  <div
+                    className={`h-full transition-all ${
+                      step.percentage > 50 ? 'bg-green-500' :
+                      step.percentage > 25 ? 'bg-yellow-500' :
+                      step.percentage > 10 ? 'bg-orange-500' : 'bg-red-500'
+                    }`}
+                    style={{ width: `${step.percentage}%` }}
+                  />
+                </div>
+              </div>
+              <div className="w-20 text-sm tabular-nums">
+                <span className="font-medium">{step.percentage}%</span>
+                <span className="text-muted-foreground ml-1">({step.count})</span>
+              </div>
+              {i > 0 && isSignificantDrop && (
+                <div className="w-16 text-xs text-red-500 flex items-center gap-1">
+                  <ArrowDown className="h-3 w-3" />
+                  -{dropoff.toFixed(0)}%
+                </div>
+              )}
+              {i > 0 && !isSignificantDrop && <div className="w-16" />}
+            </div>
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
+// Message distribution bar chart
+function MessageDistributionChart({ data }: { data: ActivationFunnelResponse['message_distribution'] }) {
+  const maxPercentage = Math.max(...data.map(d => d.percentage), 1)
+
+  return (
+    <div className="space-y-2">
+      {data.map((bucket) => (
+        <div key={bucket.bucket} className="flex items-center gap-3">
+          <div className="w-16 text-sm text-right text-muted-foreground">
+            {bucket.bucket === '0' ? '0 msgs' : `${bucket.bucket}`}
+          </div>
+          <div className="flex-1 relative">
+            <div className="h-6 bg-muted rounded overflow-hidden">
+              <div
+                className={`h-full ${bucket.bucket === '0' ? 'bg-red-500' : 'bg-primary'}`}
+                style={{ width: `${(bucket.percentage / maxPercentage) * 100}%` }}
+              />
+            </div>
+          </div>
+          <div className="w-20 text-sm tabular-nums">
+            <span className="font-medium">{bucket.percentage}%</span>
+            <span className="text-muted-foreground ml-1">({bucket.count})</span>
+          </div>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+// Cohort retention table
+function CohortRetentionTable({ data }: { data: ActivationFunnelResponse['cohort_retention'] }) {
+  if (data.length === 0) {
+    return <div className="text-muted-foreground text-sm">No cohort data yet</div>
+  }
+
+  const formatRetention = (val: number) => {
+    if (val === 0) return <span className="text-muted-foreground">-</span>
+    return (
+      <span className={val > 20 ? 'text-green-500 font-medium' : val > 10 ? 'text-yellow-500' : 'text-red-500'}>
+        {val.toFixed(0)}%
+      </span>
+    )
+  }
+
+  return (
+    <table className="w-full text-sm">
+      <thead>
+        <tr className="border-b">
+          <th className="text-left py-2 px-2 font-medium">Week</th>
+          <th className="text-right py-2 px-2 font-medium">Users</th>
+          <th className="text-right py-2 px-2 font-medium">D1</th>
+          <th className="text-right py-2 px-2 font-medium">D7</th>
+          <th className="text-right py-2 px-2 font-medium">D14</th>
+          <th className="text-right py-2 px-2 font-medium">D30</th>
+        </tr>
+      </thead>
+      <tbody>
+        {data.map((cohort) => (
+          <tr key={cohort.cohort_date} className="border-b border-border/50">
+            <td className="py-2 px-2">{cohort.cohort_date}</td>
+            <td className="text-right py-2 px-2 tabular-nums">{cohort.cohort_size}</td>
+            <td className="text-right py-2 px-2 tabular-nums">{formatRetention(cohort.day_1)}</td>
+            <td className="text-right py-2 px-2 tabular-nums">{formatRetention(cohort.day_7)}</td>
+            <td className="text-right py-2 px-2 tabular-nums">{formatRetention(cohort.day_14)}</td>
+            <td className="text-right py-2 px-2 tabular-nums">{formatRetention(cohort.day_30)}</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  )
+}
+
 export default function AdminPage() {
   const [stats, setStats] = useState<AdminStatsResponse | null>(null)
+  const [funnel, setFunnel] = useState<ActivationFunnelResponse | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -123,8 +242,12 @@ export default function AdminPage() {
     try {
       setLoading(true)
       setError(null)
-      const data = await api.admin.stats()
-      setStats(data)
+      const [statsData, funnelData] = await Promise.all([
+        api.admin.stats(),
+        api.admin.funnel(30)
+      ])
+      setStats(statsData)
+      setFunnel(funnelData)
     } catch (err) {
       console.error('Failed to fetch admin stats:', err)
       setError(err instanceof Error ? err.message : 'Failed to load stats')
@@ -298,6 +421,147 @@ export default function AdminPage() {
           <SimpleBarChart data={signups_by_day} />
         </CardContent>
       </Card>
+
+      {/* Activation Funnel Section */}
+      {funnel && (
+        <>
+          {/* Insights Alert */}
+          {funnel.insights.length > 0 && (
+            <Card className="border-yellow-500/50 bg-yellow-500/5">
+              <CardHeader className="pb-2">
+                <CardTitle className="flex items-center gap-2 text-yellow-600">
+                  <AlertTriangle className="h-4 w-4" />
+                  Activation Insights
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <ul className="space-y-1">
+                  {funnel.insights.map((insight, i) => (
+                    <li key={i} className="text-sm">{insight}</li>
+                  ))}
+                </ul>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Funnel + Message Distribution side by side */}
+          <div className="grid gap-4 lg:grid-cols-2">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Filter className="h-4 w-4" />
+                  Activation Funnel (30 days)
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <FunnelChart data={funnel.funnel} />
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <MessageSquare className="h-4 w-4" />
+                  Message Distribution
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <MessageDistributionChart data={funnel.message_distribution} />
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Dropoff Analysis + Source Performance */}
+          <div className="grid gap-4 lg:grid-cols-2">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <ArrowDown className="h-4 w-4" />
+                  Dropoff Analysis
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  {funnel.dropoff_analysis.map((point, i) => (
+                    <div key={i} className="flex items-start justify-between gap-4 pb-3 border-b border-border/50 last:border-0">
+                      <div>
+                        <div className="text-sm font-medium">{point.description}</div>
+                        {point.example_users.length > 0 && (
+                          <div className="text-xs text-muted-foreground mt-1">
+                            e.g., {point.example_users.slice(0, 3).join(', ')}
+                          </div>
+                        )}
+                      </div>
+                      <div className="text-lg font-bold tabular-nums">{point.user_count}</div>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <CheckCircle className="h-4 w-4" />
+                  Source Performance
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b">
+                        <th className="text-left py-2 font-medium">Source</th>
+                        <th className="text-right py-2 font-medium">Signups</th>
+                        <th className="text-right py-2 font-medium">Activation</th>
+                        <th className="text-right py-2 font-medium">Engaged</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {funnel.source_performance.slice(0, 10).map((source, i) => (
+                        <tr key={i} className="border-b border-border/50">
+                          <td className="py-2">
+                            <div className="font-medium">{source.source}</div>
+                            {source.campaign && (
+                              <div className="text-xs text-muted-foreground truncate max-w-[120px]" title={source.campaign}>
+                                {source.campaign}
+                              </div>
+                            )}
+                          </td>
+                          <td className="text-right py-2 tabular-nums">{source.signups}</td>
+                          <td className="text-right py-2 tabular-nums">
+                            <span className={source.activation_rate > 50 ? 'text-green-500 font-medium' : source.activation_rate > 25 ? 'text-yellow-500' : 'text-muted-foreground'}>
+                              {source.activation_rate}%
+                            </span>
+                          </td>
+                          <td className="text-right py-2 tabular-nums">
+                            <span className={source.engagement_rate > 30 ? 'text-green-500 font-medium' : 'text-muted-foreground'}>
+                              {source.engagement_rate}%
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Cohort Retention */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Activity className="h-4 w-4" />
+                Weekly Cohort Retention
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <CohortRetentionTable data={funnel.cohort_retention} />
+            </CardContent>
+          </Card>
+        </>
+      )}
 
       {/* Campaign Performance */}
       <Card>
