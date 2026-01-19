@@ -1473,6 +1473,24 @@ export interface StreamEpisodeCompleteEvent {
 }
 
 /**
+ * Choice point event - triggered when user needs to make a decision (ADR-008/ADR-009)
+ */
+export interface StreamChoicePointEvent {
+  type: "choice_point";
+  id: string;
+  prompt: string;
+  choices: Array<{ id: string; label: string }>;
+  // ADR-009: Mode for how to display the choice
+  mode?: "floating" | "message_replacement";
+  // ADR-009: If triggered by a beat, the beat ID
+  beat_id?: string;
+  // ADR-009: Context from the conversation (e.g., what character said)
+  context?: {
+    character_said?: string;
+  };
+}
+
+/**
  * Union of all stream event types
  */
 export type StreamEvent =
@@ -1483,7 +1501,8 @@ export type StreamEvent =
   | StreamInstructionCardEvent
   | StreamNeedsSparksEvent
   | StreamPropRevealEvent
-  | StreamEpisodeCompleteEvent;
+  | StreamEpisodeCompleteEvent
+  | StreamChoicePointEvent;
 
 // =============================================================================
 // Role types (ADR-004: User Character & Role Abstraction)

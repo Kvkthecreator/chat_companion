@@ -597,7 +597,8 @@ export function ChatContainer({ characterId, episodeTemplateId }: ChatContainerP
               ))}
 
               {/* ADR-008: Choice point card - show when a decision moment is triggered */}
-              {activeChoicePoint && (
+              {/* ADR-009: Only show floating choice card for "floating" mode; "message_replacement" mode is handled in input area */}
+              {activeChoicePoint && activeChoicePoint.mode !== "message_replacement" && (
                 <ChoiceCard
                   prompt={activeChoicePoint.prompt}
                   choices={activeChoicePoint.choices}
@@ -678,23 +679,63 @@ export function ChatContainer({ characterId, episodeTemplateId }: ChatContainerP
       </div>
 
       {/* Input bar with safe-area padding built in */}
+      {/* ADR-009: When choice mode is "message_replacement", show choices instead of input */}
       <div className={cn(
         "flex-shrink-0 pb-[env(safe-area-inset-bottom)]",
         hasBackground
           ? "mx-2 mb-2 rounded-xl bg-black/50 backdrop-blur-md"
           : "border-t border-border bg-card"
       )}>
-        <MessageInput
-          onSend={handleSendMessage}
-          onVisualize={handleVisualize}
-          disabled={isSending || isLoadingChat}
-          isGeneratingScene={isGeneratingScene}
-          showVisualizeButton={showVisualizeButton}
-          suggestScene={suggestScene}
-          placeholder={`Message ${character.name}...`}
-          hasBackground={hasBackground}
-          hasAnchorImage={hasAnchorImage}
-        />
+        {activeChoicePoint?.mode === "message_replacement" ? (
+          <div className="p-4">
+            <p className={cn(
+              "text-xs uppercase tracking-widest mb-3",
+              hasBackground ? "text-amber-400/70" : "text-amber-600/70"
+            )}>
+              Choose your response
+            </p>
+            <p className={cn(
+              "text-sm font-medium mb-3",
+              hasBackground ? "text-white" : "text-foreground"
+            )}>
+              {activeChoicePoint.prompt}
+            </p>
+            <div className="space-y-2">
+              {activeChoicePoint.choices.map((choice) => (
+                <button
+                  key={choice.id}
+                  onClick={async () => {
+                    await selectChoice(activeChoicePoint.id, choice.id);
+                    // ADR-009: After selection, send the choice label as the user's message
+                    await handleSendMessage(choice.label);
+                  }}
+                  disabled={isSending}
+                  className={cn(
+                    "w-full text-left py-3 px-4 rounded-lg border transition-colors",
+                    hasBackground
+                      ? "border-amber-500/30 hover:border-amber-500/50 hover:bg-amber-500/10 text-white"
+                      : "border-amber-500/20 hover:border-amber-500/50 hover:bg-amber-500/10",
+                    isSending && "opacity-50 cursor-not-allowed"
+                  )}
+                >
+                  {choice.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        ) : (
+          <MessageInput
+            onSend={handleSendMessage}
+            onVisualize={handleVisualize}
+            disabled={isSending || isLoadingChat}
+            isGeneratingScene={isGeneratingScene}
+            showVisualizeButton={showVisualizeButton}
+            suggestScene={suggestScene}
+            placeholder={`Message ${character.name}...`}
+            hasBackground={hasBackground}
+            hasAnchorImage={hasAnchorImage}
+          />
+        )}
       </div>
 
       {/* Modals - only for system errors, not for episode completion */}

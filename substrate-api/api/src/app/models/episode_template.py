@@ -35,6 +35,31 @@ class FlagContextRule(BaseModel):
     inject: str
 
 
+class Beat(BaseModel):
+    """A narrative moment that must occur in the episode (ADR-009).
+
+    Beats are instructions to the character about moments that must happen.
+    When a beat is detected, its optional choice_point surfaces to the user.
+
+    This replaces turn-based choice_points with a more integrated system
+    where the Director instructs characters to deliver beats organically.
+    """
+    id: str
+    description: str                           # What must happen (for logging/debugging)
+    character_instruction: str                 # Natural language instruction for character
+    target_turn: int                           # Ideal turn for this beat
+    deadline_turn: int                         # Must complete by this turn
+    detection_type: str = "semantic"           # "semantic" | "keyword" | "automatic"
+    detection_criteria: str = ""               # Criteria for semantic/keywords
+
+    # Optional: Choice that surfaces when beat lands
+    choice_point: Optional[ChoicePoint] = None
+
+    # Optional: Dependencies
+    requires_beat: Optional[str] = None        # Must complete after this beat
+    requires_flag: Optional[str] = None        # Must have this flag set
+
+
 class VisualMode:
     """Visual generation mode constants (Ticket + Moments model).
 
@@ -121,8 +146,12 @@ class EpisodeTemplate(BaseModel):
     failure_condition: str = "turn_budget_exceeded"  # Default: fail if turn budget exceeded
     on_success: dict = Field(default_factory=dict)   # { "set_flag": "...", "suggest_episode": "..." }
     on_failure: dict = Field(default_factory=dict)   # { "set_flag": "...", "suggest_episode": "..." }
-    choice_points: List[ChoicePoint] = Field(default_factory=list)  # Interactive decision moments
+    choice_points: List[ChoicePoint] = Field(default_factory=list)  # Interactive decision moments (legacy, use beats)
     flag_context_rules: List[FlagContextRule] = Field(default_factory=list)  # Context injection rules
+
+    # Beat contract system (ADR-009)
+    # Beats define narrative moments that characters must deliver, with integrated choices
+    beats: List[Beat] = Field(default_factory=list)
 
     # Director configuration
     genre: str = "romance"  # Story genre for semantic evaluation context
@@ -209,6 +238,30 @@ class EpisodeTemplate(BaseModel):
             return [FlagContextRule(**r) if isinstance(r, dict) else r for r in v]
         return []
 
+    @field_validator("beats", mode="before")
+    @classmethod
+    def ensure_beats(cls, v: Any) -> List[Beat]:
+        """Handle beats JSONB from DB (ADR-009)."""
+        if v is None:
+            return []
+        if isinstance(v, str):
+            try:
+                v = json.loads(v)
+            except (json.JSONDecodeError, TypeError):
+                return []
+        if isinstance(v, list):
+            result = []
+            for b in v:
+                if isinstance(b, dict):
+                    # Handle nested choice_point
+                    if b.get("choice_point") and isinstance(b["choice_point"], dict):
+                        b["choice_point"] = ChoicePoint(**b["choice_point"])
+                    result.append(Beat(**b))
+                else:
+                    result.append(b)
+            return result
+        return []
+
     class Config:
         from_attributes = True
 
@@ -249,6 +302,9 @@ class EpisodeTemplateCreate(BaseModel):
     on_failure: dict = Field(default_factory=dict)
     choice_points: List[ChoicePoint] = Field(default_factory=list)
     flag_context_rules: List[FlagContextRule] = Field(default_factory=list)
+
+    # Beat contract system (ADR-009)
+    beats: List[Beat] = Field(default_factory=list)
 
     # Director configuration
     genre: str = "romance"
@@ -291,6 +347,9 @@ class EpisodeTemplateUpdate(BaseModel):
     on_failure: Optional[dict] = None
     choice_points: Optional[List[ChoicePoint]] = None
     flag_context_rules: Optional[List[FlagContextRule]] = None
+
+    # Beat contract system (ADR-009)
+    beats: Optional[List[Beat]] = None
 
     # Director configuration
     genre: Optional[str] = None

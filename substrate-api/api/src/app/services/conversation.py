@@ -257,7 +257,21 @@ class ConversationService:
                 char_boundaries = context.character_boundaries or {}
                 energy_level = char_boundaries.get("flirting_level", "playful")
 
-                # Director Protocol v2.2: Deterministic, no LLM call
+                # ADR-009: Get beats and director_state for beat directive injection
+                beats = getattr(episode_template, 'beats', [])
+                director_state = episode.director_state or {}
+                beat_states = director_state.get("beats", {})
+                flags = director_state.get("flags", {})
+
+                # Convert Beat objects to dicts if needed
+                beats_dicts = []
+                for beat in beats:
+                    if hasattr(beat, "model_dump"):
+                        beats_dicts.append(beat.model_dump())
+                    elif isinstance(beat, dict):
+                        beats_dicts.append(beat)
+
+                # Director Protocol v2.2 + ADR-009: Deterministic pre-guidance with beat directives
                 # Motivation (objective/obstacle/tactic) now comes from Episode upstream
                 guidance = self.director_service.generate_pre_guidance(
                     genre=getattr(episode_template, 'genre', 'romantic_tension'),
@@ -265,10 +279,14 @@ class ConversationService:
                     turn_count=episode.turn_count,
                     turn_budget=getattr(episode_template, 'turn_budget', None),
                     energy_level=energy_level,
+                    beats=beats_dicts if beats_dicts else None,
+                    beat_states=beat_states,
+                    flags=flags,
                 )
-                # Inject guidance into context (includes genre doctrine)
+                # Inject guidance into context (includes genre doctrine and beat directive)
                 context.director_guidance = guidance.to_prompt_section()
-                log.debug(f"Director pre-guidance: pacing={guidance.pacing}, genre={guidance.genre}")
+                beat_info = f", beat={guidance.beat_directive.beat_id}" if guidance.beat_directive else ""
+                log.debug(f"Director pre-guidance: pacing={guidance.pacing}, genre={guidance.genre}{beat_info}")
             except Exception as e:
                 log.warning(f"Director pre-guidance failed: {e}")
 
@@ -495,11 +513,85 @@ class ConversationService:
                                 "id": triggered_cp.id,
                                 "prompt": triggered_cp.prompt,
                                 "choices": triggered_cp.choices,
+                                "mode": getattr(triggered_cp, 'mode', 'floating'),
                             }
                             yield json.dumps(choice_event)
 
+                    # =========================================================
+                    # ADR-009: BEAT-TRIGGERED CHOICES
+                    # =========================================================
+                    # Check if any beats with choice_points have been delivered
+                    beats = getattr(episode_template, 'beats', [])
+                    if beats:
+                        beat_states = director_state.get("beats", {})
+                        full_messages = context.messages + [{"role": "assistant", "content": response_content}]
+
+                        for beat in beats:
+                            beat_id = beat.id if hasattr(beat, 'id') else beat.get("id", "")
+                            beat_dict = beat.model_dump() if hasattr(beat, 'model_dump') else beat
+
+                            # Get beat state
+                            beat_state = beat_states.get(beat_id, {"status": "pending"})
+
+                            # Skip beats that are already completed or don't have choice points
+                            if beat_state.get("status") in ("detected", "completed"):
+                                continue
+
+                            beat_choice_point = beat_dict.get("choice_point")
+                            if not beat_choice_point:
+                                continue
+
+                            # Check if beat was instructed this turn (has directive)
+                            # Only detect if we gave the character a directive to deliver this beat
+                            target_turn = beat_dict.get("target_turn", 999)
+                            deadline_turn = beat_dict.get("deadline_turn", target_turn + 2)
+
+                            # Only check beats that are at or past their target turn
+                            if next_turn_count < target_turn - 1:
+                                continue
+
+                            # Detect if beat was delivered in response
+                            beat_detected = await self.director_service.detect_beat_completion(
+                                beat=beat_dict,
+                                character_response=response_content,
+                                messages=full_messages,
+                            )
+
+                            if beat_detected:
+                                log.info(f"Beat {beat_id} detected, triggering choice point")
+
+                                # Update beat state
+                                beat_states[beat_id] = {
+                                    "status": "detected",
+                                    "detected_at_turn": next_turn_count,
+                                    "choice_pending": True,
+                                }
+                                director_state["beats"] = beat_states
+                                await self._update_session_director_state(episode.id, director_state)
+
+                                # Get triggered choice point from beat
+                                triggered_cp = self.director_service.check_beat_choice_point(
+                                    beat=beat_dict,
+                                    character_response=response_content,
+                                )
+
+                                if triggered_cp:
+                                    choice_event = {
+                                        "type": "choice_point",
+                                        "id": triggered_cp.id,
+                                        "prompt": triggered_cp.prompt,
+                                        "choices": triggered_cp.choices,
+                                        "mode": triggered_cp.mode,  # "message_replacement"
+                                        "beat_id": triggered_cp.beat_id,
+                                        "context": triggered_cp.context,
+                                    }
+                                    yield json.dumps(choice_event)
+
+                                # Only trigger one beat choice per turn
+                                break
+
                 except Exception as e:
-                    log.warning(f"Objective evaluation failed: {e}")
+                    log.warning(f"Objective/beat evaluation failed: {e}")
 
         # =====================================================================
         # DIRECTOR PHASE 2: Post-Evaluation (BACKGROUND - fire-and-forget)

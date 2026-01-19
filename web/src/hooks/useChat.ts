@@ -13,6 +13,7 @@ import type {
   StreamInstructionCardEvent,
   StreamNeedsSparksEvent,
   StreamPropRevealEvent,
+  StreamChoicePointEvent,
   StreamEvent,
   VisualType,
 } from "@/types";
@@ -50,11 +51,19 @@ export interface ObjectiveState {
   status: ObjectiveStatus;
 }
 
-// ADR-008: Choice point from backend
+// ADR-008/ADR-009: Choice point from backend
 export interface ChoicePointState {
   id: string;
   prompt: string;
   choices: Array<{ id: string; label: string }>;
+  // ADR-009: Mode for how to display the choice
+  mode?: "floating" | "message_replacement";
+  // ADR-009: If triggered by a beat, the beat ID
+  beatId?: string;
+  // ADR-009: Context from the conversation (e.g., what character said)
+  context?: {
+    characterSaid?: string;
+  };
 }
 
 // ADR-008: Tracks the last choice made (for visual feedback)
@@ -397,17 +406,18 @@ export function useChat({
           setCurrentObjective((prev) => prev ? { ...prev, status: "failed" } : null);
           onObjectiveFailedRef.current?.(event.objective, event.turn);
         } else if (event.type === "choice_point") {
-          // ADR-008: Choice point triggered
-          setActiveChoicePoint({
+          // ADR-008/ADR-009: Choice point triggered
+          // ADR-009 adds mode, beatId, and context for beat-triggered choices
+          const choicePointState: ChoicePointState = {
             id: event.id,
             prompt: event.prompt,
             choices: event.choices,
-          });
-          onChoicePointRef.current?.({
-            id: event.id,
-            prompt: event.prompt,
-            choices: event.choices,
-          });
+            mode: event.mode || "floating",
+            beatId: event.beat_id,
+            context: event.context ? { characterSaid: event.context.character_said } : undefined,
+          };
+          setActiveChoicePoint(choicePointState);
+          onChoicePointRef.current?.(choicePointState);
         } else if (event.type === "episode_complete" || event.type === "next_episode_suggestion") {
           // Director suggests moving to next episode (v2.6: decoupled from "completion")
           // This is just a suggestion - user can dismiss and keep chatting

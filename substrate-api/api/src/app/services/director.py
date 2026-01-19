@@ -409,16 +409,34 @@ GENRE_BEATS = {
 
 
 @dataclass
+class BeatDirective:
+    """Instruction to character to deliver a specific narrative beat (ADR-009).
+
+    When a beat is approaching its target/deadline, the Director injects this
+    directive into the character's prompt so they work the beat into their response.
+
+    This ensures narrative moments that need to happen (like asking about salary
+    before a choice point) actually get delivered organically by the character.
+    """
+    beat_id: str                    # Identifier for tracking
+    instruction: str                # Natural language instruction for character
+    urgency: str = "suggested"      # "suggested" | "required" | "overdue"
+    context: str = ""               # Why this beat matters now
+
+
+@dataclass
 class DirectorGuidance:
     """Pre-response guidance for character LLM.
 
     Director Protocol v2.2: Theatrical Model
+    Extended in ADR-009: Beat Contract System
 
-    The Director at runtime provides ONLY:
+    The Director at runtime provides:
     - pacing: Where we are in the arc (establish → develop → escalate → peak → resolve)
     - physical_anchor: Sensory grounding for the scene
     - genre: For doctrine lookup (energy descriptions, genre conventions)
     - energy_level: Character's energy for this scene
+    - beat_directive: (ADR-009) Instruction to deliver a specific narrative beat
 
     REMOVED in v2.2 (moved upstream to Episode/Genre):
     - objective/obstacle/tactic: Now authored into EpisodeTemplate
@@ -429,6 +447,7 @@ class DirectorGuidance:
     - Episode = The Scene ("The moment before the first kiss")
     - Director at runtime = Stage manager ("We're in the DEVELOP phase")
     - Character = Actor (improvises within the established frame)
+    - Beat directive = Stage manager note ("Work in the salary question this scene")
 
     The actor doesn't need line-by-line motivation if the scene setup is strong.
     """
@@ -436,6 +455,7 @@ class DirectorGuidance:
     physical_anchor: Optional[str] = None  # Sensory grounding
     genre: str = "romantic_tension"  # Genre for doctrine lookup
     energy_level: str = "playful"  # Character's energy level
+    beat_directive: Optional[BeatDirective] = None  # ADR-009: Beat to deliver this turn
 
     def to_prompt_section(self) -> str:
         """Format as prompt section for character LLM.
@@ -467,6 +487,24 @@ class DirectorGuidance:
         )
         if energy_desc:
             lines.append(f"Energy: {energy_desc}")
+
+        # ADR-009: Beat directive (if any)
+        if self.beat_directive:
+            urgency_labels = {
+                "suggested": "OPPORTUNITY",
+                "required": "THIS TURN",
+                "overdue": "MUST HAPPEN NOW",
+            }
+            urgency_label = urgency_labels.get(self.beat_directive.urgency, "OPPORTUNITY")
+
+            lines.append("")
+            lines.append("─────────────────────────────────────────────────────────────────")
+            lines.append(f"BEAT [{urgency_label}]: {self.beat_directive.instruction}")
+            lines.append("─────────────────────────────────────────────────────────────────")
+            if self.beat_directive.context:
+                lines.append(self.beat_directive.context)
+            lines.append("")
+            lines.append("Work this into your response naturally. Don't force it—find the organic moment.")
 
         # Genre reminder (conventions internalized from rehearsal)
         lines.append("")
@@ -503,10 +541,25 @@ class ObjectiveEvaluation:
 
 @dataclass
 class TriggeredChoicePoint:
-    """A choice point that has been triggered (ADR-008)."""
+    """A choice point that has been triggered (ADR-008/ADR-009)."""
     id: str
     prompt: str
     choices: List[Dict[str, str]]  # [{id, label}]
+    mode: str = "floating"  # "floating" (ADR-008 legacy) | "message_replacement" (ADR-009)
+    beat_id: Optional[str] = None  # ADR-009: The beat that triggered this choice
+    context: Optional[Dict[str, Any]] = None  # ADR-009: Context from conversation
+
+
+@dataclass
+class BeatState:
+    """Tracks the state of a beat within a session (ADR-009).
+
+    Stored in session.director_state.beats[beat_id].
+    """
+    status: str = "pending"           # pending | delivered | detected | completed
+    delivered_at_turn: Optional[int] = None
+    detected_at_turn: Optional[int] = None
+    choice_pending: bool = False
 
 
 @dataclass
@@ -624,22 +677,30 @@ class DirectorService:
         turn_count: int,
         turn_budget: Optional[int] = None,
         energy_level: str = "playful",
+        beats: Optional[List[Dict[str, Any]]] = None,
+        beat_states: Optional[Dict[str, Dict[str, Any]]] = None,
+        flags: Optional[Dict[str, bool]] = None,
     ) -> DirectorGuidance:
         """Generate pre-response guidance for character LLM.
 
         Director Protocol v2.2: Theatrical Model
+        Extended in ADR-009: Beat Contract System
 
-        Director at runtime provides ONLY deterministic outputs:
+        Director at runtime provides deterministic outputs:
         - pacing: Algorithmic based on turn_count/turn_budget
         - physical_anchor: Extracted from episode situation
         - genre: For doctrine lookup
         - energy_level: Passed through from episode/character
+        - beat_directive: (ADR-009) Instruction to deliver a specific beat
 
         NO LLM calls. Scene motivation (objective/obstacle/tactic) is now
         authored into EpisodeTemplate upstream, not generated per-turn.
 
+        ADR-009: If there are pending beats approaching their target/deadline,
+        the Director injects a beat_directive to instruct the character.
+
         Theatrical Analogy: The director gave notes during rehearsal (Episode setup).
-        During the performance (chat), the stage manager just calls pacing.
+        During the performance (chat), the stage manager calls pacing and beat cues.
         """
         # 1. Determine pacing algorithmically
         pacing = self.determine_pacing(turn_count, turn_budget)
@@ -652,12 +713,91 @@ class DirectorService:
         if situation:
             physical_anchor = situation.split(".")[0].strip()[:100]
 
+        # 4. ADR-009: Check for beats that need delivery
+        beat_directive = None
+        if beats:
+            beat_directive = self._get_pending_beat_directive(
+                beats=beats,
+                turn_count=turn_count,
+                beat_states=beat_states or {},
+                flags=flags or {},
+            )
+
         return DirectorGuidance(
             pacing=pacing,
             physical_anchor=physical_anchor,
             genre=genre_key,
             energy_level=energy_level,
+            beat_directive=beat_directive,
         )
+
+    def _get_pending_beat_directive(
+        self,
+        beats: List[Dict[str, Any]],
+        turn_count: int,
+        beat_states: Dict[str, Dict[str, Any]],
+        flags: Dict[str, bool],
+    ) -> Optional[BeatDirective]:
+        """Find the most urgent pending beat and return a directive (ADR-009).
+
+        Checks beats in order of urgency:
+        1. Overdue beats (past deadline)
+        2. Required beats (at or past target turn)
+        3. Suggested beats (approaching target turn)
+
+        Returns None if no beats need attention this turn.
+        """
+        for beat in beats:
+            beat_id = beat.get("id", "")
+            beat_state = beat_states.get(beat_id, {})
+
+            # Skip beats that are already detected or completed
+            status = beat_state.get("status", "pending")
+            if status in ("detected", "completed"):
+                continue
+
+            # Skip beats with unmet dependencies
+            requires_beat = beat.get("requires_beat")
+            if requires_beat:
+                dep_state = beat_states.get(requires_beat, {})
+                if dep_state.get("status") not in ("detected", "completed"):
+                    continue
+
+            requires_flag = beat.get("requires_flag")
+            if requires_flag and not flags.get(requires_flag):
+                continue
+
+            target_turn = beat.get("target_turn", 999)
+            deadline_turn = beat.get("deadline_turn", target_turn + 2)
+            instruction = beat.get("character_instruction", "")
+
+            # Determine urgency
+            if turn_count > deadline_turn:
+                # Overdue - must deliver now
+                return BeatDirective(
+                    beat_id=beat_id,
+                    instruction=instruction,
+                    urgency="overdue",
+                    context=f"This beat was due by turn {deadline_turn}. Deliver it now.",
+                )
+            elif turn_count >= target_turn:
+                # At or past target - should deliver
+                return BeatDirective(
+                    beat_id=beat_id,
+                    instruction=instruction,
+                    urgency="required",
+                    context="This is the right moment for this beat.",
+                )
+            elif turn_count >= target_turn - 1:
+                # Approaching - prepare/suggest
+                return BeatDirective(
+                    beat_id=beat_id,
+                    instruction=instruction,
+                    urgency="suggested",
+                    context="Look for a natural opening for this.",
+                )
+
+        return None
 
     # =========================================================================
     # PHASE 2: POST-EVALUATION (after character response)
@@ -1370,6 +1510,140 @@ Respond with ONE word only: YES or NO"""
                     )
 
         return None
+
+    # =========================================================================
+    # ADR-009: BEAT CONTRACT SYSTEM
+    # =========================================================================
+
+    async def detect_beat_completion(
+        self,
+        beat: Dict[str, Any],
+        character_response: str,
+        messages: List[Dict[str, str]],
+    ) -> bool:
+        """Detect if a beat was delivered in the character's response (ADR-009).
+
+        Detection types:
+        - automatic: Assumes delivered if character was instructed (directive was sent)
+        - keyword: Checks for specific keywords in response
+        - semantic: Uses LLM to evaluate if beat criteria is met
+
+        Returns True if beat was detected in the response.
+        """
+        detection_type = beat.get("detection_type", "semantic")
+        detection_criteria = beat.get("detection_criteria", "")
+        beat_id = beat.get("id", "unknown")
+
+        if detection_type == "automatic":
+            # Character was instructed; assume delivered
+            log.info(f"Beat {beat_id} auto-detected (instructed)")
+            return True
+
+        elif detection_type == "keyword":
+            keywords = [k.strip().lower() for k in detection_criteria.split(",") if k.strip()]
+            response_lower = character_response.lower()
+            for keyword in keywords:
+                if keyword in response_lower:
+                    log.info(f"Beat {beat_id} detected via keyword: {keyword}")
+                    return True
+            return False
+
+        elif detection_type == "semantic":
+            return await self._semantic_beat_check(
+                beat_description=beat.get("description", ""),
+                criteria=detection_criteria,
+                character_response=character_response,
+                messages=messages,
+            )
+
+        return False
+
+    async def _semantic_beat_check(
+        self,
+        beat_description: str,
+        criteria: str,
+        character_response: str,
+        messages: List[Dict[str, str]],
+    ) -> bool:
+        """Use LLM to evaluate if a beat was delivered (ADR-009)."""
+        # Format recent messages for context
+        recent = messages[-4:] if len(messages) > 4 else messages
+        formatted = "\n".join(
+            f"{m['role'].upper()}: {m['content']}"
+            for m in recent
+        )
+
+        prompt = f"""Did the character's response accomplish this narrative beat?
+
+BEAT: {beat_description}
+CRITERIA: {criteria or beat_description}
+
+RECENT CONVERSATION:
+{formatted}
+
+LATEST CHARACTER RESPONSE:
+{character_response}
+
+Did the character accomplish the beat described above?
+Look for: {criteria or beat_description}
+
+Answer with ONE word only: YES or NO"""
+
+        try:
+            response = await self.llm.generate(
+                [{"role": "user", "content": prompt}],
+                max_tokens=10,
+                temperature=0.0,
+            )
+
+            result = response.content.strip().upper()
+            detected = "YES" in result
+            if detected:
+                log.info(f"Beat semantically detected: {beat_description[:50]}...")
+            return detected
+
+        except Exception as e:
+            log.error(f"Semantic beat check failed: {e}")
+            return False
+
+    def check_beat_choice_point(
+        self,
+        beat: Dict[str, Any],
+        character_response: str,
+    ) -> Optional[TriggeredChoicePoint]:
+        """Check if a beat has an associated choice point to trigger (ADR-009).
+
+        When a beat with a choice_point is detected, returns a TriggeredChoicePoint
+        with mode="message_replacement" so the frontend knows to replace the input.
+
+        Returns None if the beat has no choice_point.
+        """
+        choice_point = beat.get("choice_point")
+        if not choice_point:
+            return None
+
+        # Extract choice_point data
+        cp_id = choice_point.get("id", beat.get("id", ""))
+        prompt = choice_point.get("prompt", "")
+        choices_raw = choice_point.get("choices", [])
+
+        choices = []
+        for c in choices_raw:
+            if hasattr(c, "model_dump"):
+                choices.append({"id": c.id, "label": c.label})
+            elif isinstance(c, dict):
+                choices.append({"id": c.get("id", ""), "label": c.get("label", "")})
+
+        return TriggeredChoicePoint(
+            id=cp_id,
+            prompt=prompt,
+            choices=choices,
+            mode="message_replacement",  # ADR-009: Choices replace message input
+            beat_id=beat.get("id"),
+            context={
+                "character_said": character_response[-500:] if len(character_response) > 500 else character_response,
+            },
+        )
 
     async def _get_user_preferences(self, user_id: UUID) -> Dict[str, Any]:
         """Fetch user preferences from database."""
