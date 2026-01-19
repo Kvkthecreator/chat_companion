@@ -1739,3 +1739,51 @@ export interface AdminStatsResponse {
   purchases: AdminPurchase[];
   guest_sessions: AdminGuestSession[];
 }
+
+// Activation Funnel Types
+export interface FunnelStep {
+  step: string;
+  count: number;
+  percentage: number;
+}
+
+export interface CohortRetention {
+  cohort_date: string;
+  cohort_size: number;
+  day_1: number;
+  day_7: number;
+  day_14: number;
+  day_30: number;
+}
+
+export interface MessageDistribution {
+  bucket: string;
+  count: number;
+  percentage: number;
+}
+
+export interface DropoffPoint {
+  description: string;
+  user_count: number;
+  example_users: string[];
+}
+
+export interface SourceActivation {
+  source: string;
+  campaign: string | null;
+  signups: number;
+  activated: number;
+  engaged: number;
+  retained: number;
+  activation_rate: number;
+  engagement_rate: number;
+}
+
+export interface ActivationFunnelResponse {
+  funnel: FunnelStep[];
+  message_distribution: MessageDistribution[];
+  dropoff_analysis: DropoffPoint[];
+  source_performance: SourceActivation[];
+  cohort_retention: CohortRetention[];
+  insights: string[];
+}

@@ -88,6 +88,11 @@ export const api = {
         body: JSON.stringify(data),
       }),
     usage: () => request<import("@/types").UsageResponse>("/users/me/usage"),
+    deleteAccount: (confirmation: string, reason?: string) =>
+      request<{ status: string; message: string }>("/users/me", {
+        method: "DELETE",
+        body: JSON.stringify({ confirmation, reason }),
+      }),
   },
 
   // Character endpoints
@@ -1151,6 +1156,10 @@ export const api = {
   // Admin endpoints
   admin: {
     stats: () => request<import("@/types").AdminStatsResponse>("/admin/stats"),
+    funnel: (days: number = 30) =>
+      request<import("@/types").ActivationFunnelResponse>(
+        `/admin/funnel?days=${days}`
+      ),
   },
 };
 

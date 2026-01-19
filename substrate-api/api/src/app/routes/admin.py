@@ -104,6 +104,58 @@ class AdminStatsResponse(BaseModel):
 
 
 # =============================================================================
+# Activation Funnel Models
+# =============================================================================
+
+
+class FunnelStep(BaseModel):
+    step: str
+    count: int
+    percentage: float  # Percentage of total signups
+
+
+class CohortRetention(BaseModel):
+    cohort_date: str  # Week start date
+    cohort_size: int
+    day_1: float  # % returned day 1
+    day_7: float  # % returned within 7 days
+    day_14: float  # % returned within 14 days
+    day_30: float  # % returned within 30 days
+
+
+class MessageDistribution(BaseModel):
+    bucket: str  # e.g., "0", "1-5", "6-10", "11-25", "26-50", "51+"
+    count: int
+    percentage: float
+
+
+class DropoffPoint(BaseModel):
+    description: str
+    user_count: int
+    example_users: List[str] = []  # Display names for manual follow-up
+
+
+class SourceActivation(BaseModel):
+    source: str
+    campaign: Optional[str]
+    signups: int
+    activated: int  # Users with at least 1 message
+    engaged: int  # Users with 5+ messages
+    retained: int  # Users who returned after day 1
+    activation_rate: float
+    engagement_rate: float
+
+
+class ActivationFunnelResponse(BaseModel):
+    funnel: List[FunnelStep]
+    message_distribution: List[MessageDistribution]
+    dropoff_analysis: List[DropoffPoint]
+    source_performance: List[SourceActivation]
+    cohort_retention: List[CohortRetention]
+    insights: List[str]  # Auto-generated insights
+
+
+# =============================================================================
 # Helper: Verify Admin Access
 # =============================================================================
 
@@ -315,4 +367,280 @@ async def get_admin_stats(
         users=users,
         purchases=purchases,
         guest_sessions=guest_sessions,
+    )
+
+
+# =============================================================================
+# Activation Funnel Endpoint
+# =============================================================================
+
+
+@router.get("/funnel", response_model=ActivationFunnelResponse)
+async def get_activation_funnel(
+    request: Request,
+    days: int = 30,  # Look back period
+    user_id: UUID = Depends(get_current_user_id),
+    db=Depends(get_db),
+):
+    """Get detailed activation funnel analysis."""
+    await verify_admin_access(request, user_id, db)
+
+    now = datetime.utcnow()
+    lookback = now - timedelta(days=days)
+
+    # ==========================================================================
+    # 1. FUNNEL STEPS
+    # ==========================================================================
+    funnel_query = """
+    WITH user_metrics AS (
+        SELECT
+            u.id,
+            u.messages_sent_count,
+            (SELECT COUNT(*) FROM sessions WHERE user_id = u.id) as session_count,
+            (SELECT COUNT(*) FROM sessions WHERE user_id = u.id AND episode_number = 0) as ep0_sessions,
+            (SELECT COUNT(*) FROM sessions WHERE user_id = u.id AND episode_number > 0) as ep1_plus_sessions,
+            (SELECT COUNT(*) FROM engagements WHERE user_id = u.id) as characters_engaged
+        FROM users u
+        WHERE u.created_at > :lookback
+    )
+    SELECT
+        COUNT(*) as total_signups,
+        COUNT(*) FILTER (WHERE session_count > 0) as started_any_session,
+        COUNT(*) FILTER (WHERE ep0_sessions > 0) as started_ep0,
+        COUNT(*) FILTER (WHERE messages_sent_count > 0) as sent_first_message,
+        COUNT(*) FILTER (WHERE messages_sent_count >= 5) as sent_5_messages,
+        COUNT(*) FILTER (WHERE messages_sent_count >= 10) as sent_10_messages,
+        COUNT(*) FILTER (WHERE messages_sent_count >= 25) as sent_25_messages,
+        COUNT(*) FILTER (WHERE ep1_plus_sessions > 0) as started_ep1_plus,
+        COUNT(*) FILTER (WHERE characters_engaged >= 2) as engaged_2_plus_chars
+    FROM user_metrics
+    """
+    funnel_row = await db.fetch_one(funnel_query, {"lookback": lookback})
+
+    total = funnel_row["total_signups"] or 1  # Avoid division by zero
+    funnel = [
+        FunnelStep(step="Signed up", count=funnel_row["total_signups"], percentage=100.0),
+        FunnelStep(step="Started any session", count=funnel_row["started_any_session"], percentage=round(funnel_row["started_any_session"] / total * 100, 1)),
+        FunnelStep(step="Started Episode 0", count=funnel_row["started_ep0"], percentage=round(funnel_row["started_ep0"] / total * 100, 1)),
+        FunnelStep(step="Sent first message", count=funnel_row["sent_first_message"], percentage=round(funnel_row["sent_first_message"] / total * 100, 1)),
+        FunnelStep(step="Sent 5+ messages", count=funnel_row["sent_5_messages"], percentage=round(funnel_row["sent_5_messages"] / total * 100, 1)),
+        FunnelStep(step="Sent 10+ messages", count=funnel_row["sent_10_messages"], percentage=round(funnel_row["sent_10_messages"] / total * 100, 1)),
+        FunnelStep(step="Sent 25+ messages", count=funnel_row["sent_25_messages"], percentage=round(funnel_row["sent_25_messages"] / total * 100, 1)),
+        FunnelStep(step="Started Episode 1+", count=funnel_row["started_ep1_plus"], percentage=round(funnel_row["started_ep1_plus"] / total * 100, 1)),
+        FunnelStep(step="Engaged 2+ characters", count=funnel_row["engaged_2_plus_chars"], percentage=round(funnel_row["engaged_2_plus_chars"] / total * 100, 1)),
+    ]
+
+    # ==========================================================================
+    # 2. MESSAGE DISTRIBUTION
+    # ==========================================================================
+    distribution_query = """
+    SELECT
+        CASE
+            WHEN messages_sent_count = 0 THEN '0'
+            WHEN messages_sent_count BETWEEN 1 AND 5 THEN '1-5'
+            WHEN messages_sent_count BETWEEN 6 AND 10 THEN '6-10'
+            WHEN messages_sent_count BETWEEN 11 AND 25 THEN '11-25'
+            WHEN messages_sent_count BETWEEN 26 AND 50 THEN '26-50'
+            WHEN messages_sent_count BETWEEN 51 AND 100 THEN '51-100'
+            ELSE '100+'
+        END as bucket,
+        COUNT(*) as count
+    FROM users
+    WHERE created_at > :lookback
+    GROUP BY bucket
+    ORDER BY
+        CASE bucket
+            WHEN '0' THEN 1
+            WHEN '1-5' THEN 2
+            WHEN '6-10' THEN 3
+            WHEN '11-25' THEN 4
+            WHEN '26-50' THEN 5
+            WHEN '51-100' THEN 6
+            ELSE 7
+        END
+    """
+    dist_rows = await db.fetch_all(distribution_query, {"lookback": lookback})
+    total_for_dist = sum(row["count"] for row in dist_rows) or 1
+    message_distribution = [
+        MessageDistribution(
+            bucket=row["bucket"],
+            count=row["count"],
+            percentage=round(row["count"] / total_for_dist * 100, 1)
+        )
+        for row in dist_rows
+    ]
+
+    # ==========================================================================
+    # 3. DROPOFF ANALYSIS
+    # ==========================================================================
+    dropoff_query = """
+    WITH user_journey AS (
+        SELECT
+            u.id,
+            u.display_name,
+            u.messages_sent_count,
+            (SELECT COUNT(*) FROM sessions WHERE user_id = u.id) as session_count,
+            (SELECT COUNT(*) FROM sessions WHERE user_id = u.id AND episode_number = 0) as ep0_count
+        FROM users u
+        WHERE u.created_at > :lookback
+    )
+    SELECT
+        'Signed up but never started a session' as description,
+        COUNT(*) as user_count,
+        array_agg(display_name) FILTER (WHERE display_name IS NOT NULL) as example_names
+    FROM user_journey WHERE session_count = 0
+
+    UNION ALL
+
+    SELECT
+        'Started session but sent 0 messages' as description,
+        COUNT(*) as user_count,
+        array_agg(display_name) FILTER (WHERE display_name IS NOT NULL) as example_names
+    FROM user_journey WHERE session_count > 0 AND messages_sent_count = 0
+
+    UNION ALL
+
+    SELECT
+        'Sent 1-3 messages then stopped' as description,
+        COUNT(*) as user_count,
+        array_agg(display_name) FILTER (WHERE display_name IS NOT NULL) as example_names
+    FROM user_journey WHERE messages_sent_count BETWEEN 1 AND 3
+
+    UNION ALL
+
+    SELECT
+        'Sent 4-10 messages then stopped' as description,
+        COUNT(*) as user_count,
+        array_agg(display_name) FILTER (WHERE display_name IS NOT NULL) as example_names
+    FROM user_journey WHERE messages_sent_count BETWEEN 4 AND 10
+    """
+    dropoff_rows = await db.fetch_all(dropoff_query, {"lookback": lookback})
+    dropoff_analysis = [
+        DropoffPoint(
+            description=row["description"],
+            user_count=row["user_count"],
+            example_users=(row["example_names"] or [])[:5]  # Limit to 5 examples
+        )
+        for row in dropoff_rows
+    ]
+
+    # ==========================================================================
+    # 4. SOURCE PERFORMANCE
+    # ==========================================================================
+    source_query = """
+    WITH source_metrics AS (
+        SELECT
+            COALESCE(u.signup_source, 'direct') as source,
+            u.signup_campaign as campaign,
+            u.id,
+            u.messages_sent_count,
+            u.created_at,
+            (SELECT MAX(last_interaction_at) FROM engagements WHERE user_id = u.id) as last_active
+        FROM users u
+        WHERE u.created_at > :lookback
+    )
+    SELECT
+        source,
+        campaign,
+        COUNT(*) as signups,
+        COUNT(*) FILTER (WHERE messages_sent_count > 0) as activated,
+        COUNT(*) FILTER (WHERE messages_sent_count >= 5) as engaged,
+        COUNT(*) FILTER (WHERE last_active IS NOT NULL AND last_active > created_at + interval '1 day') as retained
+    FROM source_metrics
+    GROUP BY source, campaign
+    ORDER BY signups DESC
+    LIMIT 20
+    """
+    source_rows = await db.fetch_all(source_query, {"lookback": lookback})
+    source_performance = [
+        SourceActivation(
+            source=row["source"],
+            campaign=row["campaign"],
+            signups=row["signups"],
+            activated=row["activated"],
+            engaged=row["engaged"],
+            retained=row["retained"],
+            activation_rate=round(row["activated"] / row["signups"] * 100, 1) if row["signups"] > 0 else 0,
+            engagement_rate=round(row["engaged"] / row["signups"] * 100, 1) if row["signups"] > 0 else 0,
+        )
+        for row in source_rows
+    ]
+
+    # ==========================================================================
+    # 5. COHORT RETENTION (Weekly cohorts)
+    # ==========================================================================
+    cohort_query = """
+    WITH weekly_cohorts AS (
+        SELECT
+            u.id,
+            DATE_TRUNC('week', u.created_at) as cohort_week,
+            u.created_at as signup_date,
+            (SELECT MIN(created_at) FROM messages m
+             JOIN sessions s ON m.episode_id = s.id
+             WHERE s.user_id = u.id) as first_message_at,
+            (SELECT MAX(last_interaction_at) FROM engagements WHERE user_id = u.id) as last_active
+        FROM users u
+        WHERE u.created_at > :lookback
+    )
+    SELECT
+        cohort_week,
+        COUNT(*) as cohort_size,
+        COUNT(*) FILTER (WHERE last_active > signup_date + interval '1 day') as returned_day_1,
+        COUNT(*) FILTER (WHERE last_active > signup_date + interval '7 days') as returned_day_7,
+        COUNT(*) FILTER (WHERE last_active > signup_date + interval '14 days') as returned_day_14,
+        COUNT(*) FILTER (WHERE last_active > signup_date + interval '30 days') as returned_day_30
+    FROM weekly_cohorts
+    GROUP BY cohort_week
+    ORDER BY cohort_week DESC
+    LIMIT 8
+    """
+    cohort_rows = await db.fetch_all(cohort_query, {"lookback": lookback})
+    cohort_retention = [
+        CohortRetention(
+            cohort_date=str(row["cohort_week"].date()) if row["cohort_week"] else "",
+            cohort_size=row["cohort_size"],
+            day_1=round(row["returned_day_1"] / row["cohort_size"] * 100, 1) if row["cohort_size"] > 0 else 0,
+            day_7=round(row["returned_day_7"] / row["cohort_size"] * 100, 1) if row["cohort_size"] > 0 else 0,
+            day_14=round(row["returned_day_14"] / row["cohort_size"] * 100, 1) if row["cohort_size"] > 0 else 0,
+            day_30=round(row["returned_day_30"] / row["cohort_size"] * 100, 1) if row["cohort_size"] > 0 else 0,
+        )
+        for row in cohort_rows
+    ]
+
+    # ==========================================================================
+    # 6. AUTO-GENERATED INSIGHTS
+    # ==========================================================================
+    insights = []
+
+    # Find biggest dropoff
+    for i, step in enumerate(funnel[1:], 1):
+        prev_step = funnel[i - 1]
+        dropoff = prev_step.percentage - step.percentage
+        if dropoff > 20:
+            insights.append(f"⚠️ Major dropoff: {dropoff:.0f}% of users lost between '{prev_step.step}' and '{step.step}'")
+
+    # Zero message users
+    zero_msg_pct = next((d.percentage for d in message_distribution if d.bucket == "0"), 0)
+    if zero_msg_pct > 30:
+        insights.append(f"🚨 {zero_msg_pct:.0f}% of users never sent a single message - onboarding friction issue")
+
+    # Best performing source
+    if source_performance:
+        best_source = max(source_performance, key=lambda x: x.activation_rate if x.signups >= 5 else 0)
+        if best_source.signups >= 5:
+            insights.append(f"✅ Best activation: '{best_source.source}' at {best_source.activation_rate:.0f}% (n={best_source.signups})")
+
+    # Low engagement rate
+    if funnel_row["sent_5_messages"] and total > 10:
+        five_msg_rate = funnel_row["sent_5_messages"] / total * 100
+        if five_msg_rate < 20:
+            insights.append(f"📉 Only {five_msg_rate:.0f}% reach 5+ messages - users not finding value quickly")
+
+    return ActivationFunnelResponse(
+        funnel=funnel,
+        message_distribution=message_distribution,
+        dropoff_analysis=dropoff_analysis,
+        source_performance=source_performance,
+        cohort_retention=cohort_retention,
+        insights=insights,
     )
