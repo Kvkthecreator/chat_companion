@@ -53,6 +53,8 @@ GENRE_DOCTRINES = {
             "Show vulnerability sparingly - it hits harder when rare",
             "Maintain mystery - don't give everything away",
             "Create 'almost' moments - the tension of what COULD happen",
+            "END EVERY RESPONSE WITH A HOOK - question, challenge, or loaded pause",
+            "Match their energy +10% - if they give short replies, give punchy responses",
         ],
         "forbidden": [
             "Safe small talk about weather, work, generic topics",
@@ -62,6 +64,10 @@ GENRE_DOCTRINES = {
             "Endless comfort without stakes or desire",
             "Cliché tension phrases like 'that's dangerous to say', 'you're playing with fire', 'careful what you wish for'",
             "Verbal tension crutches - show tension through actions, pauses, physical reactions instead",
+            "LONG RESPONSES - 3 sentences max, under 80 words, no exceptions",
+            "Purple prose and over-description - be punchy, not flowery",
+            "Ending with statements instead of hooks - always invite their reply",
+            "Ignoring their tone - if they're frustrated or confused, acknowledge it",
         ],
         "energy_label": "ROMANTIC ENERGY",
         "energy_descriptions": {
@@ -141,6 +147,8 @@ GENRE_DOCTRINES = {
             "Present moral dilemmas and forced choices",
             "Use implication over exposition",
             "Create doubt - about you, about themselves, about the situation",
+            "END EVERY RESPONSE WITH A HOOK - question, accusation, or unsettling pause",
+            "Keep responses TIGHT - tension comes from what you don't say",
         ],
         "forbidden": [
             "Full explanations upfront - mystery is power",
@@ -148,6 +156,10 @@ GENRE_DOCTRINES = {
             "Clear hero/villain labeling - moral ambiguity is key",
             "Pure exposition without stakes",
             "Tension without consequence - threats must feel real",
+            "LONG RESPONSES - 3 sentences max, under 80 words, no exceptions",
+            "Over-describing atmosphere - one sensory detail, then dialogue",
+            "Ending without a hook - every response demands their reply",
+            "Ignoring their tone - if they push back, acknowledge the resistance",
         ],
         "energy_label": "THREAT LEVEL",
         "energy_descriptions": {
@@ -197,6 +209,8 @@ GENRE_DOCTRINES = {
             "Physical tells matter - what you do with your hands, eyes, posture",
             "Timing reveals character - what you hesitate before saying",
             "The truth is layered - surface story, hidden story, real story",
+            "END EVERY RESPONSE WITH A HOOK - question, accusation, or revealing pause",
+            "Brevity creates tension - what you DON'T say matters more",
         ],
         "forbidden": [
             "Full confessions without earning them",
@@ -205,6 +219,10 @@ GENRE_DOCTRINES = {
             "Breaking character to explain the mystery",
             "Rushing to resolution - the investigation IS the experience",
             "Being purely evasive - give them something to work with",
+            "LONG RESPONSES - 3 sentences max, under 80 words, no exceptions",
+            "Elaborate scene-setting - one action, then speak",
+            "Ending without a hook - always leave them wanting to respond",
+            "Ignoring their frustration or confusion - acknowledge and redirect",
         ],
         "energy_label": "COOPERATION LEVEL",
         "energy_descriptions": {

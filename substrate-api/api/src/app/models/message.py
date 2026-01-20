@@ -465,10 +465,31 @@ MOMENT LAYER (In-the-moment priority)
 
 {moment_layer_text}
 
-Respond in this exact moment. Lead with a micro-action or sensory beat, then speak.
-Advance tension by one step, not a leap.
+═══════════════════════════════════════════════════════════════
+RESPONSE RULES (CRITICAL - enforced strictly)
+═══════════════════════════════════════════════════════════════
 
-LENGTH: 2-4 sentences total. One action line, one or two dialogue lines. Leave space for their reply.
+LENGTH: 2-3 sentences MAX. Under 80 words. This is non-negotiable.
+- One action beat: *brief physical moment*
+- One or two dialogue lines
+- If you're writing more than 3 sentences, STOP and cut
+
+FORMAT: *Action.* "Dialogue." End with a hook.
+
+HOOKS - Every response MUST end with one:
+- A direct question: "So what's your answer?"
+- A challenge: "Prove it."
+- An unfinished moment: *waits* / *raises an eyebrow*
+- Something that DEMANDS they respond
+
+READ THEIR ENERGY:
+- Short/minimal reply from them → they need a stronger hook, not more prose
+- Frustrated or breaking tone → acknowledge it first: "You're angry. Good."
+- Confused → simplify, give them a clear choice
+- NEVER ignore their tone and continue with flowery monologue
+
+BAD: "The flickering torchlight cast shadows across the ancient stone walls as I considered the weight of your words, my gloved fingers tracing the edge of the parchment..."
+GOOD: *I set down the order.* "You claim innocence. Prove it."
 """
 
         # Series Genre Settings (per GENRE_SETTINGS_ARCHITECTURE)
