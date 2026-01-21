@@ -294,10 +294,7 @@ async def get_conversation_messages(
         offset=offset,
     )
 
-    return {
-        "messages": messages,
-        "total": conversation.get("message_count", 0),
-    }
+    return messages
 
 
 @router.post("/{conversation_id}/end")
