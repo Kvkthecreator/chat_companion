@@ -227,6 +227,20 @@ class User(BaseModel):
     onboarding_path: Optional[str] = None  # 'quiz', 'chat', 'quiz_then_chat'
     onboarding_completed_at: Optional[datetime] = None
 
+    @field_validator("preferred_message_time", mode="before")
+    @classmethod
+    def convert_time_to_string(cls, v: Any) -> Optional[str]:
+        """Convert datetime.time to string format HH:MM."""
+        if v is None:
+            return None
+        if isinstance(v, str):
+            return v
+        # Handle datetime.time objects from database
+        from datetime import time
+        if isinstance(v, time):
+            return v.strftime("%H:%M")
+        return str(v)
+
     @field_validator("preferences", mode="before")
     @classmethod
     def ensure_preferences_is_dict(cls, v: Any) -> Dict[str, Any]:
