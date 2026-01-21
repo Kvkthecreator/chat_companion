@@ -2,57 +2,49 @@
 
 Push-based AI companion that reaches out daily via Telegram, WhatsApp, or Web.
 
-## Quick Links
+## Documentation Index
 
-### Setup
-- [Database Setup](setup/DATABASE_SETUP.md) - Supabase configuration and direct access
-- [Schema](setup/SCHEMA.md) - Database tables and migrations
-- [Deployment](setup/DEPLOYMENT.md) - Render and Vercel deployment
+### Development
+- [Local Setup](development/SETUP.md) - Getting started with local development
+- [Architecture](development/ARCHITECTURE.md) - System design and data flow
 
-### Architecture
-- [Overview](architecture/OVERVIEW.md) - System design and data flow
+### API
+- [Endpoints](api/ENDPOINTS.md) - Complete API reference
+- [Authentication](api/AUTHENTICATION.md) - JWT and auth flow
+
+### Database
+- [Schema](database/SCHEMA.md) - Table definitions and SQL
+- [Data Model](database/DATA_MODEL.md) - Design decisions and relationships
+- [Access](database/ACCESS.md) - Connection strings and direct access
+
+### Deployment
+- [Render (API)](deployment/RENDER.md) - Backend deployment
+- [Vercel (Web)](deployment/VERCEL.md) - Frontend deployment
 
 ### Operations
 - [Troubleshooting](operations/TROUBLESHOOTING.md) - Common issues and solutions
+- [Monitoring](operations/MONITORING.md) - Logs and health checks
 
-### API
-- [Endpoints](api/ENDPOINTS.md) - API reference
+### Features
+- [Memory System](features/MEMORY_SYSTEM.md) - Context extraction and retrieval
+- [Personalization](features/PERSONALIZATION.md) - User preferences and adaptation
+- [Scheduler](features/SCHEDULER.md) - Daily message scheduling
+- [Telegram Integration](features/TELEGRAM.md) - Bot setup and webhook
 
-## Getting Started
+### Architecture Decisions
+- [ADR Index](adr/README.md) - Architecture Decision Records
 
-1. **Set up Supabase**
-   - Create project at [supabase.com](https://supabase.com)
-   - Run schema from [SCHEMA.md](setup/SCHEMA.md)
-   - Get connection strings from [DATABASE_SETUP.md](setup/DATABASE_SETUP.md)
+---
 
-2. **Deploy API**
-   - Follow [DEPLOYMENT.md](setup/DEPLOYMENT.md)
-   - Set environment variables in Render
+## Quick Start
 
-3. **Deploy Web**
-   - Deploy `/web` to Vercel
-   - Configure Supabase keys
+1. **Local Development**: Start with [development/SETUP.md](development/SETUP.md)
+2. **Deploy**: Follow [deployment/RENDER.md](deployment/RENDER.md) and [deployment/VERCEL.md](deployment/VERCEL.md)
+3. **Troubleshoot**: Check [operations/TROUBLESHOOTING.md](operations/TROUBLESHOOTING.md)
 
-4. **Test**
-   - Check `/health` endpoint
-   - Create account and complete onboarding
-   - Send first message
+## Documentation Standards
 
-## Project Structure
-
-```
-chat_companion/
-├── api/api/           # FastAPI backend
-│   └── src/app/
-│       ├── routes/    # API endpoints
-│       ├── services/  # Business logic
-│       ├── models/    # Data models
-│       └── jobs/      # Scheduler
-├── web/               # Next.js frontend
-│   └── src/
-│       ├── app/       # Pages
-│       ├── components/
-│       └── lib/       # Utilities
-├── docs/              # Documentation (you are here)
-└── render.yaml        # Render deployment config
-```
+- **ADRs** for significant architectural decisions
+- **Feature docs** explain the "why" not just the "how"
+- Keep docs close to the code they describe
+- Update docs when code changes

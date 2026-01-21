@@ -1,14 +1,14 @@
-# Deployment Guide
+# Render Deployment (API)
+
+> Backend API and Scheduler deployment
 
 ## Overview
 
-The Chat Companion app consists of:
-- **API** (FastAPI) - Deployed on Render
-- **Web** (Next.js) - Deployed on Vercel
-- **Database** (PostgreSQL) - Supabase
-- **Scheduler** (Cron job) - Render Cron
+Render hosts:
+- **API** (FastAPI Web Service)
+- **Scheduler** (Cron Job for daily messages)
 
-## API Deployment (Render)
+## API Deployment
 
 ### 1. Create Web Service
 
@@ -66,30 +66,6 @@ LEMONSQUEEZY_WEBHOOK_SECRET=your-webhook-secret
    - **Start Command**: `cd src && python -m app.jobs.scheduler`
 3. Add the same environment variables as the web service
 
-## Web Deployment (Vercel)
-
-### 1. Connect Repository
-
-1. Go to [vercel.com](https://vercel.com)
-2. Import your GitHub repository
-3. Configure:
-   - **Framework Preset**: Next.js
-   - **Root Directory**: `web`
-
-### 2. Environment Variables
-
-Set in Vercel Dashboard > Settings > Environment Variables:
-
-```bash
-NEXT_PUBLIC_SUPABASE_URL=https://[project-ref].supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJ...
-NEXT_PUBLIC_API_URL=https://companion-api.onrender.com
-```
-
-### 3. Deploy
-
-Vercel auto-deploys on push to main branch.
-
 ## Post-Deployment Checklist
 
 ### 1. Run Database Migrations
@@ -136,17 +112,14 @@ fetch('https://companion-api.onrender.com/health')
 
 ## Monitoring
 
-### Render Logs
+See [operations/MONITORING.md](../operations/MONITORING.md) for full monitoring guide.
 
-View logs in Render Dashboard > Your Service > Logs
+### Quick Checks
 
-### Supabase Logs
+- View logs: Render Dashboard → Service → Logs
+- Health check: `curl https://chat-companion-api.onrender.com/health`
 
-View in Supabase Dashboard > Logs > API or Postgres
+## See Also
 
-### Common Issues
-
-1. **502 Bad Gateway** - Check Render logs for Python errors
-2. **CORS errors** - Verify `CORS_ORIGINS` includes your frontend URL
-3. **Auth errors** - Check `SUPABASE_JWT_SECRET` matches your project
-4. **Database connection** - Verify `DATABASE_URL` format and credentials
+- [Vercel Deployment](VERCEL.md) - Frontend deployment
+- [Troubleshooting](../operations/TROUBLESHOOTING.md) - Common issues
