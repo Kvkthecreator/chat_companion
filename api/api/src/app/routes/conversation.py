@@ -10,7 +10,40 @@ from pydantic import BaseModel
 from app.deps import get_db
 from app.dependencies import get_current_user_id
 
-router = APIRouter(prefix="/conversation", tags=["Conversation"])
+router = APIRouter(prefix="/conversations", tags=["Conversations"])
+
+
+@router.get("", response_model=list[ConversationResponse])
+async def list_conversations(
+    limit: int = 10,
+    offset: int = 0,
+    user_id: UUID = Depends(get_current_user_id),
+    db=Depends(get_db),
+):
+    """List user's conversations."""
+    from app.services.conversation import ConversationService
+
+    service = ConversationService(db)
+    conversations = await service.list_conversations(
+        user_id=user_id,
+        limit=limit,
+        offset=offset,
+    )
+
+    result = []
+    for conv in conversations:
+        result.append(ConversationResponse(
+            id=str(conv["id"]),
+            user_id=str(conv["user_id"]),
+            channel=conv["channel"],
+            started_at=conv["started_at"].isoformat() if conv.get("started_at") else "",
+            ended_at=conv["ended_at"].isoformat() if conv.get("ended_at") else None,
+            message_count=conv.get("message_count", 0),
+            initiated_by=conv.get("initiated_by", "user"),
+            mood_summary=conv.get("mood_summary"),
+            topics=json.loads(conv["topics"]) if conv.get("topics") else [],
+        ))
+    return result
 
 
 class MessageCreate(BaseModel):

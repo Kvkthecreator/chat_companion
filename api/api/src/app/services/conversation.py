@@ -210,6 +210,26 @@ class ConversationService:
         row = await self.db.fetch_one(query, {"conversation_id": str(conversation_id)})
         return dict(row) if row else None
 
+    async def list_conversations(
+        self,
+        user_id: UUID,
+        limit: int = 10,
+        offset: int = 0,
+    ) -> List[Dict]:
+        """List conversations for a user, ordered by most recent."""
+        query = """
+            SELECT * FROM conversations
+            WHERE user_id = :user_id
+            ORDER BY started_at DESC
+            LIMIT :limit OFFSET :offset
+        """
+        rows = await self.db.fetch_all(query, {
+            "user_id": str(user_id),
+            "limit": limit,
+            "offset": offset,
+        })
+        return [dict(row) for row in rows]
+
     async def end_conversation(
         self,
         conversation_id: UUID,
