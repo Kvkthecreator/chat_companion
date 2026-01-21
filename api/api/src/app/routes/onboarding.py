@@ -4,9 +4,11 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from typing import Optional, Any
 from datetime import datetime
+from uuid import UUID
+import json
 
-from ..middleware.auth import get_current_user
-from ..db import get_db
+from app.deps import get_db
+from app.dependencies import get_current_user_id
 
 router = APIRouter(prefix="/onboarding", tags=["onboarding"])
 
@@ -31,18 +33,17 @@ class OnboardingUpdate(BaseModel):
 
 @router.get("", response_model=OnboardingState)
 async def get_onboarding(
-    user: dict = Depends(get_current_user),
+    user_id: UUID = Depends(get_current_user_id),
+    db=Depends(get_db),
 ):
     """Get current onboarding state for the user."""
-    db = await get_db()
-
     result = await db.fetch_one(
         """
         SELECT user_id, current_step, completed_at, data, created_at, updated_at
         FROM onboarding
         WHERE user_id = :user_id
         """,
-        {"user_id": user["id"]},
+        {"user_id": str(user_id)},
     )
 
     if not result:
@@ -53,7 +54,7 @@ async def get_onboarding(
             VALUES (:user_id, 'welcome', '{}')
             ON CONFLICT (user_id) DO NOTHING
             """,
-            {"user_id": user["id"]},
+            {"user_id": str(user_id)},
         )
         result = await db.fetch_one(
             """
@@ -61,14 +62,18 @@ async def get_onboarding(
             FROM onboarding
             WHERE user_id = :user_id
             """,
-            {"user_id": user["id"]},
+            {"user_id": str(user_id)},
         )
+
+    data = result["data"]
+    if isinstance(data, str):
+        data = json.loads(data)
 
     return OnboardingState(
         user_id=str(result["user_id"]),
         current_step=result["current_step"],
         completed_at=result["completed_at"],
-        data=result["data"] or {},
+        data=data or {},
         created_at=result["created_at"],
         updated_at=result["updated_at"],
     )
@@ -77,11 +82,10 @@ async def get_onboarding(
 @router.patch("", response_model=OnboardingState)
 async def update_onboarding(
     update: OnboardingUpdate,
-    user: dict = Depends(get_current_user),
+    user_id: UUID = Depends(get_current_user_id),
+    db=Depends(get_db),
 ):
     """Update onboarding state."""
-    db = await get_db()
-
     # First ensure record exists
     await db.execute(
         """
@@ -89,12 +93,12 @@ async def update_onboarding(
         VALUES (:user_id, 'welcome', '{}')
         ON CONFLICT (user_id) DO NOTHING
         """,
-        {"user_id": user["id"]},
+        {"user_id": str(user_id)},
     )
 
     # Build update query
     updates = []
-    params = {"user_id": user["id"]}
+    params = {"user_id": str(user_id)}
 
     if update.step is not None:
         updates.append("current_step = :step")
@@ -103,7 +107,7 @@ async def update_onboarding(
     if update.data is not None:
         # Merge with existing data
         updates.append("data = data || :data::jsonb")
-        params["data"] = update.data
+        params["data"] = json.dumps(update.data)
 
     if updates:
         await db.execute(
@@ -122,14 +126,18 @@ async def update_onboarding(
         FROM onboarding
         WHERE user_id = :user_id
         """,
-        {"user_id": user["id"]},
+        {"user_id": str(user_id)},
     )
+
+    data = result["data"]
+    if isinstance(data, str):
+        data = json.loads(data)
 
     return OnboardingState(
         user_id=str(result["user_id"]),
         current_step=result["current_step"],
         completed_at=result["completed_at"],
-        data=result["data"] or {},
+        data=data or {},
         created_at=result["created_at"],
         updated_at=result["updated_at"],
     )
@@ -137,11 +145,10 @@ async def update_onboarding(
 
 @router.post("/complete", response_model=OnboardingState)
 async def complete_onboarding(
-    user: dict = Depends(get_current_user),
+    user_id: UUID = Depends(get_current_user_id),
+    db=Depends(get_db),
 ):
     """Mark onboarding as complete."""
-    db = await get_db()
-
     # Update onboarding record
     await db.execute(
         """
@@ -149,7 +156,7 @@ async def complete_onboarding(
         SET completed_at = NOW(), current_step = 'complete', updated_at = NOW()
         WHERE user_id = :user_id
         """,
-        {"user_id": user["id"]},
+        {"user_id": str(user_id)},
     )
 
     # Update user record
@@ -159,7 +166,7 @@ async def complete_onboarding(
         SET onboarding_completed_at = NOW(), updated_at = NOW()
         WHERE id = :user_id
         """,
-        {"user_id": user["id"]},
+        {"user_id": str(user_id)},
     )
 
     # Return updated state
@@ -169,14 +176,18 @@ async def complete_onboarding(
         FROM onboarding
         WHERE user_id = :user_id
         """,
-        {"user_id": user["id"]},
+        {"user_id": str(user_id)},
     )
+
+    data = result["data"]
+    if isinstance(data, str):
+        data = json.loads(data)
 
     return OnboardingState(
         user_id=str(result["user_id"]),
         current_step=result["current_step"],
         completed_at=result["completed_at"],
-        data=result["data"] or {},
+        data=data or {},
         created_at=result["created_at"],
         updated_at=result["updated_at"],
     )
