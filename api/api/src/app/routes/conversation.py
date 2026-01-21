@@ -190,6 +190,54 @@ async def send_message_stream(
     )
 
 
+@router.post("/{conversation_id}/messages/stream")
+async def send_message_to_conversation_stream(
+    conversation_id: UUID,
+    data: MessageCreate,
+    user_id: UUID = Depends(get_current_user_id),
+    db=Depends(get_db),
+):
+    """Send a message to a specific conversation and stream the response."""
+    from app.services.conversation import ConversationService
+
+    service = ConversationService(db)
+
+    # Verify conversation belongs to user
+    conversation = await service.get_conversation(conversation_id)
+    if not conversation or str(conversation["user_id"]) != str(user_id):
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Conversation not found",
+        )
+
+    async def generate():
+        try:
+            async for chunk in service.send_message_stream(
+                user_id=user_id,
+                conversation_id=conversation_id,
+                content=data.content,
+            ):
+                yield f"data: {chunk}\n\n"
+            yield "data: [DONE]\n\n"
+        except Exception as e:
+            import logging
+            import traceback
+            log = logging.getLogger(__name__)
+            log.error(f"Streaming error: {type(e).__name__}: {str(e)}")
+            log.error(traceback.format_exc())
+            error_msg = f"{type(e).__name__}: {str(e)}" if str(e) else type(e).__name__
+            yield f"data: [ERROR] {error_msg}\n\n"
+
+    return StreamingResponse(
+        generate(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+        },
+    )
+
+
 @router.get("/current", response_model=ConversationResponse)
 async def get_current_conversation(
     user_id: UUID = Depends(get_current_user_id),
