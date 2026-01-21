@@ -12,10 +12,11 @@ RAW_SECRET = os.getenv("SUPABASE_JWT_SECRET")
 
 def _decode(token: str, secret: bytes | str):
     # Verify signature & aud; iss is checked manually to give better logs
+    # Try HS256 first (standard Supabase), fall back to RS256 if needed
     return jwt.decode(
         token,
         secret,
-        algorithms=["HS256"],
+        algorithms=["HS256", "RS256"],
         audience=JWT_AUD,
         options={"verify_exp": True},
     )
