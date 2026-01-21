@@ -2,6 +2,7 @@
 
 import logging
 import os
+from typing import Optional
 from uuid import UUID
 
 import httpx
@@ -197,7 +198,7 @@ class DeleteAccountRequest(BaseModel):
     """Request to delete account."""
 
     confirmation: str  # Must be "DELETE" to proceed
-    reason: str | None = None  # Optional feedback
+    reason: Optional[str] = None  # Optional feedback
 
 
 class DeleteAccountResponse(BaseModel):

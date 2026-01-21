@@ -6,6 +6,7 @@ import json
 import logging
 import os
 from datetime import datetime
+from typing import Optional, List
 
 import httpx
 from fastapi import APIRouter, HTTPException, Request, status
@@ -34,7 +35,7 @@ def verify_supabase_webhook(payload: bytes, signature: str) -> bool:
     return hmac.compare_digest(signature, expected)
 
 
-async def send_slack_notification(message: str, blocks: list | None = None):
+async def send_slack_notification(message: str, blocks: Optional[List] = None):
     """Send a notification to Slack."""
     if not SLACK_WEBHOOK_URL:
         log.warning("SLACK_SIGNUP_WEBHOOK_URL not configured - skipping notification")
