@@ -41,6 +41,26 @@ export interface OnboardingState {
   updated_at: string;
 }
 
+// Chat onboarding types (ADR-003)
+export interface ChatOnboardingState {
+  message?: string;
+  step: string;
+  expects?: string;
+  options?: string[];
+  is_complete: boolean;
+}
+
+export interface ChatResponseResult {
+  success: boolean;
+  is_complete: boolean;
+  step?: string;
+  next_message?: string;
+  expects?: string;
+  options?: string[];
+  error?: string;
+  retry_message?: string;
+}
+
 // Conversation types
 export interface Conversation {
   id: string;

@@ -283,9 +283,20 @@ export default function OnboardingPage() {
                     <p>💭 Chat when you need someone to talk to</p>
                     <p>🧠 Your companion remembers your conversations</p>
                   </div>
-                  <Button onClick={nextStep} className="w-full">
-                    Get Started
-                  </Button>
+                  <div className="space-y-3 pt-2">
+                    <Button
+                      onClick={() => router.push("/onboarding/chat")}
+                      className="w-full"
+                    >
+                      💬 Set up through chat
+                    </Button>
+                    <Button onClick={nextStep} variant="outline" className="w-full">
+                      📋 Quick form setup
+                    </Button>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Chat setup takes ~2 minutes and feels more personal
+                  </p>
                 </div>
               )}
 

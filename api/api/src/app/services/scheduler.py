@@ -3,15 +3,23 @@ Scheduler Service - Handles scheduled message delivery.
 
 Handles:
 - Finding users who should receive messages at current time
-- Generating personalized daily messages
+- Generating personalized daily messages using priority stack
 - Sending messages via appropriate channel
-- Tracking message delivery
+- Tracking message delivery and priority metrics
+
+Priority Stack (from MEMORY_SYSTEM.md):
+1. FOLLOW_UP - Ask about something specific from recent conversation
+2. THREAD - Reference ongoing life situation
+3. PATTERN - Acknowledge mood/engagement pattern
+4. TEXTURE - Personal check-in with weather/context
+5. GENERIC - Warm fallback (FAILURE STATE - should track)
 """
 
 import logging
 import os
 from datetime import datetime
 from typing import Optional
+from uuid import UUID
 
 import httpx
 
@@ -25,6 +33,7 @@ from app.services.companion import (
 )
 from app.services.llm import LLMService
 from app.services.telegram import TelegramService, get_telegram_service
+from app.services.threads import ThreadService, MessagePriority
 
 log = logging.getLogger(__name__)
 
@@ -159,8 +168,15 @@ class SchedulerService:
         user_profile: UserProfile,
         user_context: list[UserContext],
         weather_info: Optional[str] = None,
-    ) -> str:
-        """Generate a personalized daily check-in message."""
+        message_context=None,
+    ) -> tuple[str, MessagePriority]:
+        """Generate a personalized daily check-in message.
+
+        Uses priority-based message generation from ThreadService.
+
+        Returns:
+            tuple: (message content, priority level used)
+        """
         companion_service = get_companion_service()
 
         # Get time context
@@ -168,7 +184,7 @@ class SchedulerService:
             user_profile.timezone
         )
 
-        # Build context
+        # Build context with message_context for priority-based generation
         context = ConversationContext(
             user_profile=user_profile,
             user_context=user_context,
@@ -178,6 +194,10 @@ class SchedulerService:
             local_time=local_time,
             is_daily_message=True,
         )
+
+        # Attach message context for priority-based generation
+        if message_context:
+            context.message_context = message_context  # type: ignore
 
         # Generate with LLM
         llm = LLMService.get_instance()
@@ -190,12 +210,24 @@ class SchedulerService:
             ],
         )
 
-        return response.content.strip()
+        # Determine priority level
+        priority = MessagePriority.GENERIC
+        if message_context:
+            priority = message_context.priority
+
+        return response.content.strip(), priority
 
     @classmethod
     async def send_scheduled_message(cls, user: dict) -> bool:
         """
         Send a scheduled message to a user.
+
+        Uses priority-based message generation:
+        1. Follow-ups from recent conversations
+        2. Active life threads
+        3. Patterns (mood trends)
+        4. Core facts for texture
+        5. Generic fallback (tracked as failure)
 
         Returns True if successful, False otherwise.
         """
@@ -209,6 +241,16 @@ class SchedulerService:
             # Get weather
             weather_info = await get_weather(user.get("location"))
 
+            # Get priority-based message context from ThreadService
+            thread_service = ThreadService(db)
+            message_context = await thread_service.get_message_context(UUID(str(user_id)))
+
+            # Log priority level for metrics
+            log.info(
+                f"Message priority for user {user_id}: {message_context.priority.name} "
+                f"(has_personal={message_context.has_personal_content})"
+            )
+
             # Build profile
             profile = UserProfile(
                 user_id=str(user_id),
@@ -219,20 +261,30 @@ class SchedulerService:
                 location=user.get("location"),
             )
 
-            # Generate message
-            message = await cls.generate_daily_message(profile, user_context, weather_info)
+            # Generate message with priority context
+            message, priority = await cls.generate_daily_message(
+                profile, user_context, weather_info, message_context
+            )
 
-            # Create scheduled message record
+            # Create scheduled message record with priority tracking
             scheduled_msg = await db.fetchrow(
                 """
-                INSERT INTO scheduled_messages (user_id, scheduled_for, content, status)
-                VALUES ($1, NOW(), $2, 'pending')
+                INSERT INTO scheduled_messages (user_id, scheduled_for, content, status, priority_level)
+                VALUES ($1, NOW(), $2, 'pending', $3)
                 RETURNING id
                 """,
                 user_id,
                 message,
+                priority.name,
             )
             scheduled_id = scheduled_msg["id"]
+
+            # Track generic fallback as failure metric
+            if priority == MessagePriority.GENERIC:
+                log.warning(
+                    f"GENERIC FALLBACK for user {user_id} - no personal content available. "
+                    "This is a failure state that should be investigated."
+                )
 
             # Send via appropriate channel
             sent = False

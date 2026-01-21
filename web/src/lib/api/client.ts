@@ -96,6 +96,25 @@ export interface OnboardingState {
   updated_at: string;
 }
 
+export interface ChatOnboardingState {
+  message?: string;
+  step: string;
+  expects?: string;
+  options?: string[];
+  is_complete: boolean;
+}
+
+export interface ChatResponseResult {
+  success: boolean;
+  is_complete: boolean;
+  step?: string;
+  next_message?: string;
+  expects?: string;
+  options?: string[];
+  error?: string;
+  retry_message?: string;
+}
+
 export interface Conversation {
   id: string;
   user_id: string;
@@ -179,6 +198,19 @@ export const api = {
       request<OnboardingState>("/onboarding/complete", {
         method: "POST",
       }),
+    // Chat-based onboarding (ADR-003)
+    chat: {
+      getState: () => request<ChatOnboardingState>("/onboarding/chat"),
+      respond: (response: string) =>
+        request<ChatResponseResult>("/onboarding/chat/respond", {
+          method: "POST",
+          body: JSON.stringify({ response }),
+        }),
+      reset: () =>
+        request<ChatOnboardingState>("/onboarding/chat/reset", {
+          method: "POST",
+        }),
+    },
   },
 
   // Conversation endpoints

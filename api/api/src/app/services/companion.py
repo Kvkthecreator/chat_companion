@@ -225,12 +225,24 @@ This is your daily reach-out message. Make it:
 
     @classmethod
     def build_daily_message_prompt(cls, context: ConversationContext) -> str:
-        """Build prompt for generating a daily check-in message."""
+        """Build prompt for generating a daily check-in message.
+
+        IMPORTANT: This now supports priority-based message generation.
+        Pass message_context in ConversationContext for priority awareness.
+        """
         profile = context.user_profile
         style_config = cls.get_support_style_config(profile.support_style)
         user_name = profile.display_name or "there"
 
-        # Gather any follow-up items from context
+        # Check for priority-based context (new system)
+        message_context = getattr(context, 'message_context', None)
+
+        if message_context and hasattr(message_context, 'priority'):
+            return cls._build_priority_message_prompt(
+                context, message_context, user_name, style_config
+            )
+
+        # Fallback: Legacy behavior for backward compatibility
         follow_ups = [
             item for item in context.user_context if item.category in ("event", "goal", "situation")
         ]
@@ -238,7 +250,7 @@ This is your daily reach-out message. Make it:
         follow_up_str = ""
         if follow_ups:
             follow_up_str = "Things you might want to ask about:\n"
-            for item in follow_ups[:3]:  # Max 3 follow-ups
+            for item in follow_ups[:3]:
                 follow_up_str += f"- {item.key}: {item.value}\n"
 
         prompt = f"""Generate a daily check-in message for {user_name}.
@@ -264,6 +276,119 @@ Do NOT:
 - Ask multiple questions
 - Be generic or template-y
 - Start with "Good morning!" every time (vary your openings)
+
+Just output the message, nothing else."""
+
+        return prompt
+
+    @classmethod
+    def _build_priority_message_prompt(
+        cls,
+        context: ConversationContext,
+        message_context,
+        user_name: str,
+        style_config: dict,
+    ) -> str:
+        """Build prompt based on message priority.
+
+        Priority Stack:
+        1. FOLLOW_UP - Ask about something specific from recent conversation
+        2. THREAD - Reference ongoing life situation
+        3. PATTERN - Acknowledge mood/engagement pattern
+        4. TEXTURE - Personal check-in with weather/context
+        5. GENERIC - Warm fallback (FAILURE STATE)
+        """
+        from app.services.threads import MessagePriority
+
+        priority = message_context.priority
+        priority_instruction = ""
+
+        if priority == MessagePriority.FOLLOW_UP:
+            # Priority 1: Follow up on something specific
+            follow_ups = message_context.follow_ups[:2]
+            follow_up_text = "\n".join(
+                f"- {fu['question']} (context: {fu['context']})"
+                for fu in follow_ups
+            )
+            priority_instruction = f"""PRIORITY: Follow up on something specific.
+
+The user mentioned something we should ask about:
+{follow_up_text}
+
+Your message MUST ask about one of these things naturally. This is the main point of the message.
+Example: "Hey! How did that interview go yesterday?"
+"""
+
+        elif priority == MessagePriority.THREAD:
+            # Priority 2: Reference ongoing thread
+            threads = message_context.threads[:2]
+            thread_text = "\n".join(
+                f"- {t['topic']}: {t['summary']} (details: {', '.join(t.get('key_details', [])[:2])})"
+                for t in threads
+            )
+            priority_instruction = f"""PRIORITY: Reference an ongoing situation in their life.
+
+Active threads to potentially reference:
+{thread_text}
+
+Your message should naturally check in on one of these situations.
+Example: "How's the job search going this week?"
+"""
+
+        elif priority == MessagePriority.PATTERN:
+            # Priority 3: Acknowledge pattern (mood, engagement)
+            patterns = message_context.patterns[:2]
+            pattern_text = "\n".join(f"- {p}" for p in patterns) if patterns else "None detected"
+            priority_instruction = f"""PRIORITY: Acknowledge a pattern you've noticed.
+
+Observed patterns:
+{pattern_text}
+
+Your message should gently acknowledge how they've been lately.
+Example: "You've seemed a bit flat this week. Everything okay?"
+"""
+
+        elif priority == MessagePriority.TEXTURE:
+            # Priority 4: Personal check-in with texture
+            facts = message_context.core_facts[:3]
+            fact_text = "\n".join(
+                f"- {f.get('key', '')}: {f.get('value', '')}"
+                for f in facts
+            ) if facts else "None yet"
+            priority_instruction = f"""PRIORITY: Personal check-in with contextual texture.
+
+We don't have anything specific to follow up on, but we know:
+{fact_text}
+
+Use weather/day context to make the message feel grounded.
+Example: "Morning. Rain today - good excuse to stay in. How are you feeling about the week?"
+"""
+
+        else:
+            # Priority 5: Generic fallback (FAILURE STATE)
+            priority_instruction = """PRIORITY: Generic warm check-in (FALLBACK MODE).
+
+NOTE: We don't have anything personal to reference. This is not ideal.
+Generate a warm but generic check-in message.
+Example: "Hey, thinking of you. How's your morning going?"
+"""
+
+        # Build the full prompt
+        prompt = f"""Generate a daily message for {user_name}.
+
+Support style: {style_config['name']} - {style_config['description']}
+Day: {context.day_of_week or 'Unknown'}
+Time: {context.local_time or 'Morning'}
+Weather: {context.weather_info or 'Unknown'}
+
+{priority_instruction}
+
+GUIDELINES:
+- Brief (2-4 sentences max)
+- Warm but not over-the-top
+- One main topic/question
+- Varies openings (don't always start with "Good morning!")
+- Matches {style_config['morning_energy']} energy
 
 Just output the message, nothing else."""
 
