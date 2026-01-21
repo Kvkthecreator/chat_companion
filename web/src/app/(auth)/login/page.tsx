@@ -70,14 +70,11 @@ export default function LoginPage() {
             <CardContent className="p-8">
               <div className="mb-8 text-center space-y-2">
                 <Link href="/" className="inline-flex items-center gap-2">
-                  <Logo variant="icon" size="md" />
-                  <span className="text-xl font-semibold">episode-0</span>
+                  <span className="text-2xl">💬</span>
+                  <span className="text-xl font-semibold">Chat Companion</span>
                 </Link>
-                <div className="flex items-center justify-center gap-2 text-xs uppercase tracking-[0.12em] text-muted-foreground">
-                  live • shape • remember
-                </div>
-                <h1 className="mt-2 text-xl font-semibold">Welcome back</h1>
-                <p className="text-sm text-muted-foreground">Step back into your story.</p>
+                <h1 className="mt-2 text-xl font-semibold">Welcome</h1>
+                <p className="text-sm text-muted-foreground">Your AI companion that reaches out to you.</p>
               </div>
 
               {error && (

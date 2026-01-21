@@ -26,6 +26,7 @@ from app.routes import (
     subscription,
     webhooks,
     telegram,
+    onboarding,
 )
 
 log = logging.getLogger("uvicorn.error")
@@ -156,6 +157,7 @@ app.include_router(subscription.router, tags=["Subscription"])
 app.include_router(subscription.webhook_router, tags=["Webhooks"])
 app.include_router(webhooks.router, tags=["Webhooks"])
 app.include_router(telegram.router, tags=["Telegram"])
+app.include_router(onboarding.router, tags=["Onboarding"])
 
 
 @app.get("/")

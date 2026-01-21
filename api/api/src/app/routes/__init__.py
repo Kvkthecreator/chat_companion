@@ -9,6 +9,7 @@ from app.routes import (
     subscription,
     webhooks,
     telegram,
+    onboarding,
 )
 
 __all__ = [
@@ -20,4 +21,5 @@ __all__ = [
     "subscription",
     "webhooks",
     "telegram",
+    "onboarding",
 ]

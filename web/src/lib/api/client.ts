@@ -1,5 +1,5 @@
 /**
- * Fantazy API Client
+ * Chat Companion API Client
  */
 
 import { createClient } from "@/lib/supabase/client";
@@ -18,7 +18,7 @@ export class APIError extends Error {
   }
 }
 
-async function getAuthHeaders(includeGuestSession = true): Promise<HeadersInit> {
+async function getAuthHeaders(): Promise<HeadersInit> {
   const supabase = createClient();
   const {
     data: { session },
@@ -30,17 +30,6 @@ async function getAuthHeaders(includeGuestSession = true): Promise<HeadersInit> 
 
   if (session?.access_token) {
     headers["Authorization"] = `Bearer ${session.access_token}`;
-  } else if (includeGuestSession && typeof window !== 'undefined') {
-    // No auth session - check for guest session
-    const guestData = localStorage.getItem('ep0_guest_session_id');
-    if (guestData) {
-      try {
-        const parsed = JSON.parse(guestData);
-        headers["X-Guest-Session-Id"] = parsed.guest_session_id;
-      } catch {
-        // Invalid data, ignore
-      }
-    }
   }
 
   return headers;
@@ -78,16 +67,99 @@ async function request<T>(
   return response.json();
 }
 
+// Types for the companion app
+export interface User {
+  id: string;
+  email: string;
+  display_name?: string;
+  companion_name?: string;
+  timezone?: string;
+  preferred_message_time?: string;
+  support_style?: string;
+  telegram_user_id?: number;
+  telegram_username?: string;
+  telegram_linked_at?: string;
+  whatsapp_number?: string;
+  whatsapp_linked_at?: string;
+  onboarding_completed_at?: string;
+  location?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface OnboardingState {
+  user_id: string;
+  current_step: string;
+  completed_at?: string;
+  data: Record<string, unknown>;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Conversation {
+  id: string;
+  user_id: string;
+  channel: string;
+  started_at: string;
+  ended_at?: string;
+  message_count: number;
+  initiated_by: string;
+  mood_summary?: string;
+  topics: string[];
+  created_at: string;
+}
+
+export interface Message {
+  id: string;
+  conversation_id: string;
+  role: "user" | "assistant";
+  content: string;
+  telegram_message_id?: number;
+  metadata: Record<string, unknown>;
+  created_at: string;
+}
+
+export interface UserContext {
+  id: string;
+  user_id: string;
+  category: string;
+  key: string;
+  value: string;
+  importance_score: number;
+  emotional_valence: number;
+  source: string;
+  created_at: string;
+  updated_at: string;
+  last_referenced_at?: string;
+  expires_at?: string;
+}
+
+export interface DailyUsage {
+  messages_sent: number;
+  messages_received: number;
+  usage_date: string;
+}
+
+export interface SubscriptionStatus {
+  status: string;
+  expires_at?: string;
+  is_active: boolean;
+}
+
+export interface TelegramDeepLink {
+  deep_link_url: string;
+  expires_in_minutes: number;
+}
+
 export const api = {
   // User endpoints
   users: {
-    me: () => request<import("@/types").User>("/users/me"),
-    update: (data: import("@/types").UserUpdate) =>
-      request<import("@/types").User>("/users/me", {
+    me: () => request<User>("/users/me"),
+    update: (data: Partial<User>) =>
+      request<User>("/users/me", {
         method: "PATCH",
         body: JSON.stringify(data),
       }),
-    usage: () => request<import("@/types").UsageResponse>("/users/me/usage"),
     deleteAccount: (confirmation: string, reason?: string) =>
       request<{ status: string; message: string }>("/users/me", {
         method: "DELETE",
@@ -95,966 +167,56 @@ export const api = {
       }),
   },
 
-  // Character endpoints
-  characters: {
-    list: (params?: { archetype?: string; include_premium?: boolean }) => {
-      const searchParams = new URLSearchParams();
-      if (params?.archetype) searchParams.set("archetype", params.archetype);
-      if (params?.include_premium !== undefined)
-        searchParams.set("include_premium", String(params.include_premium));
-      const query = searchParams.toString();
-      return request<import("@/types").CharacterSummary[]>(
-        `/characters${query ? `?${query}` : ""}`
-      );
-    },
-    get: (id: string) =>
-      request<import("@/types").Character>(`/characters/${id}`),
-    getBySlug: (slug: string) =>
-      request<import("@/types").Character>(`/characters/slug/${slug}`),
-    getProfile: (slug: string) =>
-      request<import("@/types").CharacterProfile>(`/characters/slug/${slug}/profile`),
-    archetypes: () => request<string[]>("/characters/archetypes/list"),
-  },
-
-  // Engagement endpoints (user-character relationships)
-  // Note: Backend uses /engagements, frontend types use Relationship naming
-  relationships: {
-    list: (include_archived?: boolean) =>
-      request<import("@/types").RelationshipWithCharacter[]>(
-        `/engagements${include_archived ? "?include_archived=true" : ""}`
-      ),
-    create: (character_id: string) =>
-      request<import("@/types").Relationship>("/engagements", {
-        method: "POST",
-        body: JSON.stringify({ character_id }),
-      }),
-    get: (id: string) =>
-      request<import("@/types").Relationship>(`/engagements/${id}`),
-    getByCharacter: (character_id: string) =>
-      request<import("@/types").Relationship>(
-        `/engagements/character/${character_id}`
-      ),
-    update: (
-      id: string,
-      data: {
-        nickname?: string;
-        is_favorite?: boolean;
-        is_archived?: boolean;
-        relationship_notes?: string;
-      }
-    ) =>
-      request<import("@/types").Relationship>(`/engagements/${id}`, {
+  // Onboarding endpoints
+  onboarding: {
+    get: () => request<OnboardingState>("/onboarding"),
+    update: (data: { step?: string; data?: Record<string, unknown> }) =>
+      request<OnboardingState>("/onboarding", {
         method: "PATCH",
         body: JSON.stringify(data),
       }),
-    reset: (character_id: string) =>
-      request<{ status: string; character_id: string }>(
-        `/engagements/character/${character_id}/reset`,
-        { method: "DELETE" }
-      ),
+    complete: () =>
+      request<OnboardingState>("/onboarding/complete", {
+        method: "POST",
+      }),
   },
 
-  // Session endpoints (runtime chat sessions - formerly "episodes")
-  // Note: Backend uses /sessions, frontend types use Episode naming for compatibility
-  episodes: {
-    list: (params?: {
-      character_id?: string;
-      active_only?: boolean;
-      limit?: number;
-      offset?: number;
-    }) => {
+  // Conversation endpoints
+  conversations: {
+    list: (params?: { limit?: number; offset?: number }) => {
       const searchParams = new URLSearchParams();
-      if (params?.character_id)
-        searchParams.set("character_id", params.character_id);
-      if (params?.active_only)
-        searchParams.set("active_only", String(params.active_only));
       if (params?.limit) searchParams.set("limit", String(params.limit));
       if (params?.offset) searchParams.set("offset", String(params.offset));
       const query = searchParams.toString();
-      return request<import("@/types").EpisodeSummary[]>(
-        `/sessions${query ? `?${query}` : ""}`
+      return request<Conversation[]>(
+        `/conversations${query ? `?${query}` : ""}`
       );
     },
-    get: (id: string) => request<import("@/types").Episode>(`/sessions/${id}`),
-    getActive: (character_id: string) =>
-      request<import("@/types").Episode | null>(
-        `/sessions/active/${character_id}`
-      ),
-    create: (data: {
-      character_id: string;
-      scene?: string;
-      title?: string;
-    }) =>
-      request<import("@/types").Episode>("/sessions", {
+    get: (id: string) => request<Conversation>(`/conversations/${id}`),
+    create: (channel: string = "web") =>
+      request<Conversation>("/conversations", {
         method: "POST",
-        body: JSON.stringify(data),
+        body: JSON.stringify({ channel }),
       }),
-    update: (
-      id: string,
-      data: { title?: string; scene?: string; is_active?: boolean }
-    ) =>
-      request<import("@/types").Episode>(`/sessions/${id}`, {
-        method: "PATCH",
-        body: JSON.stringify(data),
-      }),
-    end: (id: string) =>
-      request<import("@/types").Episode>(`/sessions/${id}/end`, {
-        method: "POST",
-      }),
-    getUserChats: (limit?: number) =>
-      request<import("@/types").UserChatsResponse>(
-        `/sessions/user/chats${limit ? `?limit=${limit}` : ""}`
-      ),
-    resetFreeChat: (characterId: string) =>
-      request<{ status: string; character_id: string }>(
-        `/sessions/user/chats/${characterId}/reset`,
-        { method: "DELETE" }
-      ),
-    // Props (ADR-005: Canonical Story Objects)
-    getProps: (sessionId: string) =>
-      request<import("@/types").SessionPropsResponse>(
-        `/sessions/${sessionId}/props`
-      ),
-    revealProp: (sessionId: string, propId: string, trigger?: string) =>
-      request<import("@/types").PropRevealResponse>(
-        `/sessions/${sessionId}/props/${propId}/reveal${trigger ? `?reveal_trigger=${trigger}` : ""}`,
-        { method: "POST" }
-      ),
-    // Guest sessions (Episode 0 trials)
-    createGuest: async (data: {
-      character_id: string;
-      episode_template_id: string;
-      guest_session_id?: string;
-    }) => {
-      // Don't include guest header when creating a new session
-      const headers = await getAuthHeaders(false);
-      const response = await fetch(`${API_BASE_URL}/sessions/guest`, {
-        method: "POST",
-        headers,
-        body: JSON.stringify(data),
-      });
-      if (!response.ok) {
-        throw new APIError(response.status, response.statusText, await response.json());
-      }
-      return response.json() as Promise<{
-        session_id: string;
-        guest_session_id: string;
-        messages_remaining: number;
-        episode_template_id: string;
-        character_id: string;
-      }>;
-    },
-    convertGuest: (guestSessionId: string) =>
-      request<{ session_id: string; message_count: number; converted: boolean }>(
-        "/sessions/guest/convert",
-        {
-          method: "POST",
-          body: JSON.stringify({ guest_session_id: guestSessionId }),
-        }
-      ),
-    // ADR-008: Record user choice at a choice point
-    recordChoice: (sessionId: string, choicePointId: string, selectedOptionId: string) =>
-      request<{ status: string; choice_point_id: string; selected_option_id: string; flag_set: string | null }>(
-        `/sessions/${sessionId}/choice`,
-        {
-          method: "POST",
-          body: JSON.stringify({
-            choice_point_id: choicePointId,
-            selected_option_id: selectedOptionId,
-          }),
-        }
-      ),
-  },
-
-  // Episode Template endpoints (pre-defined scenarios)
-  episodeTemplates: {
-    // List all episodes across all characters (episode-first discovery)
-    list: (params?: { archetype?: string; featured?: boolean; limit?: number }) => {
-      const searchParams = new URLSearchParams();
-      if (params?.archetype) searchParams.set("archetype", params.archetype);
-      if (params?.featured) searchParams.set("featured", "true");
-      if (params?.limit) searchParams.set("limit", String(params.limit));
-      const query = searchParams.toString();
-      return request<import("@/types").EpisodeDiscoveryItem[]>(
-        `/episode-templates${query ? `?${query}` : ""}`
-      );
-    },
-    listForCharacter: (characterId: string) =>
-      request<import("@/types").EpisodeTemplateSummary[]>(
-        `/episode-templates/character/${characterId}`
-      ),
-    get: (templateId: string) =>
-      request<import("@/types").EpisodeTemplate>(`/episode-templates/${templateId}`),
-    getDefault: (characterId: string) =>
-      request<import("@/types").EpisodeTemplate>(
-        `/episode-templates/character/${characterId}/default`
-      ),
-    // Props (ADR-005: Canonical Story Objects)
-    getProps: (templateId: string) =>
-      request<import("@/types").EpisodePropsResponse>(
-        `/episode-templates/${templateId}/props`
-      ),
-    createProp: (templateId: string, data: import("@/types").PropCreate) =>
-      request<import("@/types").EpisodeProp>(
-        `/episode-templates/${templateId}/props`,
-        { method: "POST", body: JSON.stringify(data) }
-      ),
-    updateProp: (templateId: string, propId: string, data: import("@/types").PropUpdate) =>
-      request<import("@/types").EpisodeProp>(
-        `/episode-templates/${templateId}/props/${propId}`,
-        { method: "PATCH", body: JSON.stringify(data) }
-      ),
-    deleteProp: (templateId: string, propId: string) =>
-      request<null>(
-        `/episode-templates/${templateId}/props/${propId}`,
-        { method: "DELETE" }
-      ),
-  },
-
-  // Series endpoints (narrative containers - per CONTENT_ARCHITECTURE_CANON.md)
-  series: {
-    list: (params?: { worldId?: string; seriesType?: string; status?: string; featured?: boolean; includePlay?: boolean; limit?: number }) => {
-      const searchParams = new URLSearchParams();
-      if (params?.worldId) searchParams.set("world_id", params.worldId);
-      if (params?.seriesType) searchParams.set("series_type", params.seriesType);
-      if (params?.status) searchParams.set("status_filter", params.status);
-      if (params?.featured) searchParams.set("featured", "true");
-      if (params?.includePlay) searchParams.set("include_play", "true");
-      if (params?.limit) searchParams.set("limit", String(params.limit));
-      const query = searchParams.toString();
-      return request<import("@/types").SeriesSummary[]>(
-        `/series${query ? `?${query}` : ""}`
-      );
-    },
-    get: (seriesId: string) =>
-      request<import("@/types").Series>(`/series/${seriesId}`),
-    getWithEpisodes: (seriesId: string) =>
-      request<import("@/types").SeriesWithEpisodes>(`/series/${seriesId}/with-episodes`),
-    getWithCharacters: (seriesId: string) =>
-      request<import("@/types").SeriesWithCharacters>(`/series/${seriesId}/with-characters`),
-    getProgress: (seriesId: string) =>
-      request<import("@/types").SeriesProgressResponse>(`/series/${seriesId}/progress`),
-    getUserContext: (seriesId: string) =>
-      request<import("@/types").SeriesUserContextResponse>(`/series/${seriesId}/user-context`),
-    getContinueWatching: (limit?: number) =>
-      request<import("@/types").ContinueWatchingResponse>(`/series/user/continue-watching${limit ? `?limit=${limit}` : ""}`),
-    create: (data: {
-      title: string;
-      slug?: string;  // Will be auto-generated if not provided
-      description?: string;
-      tagline?: string;
-      genre?: string;
-      worldId?: string;
-      seriesType?: string;
-    }) =>
-      request<import("@/types").Series>("/series", {
-        method: "POST",
-        body: JSON.stringify({
-          title: data.title,
-          slug: data.slug || data.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, ''),
-          description: data.description,
-          tagline: data.tagline,
-          genre: data.genre,
-          world_id: data.worldId,
-          series_type: data.seriesType || "standalone",
-        }),
-      }),
-    update: (seriesId: string, data: {
-      title?: string;
-      description?: string;
-      tagline?: string;
-      worldId?: string;
-      seriesType?: string;
-      genre?: string;
-      status?: string;
-      isFeatured?: boolean;
-      episodeOrder?: string[];
-      featuredCharacters?: string[];
-    }) =>
-      request<import("@/types").Series>(`/series/${seriesId}`, {
-        method: "PATCH",
-        body: JSON.stringify({
-          title: data.title,
-          description: data.description,
-          tagline: data.tagline,
-          world_id: data.worldId,
-          series_type: data.seriesType,
-          genre: data.genre,
-          status: data.status,
-          is_featured: data.isFeatured,
-          episode_order: data.episodeOrder,
-          featured_characters: data.featuredCharacters,
-        }),
-      }),
-    activate: (seriesId: string) =>
-      request<import("@/types").Series>(`/series/${seriesId}/activate`, { method: "POST" }),
-    feature: (seriesId: string) =>
-      request<import("@/types").Series>(`/series/${seriesId}/feature`, { method: "POST" }),
-    delete: (seriesId: string) =>
-      request<null>(`/series/${seriesId}`, { method: "DELETE" }),
-    reset: (seriesId: string) =>
-      request<{ status: string; series_id: string }>(
-        `/series/${seriesId}/reset`,
-        { method: "DELETE" }
-      ),
-    generateCover: (seriesId: string, force: boolean = false) =>
-      request<{ success: boolean; storage_path?: string; image_url?: string; error?: string }>(
-        `/series/${seriesId}/generate-cover${force ? '?force=true' : ''}`,
-        { method: "POST" }
-      ),
-    // Genre Settings
-    getGenreOptions: () =>
-      request<import("@/types").GenreSettingsOptions>("/series/meta/genre-options"),
-    getGenreSettings: (seriesId: string) =>
-      request<import("@/types").GenreSettingsResponse>(`/series/${seriesId}/genre-settings`),
-    applyGenrePreset: (seriesId: string, preset: string) =>
-      request<import("@/types").Series>(`/series/${seriesId}/apply-genre-preset`, {
-        method: "POST",
-        body: JSON.stringify({ preset }),
-      }),
-    updateGenreSettings: (seriesId: string, settings: Record<string, unknown>) =>
-      request<import("@/types").Series>(`/series/${seriesId}`, {
-        method: "PATCH",
-        body: JSON.stringify({ genre_settings: settings }),
-      }),
-  },
-
-  // Roles endpoints (ADR-004: Character Selection)
-  // Note: Any character can play any role - no compatibility checking needed
-  roles: {
-    list: (params?: { limit?: number }) => {
-      const searchParams = new URLSearchParams();
-      if (params?.limit) searchParams.set("limit", String(params.limit));
-      const query = searchParams.toString();
-      return request<import("@/types").Role[]>(
-        `/roles${query ? `?${query}` : ""}`
-      );
-    },
-    get: (roleId: string) =>
-      request<import("@/types").Role>(`/roles/${roleId}`),
-    getCharacterSelectionForSeries: (seriesId: string) =>
-      request<import("@/types").CharacterSelectionContext>(
-        `/roles/series/${seriesId}/character-selection`
-      ),
-  },
-
-  // Message endpoints
-  messages: {
-    list: (episode_id: string, params?: { limit?: number; before_id?: string }) => {
+    getMessages: (id: string, params?: { limit?: number; before_id?: string }) => {
       const searchParams = new URLSearchParams();
       if (params?.limit) searchParams.set("limit", String(params.limit));
       if (params?.before_id) searchParams.set("before_id", params.before_id);
       const query = searchParams.toString();
-      return request<import("@/types").Message[]>(
-        `/episodes/${episode_id}/messages${query ? `?${query}` : ""}`
+      return request<Message[]>(
+        `/conversations/${id}/messages${query ? `?${query}` : ""}`
       );
     },
-    recent: (episode_id: string, limit?: number) =>
-      request<import("@/types").Message[]>(
-        `/episodes/${episode_id}/messages/recent${limit ? `?limit=${limit}` : ""}`
-      ),
-  },
-
-  // Conversation endpoints
-  conversation: {
-    send: (character_id: string, content: string, episodeTemplateId?: string) =>
-      request<import("@/types").Message>(`/conversation/${character_id}/send`, {
+    sendMessage: (id: string, content: string) =>
+      request<Message>(`/conversations/${id}/messages`, {
         method: "POST",
-        body: JSON.stringify({
-          content,
-          episode_template_id: episodeTemplateId || null,
-        }),
-      }),
-    sendStream: async function* (character_id: string, content: string, episodeTemplateId?: string) {
-      const headers = await getAuthHeaders();
-
-      const response = await fetch(
-        `${API_BASE_URL}/conversation/${character_id}/send/stream`,
-        {
-          method: "POST",
-          headers,
-          body: JSON.stringify({
-            content,
-            episode_template_id: episodeTemplateId || null,
-          }),
-        }
-      );
-
-      if (!response.ok) {
-        let data;
-        try {
-          data = await response.json();
-        } catch {
-          data = null;
-        }
-        throw new APIError(response.status, response.statusText, data);
-      }
-
-      const reader = response.body?.getReader();
-      const decoder = new TextDecoder();
-
-      if (!reader) {
-        throw new Error("No response body");
-      }
-
-      // Buffer for incomplete lines across chunk boundaries
-      let buffer = "";
-
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-
-        // Append decoded chunk to buffer (stream: true for partial multi-byte chars)
-        buffer += decoder.decode(value, { stream: true });
-
-        // Split by newline
-        const lines = buffer.split("\n");
-
-        // Keep the last potentially incomplete line in buffer
-        buffer = lines.pop() || "";
-
-        for (const line of lines) {
-          const trimmedLine = line.trim();
-          if (trimmedLine.startsWith("data: ")) {
-            const data = trimmedLine.slice(6);
-            if (data === "[DONE]") {
-              return;
-            }
-            if (data.startsWith("[ERROR]")) {
-              throw new Error(data.slice(8));
-            }
-            try {
-              const parsed = JSON.parse(data);
-              yield parsed;
-            } catch {
-              // Log parse errors for debugging
-              console.warn("[SSE] Failed to parse:", data.substring(0, 100));
-            }
-          }
-        }
-      }
-
-      // Process any remaining data in buffer after stream ends
-      if (buffer.trim()) {
-        const trimmedLine = buffer.trim();
-        if (trimmedLine.startsWith("data: ")) {
-          const data = trimmedLine.slice(6);
-          if (data !== "[DONE]" && !data.startsWith("[ERROR]")) {
-            try {
-              const parsed = JSON.parse(data);
-              yield parsed;
-            } catch {
-              console.warn("[SSE] Failed to parse final buffer:", data.substring(0, 100));
-            }
-          }
-        }
-      }
-    },
-    context: (character_id: string) =>
-      request<import("@/types").ConversationContext>(
-        `/conversation/${character_id}/context`
-      ),
-    start: (character_id: string, options?: { scene?: string; episodeTemplateId?: string }) => {
-      const params = new URLSearchParams();
-      if (options?.scene) params.set("scene", options.scene);
-      if (options?.episodeTemplateId) params.set("episode_template_id", options.episodeTemplateId);
-      const query = params.toString();
-      return request<import("@/types").Episode>(
-        `/conversation/${character_id}/start${query ? `?${query}` : ""}`,
-        { method: "POST" }
-      );
-    },
-    end: (character_id: string) =>
-      request<import("@/types").Episode>(`/conversation/${character_id}/end`, {
-        method: "POST",
-      }),
-  },
-
-  // Memory endpoints
-  memory: {
-    list: (params?: {
-      character_id?: string;
-      types?: string[];
-      min_importance?: number;
-      limit?: number;
-    }) => {
-      const searchParams = new URLSearchParams();
-      if (params?.character_id)
-        searchParams.set("character_id", params.character_id);
-      if (params?.types)
-        params.types.forEach((t) => searchParams.append("types", t));
-      if (params?.min_importance)
-        searchParams.set("min_importance", String(params.min_importance));
-      if (params?.limit) searchParams.set("limit", String(params.limit));
-      const query = searchParams.toString();
-      return request<import("@/types").MemoryEvent[]>(
-        `/memory${query ? `?${query}` : ""}`
-      );
-    },
-    relevant: (character_id: string, limit?: number) =>
-      request<import("@/types").MemoryEvent[]>(
-        `/memory/relevant?character_id=${character_id}${limit ? `&limit=${limit}` : ""}`
-      ),
-    delete: (id: string) =>
-      request<null>(`/memory/${id}`, { method: "DELETE" }),
-  },
-
-  // Scene endpoints
-  scenes: {
-    generate: (data: import("@/types").SceneGenerateRequest) =>
-      request<import("@/types").SceneGenerateResponse>("/scenes/generate", {
-        method: "POST",
-        body: JSON.stringify(data),
-      }),
-    listForEpisode: (episode_id: string) =>
-      request<import("@/types").EpisodeImage[]>(`/scenes/episode/${episode_id}`),
-    toggleMemory: (episode_image_id: string, is_memory: boolean) =>
-      request<import("@/types").EpisodeImage>(`/scenes/${episode_image_id}/memory`, {
-        method: "PATCH",
-        body: JSON.stringify({ is_memory }),
-      }),
-    listMemories: (params?: { character_id?: string; limit?: number }) => {
-      const searchParams = new URLSearchParams();
-      if (params?.character_id)
-        searchParams.set("character_id", params.character_id);
-      if (params?.limit) searchParams.set("limit", String(params.limit));
-      const query = searchParams.toString();
-      return request<import("@/types").SceneMemory[]>(
-        `/scenes/memories${query ? `?${query}` : ""}`
-      );
-    },
-    listGallery: (params?: { character_id?: string; limit?: number }) => {
-      const searchParams = new URLSearchParams();
-      if (params?.character_id)
-        searchParams.set("character_id", params.character_id);
-      if (params?.limit) searchParams.set("limit", String(params.limit));
-      const query = searchParams.toString();
-      return request<import("@/types").SceneGalleryItem[]>(
-        `/scenes/gallery${query ? `?${query}` : ""}`
-      );
-    },
-    delete: (image_id: string) =>
-      request<{ status: string; image_id: string }>(`/scenes/${image_id}`, {
-        method: "DELETE",
-      }),
-  },
-
-  // Hook endpoints
-  hooks: {
-    list: (params?: {
-      character_id?: string;
-      active_only?: boolean;
-      pending_only?: boolean;
-      limit?: number;
-    }) => {
-      const searchParams = new URLSearchParams();
-      if (params?.character_id)
-        searchParams.set("character_id", params.character_id);
-      if (params?.active_only !== undefined)
-        searchParams.set("active_only", String(params.active_only));
-      if (params?.pending_only)
-        searchParams.set("pending_only", String(params.pending_only));
-      if (params?.limit) searchParams.set("limit", String(params.limit));
-      const query = searchParams.toString();
-      return request<import("@/types").Hook[]>(
-        `/hooks${query ? `?${query}` : ""}`
-      );
-    },
-    pending: (character_id: string, limit?: number) =>
-      request<import("@/types").Hook[]>(
-        `/hooks/pending/${character_id}${limit ? `?limit=${limit}` : ""}`
-      ),
-  },
-
-  // Subscription endpoints
-  subscription: {
-    getStatus: () =>
-      request<import("@/types").SubscriptionStatus>("/subscription/status"),
-    createCheckout: (variantId?: string) =>
-      request<import("@/types").CheckoutResponse>("/subscription/checkout", {
-        method: "POST",
-        body: JSON.stringify({ variant_id: variantId }),
-      }),
-    getPortal: () =>
-      request<import("@/types").PortalResponse>("/subscription/portal"),
-  },
-
-  // User Characters endpoints (ADR-004: User Character Customization)
-  userCharacters: {
-    list: () =>
-      request<import("@/types").UserCharacter[]>("/characters/mine"),
-    get: (id: string) =>
-      request<import("@/types").UserCharacter>(`/characters/mine/${id}`),
-    create: (data: import("@/types").UserCharacterCreate) =>
-      request<import("@/types").UserCharacter>("/characters", {
-        method: "POST",
-        body: JSON.stringify(data),
-      }),
-    update: (id: string, data: import("@/types").UserCharacterUpdate) =>
-      request<import("@/types").UserCharacter>(`/characters/${id}`, {
-        method: "PATCH",
-        body: JSON.stringify(data),
-      }),
-    delete: (id: string) =>
-      request<null>(`/characters/${id}`, { method: "DELETE" }),
-    generateAvatar: (id: string, appearancePrompt?: string, stylePreset?: string) => {
-      const params = new URLSearchParams();
-      if (appearancePrompt) params.append("appearance_prompt", appearancePrompt);
-      if (stylePreset) params.append("style_preset", stylePreset);
-      const queryString = params.toString();
-      return request<{
-        success: boolean;
-        avatar_url: string;
-        asset_id: string | null;
-        kit_id: string | null;
-        is_first_generation: boolean;
-      }>(
-        `/characters/mine/${id}/generate-avatar${queryString ? `?${queryString}` : ""}`,
-        { method: "POST" }
-      );
-    },
-    getAvailableForEpisode: (templateId: string) =>
-      request<import("@/types").AvailableCharactersResponse>(
-        `/episode-templates/${templateId}/available-characters`
-      ),
-    uploadAvatar: async (id: string, file: File, ipAcknowledgment: boolean) => {
-      const supabase = (await import("@/lib/supabase/client")).createClient();
-      const { data: { session } } = await supabase.auth.getSession();
-
-      const formData = new FormData();
-      formData.append("file", file);
-      formData.append("ip_acknowledgment", String(ipAcknowledgment));
-
-      const headers: HeadersInit = {};
-      if (session?.access_token) {
-        headers["Authorization"] = `Bearer ${session.access_token}`;
-      }
-
-      const response = await fetch(
-        `${API_BASE_URL}/characters/mine/${id}/upload-avatar`,
-        {
-          method: "POST",
-          headers,
-          body: formData,
-        }
-      );
-
-      if (!response.ok) {
-        let data;
-        try {
-          data = await response.json();
-        } catch {
-          data = null;
-        }
-        throw new APIError(response.status, response.statusText, data);
-      }
-
-      return response.json() as Promise<{
-        success: boolean;
-        avatar_url: string;
-        source: string;
-        message: string;
-      }>;
-    },
-  },
-
-  // Credits (Sparks) endpoints
-  credits: {
-    getBalance: () =>
-      request<import("@/types").SparkBalance>("/credits/balance"),
-    check: (featureKey: string) =>
-      request<import("@/types").SparkCheck>(`/credits/check/${featureKey}`),
-    getHistory: (limit?: number, offset?: number) => {
-      const params = new URLSearchParams();
-      if (limit) params.set("limit", String(limit));
-      if (offset) params.set("offset", String(offset));
-      const query = params.toString();
-      return request<import("@/types").SparkTransactionHistory>(
-        `/credits/history${query ? `?${query}` : ""}`
-      );
-    },
-    getCosts: () =>
-      request<import("@/types").FeatureCost[]>("/credits/costs"),
-  },
-
-  // Top-up endpoints
-  topup: {
-    getPacks: () =>
-      request<import("@/types").TopupPack[]>("/topup/packs"),
-    checkout: (packName: string) =>
-      request<import("@/types").TopupCheckoutResponse>("/topup/checkout", {
-        method: "POST",
-        body: JSON.stringify({ pack_name: packName }),
-      }),
-  },
-
-  // Studio endpoints (character creation/management)
-  studio: {
-    listCharacters: (statusFilter?: "draft" | "active") => {
-      const params = statusFilter ? `?status_filter=${statusFilter}` : "";
-      return request<import("@/types").CharacterSummary[]>(`/studio/characters${params}`);
-    },
-    getCharacter: (id: string) =>
-      request<import("@/types").Character>(`/studio/characters/${id}`),
-    createCharacter: (data: {
-      name: string;
-      archetype: string;
-      avatar_url?: string | null;
-      personality_preset?: string;
-      baseline_personality?: Record<string, unknown>;
-      boundaries?: Record<string, unknown>;
-      content_rating?: string;
-      opening_situation: string;
-      opening_line: string;
-      status?: "draft" | "active";
-    }) =>
-      request<{ id: string; slug: string; name: string; status: string; message: string }>(
-        "/studio/characters",
-        { method: "POST", body: JSON.stringify(data) }
-      ),
-    updateCharacter: (id: string, data: Record<string, unknown>) =>
-      request<import("@/types").Character>(`/studio/characters/${id}`, {
-        method: "PATCH",
-        body: JSON.stringify(data),
-      }),
-    regenerateSystemPrompt: (id: string) =>
-      request<import("@/types").Character>(`/studio/characters/${id}/regenerate-system-prompt`, {
-        method: "POST",
-      }),
-    activateCharacter: (id: string) =>
-      request<import("@/types").Character>(`/studio/characters/${id}/activate`, {
-        method: "POST",
-      }),
-    deactivateCharacter: (id: string) =>
-      request<import("@/types").Character>(`/studio/characters/${id}/deactivate`, {
-        method: "POST",
-      }),
-    deleteCharacter: (id: string) =>
-      request<null>(`/studio/characters/${id}`, { method: "DELETE" }),
-    getArchetypes: () =>
-      request<{ archetypes: string[] }>("/studio/archetypes"),
-    getPersonalityPresets: () =>
-      request<{ presets: Record<string, unknown> }>("/studio/personality-presets"),
-    getDefaultBoundaries: () =>
-      request<{ boundaries: Record<string, unknown> }>("/studio/default-boundaries"),
-    // Conversation Ignition endpoints
-    generateOpeningBeat: (data: {
-      name: string;
-      archetype: string;
-      personality?: Record<string, unknown>;
-      personality_preset?: string;
-      boundaries?: Record<string, unknown>;
-      content_rating?: string;
-      world_context?: string;
-    }) =>
-      request<import("@/types").OpeningBeatResponse>("/studio/generate-opening-beat", {
-        method: "POST",
-        body: JSON.stringify(data),
-      }),
-    regenerateOpeningBeat: (
-      characterId: string,
-      data: {
-        previous_situation: string;
-        previous_line: string;
-        feedback?: string;
-      }
-    ) =>
-      request<import("@/types").OpeningBeatResponse>(
-        `/studio/characters/${characterId}/regenerate-opening-beat`,
-        { method: "POST", body: JSON.stringify(data) }
-      ),
-    applyOpeningBeat: (
-      characterId: string,
-      data: {
-        opening_situation: string;
-        opening_line: string;
-        // starter_prompts removed - now managed by episode_template
-      }
-    ) =>
-      request<import("@/types").Character>(
-        `/studio/characters/${characterId}/apply-opening-beat`,
-        { method: "POST", body: JSON.stringify(data) }
-      ),
-    getArchetypeRules: (archetype: string) =>
-      request<import("@/types").ArchetypeRulesResponse>(
-        `/studio/archetype-rules/${archetype}`
-      ),
-    // Avatar Gallery (simplified model)
-    generateAvatar: (
-      characterId: string,
-      options?: {
-        appearanceDescription?: string
-        label?: string
-        stylePreset?: string
-        expressionPreset?: string
-        posePreset?: string
-        styleNotes?: string
-      }
-    ) =>
-      request<import("@/types").AvatarGenerationResponse>(
-        `/studio/characters/${characterId}/generate-avatar`,
-        {
-          method: "POST",
-          body: JSON.stringify({
-            appearance_description: options?.appearanceDescription,
-            label: options?.label,
-            style_preset: options?.stylePreset,
-            expression_preset: options?.expressionPreset,
-            pose_preset: options?.posePreset,
-            style_notes: options?.styleNotes,
-          }),
-        }
-      ),
-    getGalleryStatus: (characterId: string) =>
-      request<import("@/types").GalleryStatusResponse>(
-        `/studio/characters/${characterId}/gallery`
-      ),
-    setGalleryPrimary: (characterId: string, assetId: string) =>
-      request<{ success: boolean; primary_url: string }>(
-        `/studio/characters/${characterId}/gallery/${assetId}/set-primary`,
-        { method: "POST" }
-      ),
-    deleteGalleryItem: (characterId: string, assetId: string) =>
-      request<{ success: boolean }>(
-        `/studio/characters/${characterId}/gallery/${assetId}`,
-        { method: "DELETE" }
-      ),
-    // Admin / Calibration endpoints
-    fixAvatarUrls: () =>
-      request<{ message: string; results: Array<{ name: string; status: string }> }>(
-        "/studio/admin/fix-avatar-urls",
-        { method: "POST" }
-      ),
-    batchCreate: (characters: Array<{
-      name: string;
-      archetype: string;
-      personality_preset?: string;
-      content_rating?: string;
-      appearance_hint?: string;
-    }>) =>
-      request<{
-        message: string;
-        results: Array<{ name: string; status: string; id?: string; appearance_hint?: string }>;
-      }>("/studio/admin/batch-create", {
-        method: "POST",
-        body: JSON.stringify({ characters }),
-      }),
-
-    // Episode Template Management (Studio)
-    listEpisodeTemplates: (characterId: string, includeAll?: boolean) => {
-      const status = includeAll ? "" : "?status=active";
-      return request<import("@/types").EpisodeTemplateSummary[]>(
-        `/episode-templates/character/${characterId}${status}`
-      );
-    },
-    getEpisodeTemplate: (templateId: string) =>
-      request<import("@/types").EpisodeTemplate>(`/episode-templates/${templateId}`),
-    createEpisodeTemplate: (data: {
-      character_id: string;
-      episode_number: number;
-      title: string;
-      slug: string;
-      situation: string;
-      opening_line: string;
-      episode_frame?: string;
-      is_default?: boolean;
-    }) =>
-      request<import("@/types").EpisodeTemplate>("/episode-templates", {
-        method: "POST",
-        body: JSON.stringify(data),
-      }),
-    updateEpisodeTemplate: (
-      templateId: string,
-      data: {
-        title?: string;
-        situation?: string;
-        opening_line?: string;
-        episode_frame?: string;
-        status?: string;
-      }
-    ) =>
-      request<import("@/types").EpisodeTemplate>(`/episode-templates/${templateId}`, {
-        method: "PATCH",
-        body: JSON.stringify(data),
-      }),
-    activateEpisodeTemplate: (templateId: string) =>
-      request<import("@/types").EpisodeTemplate>(`/episode-templates/${templateId}/activate`, {
-        method: "POST",
-      }),
-    generateEpisodeBackground: (characterName: string, episodeNumber: number, force: boolean = true) =>
-      request<{ message: string; generated: number }>(
-        `/studio/admin/generate-episode-backgrounds?character=${encodeURIComponent(characterName)}&episode_number=${episodeNumber}&force=${force}`,
-        { method: "POST" }
-      ),
-  },
-
-  // World endpoints (setting/context - per WORLD_TAXONOMY_CANON.md)
-  worlds: {
-    list: (params?: { status?: string; transparency?: string }) => {
-      const searchParams = new URLSearchParams();
-      if (params?.status) searchParams.set("status", params.status);
-      if (params?.transparency) searchParams.set("transparency", params.transparency);
-      const query = searchParams.toString();
-      return request<import("@/types").World[]>(
-        `/worlds${query ? `?${query}` : ""}`
-      );
-    },
-    get: (worldId: string) =>
-      request<import("@/types").World>(`/worlds/${worldId}`),
-    getBySlug: (slug: string) =>
-      request<import("@/types").World>(`/worlds/slug/${slug}`),
-  },
-
-  // Games endpoints (Flirt Test and other bounded episodes)
-  // Games support anonymous sessions - pass anonymousId for unauthenticated users
-  games: {
-    start: async (gameSlug: string, characterChoice?: "m" | "f", anonymousId?: string) => {
-      const headers = await getAuthHeaders();
-      if (anonymousId) {
-        headers["X-Anonymous-Id"] = anonymousId;
-      }
-      const response = await fetch(`${API_BASE_URL}/games/${gameSlug}/start`, {
-        method: "POST",
-        headers,
-        body: JSON.stringify({ character_choice: characterChoice }),
-      });
-      if (!response.ok) {
-        let data;
-        try { data = await response.json(); } catch { data = null; }
-        throw new APIError(response.status, response.statusText, data);
-      }
-      return response.json() as Promise<import("@/types").GameStartResponse>;
-    },
-    sendMessage: async (gameSlug: string, sessionId: string, content: string, anonymousId?: string) => {
-      const headers = await getAuthHeaders();
-      if (anonymousId) {
-        headers["X-Anonymous-Id"] = anonymousId;
-      }
-      const response = await fetch(`${API_BASE_URL}/games/${gameSlug}/${sessionId}/message`, {
-        method: "POST",
-        headers,
         body: JSON.stringify({ content }),
-      });
-      if (!response.ok) {
-        let data;
-        try { data = await response.json(); } catch { data = null; }
-        throw new APIError(response.status, response.statusText, data);
-      }
-      return response.json() as Promise<import("@/types").GameMessageResponse>;
-    },
-    sendMessageStream: async function* (
-      gameSlug: string,
-      sessionId: string,
-      content: string,
-      anonymousId?: string
-    ) {
+      }),
+    sendMessageStream: async function* (id: string, content: string) {
       const headers = await getAuthHeaders();
-      if (anonymousId) {
-        headers["X-Anonymous-Id"] = anonymousId;
-      }
 
       const response = await fetch(
-        `${API_BASE_URL}/games/${gameSlug}/${sessionId}/message/stream`,
+        `${API_BASE_URL}/conversations/${id}/messages/stream`,
         {
           method: "POST",
           headers,
@@ -1079,99 +241,83 @@ export const api = {
         throw new Error("No response body");
       }
 
-      // Buffer for incomplete lines across chunk boundaries
       let buffer = "";
 
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
 
-        // Append decoded chunk to buffer (stream: true for partial multi-byte chars)
         buffer += decoder.decode(value, { stream: true });
-
-        // Split by newline
         const lines = buffer.split("\n");
-
-        // Keep the last potentially incomplete line in buffer
         buffer = lines.pop() || "";
 
         for (const line of lines) {
           const trimmedLine = line.trim();
           if (trimmedLine.startsWith("data: ")) {
             const data = trimmedLine.slice(6);
-            if (data === "[DONE]") {
-              return;
-            }
-            if (data.startsWith("[ERROR]")) {
-              throw new Error(data.slice(8));
-            }
+            if (data === "[DONE]") return;
+            if (data.startsWith("[ERROR]")) throw new Error(data.slice(8));
             try {
               const parsed = JSON.parse(data);
               yield parsed;
             } catch {
-              // Log parse errors for debugging
               console.warn("[SSE] Failed to parse:", data.substring(0, 100));
             }
           }
         }
       }
-
-      // Process any remaining data in buffer after stream ends
-      if (buffer.trim()) {
-        const trimmedLine = buffer.trim();
-        if (trimmedLine.startsWith("data: ")) {
-          const data = trimmedLine.slice(6);
-          if (data !== "[DONE]" && !data.startsWith("[ERROR]")) {
-            try {
-              const parsed = JSON.parse(data);
-              yield parsed;
-            } catch {
-              console.warn("[SSE] Failed to parse final buffer:", data.substring(0, 100));
-            }
-          }
-        }
-      }
-    },
-    getResult: async (gameSlug: string, sessionId: string, anonymousId?: string) => {
-      const headers = await getAuthHeaders();
-      if (anonymousId) {
-        headers["X-Anonymous-Id"] = anonymousId;
-      }
-      const response = await fetch(`${API_BASE_URL}/games/${gameSlug}/${sessionId}/result`, {
-        method: "GET",
-        headers,
-      });
-      if (!response.ok) {
-        let data;
-        try { data = await response.json(); } catch { data = null; }
-        throw new APIError(response.status, response.statusText, data);
-      }
-      return response.json() as Promise<import("@/types").GameResultResponse>;
-    },
-    getSharedResult: (shareId: string) =>
-      request<import("@/types").SharedResultResponse>(`/games/r/${shareId}`),
-    evaluateQuiz: async (quizType: string, answers: import("@/types").QuizAnswer[]) => {
-      const response = await fetch(`${API_BASE_URL}/games/quiz/evaluate`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ quiz_type: quizType, answers }),
-      });
-      if (!response.ok) {
-        let data;
-        try { data = await response.json(); } catch { data = null; }
-        throw new APIError(response.status, response.statusText, data);
-      }
-      return response.json() as Promise<import("@/types").QuizEvaluateResponse>;
     },
   },
 
-  // Admin endpoints
-  admin: {
-    stats: () => request<import("@/types").AdminStatsResponse>("/admin/stats"),
-    funnel: (days: number = 30) =>
-      request<import("@/types").ActivationFunnelResponse>(
-        `/admin/funnel?days=${days}`
-      ),
+  // User context endpoints
+  context: {
+    list: (params?: { category?: string; limit?: number }) => {
+      const searchParams = new URLSearchParams();
+      if (params?.category) searchParams.set("category", params.category);
+      if (params?.limit) searchParams.set("limit", String(params.limit));
+      const query = searchParams.toString();
+      return request<UserContext[]>(`/context${query ? `?${query}` : ""}`);
+    },
+    create: (data: {
+      category: string;
+      key: string;
+      value: string;
+      importance_score?: number;
+      emotional_valence?: number;
+    }) =>
+      request<UserContext>("/context", {
+        method: "POST",
+        body: JSON.stringify(data),
+      }),
+    delete: (id: string) =>
+      request<null>(`/context/${id}`, { method: "DELETE" }),
+  },
+
+  // Usage endpoints
+  usage: {
+    today: () => request<DailyUsage>("/usage/today"),
+    history: (days?: number) => {
+      const query = days ? `?days=${days}` : "";
+      return request<DailyUsage[]>(`/usage/history${query}`);
+    },
+  },
+
+  // Telegram endpoints
+  telegram: {
+    getDeepLink: () => request<TelegramDeepLink>("/telegram/deep-link"),
+    unlink: () =>
+      request<{ status: string }>("/telegram/unlink", { method: "POST" }),
+  },
+
+  // Subscription endpoints
+  subscription: {
+    getStatus: () => request<SubscriptionStatus>("/subscription/status"),
+    createCheckout: (variantId?: string) =>
+      request<{ checkout_url: string }>("/subscription/checkout", {
+        method: "POST",
+        body: JSON.stringify({ variant_id: variantId }),
+      }),
+    getPortal: () => request<{ portal_url: string }>("/subscription/portal"),
   },
 };
 

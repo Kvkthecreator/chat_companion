@@ -1,8 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
-import { Sidebar } from '@/components/Sidebar'
-import { ImmersiveLayoutWrapper } from '@/components/ImmersiveLayoutWrapper'
-import { AttributionSaver } from '@/components/AttributionSaver'
 
 export const dynamic = 'force-dynamic'
 
@@ -18,10 +15,20 @@ export default async function DashboardLayout({
     redirect('/login')
   }
 
+  // Check if user has completed onboarding
+  const { data: userData } = await supabase
+    .from('users')
+    .select('onboarding_completed_at')
+    .eq('id', user.id)
+    .single()
+
+  if (!userData?.onboarding_completed_at) {
+    redirect('/onboarding')
+  }
+
   return (
-    <ImmersiveLayoutWrapper sidebar={<Sidebar user={user} />}>
-      <AttributionSaver />
+    <div className="min-h-screen bg-background">
       {children}
-    </ImmersiveLayoutWrapper>
+    </div>
   )
 }
