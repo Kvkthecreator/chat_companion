@@ -27,6 +27,13 @@ def verify_jwt(token: str) -> dict:
         log.error("AUTH: SUPABASE_JWT_SECRET is empty")
         raise HTTPException(500, "auth_misconfigured")
 
+    # Debug: log the token header to see what algorithm is being used
+    try:
+        header = jwt.get_unverified_header(token)
+        log.info("AUTH: Token header alg=%s typ=%s", header.get("alg"), header.get("typ"))
+    except Exception as e:
+        log.error("AUTH: Failed to decode token header: %s", e)
+
     expected_iss = f"{SUPABASE_URL}/auth/v1" if SUPABASE_URL else None
     errors = []
 
