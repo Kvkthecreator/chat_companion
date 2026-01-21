@@ -6,8 +6,14 @@ This folder contains Architecture Decision Records (ADRs) documenting significan
 
 | ADR | Title | Status | Date |
 |-----|-------|--------|------|
-| [ADR-001](ADR-001-memory-architecture.md) | Memory System Architecture | Draft | 2025-01 |
-| [ADR-002](ADR-002-personalization-system.md) | Personalization System | Draft | 2025-01 |
+| [ADR-001](ADR-001-memory-architecture.md) | Memory System Architecture | Draft | 2025-01-21 |
+| [ADR-002](ADR-002-personalization-system.md) | Personalization System | Draft | 2025-01-21 |
+
+## Summary
+
+**ADR-001: Memory Architecture** - Three-tier memory system (working → active → core) with separated extraction and validation pipeline. Introduces "threads" for tracking ongoing situations.
+
+**ADR-002: Personalization System** - Dual-source preferences: explicit (user-controlled settings) + learned (inferred from conversations). Explicit always wins on conflict.
 
 ## What is an ADR?
 
