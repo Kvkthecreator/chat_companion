@@ -8,6 +8,7 @@ from app.routes import (
     conversation,
     subscription,
     webhooks,
+    telegram,
 )
 
 __all__ = [
@@ -18,4 +19,5 @@ __all__ = [
     "conversation",
     "subscription",
     "webhooks",
+    "telegram",
 ]

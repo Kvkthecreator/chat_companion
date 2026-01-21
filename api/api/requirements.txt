@@ -48,3 +48,9 @@ httpx>=0.27.0  # For downloading Supabase Storage files
 Pillow>=10.0.0
 # pytesseract for OCR - requires tesseract system package
 pytesseract>=0.3.10
+
+# ── Telegram Bot ──────────────────────────────────────────────────────
+python-telegram-bot>=21.0
+
+# ── Scheduling ────────────────────────────────────────────────────────
+APScheduler>=3.10.0

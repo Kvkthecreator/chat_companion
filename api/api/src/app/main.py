@@ -25,6 +25,7 @@ from app.routes import (
     conversation,
     subscription,
     webhooks,
+    telegram,
 )
 
 log = logging.getLogger("uvicorn.error")
@@ -61,6 +62,12 @@ async def lifespan(app: FastAPI):
 
     if StorageService._instance:
         await StorageService._instance.close()
+
+    # Close Telegram client
+    from app.services.telegram import TelegramService
+
+    if TelegramService._instance:
+        await TelegramService._instance.close()
 
     log.info("Shutdown complete")
 
@@ -148,6 +155,7 @@ app.include_router(conversation.router, tags=["Conversation"])
 app.include_router(subscription.router, tags=["Subscription"])
 app.include_router(subscription.webhook_router, tags=["Webhooks"])
 app.include_router(webhooks.router, tags=["Webhooks"])
+app.include_router(telegram.router, tags=["Telegram"])
 
 
 @app.get("/")
