@@ -72,6 +72,40 @@ async def list_conversations(
     return result
 
 
+class ConversationCreate(BaseModel):
+    """Request body for creating a conversation."""
+    channel: str = "web"
+
+
+@router.post("", response_model=ConversationResponse, status_code=status.HTTP_201_CREATED)
+async def create_conversation(
+    data: ConversationCreate,
+    user_id: UUID = Depends(get_current_user_id),
+    db=Depends(get_db),
+):
+    """Create a new conversation or get existing one for today."""
+    from app.services.conversation import ConversationService
+
+    service = ConversationService(db)
+    conversation = await service.get_or_create_conversation(
+        user_id=user_id,
+        channel=data.channel,
+        initiated_by="user",
+    )
+
+    return ConversationResponse(
+        id=str(conversation["id"]),
+        user_id=str(conversation["user_id"]),
+        channel=conversation["channel"],
+        started_at=conversation["started_at"].isoformat() if conversation.get("started_at") else "",
+        ended_at=conversation["ended_at"].isoformat() if conversation.get("ended_at") else None,
+        message_count=conversation.get("message_count", 0),
+        initiated_by=conversation.get("initiated_by", "user"),
+        mood_summary=conversation.get("mood_summary"),
+        topics=json.loads(conversation["topics"]) if conversation.get("topics") else [],
+    )
+
+
 @router.post("/send", response_model=MessageResponse)
 async def send_message(
     data: MessageCreate,
