@@ -17,7 +17,8 @@ def _get_jwks_client() -> PyJWKClient | None:
     """Get or create JWKS client for asymmetric key verification."""
     global _jwks_client
     if _jwks_client is None and SUPABASE_URL:
-        jwks_url = f"{SUPABASE_URL}/auth/v1/keys"
+        # Use .well-known/jwks.json endpoint (public, no auth required)
+        jwks_url = f"{SUPABASE_URL}/auth/v1/.well-known/jwks.json"
         _jwks_client = PyJWKClient(jwks_url, cache_keys=True)
         log.info("AUTH: Initialized JWKS client for %s", jwks_url)
     return _jwks_client
