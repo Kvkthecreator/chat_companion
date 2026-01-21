@@ -183,12 +183,14 @@ class SchedulerService:
         llm = LLMService.get_instance()
         prompt = companion_service.build_daily_message_prompt(context)
 
-        message = await llm.generate(
-            system_prompt="You are a helpful assistant that generates warm, personal messages.",
-            messages=[{"role": "user", "content": prompt}],
+        response = await llm.generate(
+            messages=[
+                {"role": "system", "content": "You are a helpful assistant that generates warm, personal messages."},
+                {"role": "user", "content": prompt},
+            ],
         )
 
-        return message.strip()
+        return response.content.strip()
 
     @classmethod
     async def send_scheduled_message(cls, user: dict) -> bool:

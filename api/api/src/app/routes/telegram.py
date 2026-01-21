@@ -468,10 +468,12 @@ async def handle_conversation_message(
     llm = LLMService.get_instance()
 
     try:
-        response = await llm.generate(
-            system_prompt=system_prompt,
-            messages=recent_messages,
-        )
+        # Build messages with system prompt
+        messages = [{"role": "system", "content": system_prompt}]
+        messages.extend(recent_messages)
+
+        llm_response = await llm.generate(messages=messages)
+        response_content = llm_response.content
 
         # Store assistant message
         await db.execute(
@@ -480,11 +482,11 @@ async def handle_conversation_message(
             VALUES ($1, 'assistant', $2)
             """,
             conversation_id,
-            response,
+            response_content,
         )
 
         # Send response
-        await telegram_service.send_message(chat_id, response)
+        await telegram_service.send_message(chat_id, response_content)
 
     except Exception as e:
         log.error(f"Failed to generate response: {e}", exc_info=True)
