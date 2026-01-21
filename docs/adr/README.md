@@ -8,12 +8,15 @@ This folder contains Architecture Decision Records (ADRs) documenting significan
 |-----|-------|--------|------|
 | [ADR-001](ADR-001-memory-architecture.md) | Memory System Architecture | Draft | 2025-01-21 |
 | [ADR-002](ADR-002-personalization-system.md) | Personalization System | Draft | 2025-01-21 |
+| [ADR-003](ADR-003-onboarding-system.md) | Onboarding System | Draft | 2025-01-21 |
 
 ## Summary
 
 **ADR-001: Memory Architecture** - Three-tier memory system (working → active → core) with separated extraction and validation pipeline. Introduces "threads" for tracking ongoing situations.
 
 **ADR-002: Personalization System** - Dual-source preferences: explicit (user-controlled settings) + learned (inferred from conversations). Explicit always wins on conflict.
+
+**ADR-003: Onboarding System** - Two paths (Quiz + Chat) solving cold start problem. Quiz for viral acquisition, Chat for high-intent users. Both produce same user profile for Day 1 personalization.
 
 ## What is an ADR?
 
