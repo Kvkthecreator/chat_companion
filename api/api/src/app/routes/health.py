@@ -8,7 +8,7 @@ router = APIRouter()
 @router.get("/health")
 async def health():
     """Basic health check."""
-    return {"status": "healthy", "service": "clearinghouse-api"}
+    return {"status": "healthy", "service": "chat-companion-api"}
 
 
 @router.get("/health/db")
@@ -37,11 +37,8 @@ async def health_tables():
         table_names = [t["table_name"] for t in tables]
 
         required_tables = [
-            "workspaces", "workspace_memberships", "catalogs",
-            "rights_schemas", "rights_entities", "reference_assets",
-            "proposals", "proposal_comments", "governance_rules",
-            "license_templates", "licensees", "license_grants", "usage_records",
-            "timeline_events"
+            "users", "onboarding", "conversations", "messages",
+            "user_context", "scheduled_messages", "telegram_link_tokens"
         ]
 
         missing = [t for t in required_tables if t not in table_names]
