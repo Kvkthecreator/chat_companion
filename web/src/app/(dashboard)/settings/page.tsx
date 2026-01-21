@@ -17,29 +17,65 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { SubscriptionCard } from "@/components/subscription";
-import { TopupPacks, TransactionHistory } from "@/components/sparks";
 import { useUser } from "@/hooks/useUser";
-import { useSparks } from "@/hooks/useSparks";
 import { createClient } from "@/lib/supabase/client";
 import { api } from "@/lib/api/client";
-import { CheckCircle2, Sparkles, CreditCard, User, Mail, Clock, Loader2, History, Settings2, Image, AlertCircle, HelpCircle, ExternalLink, Trash2 } from "lucide-react";
+import {
+  CheckCircle2,
+  CreditCard,
+  User,
+  Mail,
+  Clock,
+  Loader2,
+  Settings2,
+  AlertCircle,
+  HelpCircle,
+  ExternalLink,
+  Trash2,
+  Bell,
+  MessageCircle,
+} from "lucide-react";
+
+// Timezone options
+const TIMEZONES = [
+  { value: "America/New_York", label: "Eastern Time (ET)" },
+  { value: "America/Chicago", label: "Central Time (CT)" },
+  { value: "America/Denver", label: "Mountain Time (MT)" },
+  { value: "America/Los_Angeles", label: "Pacific Time (PT)" },
+  { value: "America/Anchorage", label: "Alaska Time (AKT)" },
+  { value: "Pacific/Honolulu", label: "Hawaii Time (HT)" },
+  { value: "Europe/London", label: "London (GMT/BST)" },
+  { value: "Europe/Paris", label: "Central European (CET)" },
+  { value: "Europe/Berlin", label: "Berlin (CET)" },
+  { value: "Asia/Tokyo", label: "Japan (JST)" },
+  { value: "Asia/Seoul", label: "Korea (KST)" },
+  { value: "Asia/Shanghai", label: "China (CST)" },
+  { value: "Asia/Singapore", label: "Singapore (SGT)" },
+  { value: "Australia/Sydney", label: "Sydney (AEST)" },
+  { value: "UTC", label: "UTC" },
+];
+
+// Support style options
+const SUPPORT_STYLES = [
+  { value: "motivational", label: "Motivational", description: "Encouraging and energizing" },
+  { value: "friendly_checkin", label: "Friendly Check-in", description: "Warm and casual, like a close friend" },
+  { value: "accountability", label: "Accountability", description: "Supportive but direct about goals" },
+  { value: "listener", label: "Listener", description: "Gentle and present, space to share" },
+];
 
 export default function SettingsPage() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const { user, reload, updateUser, isLoading: userLoading } = useUser();
-  const { reload: reloadSparks, sparkBalance, lifetimeEarned, lifetimeSpent } = useSparks();
   const [showSuccess, setShowSuccess] = useState(false);
-  const [showTopupSuccess, setShowTopupSuccess] = useState(false);
   const [email, setEmail] = useState<string | null>(null);
   const [displayName, setDisplayName] = useState("");
+  const [companionName, setCompanionName] = useState("");
+  const [timezone, setTimezone] = useState("America/New_York");
+  const [preferredTime, setPreferredTime] = useState("09:00");
+  const [supportStyle, setSupportStyle] = useState("friendly_checkin");
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
-
-  // Visual preferences
-  const [visualModeOverride, setVisualModeOverride] = useState<string>("episode_default");
-  const [isSavingPrefs, setIsSavingPrefs] = useState(false);
-  const [prefsSaveSuccess, setPrefsSaveSuccess] = useState(false);
 
   // Delete account state
   const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -58,18 +94,14 @@ export default function SettingsPage() {
     getEmail();
   }, []);
 
-  // Sync display name from user data
+  // Sync form state from user data
   useEffect(() => {
-    if (user?.display_name) {
-      setDisplayName(user.display_name);
-    }
-  }, [user]);
-
-  // Sync visual preferences from user data
-  useEffect(() => {
-    if (user?.preferences) {
-      const visualOverride = (user.preferences.visual_mode_override as string) || "episode_default";
-      setVisualModeOverride(visualOverride);
+    if (user) {
+      setDisplayName(user.display_name || "");
+      setCompanionName(user.companion_name || "");
+      setTimezone(user.timezone || "America/New_York");
+      setPreferredTime(user.preferred_message_time || "09:00");
+      setSupportStyle(user.support_style || "friendly_checkin");
     }
   }, [user]);
 
@@ -77,7 +109,10 @@ export default function SettingsPage() {
     setIsSaving(true);
     setSaveSuccess(false);
     try {
-      await updateUser({ display_name: displayName || undefined });
+      await updateUser({
+        display_name: displayName || undefined,
+        companion_name: companionName || undefined,
+      });
       setSaveSuccess(true);
       setTimeout(() => setSaveSuccess(false), 3000);
     } catch (err) {
@@ -87,25 +122,21 @@ export default function SettingsPage() {
     }
   };
 
-  const handleVisualModeChange = async (value: string) => {
-    setIsSavingPrefs(true);
-    setPrefsSaveSuccess(false);
+  const handleSavePreferences = async () => {
+    setIsSaving(true);
+    setSaveSuccess(false);
     try {
       await updateUser({
-        preferences: {
-          ...user?.preferences,
-          visual_mode_override: value as "always_off" | "always_on" | "episode_default",
-        },
+        timezone,
+        preferred_message_time: preferredTime,
+        support_style: supportStyle,
       });
-      setVisualModeOverride(value);
-      setPrefsSaveSuccess(true);
-      setTimeout(() => setPrefsSaveSuccess(false), 3000);
+      setSaveSuccess(true);
+      setTimeout(() => setSaveSuccess(false), 3000);
     } catch (err) {
-      console.error("Failed to save visual preferences:", err);
-      // Reload user data on error to reset to server state
-      await reload();
+      console.error("Failed to save preferences:", err);
     } finally {
-      setIsSavingPrefs(false);
+      setIsSaving(false);
     }
   };
 
@@ -120,8 +151,6 @@ export default function SettingsPage() {
 
     try {
       await api.users.deleteAccount("DELETE", deleteReason || undefined);
-
-      // Sign out and redirect to home
       const supabase = createClient();
       await supabase.auth.signOut();
       router.push("/");
@@ -132,20 +161,17 @@ export default function SettingsPage() {
     }
   };
 
-  // Get initial tab from URL (support legacy "subscription" and "sparks" params)
+  // Tab management
   const urlTab = searchParams.get("tab");
-  const initialTab = urlTab === "sparks" || urlTab === "subscription" ? "billing" : (urlTab || "billing");
+  const initialTab = urlTab || "preferences";
   const [activeTab, setActiveTab] = useState(initialTab);
 
-  // Sync tab with URL
   useEffect(() => {
     const tab = searchParams.get("tab");
-    if (tab === "sparks" || tab === "subscription") {
-      setActiveTab("billing");
-    } else if (tab && tab !== activeTab) {
+    if (tab && tab !== activeTab) {
       setActiveTab(tab);
     }
-  }, [searchParams]);
+  }, [searchParams, activeTab]);
 
   const handleTabChange = (value: string) => {
     setActiveTab(value);
@@ -155,60 +181,33 @@ export default function SettingsPage() {
   // Handle success redirect from Lemon Squeezy
   useEffect(() => {
     const subscription = searchParams.get("subscription");
-    const topup = searchParams.get("topup");
-
     if (subscription === "success") {
       setShowSuccess(true);
       reload();
-      reloadSparks();
       window.history.replaceState({}, "", "/settings?tab=billing");
       const timer = setTimeout(() => setShowSuccess(false), 5000);
       return () => clearTimeout(timer);
     }
-
-    if (topup === "success") {
-      setShowTopupSuccess(true);
-      reloadSparks();
-      window.history.replaceState({}, "", "/settings?tab=billing");
-      const timer = setTimeout(() => setShowTopupSuccess(false), 5000);
-      return () => clearTimeout(timer);
-    }
-  }, [searchParams, reload, reloadSparks]);
+  }, [searchParams, reload]);
 
   return (
     <div className="space-y-8">
       <div>
         <h1 className="text-3xl font-bold tracking-tight">Settings</h1>
-        <p className="text-muted-foreground">Manage your account and billing</p>
+        <p className="text-muted-foreground">Manage your companion and account</p>
       </div>
 
-      {/* Success Banners */}
+      {/* Success Banner */}
       {showSuccess && (
         <Card className="border-green-500/50 bg-green-500/10">
           <CardContent className="p-4 flex items-center gap-3">
             <CheckCircle2 className="h-5 w-5 text-green-500 shrink-0" />
             <div>
               <p className="font-medium text-green-700 dark:text-green-400">
-                Welcome to ep-0 Premium!
+                Welcome to Premium!
               </p>
               <p className="text-sm text-green-600 dark:text-green-500">
-                Your subscription is now active. 100 Sparks have been added to your account.
-              </p>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {showTopupSuccess && (
-        <Card className="border-amber-500/50 bg-amber-500/10">
-          <CardContent className="p-4 flex items-center gap-3">
-            <Sparkles className="h-5 w-5 text-amber-500 shrink-0" />
-            <div>
-              <p className="font-medium text-amber-700 dark:text-amber-400">
-                Sparks Added!
-              </p>
-              <p className="text-sm text-amber-600 dark:text-amber-500">
-                Your Spark pack has been credited to your account.
+                Your subscription is now active.
               </p>
             </div>
           </CardContent>
@@ -217,6 +216,14 @@ export default function SettingsPage() {
 
       <Tabs value={activeTab} onValueChange={handleTabChange}>
         <TabsList className="grid w-full grid-cols-4 max-w-lg">
+          <TabsTrigger value="preferences" className="gap-2">
+            <Settings2 className="h-4 w-4" />
+            Preferences
+          </TabsTrigger>
+          <TabsTrigger value="notifications" className="gap-2">
+            <Bell className="h-4 w-4" />
+            Channels
+          </TabsTrigger>
           <TabsTrigger value="billing" className="gap-2">
             <CreditCard className="h-4 w-4" />
             Billing
@@ -225,90 +232,192 @@ export default function SettingsPage() {
             <User className="h-4 w-4" />
             Account
           </TabsTrigger>
-          <TabsTrigger value="preferences" className="gap-2">
-            <Settings2 className="h-4 w-4" />
-            Preferences
-          </TabsTrigger>
-          <TabsTrigger value="help" className="gap-2">
-            <HelpCircle className="h-4 w-4" />
-            Help
-          </TabsTrigger>
         </TabsList>
 
-        {/* Billing Tab */}
-        <TabsContent value="billing" className="space-y-6">
-          {/* Spark Balance */}
+        {/* Preferences Tab */}
+        <TabsContent value="preferences" className="space-y-6">
+          {/* Companion Settings */}
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <Sparkles className="h-5 w-5 text-amber-500" />
-                Your Sparks
+                <MessageCircle className="h-5 w-5 text-muted-foreground" />
+                Companion Settings
               </CardTitle>
               <CardDescription>
-                Sparks are used for AI image generation (1 Spark = 1 image)
+                Personalize your companion experience
               </CardDescription>
             </CardHeader>
-            <CardContent>
-              <div className="flex items-center justify-between p-4 rounded-lg bg-gradient-to-r from-purple-500/10 to-pink-500/10 border border-purple-500/20">
-                <div className="space-y-1">
-                  <p className="text-sm text-muted-foreground">Current Balance</p>
-                  <div className="flex items-center gap-2">
-                    <Sparkles className="h-6 w-6 text-amber-500" />
-                    <span className="text-3xl font-bold">{sparkBalance}</span>
-                    <span className="text-muted-foreground">Sparks</span>
-                  </div>
-                </div>
-                <div className="text-right space-y-1">
-                  <p className="text-sm text-muted-foreground">Lifetime</p>
-                  <p className="text-sm">
-                    <span className="text-green-500">+{lifetimeEarned}</span> earned
-                    {" / "}
-                    <span className="text-red-400">-{lifetimeSpent}</span> spent
-                  </p>
-                </div>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="companionName">Companion Name</Label>
+                <Input
+                  id="companionName"
+                  type="text"
+                  placeholder="Give your companion a name"
+                  value={companionName}
+                  onChange={(e) => setCompanionName(e.target.value)}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Your companion will use this name when talking to you.
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="supportStyle">Support Style</Label>
+                <Select value={supportStyle} onValueChange={setSupportStyle}>
+                  <SelectTrigger id="supportStyle">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {SUPPORT_STYLES.map((style) => (
+                      <SelectItem key={style.value} value={style.value}>
+                        <div className="flex flex-col">
+                          <span className="font-medium">{style.label}</span>
+                          <span className="text-xs text-muted-foreground">{style.description}</span>
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
             </CardContent>
           </Card>
 
-          {/* Subscription Plan */}
+          {/* Message Schedule */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Clock className="h-5 w-5 text-muted-foreground" />
+                Message Schedule
+              </CardTitle>
+              <CardDescription>
+                When should your companion reach out?
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="timezone">Timezone</Label>
+                <Select value={timezone} onValueChange={setTimezone}>
+                  <SelectTrigger id="timezone">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {TIMEZONES.map((tz) => (
+                      <SelectItem key={tz.value} value={tz.value}>
+                        {tz.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="preferredTime">Preferred Message Time</Label>
+                <Input
+                  id="preferredTime"
+                  type="time"
+                  value={preferredTime}
+                  onChange={(e) => setPreferredTime(e.target.value)}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Your companion will send a daily message around this time.
+                </p>
+              </div>
+
+              <div className="flex items-center gap-3">
+                <Button onClick={handleSavePreferences} disabled={isSaving}>
+                  {isSaving && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+                  Save Preferences
+                </Button>
+                {saveSuccess && (
+                  <span className="text-sm text-green-500 flex items-center gap-1">
+                    <CheckCircle2 className="h-4 w-4" />
+                    Saved
+                  </span>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Notifications/Channels Tab */}
+        <TabsContent value="notifications" className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Bell className="h-5 w-5 text-muted-foreground" />
+                Message Channels
+              </CardTitle>
+              <CardDescription>
+                How do you want to receive messages from your companion?
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {/* Telegram */}
+              <div className="flex items-center justify-between p-4 rounded-lg border">
+                <div className="flex items-center gap-3">
+                  <div className="h-10 w-10 rounded-full bg-blue-500 flex items-center justify-center">
+                    <svg className="h-5 w-5 text-white" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm4.64 6.8c-.15 1.58-.8 5.42-1.13 7.19-.14.75-.42 1-.68 1.03-.58.05-1.02-.38-1.58-.75-.88-.58-1.38-.94-2.23-1.5-.99-.65-.35-1.01.22-1.59.15-.15 2.71-2.48 2.76-2.69a.2.2 0 00-.05-.18c-.06-.05-.14-.03-.21-.02-.09.02-1.49.95-4.22 2.79-.4.27-.76.41-1.08.4-.36-.01-1.04-.2-1.55-.37-.63-.2-1.12-.31-1.08-.66.02-.18.27-.36.74-.55 2.92-1.27 4.86-2.11 5.83-2.51 2.78-1.16 3.35-1.36 3.73-1.36.08 0 .27.02.39.12.1.08.13.19.14.27-.01.06.01.24 0 .38z"/>
+                    </svg>
+                  </div>
+                  <div>
+                    <p className="font-medium">Telegram</p>
+                    <p className="text-sm text-muted-foreground">Primary messaging channel</p>
+                  </div>
+                </div>
+                <Button variant="outline">
+                  Connect
+                </Button>
+              </div>
+
+              {/* Web Chat */}
+              <div className="flex items-center justify-between p-4 rounded-lg border">
+                <div className="flex items-center gap-3">
+                  <div className="h-10 w-10 rounded-full bg-primary flex items-center justify-center">
+                    <MessageCircle className="h-5 w-5 text-primary-foreground" />
+                  </div>
+                  <div>
+                    <p className="font-medium">Web Chat</p>
+                    <p className="text-sm text-muted-foreground">Chat directly on the website</p>
+                  </div>
+                </div>
+                <span className="text-sm text-green-500 flex items-center gap-1">
+                  <CheckCircle2 className="h-4 w-4" />
+                  Available
+                </span>
+              </div>
+
+              {/* WhatsApp (Coming Soon) */}
+              <div className="flex items-center justify-between p-4 rounded-lg border opacity-50">
+                <div className="flex items-center gap-3">
+                  <div className="h-10 w-10 rounded-full bg-green-500 flex items-center justify-center">
+                    <svg className="h-5 w-5 text-white" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
+                    </svg>
+                  </div>
+                  <div>
+                    <p className="font-medium">WhatsApp</p>
+                    <p className="text-sm text-muted-foreground">Coming soon</p>
+                  </div>
+                </div>
+                <span className="text-sm text-muted-foreground">Coming Soon</span>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Billing Tab */}
+        <TabsContent value="billing" className="space-y-6">
           <Card>
             <CardHeader>
               <CardTitle>Your Plan</CardTitle>
               <CardDescription>
-                Premium members get 100 Sparks per month
+                Manage your subscription
               </CardDescription>
             </CardHeader>
             <CardContent>
               <SubscriptionCard />
-            </CardContent>
-          </Card>
-
-          {/* Top-up Packs */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Buy More Sparks</CardTitle>
-              <CardDescription>
-                One-time purchase, no subscription required
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <TopupPacks />
-            </CardContent>
-          </Card>
-
-          {/* Transaction History */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <History className="h-5 w-5 text-muted-foreground" />
-                Transaction History
-              </CardTitle>
-              <CardDescription>
-                Your recent spark activity and purchases
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <TransactionHistory />
             </CardContent>
           </Card>
         </TabsContent>
@@ -323,7 +432,7 @@ export default function SettingsPage() {
                 Profile
               </CardTitle>
               <CardDescription>
-                Your public profile information
+                Your account information
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -339,9 +448,6 @@ export default function SettingsPage() {
                   disabled
                   className="bg-muted"
                 />
-                <p className="text-xs text-muted-foreground">
-                  Email cannot be changed. Contact support if needed.
-                </p>
               </div>
 
               <div className="space-y-2">
@@ -356,10 +462,7 @@ export default function SettingsPage() {
               </div>
 
               <div className="flex items-center gap-3">
-                <Button
-                  onClick={handleSaveProfile}
-                  disabled={isSaving}
-                >
+                <Button onClick={handleSaveProfile} disabled={isSaving}>
                   {isSaving && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
                   Save Changes
                 </Button>
@@ -373,40 +476,6 @@ export default function SettingsPage() {
             </CardContent>
           </Card>
 
-          {/* Account Info */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Clock className="h-5 w-5 text-muted-foreground" />
-                Account Info
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">Member since</span>
-                <span>
-                  {user?.created_at
-                    ? new Date(user.created_at).toLocaleDateString("en-US", {
-                        month: "long",
-                        day: "numeric",
-                        year: "numeric",
-                      })
-                    : "—"}
-                </span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">Subscription</span>
-                <span className="capitalize">
-                  {user?.subscription_status || "Free"}
-                </span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">Timezone</span>
-                <span>{user?.timezone || "Auto"}</span>
-              </div>
-            </CardContent>
-          </Card>
-
           {/* Danger Zone */}
           <Card className="border-red-500/30">
             <CardHeader>
@@ -415,10 +484,10 @@ export default function SettingsPage() {
                 Danger Zone
               </CardTitle>
               <CardDescription>
-                Irreversible actions that affect your account
+                Irreversible actions
               </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4">
+            <CardContent>
               <div className="rounded-lg border border-red-500/30 bg-red-500/5 p-4">
                 <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                   <div className="space-y-1">
@@ -426,8 +495,7 @@ export default function SettingsPage() {
                       Delete Account
                     </p>
                     <p className="text-sm text-muted-foreground">
-                      Permanently delete your account and all associated data.
-                      This action cannot be undone.
+                      Permanently delete your account and all data.
                     </p>
                   </div>
                   <Button
@@ -443,134 +511,9 @@ export default function SettingsPage() {
             </CardContent>
           </Card>
         </TabsContent>
-
-        {/* Preferences Tab */}
-        <TabsContent value="preferences" className="space-y-6">
-          {/* Visual Experience */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Image className="h-5 w-5 text-muted-foreground" />
-                Visual Experience
-              </CardTitle>
-              <CardDescription>
-                Control how images appear during episodes (experimental)
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              {/* Auto-Generated Images Setting */}
-              <div className="space-y-3">
-                <div className="space-y-1">
-                  <Label htmlFor="visual-mode" className="text-base font-medium">
-                    Auto-generated images
-                  </Label>
-                  <p className="text-sm text-muted-foreground">
-                    Control when images are automatically generated during episodes.
-                  </p>
-                </div>
-                <div className="flex items-center gap-3">
-                  <Select
-                    value={visualModeOverride}
-                    onValueChange={handleVisualModeChange}
-                    disabled={isSavingPrefs}
-                  >
-                    <SelectTrigger id="visual-mode" className="w-full max-w-md">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="episode_default">
-                        <div className="flex flex-col gap-1">
-                          <span className="font-medium">Off (Default)</span>
-                          <span className="text-xs text-muted-foreground">No auto-generation, manual only</span>
-                        </div>
-                      </SelectItem>
-                      <SelectItem value="always_on">
-                        <div className="flex flex-col gap-1">
-                          <span className="font-medium">Enabled (Experimental)</span>
-                          <span className="text-xs text-muted-foreground">Auto-generate at 25%, 50%, 75%</span>
-                        </div>
-                      </SelectItem>
-                    </SelectContent>
-                  </Select>
-                  {isSavingPrefs && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
-                  {prefsSaveSuccess && (
-                    <span className="text-sm text-green-500 flex items-center gap-1">
-                      <CheckCircle2 className="h-4 w-4" />
-                      Saved
-                    </span>
-                  )}
-                </div>
-              </div>
-
-              {/* Warning Banner */}
-              <div className="rounded-lg bg-amber-500/10 border border-amber-500/20 p-4">
-                <div className="flex gap-3">
-                  <AlertCircle className="h-5 w-5 text-amber-500 shrink-0 mt-0.5" />
-                  <div className="space-y-2">
-                    <p className="text-sm font-medium text-amber-700 dark:text-amber-400">
-                      Experimental Feature
-                    </p>
-                    <div className="text-sm text-amber-600 dark:text-amber-500 space-y-1">
-                      <p>
-                        <strong>Generation time:</strong> 5-10 seconds per image (may pause conversation flow)
-                      </p>
-                      <p>
-                        <strong>Quality:</strong> Improving but not yet consistent. Some images may not match the moment well.
-                      </p>
-                      <p className="mt-2">
-                        <strong>Alternative:</strong> Manual "Capture Moment" generation (1 Spark) offers higher quality with more control.
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Info about defaults */}
-              <div className="text-sm text-muted-foreground space-y-2">
-                <p>
-                  <strong>Default behavior:</strong> Auto-generation is disabled for all episodes. This setting applies globally to all characters and episodes when enabled.
-                </p>
-                <p>
-                  <strong>Manual generation:</strong> Always available regardless of this setting. Use the "Capture Moment" button during chat to generate high-quality images on demand.
-                </p>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        {/* Help Tab */}
-        <TabsContent value="help" className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <HelpCircle className="h-5 w-5 text-muted-foreground" />
-                Contact Us
-              </CardTitle>
-              <CardDescription>
-                Have questions, feedback, or need help? We'd love to hear from you.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <p className="text-sm text-muted-foreground">
-                Use our contact form to reach our team. We typically respond within 24-48 hours.
-              </p>
-              <Button asChild>
-                <a
-                  href="https://tally.so/r/kd9Xgj"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="gap-2"
-                >
-                  Open Contact Form
-                  <ExternalLink className="h-4 w-4" />
-                </a>
-              </Button>
-            </CardContent>
-          </Card>
-        </TabsContent>
       </Tabs>
 
-      {/* Delete Account Confirmation Modal */}
+      {/* Delete Account Modal */}
       <Dialog open={showDeleteModal} onOpenChange={setShowDeleteModal}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
@@ -584,7 +527,6 @@ export default function SettingsPage() {
           </DialogHeader>
 
           <div className="space-y-4 py-4">
-            {/* Warning */}
             <div className="rounded-lg bg-red-500/10 border border-red-500/20 p-4 text-sm space-y-2">
               <p className="font-medium text-red-700 dark:text-red-400">
                 This will permanently delete:
@@ -592,13 +534,11 @@ export default function SettingsPage() {
               <ul className="list-disc list-inside text-red-600 dark:text-red-500 space-y-1">
                 <li>Your account and profile</li>
                 <li>All chat history and messages</li>
-                <li>All memories and saved moments</li>
-                <li>Your Spark balance and transaction history</li>
-                <li>Any active subscription (will be cancelled)</li>
+                <li>All memories and context</li>
+                <li>Your subscription (will be cancelled)</li>
               </ul>
             </div>
 
-            {/* Reason (optional) */}
             <div className="space-y-2">
               <Label htmlFor="delete-reason" className="text-muted-foreground">
                 Why are you leaving? (optional)
@@ -612,13 +552,12 @@ export default function SettingsPage() {
                   <SelectItem value="found_alternative">Found an alternative</SelectItem>
                   <SelectItem value="privacy">Privacy concerns</SelectItem>
                   <SelectItem value="too_expensive">Too expensive</SelectItem>
-                  <SelectItem value="not_satisfied">Not satisfied with the experience</SelectItem>
+                  <SelectItem value="not_satisfied">Not satisfied</SelectItem>
                   <SelectItem value="other">Other</SelectItem>
                 </SelectContent>
               </Select>
             </div>
 
-            {/* Confirmation input */}
             <div className="space-y-2">
               <Label htmlFor="delete-confirmation">
                 Type <span className="font-mono font-bold text-red-600">DELETE</span> to confirm
@@ -633,7 +572,6 @@ export default function SettingsPage() {
               />
             </div>
 
-            {/* Error message */}
             {deleteError && (
               <p className="text-sm text-red-600 dark:text-red-400">{deleteError}</p>
             )}

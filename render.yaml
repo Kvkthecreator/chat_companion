@@ -1,14 +1,14 @@
-# render.yaml - Fantazy API Configuration
-# Cozy Companion Backend - AI characters that remember your story
+# render.yaml - Chat Companion API Configuration
+# Push-based AI Companion - Daily check-ins via Telegram/WhatsApp/Web
 
 services:
-  # Fantazy API - FastAPI Backend
+  # Chat Companion API - FastAPI Backend
   - type: web
-    name: fantazy-api
+    name: companion-api
     runtime: python
     buildCommand: pip install --upgrade pip && pip install -r requirements.txt
     startCommand: cd src && uvicorn app.main:app --host 0.0.0.0 --port $PORT
-    rootDir: substrate-api/api
+    rootDir: api/api
     envVars:
       # Supabase Configuration
       - key: SUPABASE_URL
@@ -16,7 +16,7 @@ services:
       - key: SUPABASE_SERVICE_ROLE_KEY
         sync: false
       - key: SUPABASE_JWT_SECRET
-        sync: false  # CRITICAL: Required for JWT authentication
+        sync: false
       - key: SUPABASE_JWT_AUD
         value: authenticated
       # Database
@@ -25,6 +25,51 @@ services:
       # CORS - Frontend origins (comma-separated)
       - key: CORS_ORIGINS
         sync: false
-      # Optional: OpenAI for AI features
+      # LLM Providers
       - key: OPENAI_API_KEY
+        sync: false
+      - key: GOOGLE_API_KEY
+        sync: false
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      # Telegram Bot
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false
+      - key: TELEGRAM_WEBHOOK_SECRET
+        sync: false
+      # Weather API
+      - key: OPENWEATHER_API_KEY
+        sync: false
+      # LemonSqueezy
+      - key: LEMONSQUEEZY_API_KEY
+        sync: false
+      - key: LEMONSQUEEZY_STORE_ID
+        sync: false
+      - key: LEMONSQUEEZY_VARIANT_ID
+        sync: false
+      - key: LEMONSQUEEZY_WEBHOOK_SECRET
+        sync: false
+
+  # Message Scheduler - Cron job for daily messages
+  - type: cron
+    name: message-scheduler
+    runtime: python
+    schedule: "* * * * *"  # Every minute
+    buildCommand: pip install --upgrade pip && pip install -r requirements.txt
+    startCommand: cd src && python -m app.jobs.scheduler
+    rootDir: api/api
+    envVars:
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: DATABASE_URL
+        sync: false
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: GOOGLE_API_KEY
+        sync: false
+      - key: OPENWEATHER_API_KEY
         sync: false
