@@ -13,6 +13,32 @@ from app.dependencies import get_current_user_id
 router = APIRouter(prefix="/conversations", tags=["Conversations"])
 
 
+class MessageCreate(BaseModel):
+    """Request body for sending a message."""
+    content: str
+
+
+class MessageResponse(BaseModel):
+    """Response for a message."""
+    id: str
+    role: str
+    content: str
+    created_at: str
+
+
+class ConversationResponse(BaseModel):
+    """Response for a conversation."""
+    id: str
+    user_id: str
+    channel: str
+    started_at: str
+    ended_at: Optional[str] = None
+    message_count: int
+    initiated_by: str
+    mood_summary: Optional[str] = None
+    topics: list = []
+
+
 @router.get("", response_model=list[ConversationResponse])
 async def list_conversations(
     limit: int = 10,
@@ -44,32 +70,6 @@ async def list_conversations(
             topics=json.loads(conv["topics"]) if conv.get("topics") else [],
         ))
     return result
-
-
-class MessageCreate(BaseModel):
-    """Request body for sending a message."""
-    content: str
-
-
-class MessageResponse(BaseModel):
-    """Response for a message."""
-    id: str
-    role: str
-    content: str
-    created_at: str
-
-
-class ConversationResponse(BaseModel):
-    """Response for a conversation."""
-    id: str
-    user_id: str
-    channel: str
-    started_at: str
-    ended_at: Optional[str] = None
-    message_count: int
-    initiated_by: str
-    mood_summary: Optional[str] = None
-    topics: list = []
 
 
 @router.post("/send", response_model=MessageResponse)
