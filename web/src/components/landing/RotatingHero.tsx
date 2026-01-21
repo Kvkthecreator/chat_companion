@@ -5,22 +5,22 @@ import Link from "next/link";
 
 const HERO_MESSAGES = [
   {
-    character: "Luna",
-    avatar: "/avatars/luna.png",
-    message: "The stars told me you'd come. But they didn't mention you'd be this interesting...",
-    story: "Celestial Academy",
+    character: "Your Companion",
+    avatar: "/avatars/companion.png",
+    message: "Hey! Just checking in. How's your day going so far?",
+    story: "Daily Check-in",
   },
   {
-    character: "Marcus",
-    avatar: "/avatars/marcus.png",
-    message: "I've been waiting 300 years for someone like you to walk through that door.",
-    story: "Midnight Society",
+    character: "Your Companion",
+    avatar: "/avatars/companion.png",
+    message: "I remembered you mentioned that big meeting today. How did it go?",
+    story: "Remembers You",
   },
   {
-    character: "Kai",
-    avatar: "/avatars/kai.png",
-    message: "You're the first person to actually listen. Most people just... talk.",
-    story: "Lost Connections",
+    character: "Your Companion",
+    avatar: "/avatars/companion.png",
+    message: "It's been a few days - wanted to see how you're doing. Everything okay?",
+    story: "Always There",
   },
 ];
 
@@ -50,19 +50,19 @@ export function RotatingHero() {
               <span className="relative inline-flex h-2 w-2 rounded-full bg-green-500" />
             </span>
             <span className="text-sm font-medium text-purple-700 dark:text-purple-300">
-              Free to play
+              Always there for you
             </span>
           </div>
 
           <h1 className="text-4xl font-bold tracking-tight text-foreground sm:text-5xl lg:text-6xl">
-            Stories that{" "}
+            An AI friend that{" "}
             <span className="bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
-              remember you
+              reaches out
             </span>
           </h1>
 
           <p className="text-lg text-muted-foreground max-w-md">
-            Chat with AI characters who remember your choices. Every conversation shapes your story.
+            Your companion checks in daily, remembers your life, and is always there when you need someone to talk to.
           </p>
 
           <div className="flex flex-wrap gap-4">
@@ -70,7 +70,7 @@ export function RotatingHero() {
               href="/login?next=/dashboard"
               className="inline-flex items-center gap-2 rounded-full bg-purple-600 px-6 py-3 text-sm font-semibold text-white shadow-lg shadow-purple-500/25 transition hover:bg-purple-700 hover:shadow-purple-500/40"
             >
-              Start your story
+              Get your companion
               <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
               </svg>

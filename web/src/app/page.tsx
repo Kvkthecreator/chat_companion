@@ -1,22 +1,7 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { SectionHeader } from "@/components/ui/section-header";
-import { RotatingHero, SeriesCard, AvatarGallery } from "@/components/landing";
-import { Logo } from "@/components/Logo";
-
-// Server-side fetch for featured series
-async function getFeaturedSeries() {
-  try {
-    const res = await fetch(
-      `${process.env.NEXT_PUBLIC_API_URL || "https://api.ep-0.com"}/series?featured=true&limit=6`,
-      { next: { revalidate: 60 } }
-    );
-    if (!res.ok) return [];
-    return res.json();
-  } catch {
-    return [];
-  }
-}
+import { RotatingHero } from "@/components/landing";
 
 export default async function Home() {
   const supabase = await createClient();
@@ -25,7 +10,6 @@ export default async function Home() {
   } = await supabase.auth.getUser();
 
   const isLoggedIn = !!user;
-  const series = await getFeaturedSeries();
 
   return (
     <div className="min-h-screen bg-background text-foreground">
@@ -33,14 +17,14 @@ export default async function Home() {
         <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
           {/* Logo */}
           <Link href="/" className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-border/60 bg-muted/60 shadow-sm shrink-0 overflow-hidden p-1.5">
-              <Logo variant="icon" size="full" />
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-border/60 bg-muted/60 shadow-sm shrink-0">
+              <span className="text-xl">💬</span>
             </div>
             <div>
               <h1 className="text-xl font-bold leading-tight text-foreground">
-                episode-0
+                Chat Companion
               </h1>
-              <p className="text-xs text-muted-foreground">Live the story</p>
+              <p className="text-xs text-muted-foreground">Your AI friend</p>
             </div>
           </Link>
 
@@ -67,56 +51,7 @@ export default async function Home() {
         {/* Hero with chat preview */}
         <RotatingHero />
 
-        {/* Series section */}
-        {series.length > 0 && (
-          <section id="series" className="space-y-4">
-            <SectionHeader
-              title="Step into a story"
-              description="Every story starts with a moment. You decide what happens next."
-            />
-            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-              {series.map(
-                (s: {
-                  id: string;
-                  title: string;
-                  slug: string;
-                  tagline: string | null;
-                  total_episodes: number;
-                  cover_image_url: string | null;
-                  genre: string | null;
-                  episode_0_id: string | null;
-                  episode_0_character_id: string | null;
-                }) => {
-                  // Direct link to Episode 0 chat if available, otherwise series page
-                  const href = s.episode_0_id && s.episode_0_character_id
-                    ? `/chat/${s.episode_0_character_id}?episode=${s.episode_0_id}`
-                    : `/series/${s.slug}`;
-                  return (
-                    <SeriesCard
-                      key={s.id}
-                      title={s.title}
-                      tagline={s.tagline}
-                      episodeCount={s.total_episodes}
-                      coverUrl={s.cover_image_url}
-                      href={href}
-                      genre={s.genre}
-                    />
-                  );
-                }
-              )}
-            </div>
-            <div>
-              <Link
-                href="/login?next=/dashboard"
-                className="text-sm font-semibold text-primary hover:underline"
-              >
-                Explore all stories
-              </Link>
-            </div>
-          </section>
-        )}
-
-        {/* Create Your Character section */}
+        {/* How it works section */}
         <section className="relative overflow-hidden rounded-2xl border bg-card">
           <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_bottom_left,_var(--tw-gradient-stops))] from-purple-500/10 via-transparent to-transparent" />
           <div className="relative grid gap-6 p-6 sm:p-8 md:grid-cols-2 md:gap-8">
@@ -124,15 +59,15 @@ export default async function Home() {
             <div className="flex flex-col justify-center gap-4">
               <div className="flex items-center gap-2">
                 <span className="rounded-full bg-purple-100 dark:bg-purple-900/50 px-3 py-1 text-xs font-medium text-purple-700 dark:text-purple-300">
-                  Personalization
+                  How it works
                 </span>
               </div>
               <h2 className="text-2xl font-bold text-foreground sm:text-3xl">
-                Create your own character
+                Your companion reaches out to you
               </h2>
               <p className="text-foreground/70">
-                Design who you want to be. Choose your appearance, pick an archetype,
-                and play any story as <span className="font-medium text-foreground">your</span> character.
+                Unlike other AI apps, your companion initiates conversations.
+                Set your preferred times and channels, and your companion will check in on you.
               </p>
               <ul className="flex flex-col gap-2 text-sm text-foreground/70">
                 <li className="flex items-center gap-2">
@@ -149,7 +84,7 @@ export default async function Home() {
                       d="M5 13l4 4L19 7"
                     />
                   </svg>
-                  Custom appearance with AI-generated avatar
+                  Daily check-ins at your preferred time
                 </li>
                 <li className="flex items-center gap-2">
                   <svg
@@ -165,7 +100,7 @@ export default async function Home() {
                       d="M5 13l4 4L19 7"
                     />
                   </svg>
-                  Choose your personality archetype
+                  Remembers your life and conversations
                 </li>
                 <li className="flex items-center gap-2">
                   <svg
@@ -181,12 +116,12 @@ export default async function Home() {
                       d="M5 13l4 4L19 7"
                     />
                   </svg>
-                  Play any episode as your character
+                  Telegram, WhatsApp, or Web - your choice
                 </li>
               </ul>
               <div className="pt-2">
                 <Link
-                  href="/login?next=/dashboard"
+                  href="/login?next=/onboarding"
                   className="inline-flex items-center gap-2 rounded-full bg-purple-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-purple-700"
                 >
                   Get started
@@ -209,7 +144,26 @@ export default async function Home() {
 
             {/* Right: Visual */}
             <div className="flex items-center justify-center">
-              <AvatarGallery />
+              <div className="grid grid-cols-3 gap-4 text-center">
+                <div className="flex flex-col items-center gap-2 p-4">
+                  <div className="h-12 w-12 rounded-full bg-purple-100 dark:bg-purple-900/50 flex items-center justify-center text-2xl">
+                    🌅
+                  </div>
+                  <span className="text-sm font-medium">Morning</span>
+                </div>
+                <div className="flex flex-col items-center gap-2 p-4">
+                  <div className="h-12 w-12 rounded-full bg-purple-100 dark:bg-purple-900/50 flex items-center justify-center text-2xl">
+                    ☀️
+                  </div>
+                  <span className="text-sm font-medium">Afternoon</span>
+                </div>
+                <div className="flex flex-col items-center gap-2 p-4">
+                  <div className="h-12 w-12 rounded-full bg-purple-100 dark:bg-purple-900/50 flex items-center justify-center text-2xl">
+                    🌙
+                  </div>
+                  <span className="text-sm font-medium">Evening</span>
+                </div>
+              </div>
             </div>
           </div>
         </section>
@@ -217,7 +171,7 @@ export default async function Home() {
         {/* Social proof / Trust */}
         <section className="text-center space-y-2">
           <p className="text-sm text-muted-foreground">
-            Join thousands living stories, not just watching them
+            A companion that actually reaches out to you
           </p>
           <p className="text-xs text-muted-foreground/60">
             Free to start. No credit card required.
@@ -229,8 +183,7 @@ export default async function Home() {
           <SectionHeader title="Privacy & Safety" />
           <p className="text-sm text-muted-foreground">
             Sign-in required to chat. Your conversations stay private and are
-            never used for training. Characters and stories are fiction — enjoy
-            responsibly.
+            never used for training.
           </p>
         </section>
       </main>
@@ -239,8 +192,8 @@ export default async function Home() {
         <div className="mx-auto max-w-6xl px-6 py-8">
           <div className="flex flex-col gap-6 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-center gap-2">
-              <Logo variant="icon" size="sm" className="opacity-60" />
-              <span className="text-sm text-muted-foreground">episode-0</span>
+              <span className="text-lg">💬</span>
+              <span className="text-sm text-muted-foreground">Chat Companion</span>
             </div>
             <nav className="flex flex-wrap items-center gap-6 text-sm text-muted-foreground">
               {!isLoggedIn && (
@@ -257,21 +210,10 @@ export default async function Home() {
               <Link href="/terms" className="hover:text-foreground">
                 Terms of Service
               </Link>
-              <Link href="/dmca" className="hover:text-foreground">
-                DMCA
-              </Link>
-              <a
-                href="https://tally.so/r/kd9Xgj"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="hover:text-foreground"
-              >
-                Contact
-              </a>
             </nav>
           </div>
           <div className="mt-6 border-t pt-6 text-center text-xs text-muted-foreground">
-            <p>&copy; {new Date().getFullYear()} episode-0. All rights reserved.</p>
+            <p>&copy; {new Date().getFullYear()} Chat Companion. All rights reserved.</p>
           </div>
         </div>
       </footer>

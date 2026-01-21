@@ -22,11 +22,11 @@ export interface OGThemeConfig {
 // =============================================================================
 
 export const BRAND = {
-  name: "Episode Zero",
-  shortName: "ep-0",
-  tagline: "Free AI stories that remember you",
-  url: process.env.NEXT_PUBLIC_SITE_URL || "https://ep-0.com",
-  features: ["100% Free", "No sign-up", "Characters remember"],
+  name: "Chat Companion",
+  shortName: "companion",
+  tagline: "Your AI friend that reaches out to you",
+  url: process.env.NEXT_PUBLIC_SITE_URL || "https://chat-companion-ep-0.vercel.app",
+  features: ["Daily check-ins", "Remembers you", "Always there"],
 };
 
 // =============================================================================
