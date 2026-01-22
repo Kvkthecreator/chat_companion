@@ -3,7 +3,7 @@
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import type { User } from "@supabase/supabase-js"
-import { Home, MessageCircle, Settings, ChevronLeft, ChevronRight } from "lucide-react"
+import { Home, MessageCircle, Brain, Settings, ChevronLeft, ChevronRight } from "lucide-react"
 import { ModeToggle } from "@/components/mode-toggle"
 import { UserMenu } from "@/components/UserMenu"
 import { Logo } from "@/components/Logo"
@@ -13,6 +13,7 @@ import { useState, useEffect } from "react"
 const navigation = [
   { name: "Home", href: "/dashboard", icon: Home },
   { name: "Chat", href: "/chat", icon: MessageCircle },
+  { name: "Memory", href: "/memory", icon: Brain },
   { name: "Settings", href: "/settings", icon: Settings },
 ]
 
