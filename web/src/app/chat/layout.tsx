@@ -2,11 +2,10 @@ import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import { Sidebar } from '@/components/Sidebar'
 import { MobileBottomNav } from '@/components/MobileBottomNav'
-import { ImmersiveLayoutWrapper } from '@/components/ImmersiveLayoutWrapper'
 
 export const dynamic = 'force-dynamic'
 
-export default async function DashboardLayout({
+export default async function ChatLayout({
   children,
 }: {
   children: React.ReactNode
@@ -31,9 +30,17 @@ export default async function DashboardLayout({
 
   return (
     <>
-      <ImmersiveLayoutWrapper sidebar={<Sidebar user={user} />}>
-        {children}
-      </ImmersiveLayoutWrapper>
+      <div className="flex h-[100dvh] bg-background text-foreground">
+        {/* Sidebar - hidden on mobile, visible on md+ */}
+        <div className="hidden md:block">
+          <Sidebar user={user} variant="immersive" />
+        </div>
+        {/* Main content - full height */}
+        <main className="flex-1 min-w-0 h-full overflow-hidden">
+          {children}
+        </main>
+      </div>
+      {/* Mobile bottom nav - only visible on mobile */}
       <MobileBottomNav />
     </>
   )

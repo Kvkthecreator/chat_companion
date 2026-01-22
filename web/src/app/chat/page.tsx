@@ -116,7 +116,7 @@ export default function ChatPage() {
 
   if (isLoading) {
     return (
-      <div className="flex h-screen flex-col">
+      <div className="flex h-full flex-col">
         <div className="flex items-center justify-between border-b px-6 py-4">
           <Skeleton className="h-6 w-32" />
           <Skeleton className="h-9 w-20" />
@@ -131,7 +131,7 @@ export default function ChatPage() {
   }
 
   return (
-    <div className="flex h-screen flex-col bg-background">
+    <div className="flex h-full flex-col bg-background">
       {/* Header */}
       <div className="flex items-center justify-between border-b px-6 py-4">
         <div className="flex items-center gap-3">
@@ -188,8 +188,8 @@ export default function ChatPage() {
         </div>
       </div>
 
-      {/* Input */}
-      <div className="border-t p-4">
+      {/* Input - extra bottom padding on mobile for bottom nav */}
+      <div className="border-t p-4 pb-20 md:pb-4">
         <div className="mx-auto flex max-w-2xl gap-3">
           <Textarea
             value={input}

@@ -191,7 +191,7 @@ export default function SettingsPage() {
   }, [searchParams, reload]);
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-8 pb-20 md:pb-0">
       <div>
         <h1 className="text-3xl font-bold tracking-tight">Settings</h1>
         <p className="text-muted-foreground">Manage your companion and account</p>

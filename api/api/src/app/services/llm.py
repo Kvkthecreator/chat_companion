@@ -646,8 +646,12 @@ class LLMService:
         api_key_var = cls.API_KEY_ENV_VARS.get(provider_enum)
         api_key = os.getenv(api_key_var) if api_key_var else None
 
+        # Fallback for Google: also check GEMINI_API_KEY
+        if provider_enum == LLMProvider.GOOGLE and not api_key:
+            api_key = os.getenv("GEMINI_API_KEY")
+
         if api_key_var and not api_key:
-            log.warning(f"No API key found for {provider} (expected {api_key_var})")
+            log.warning(f"No API key found for {provider} (expected {api_key_var} or GEMINI_API_KEY)")
 
         return LLMConfig(
             provider=provider_enum,

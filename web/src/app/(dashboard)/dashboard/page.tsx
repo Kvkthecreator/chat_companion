@@ -60,7 +60,7 @@ export default function DashboardPage() {
   };
 
   return (
-    <div className="mx-auto max-w-2xl px-6 py-8">
+    <div className="mx-auto max-w-2xl pb-20 md:pb-0">
       {/* Header */}
       <div className="mb-8 flex items-center justify-between">
         <div>
@@ -179,7 +179,7 @@ export default function DashboardPage() {
 
 function DashboardSkeleton() {
   return (
-    <div className="mx-auto max-w-2xl px-6 py-8 space-y-6">
+    <div className="mx-auto max-w-2xl space-y-6">
       <div className="flex items-center justify-between">
         <div className="space-y-2">
           <Skeleton className="h-8 w-48" />
