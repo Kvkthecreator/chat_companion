@@ -3,7 +3,7 @@
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import type { User } from "@supabase/supabase-js"
-import { BookOpen, Compass, Images, LayoutDashboard, MessageCircle, ChevronLeft, ChevronRight, UserCircle2 } from "lucide-react"
+import { Home, MessageCircle, Settings, ChevronLeft, ChevronRight } from "lucide-react"
 import { ModeToggle } from "@/components/mode-toggle"
 import { UserMenu } from "@/components/UserMenu"
 import { Logo } from "@/components/Logo"
@@ -11,13 +11,9 @@ import { cn } from "@/lib/utils"
 import { useState, useEffect } from "react"
 
 const navigation = [
-  { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
-  { name: "Discover", href: "/discover", icon: Compass },
-  { name: "My Series", href: "/dashboard/series", icon: BookOpen },
-  { name: "Just Chat", href: "/dashboard/chats", icon: MessageCircle },
-  { name: "My Characters", href: "/my-characters", icon: UserCircle2 },
-  { name: "Gallery", href: "/dashboard/story", icon: Images },
-  // Memories page still exists at /dashboard/memories for debugging, but hidden from nav
+  { name: "Home", href: "/dashboard", icon: Home },
+  { name: "Chat", href: "/chat", icon: MessageCircle },
+  { name: "Settings", href: "/settings", icon: Settings },
 ]
 
 export function Sidebar({ user, variant = "default" }: { user: User; variant?: "default" | "immersive" }) {
@@ -80,9 +76,9 @@ export function Sidebar({ user, variant = "default" }: { user: User; variant?: "
           {!isCollapsed && (
             <div>
               <h1 className="text-xl font-bold leading-tight text-foreground">
-                episode-0
+                Companion
               </h1>
-              <p className="text-xs text-muted-foreground">Your story awaits</p>
+              <p className="text-xs text-muted-foreground">Your AI friend</p>
             </div>
           )}
         </Link>
