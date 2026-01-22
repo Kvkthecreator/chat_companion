@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { useRouter } from "next/navigation";
+import { useParams } from "next/navigation";
 import Link from "next/link";
 import { api, User, Message } from "@/lib/api/client";
 import { Button } from "@/components/ui/button";
@@ -9,47 +9,39 @@ import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
 
 export default function ChatPage() {
-  const router = useRouter();
+  const params = useParams();
+  const conversationId = params.id as string;
+
   const [user, setUser] = useState<User | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
-  const [conversationId, setConversationId] = useState<string | null>(null);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [isSending, setIsSending] = useState(false);
   const [streamingContent, setStreamingContent] = useState("");
+  const [error, setError] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // Load user and start/resume conversation
+  // Load user and conversation messages
   useEffect(() => {
     const init = async () => {
       try {
         const userData = await api.users.me();
         setUser(userData);
 
-        // Try to get recent conversations
-        const conversations = await api.conversations.list({ limit: 1 });
-
-        if (conversations.length > 0) {
-          // Resume most recent conversation
-          const conv = conversations[0];
-          setConversationId(conv.id);
-
-          // Load messages
-          const msgs = await api.conversations.getMessages(conv.id, { limit: 50 });
-          setMessages(msgs.reverse()); // API returns newest first
-        } else {
-          // Create new conversation
-          const newConv = await api.conversations.create("web");
-          setConversationId(newConv.id);
-        }
+        // Load messages for this specific conversation
+        const msgs = await api.conversations.getMessages(conversationId, { limit: 50 });
+        setMessages(msgs.reverse()); // API returns newest first
       } catch (err) {
-        console.error("Failed to init chat:", err);
+        console.error("Failed to load conversation:", err);
+        setError("Conversation not found");
       }
       setIsLoading(false);
     };
 
-    init();
-  }, []);
+    if (conversationId) {
+      init();
+    }
+  }, [conversationId]);
 
   // Scroll to bottom on new messages
   useEffect(() => {
@@ -132,6 +124,17 @@ export default function ChatPage() {
     );
   }
 
+  if (error) {
+    return (
+      <div className="flex h-full flex-col items-center justify-center gap-4">
+        <p className="text-muted-foreground">{error}</p>
+        <Link href="/dashboard">
+          <Button>Back to Dashboard</Button>
+        </Link>
+      </div>
+    );
+  }
+
   return (
     <div className="flex h-full flex-col bg-background">
       {/* Header */}
@@ -190,7 +193,7 @@ export default function ChatPage() {
         </div>
       </div>
 
-      {/* Input - extra bottom padding on mobile for bottom nav */}
+      {/* Input */}
       <div className="border-t p-4 pb-20 md:pb-4">
         <div className="mx-auto flex max-w-2xl gap-3">
           <Textarea
