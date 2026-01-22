@@ -184,6 +184,10 @@ class UserUpdate(BaseModel):
     preferences: Optional[UserPreferences] = None
     onboarding_completed: Optional[bool] = None
     onboarding_step: Optional[str] = None
+    # Companion settings
+    companion_name: Optional[str] = None
+    support_style: Optional[str] = None
+    preferred_message_time: Optional[str] = None
 
 
 class OnboardingData(BaseModel):

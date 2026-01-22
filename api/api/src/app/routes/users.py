@@ -93,6 +93,19 @@ async def update_current_user(
         updates.append("onboarding_step = :onboarding_step")
         values["onboarding_step"] = data.onboarding_step
 
+    # Companion settings
+    if data.companion_name is not None:
+        updates.append("companion_name = :companion_name")
+        values["companion_name"] = data.companion_name
+
+    if data.support_style is not None:
+        updates.append("support_style = :support_style")
+        values["support_style"] = data.support_style
+
+    if data.preferred_message_time is not None:
+        updates.append("preferred_message_time = :preferred_message_time")
+        values["preferred_message_time"] = data.preferred_message_time
+
     if not updates:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
