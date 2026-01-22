@@ -73,6 +73,8 @@ export default function SettingsPage() {
   const [companionName, setCompanionName] = useState("");
   const [timezone, setTimezone] = useState("America/New_York");
   const [preferredTime, setPreferredTime] = useState("09:00");
+  const [timeFlexibility, setTimeFlexibility] = useState<"exact" | "around" | "window">("exact");
+  const [timeWindow, setTimeWindow] = useState<"morning" | "midday" | "evening" | "night">("morning");
   const [supportStyle, setSupportStyle] = useState("friendly_checkin");
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
@@ -101,6 +103,8 @@ export default function SettingsPage() {
       setCompanionName(user.companion_name || "");
       setTimezone(user.timezone || "America/New_York");
       setPreferredTime(user.preferred_message_time || "09:00");
+      setTimeFlexibility(user.message_time_flexibility || "exact");
+      setTimeWindow(user.message_time_window || "morning");
       setSupportStyle(user.support_style || "friendly_checkin");
     }
   }, [user]);
@@ -129,6 +133,8 @@ export default function SettingsPage() {
       await updateUser({
         timezone,
         preferred_message_time: preferredTime,
+        message_time_flexibility: timeFlexibility,
+        message_time_window: timeFlexibility === "window" ? timeWindow : undefined,
         support_style: supportStyle,
       });
       setSaveSuccess(true);
@@ -311,17 +317,85 @@ export default function SettingsPage() {
                 </Select>
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="preferredTime">Preferred Message Time</Label>
-                <Input
-                  id="preferredTime"
-                  type="time"
-                  value={preferredTime}
-                  onChange={(e) => setPreferredTime(e.target.value)}
-                />
-                <p className="text-xs text-muted-foreground">
-                  Your companion will send a daily message around this time.
-                </p>
+              <div className="space-y-3">
+                <Label>Message Timing</Label>
+                <div className="space-y-2">
+                  <label className="flex items-center gap-3 p-3 rounded-lg border cursor-pointer hover:bg-muted/50 transition-colors">
+                    <input
+                      type="radio"
+                      name="timeFlexibility"
+                      value="exact"
+                      checked={timeFlexibility === "exact"}
+                      onChange={() => setTimeFlexibility("exact")}
+                      className="h-4 w-4"
+                    />
+                    <div className="flex-1">
+                      <p className="font-medium text-sm">At a specific time</p>
+                      <p className="text-xs text-muted-foreground">Message arrives at the exact time you choose</p>
+                    </div>
+                    {timeFlexibility === "exact" && (
+                      <Input
+                        type="time"
+                        value={preferredTime}
+                        onChange={(e) => setPreferredTime(e.target.value)}
+                        className="w-28"
+                      />
+                    )}
+                  </label>
+
+                  <label className="flex items-center gap-3 p-3 rounded-lg border cursor-pointer hover:bg-muted/50 transition-colors">
+                    <input
+                      type="radio"
+                      name="timeFlexibility"
+                      value="around"
+                      checked={timeFlexibility === "around"}
+                      onChange={() => setTimeFlexibility("around")}
+                      className="h-4 w-4"
+                    />
+                    <div className="flex-1">
+                      <p className="font-medium text-sm">Around a specific time</p>
+                      <p className="text-xs text-muted-foreground">Message arrives within ~30 minutes of your preferred time</p>
+                    </div>
+                    {timeFlexibility === "around" && (
+                      <Input
+                        type="time"
+                        value={preferredTime}
+                        onChange={(e) => setPreferredTime(e.target.value)}
+                        className="w-28"
+                      />
+                    )}
+                  </label>
+
+                  <label className="flex items-start gap-3 p-3 rounded-lg border cursor-pointer hover:bg-muted/50 transition-colors">
+                    <input
+                      type="radio"
+                      name="timeFlexibility"
+                      value="window"
+                      checked={timeFlexibility === "window"}
+                      onChange={() => setTimeFlexibility("window")}
+                      className="h-4 w-4 mt-1"
+                    />
+                    <div className="flex-1 space-y-2">
+                      <div>
+                        <p className="font-medium text-sm">Sometime during a time window</p>
+                        <p className="text-xs text-muted-foreground">Message arrives sometime within your chosen window</p>
+                      </div>
+                      {timeFlexibility === "window" && (
+                        <Select value={timeWindow} onValueChange={(v) => setTimeWindow(v as typeof timeWindow)}>
+                          <SelectTrigger className="w-full">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="morning">Morning (6am - 10am)</SelectItem>
+                            <SelectItem value="midday">Midday (11am - 2pm)</SelectItem>
+                            <SelectItem value="evening">Evening (5pm - 8pm)</SelectItem>
+                            <SelectItem value="night">Night (8pm - 11pm)</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      )}
+                    </div>
+                  </label>
+                </div>
               </div>
 
               <div className="flex items-center gap-3">

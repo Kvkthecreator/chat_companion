@@ -7,6 +7,7 @@ import { api, User, Conversation } from "@/lib/api/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { MemoryInsightCard } from "@/components/MemoryInsightCard";
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -97,6 +98,11 @@ export default function DashboardPage() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Memory Insight Card */}
+      <div className="mb-6">
+        <MemoryInsightCard companionName={user.companion_name || "Your companion"} />
+      </div>
 
       {/* Schedule Info */}
       <Card className="mb-6">

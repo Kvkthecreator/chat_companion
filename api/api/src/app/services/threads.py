@@ -13,10 +13,13 @@ import logging
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, TYPE_CHECKING
 from uuid import UUID, uuid4
 
 from app.services.llm import LLMService
+
+if TYPE_CHECKING:
+    from app.services.patterns import PatternService
 
 log = logging.getLogger(__name__)
 
@@ -148,9 +151,21 @@ If nothing to extract, return empty arrays.
 class ThreadService:
     """Service for tracking ongoing life situations and generating follow-ups."""
 
-    def __init__(self, db):
+    def __init__(self, db, pattern_service: Optional["PatternService"] = None):
         self.db = db
         self.llm = LLMService.get_instance()
+        self._pattern_service = pattern_service
+
+    @property
+    def pattern_service(self) -> Optional["PatternService"]:
+        """Lazy load pattern service to avoid circular imports."""
+        if self._pattern_service is None:
+            try:
+                from app.services.patterns import PatternService
+                self._pattern_service = PatternService(self.db)
+            except ImportError:
+                log.warning("PatternService not available")
+        return self._pattern_service
 
     # -------------------------------------------------------------------------
     # Thread CRUD
@@ -573,7 +588,7 @@ class ThreadService:
         Implements the priority stack from MEMORY_SYSTEM.md:
         1. Follow-ups from recent conversations
         2. Active life threads
-        3. Patterns (mood trends, engagement) - TODO
+        3. Patterns (mood trends, engagement)
         4. Core facts for texture
         5. Generic fallback (FAILURE STATE)
         """
@@ -584,8 +599,13 @@ class ThreadService:
         threads = await self.get_active_threads(user_id, limit=5)
         threads_needing_followup = await self.get_threads_needing_followup(user_id)
 
-        # Priority 3: Patterns - TODO: implement mood tracking
+        # Priority 3: Patterns (mood trends, engagement changes)
         patterns: List[Dict[str, Any]] = []
+        if self.pattern_service:
+            try:
+                patterns = await self.pattern_service.get_actionable_patterns(user_id)
+            except Exception as e:
+                log.warning(f"Failed to get patterns for {user_id}: {e}")
 
         # Priority 4: Core facts
         core_facts_rows = await self.db.fetch_all(

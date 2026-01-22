@@ -75,6 +75,8 @@ export interface User {
   companion_name?: string;
   timezone?: string;
   preferred_message_time?: string;
+  message_time_flexibility?: "exact" | "around" | "window";
+  message_time_window?: "morning" | "midday" | "evening" | "night";
   support_style?: string;
   telegram_user_id?: number;
   telegram_username?: string;
@@ -168,6 +170,56 @@ export interface SubscriptionStatus {
 export interface TelegramDeepLink {
   deep_link_url: string;
   expires_in_minutes: number;
+}
+
+// Memory types
+export interface ThreadSummary {
+  id: string;
+  topic: string;
+  summary: string;
+  status: string;
+  follow_up_date?: string;
+  key_details: string[];
+  updated_at?: string;
+}
+
+export interface FollowUpSummary {
+  id: string;
+  question: string;
+  context: string;
+  follow_up_date: string;
+  source_thread?: string;
+}
+
+export interface MemorySummary {
+  active_threads: ThreadSummary[];
+  pending_follow_ups: FollowUpSummary[];
+  thread_count: number;
+  fact_count: number;
+}
+
+export interface FactItem {
+  id: string;
+  category: string;
+  key: string;
+  value: string;
+  importance_score: number;
+  created_at?: string;
+}
+
+export interface PatternItem {
+  id: string;
+  pattern_type: string;
+  description: string;
+  confidence: number;
+  message_hint?: string;
+}
+
+export interface FullMemory {
+  threads: ThreadSummary[];
+  follow_ups: FollowUpSummary[];
+  facts: Record<string, FactItem[]>;
+  patterns: PatternItem[];
 }
 
 export const api = {
@@ -350,6 +402,23 @@ export const api = {
         body: JSON.stringify({ variant_id: variantId }),
       }),
     getPortal: () => request<{ portal_url: string }>("/subscription/portal"),
+  },
+
+  // Memory endpoints
+  memory: {
+    getSummary: () => request<MemorySummary>("/memory/summary"),
+    getFull: () => request<FullMemory>("/memory/full"),
+    deleteItem: (id: string) =>
+      request<null>(`/memory/context/${id}`, { method: "DELETE" }),
+    updateItem: (id: string, data: { value?: string; importance_score?: number }) =>
+      request<Record<string, unknown>>(`/memory/context/${id}`, {
+        method: "PATCH",
+        body: JSON.stringify(data),
+      }),
+    resolveThread: (threadId: string) =>
+      request<{ status: string }>(`/memory/threads/${threadId}/resolve`, {
+        method: "POST",
+      }),
   },
 };
 
