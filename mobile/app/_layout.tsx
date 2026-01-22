@@ -10,6 +10,7 @@ import * as Linking from "expo-linking";
 import * as SplashScreen from "expo-splash-screen";
 import { Session } from "@supabase/supabase-js";
 import { supabase } from "../lib/supabase/client";
+import { api, User } from "../lib/api/client";
 import {
   registerForPushNotifications,
   setupNotificationListeners,
@@ -23,13 +24,25 @@ export default function RootLayout() {
   const router = useRouter();
   const segments = useSegments();
   const [session, setSession] = useState<Session | null>(null);
+  const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   // Handle authentication state
   useEffect(() => {
     // Get initial session
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
       setSession(session);
+
+      // If logged in, check onboarding status
+      if (session) {
+        try {
+          const userData = await api.users.me();
+          setUser(userData);
+        } catch (error) {
+          console.error("Failed to fetch user:", error);
+        }
+      }
+
       setIsLoading(false);
       SplashScreen.hideAsync();
     });
@@ -37,28 +50,47 @@ export default function RootLayout() {
     // Listen for auth changes
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
+    } = supabase.auth.onAuthStateChange(async (_event, session) => {
       setSession(session);
+
+      if (session) {
+        try {
+          const userData = await api.users.me();
+          setUser(userData);
+        } catch (error) {
+          console.error("Failed to fetch user:", error);
+        }
+      } else {
+        setUser(null);
+      }
     });
 
     return () => subscription.unsubscribe();
   }, []);
 
-  // Handle navigation based on auth state
+  // Handle navigation based on auth and onboarding state
   useEffect(() => {
     if (isLoading) return;
 
     const inAuthGroup = segments[0] === "(auth)";
     const inOnboardingGroup = segments[0] === "(onboarding)";
+    const inMainGroup = segments[0] === "(main)";
 
     if (!session && !inAuthGroup) {
       // Not logged in, redirect to login
       router.replace("/(auth)/login");
     } else if (session && inAuthGroup) {
-      // Logged in but in auth group, redirect to main
-      router.replace("/(main)");
+      // Logged in but in auth group, check onboarding
+      if (user && !user.onboarding_completed_at) {
+        router.replace("/(onboarding)");
+      } else {
+        router.replace("/(main)");
+      }
+    } else if (session && user && !user.onboarding_completed_at && !inOnboardingGroup) {
+      // Logged in but onboarding not complete
+      router.replace("/(onboarding)");
     }
-  }, [session, segments, isLoading]);
+  }, [session, user, segments, isLoading]);
 
   // Set up push notifications when logged in
   useEffect(() => {
