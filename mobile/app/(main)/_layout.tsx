@@ -10,7 +10,7 @@ function TabIcon({ name, focused }: { name: string; focused: boolean }) {
   const icons: Record<string, string> = {
     home: "🏠",
     chat: "💬",
-    memory: "🧠",
+    companion: "✨",
     settings: "⚙️",
   };
 
@@ -66,10 +66,10 @@ export default function MainLayout() {
         }}
       />
       <Tabs.Screen
-        name="memory"
+        name="companion"
         options={{
-          title: "Memory",
-          tabBarIcon: ({ focused }) => <TabIcon name="memory" focused={focused} />,
+          title: "Companion",
+          tabBarIcon: ({ focused }) => <TabIcon name="companion" focused={focused} />,
         }}
       />
       <Tabs.Screen
