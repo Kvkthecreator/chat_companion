@@ -95,7 +95,8 @@ export default function ChatScreen() {
       // Use streaming endpoint
       let fullContent = "";
       for await (const chunk of api.conversations.sendMessageStream(id!, messageContent)) {
-        if (chunk.type === "content") {
+        if (chunk.type === "chunk") {
+          // Backend sends "chunk" events with content
           fullContent += chunk.content;
           setMessages((prev) =>
             prev.map((msg) =>
@@ -104,13 +105,15 @@ export default function ChatScreen() {
                 : msg
             )
           );
-        } else if (chunk.type === "message_complete") {
-          // Replace placeholder with actual message
+        } else if (chunk.type === "done") {
+          // Backend sends "done" event with full content and message_id
           setMessages((prev) =>
             prev.map((msg) =>
               msg.id === aiPlaceholder.id
                 ? {
-                    ...chunk.message,
+                    ...msg,
+                    id: chunk.message_id,
+                    content: chunk.content || fullContent,
                     isStreaming: false,
                     streamContent: undefined,
                   }
