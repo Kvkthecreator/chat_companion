@@ -130,7 +130,7 @@ export function MemoryInsightCard({ companionName }: MemoryInsightCardProps) {
 
         {/* Link to full memory page */}
         <Link
-          href="/memory"
+          href="/companion"
           className="flex items-center gap-1 text-sm text-primary hover:underline"
         >
           See all

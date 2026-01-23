@@ -104,7 +104,16 @@ async def update_current_user(
 
     if data.preferred_message_time is not None:
         updates.append("preferred_message_time = :preferred_message_time")
-        values["preferred_message_time"] = data.preferred_message_time
+        # Convert string "HH:MM" to time object for database TIME column
+        from datetime import time as dt_time
+        try:
+            parts = data.preferred_message_time.split(":")
+            values["preferred_message_time"] = dt_time(int(parts[0]), int(parts[1]))
+        except (ValueError, IndexError):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="preferred_message_time must be in HH:MM format",
+            )
 
     # Silence detection settings (Phase 2)
     if data.allow_silence_checkins is not None:
