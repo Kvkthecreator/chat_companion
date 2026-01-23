@@ -702,10 +702,12 @@ class LLMService:
         self,
         prompt: str,
         schema_description: str,
+        max_retries: int = 2,
     ) -> Dict[str, Any]:
         """Generate structured JSON output.
 
         Uses a system prompt to encourage JSON output.
+        Includes retry logic for malformed JSON responses.
         """
         messages = [
             {
@@ -714,21 +716,103 @@ class LLMService:
 Always respond with valid JSON matching this schema:
 {schema_description}
 
+IMPORTANT: Ensure all string values are properly escaped. Use \\n for newlines, \\" for quotes inside strings.
 Respond ONLY with the JSON, no additional text.""",
             },
             {"role": "user", "content": prompt},
         ]
 
-        response = await self.generate(messages, temperature=0.3)
+        last_error = None
+        for attempt in range(max_retries + 1):
+            response = await self.generate(messages, temperature=0.3)
 
-        # Try to parse JSON from response
-        content = response.content.strip()
-        # Handle markdown code blocks
-        if content.startswith("```"):
-            lines = content.split("\n")
-            content = "\n".join(lines[1:-1])
+            # Try to parse JSON from response
+            content = response.content.strip()
 
-        return json.loads(content)
+            # Handle markdown code blocks
+            if content.startswith("```"):
+                lines = content.split("\n")
+                # Remove first line (```json or ```) and last line (```)
+                content = "\n".join(lines[1:-1] if lines[-1].strip() == "```" else lines[1:])
+                content = content.strip()
+
+            try:
+                return json.loads(content)
+            except json.JSONDecodeError as e:
+                last_error = e
+                log.warning(
+                    f"JSON parse failed (attempt {attempt + 1}/{max_retries + 1}): {e}\n"
+                    f"Raw content (first 500 chars): {content[:500]}"
+                )
+
+                # Try to fix common JSON issues before retrying
+                fixed_content = self._try_fix_json(content)
+                if fixed_content != content:
+                    try:
+                        return json.loads(fixed_content)
+                    except json.JSONDecodeError:
+                        pass  # Fixed version didn't work either, will retry
+
+                if attempt < max_retries:
+                    # Add error context to help the model fix the issue
+                    messages.append({"role": "assistant", "content": content})
+                    messages.append({
+                        "role": "user",
+                        "content": f"Your response was not valid JSON. Error: {e}. Please try again with properly escaped strings and valid JSON syntax.",
+                    })
+
+        # All retries failed
+        raise last_error
+
+    def _try_fix_json(self, content: str) -> str:
+        """Attempt to fix common JSON formatting issues."""
+        import re
+
+        # Try to fix unterminated strings by finding the pattern and escaping newlines
+        # This is a best-effort fix for LLM responses with literal newlines in strings
+
+        # Replace literal newlines inside strings with escaped newlines
+        # This is tricky - we need to identify strings and fix newlines within them
+
+        # Simple approach: if the content looks like it starts as JSON, try common fixes
+        if not content.startswith("{") and not content.startswith("["):
+            return content
+
+        # Try to fix unescaped quotes inside strings by using a regex
+        # Pattern: look for string values that might have issues
+        try:
+            # Remove any trailing incomplete JSON
+            # Count braces to find where valid JSON might end
+            brace_count = 0
+            last_valid_pos = 0
+            in_string = False
+            escape_next = False
+
+            for i, char in enumerate(content):
+                if escape_next:
+                    escape_next = False
+                    continue
+                if char == '\\':
+                    escape_next = True
+                    continue
+                if char == '"' and not escape_next:
+                    in_string = not in_string
+                    continue
+                if not in_string:
+                    if char == '{' or char == '[':
+                        brace_count += 1
+                    elif char == '}' or char == ']':
+                        brace_count -= 1
+                        if brace_count == 0:
+                            last_valid_pos = i + 1
+
+            if last_valid_pos > 0 and last_valid_pos < len(content):
+                return content[:last_valid_pos]
+
+        except Exception:
+            pass
+
+        return content
 
     async def generate_structured(
         self,

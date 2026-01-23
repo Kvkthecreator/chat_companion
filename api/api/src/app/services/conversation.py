@@ -84,9 +84,7 @@ class ConversationService:
         # Extract threads for follow-ups and ongoing situation tracking
         try:
             thread_service = ThreadService(self.db)
-            await thread_service.extract_from_conversation(
-                user_id, conversation_id, recent_messages
-            )
+            await thread_service.extract_from_conversation(user_id, recent_messages)
         except Exception as e:
             log.warning(f"Thread extraction failed: {e}")
 
@@ -169,9 +167,7 @@ class ConversationService:
         # Extract threads for follow-ups and ongoing situation tracking
         try:
             thread_service = ThreadService(self.db)
-            await thread_service.extract_from_conversation(
-                user_id, conversation_id, recent_messages
-            )
+            await thread_service.extract_from_conversation(user_id, recent_messages)
         except Exception as e:
             log.warning(f"Thread extraction failed: {e}")
 
