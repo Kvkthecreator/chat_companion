@@ -106,6 +106,21 @@ async def update_current_user(
         updates.append("preferred_message_time = :preferred_message_time")
         values["preferred_message_time"] = data.preferred_message_time
 
+    # Silence detection settings (Phase 2)
+    if data.allow_silence_checkins is not None:
+        updates.append("allow_silence_checkins = :allow_silence_checkins")
+        values["allow_silence_checkins"] = data.allow_silence_checkins
+
+    if data.silence_threshold_days is not None:
+        # Validate range: 2-14 days
+        if data.silence_threshold_days < 2 or data.silence_threshold_days > 14:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="silence_threshold_days must be between 2 and 14",
+            )
+        updates.append("silence_threshold_days = :silence_threshold_days")
+        values["silence_threshold_days"] = data.silence_threshold_days
+
     if not updates:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,

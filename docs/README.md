@@ -31,6 +31,10 @@ Push-based AI companion that reaches out daily via Telegram, WhatsApp, or Web.
 - [Scheduler](features/SCHEDULER.md) - Daily message scheduling
 - [Telegram Integration](features/TELEGRAM.md) - Bot setup and webhook
 
+### Design
+- [Companion Outreach System](design/COMPANION_OUTREACH_SYSTEM.md) - Multi-trigger messaging architecture
+- [Pattern Detection](design/PATTERN_DETECTION_AND_MEMORY_TRANSPARENCY.md) - Behavioral patterns and transparency
+
 ### Architecture Decisions
 - [ADR Index](adr/README.md) - Architecture Decision Records
 

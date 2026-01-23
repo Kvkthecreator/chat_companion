@@ -85,6 +85,17 @@ LEMONSQUEEZY_WEBHOOK_SECRET=your-webhook-secret
    - **Start Command**: `cd src && python -m app.jobs.patterns`
 3. Add environment variables: `DATABASE_URL`, `SUPABASE_URL`, `GOOGLE_API_KEY`
 
+#### silence-detection (Check on Quiet Users)
+
+1. Create a new **Cron Job** in Render
+2. Configure:
+   - **Name**: `silence-detection`
+   - **Root Directory**: `api/api`
+   - **Schedule**: `0 */6 * * *` (every 6 hours)
+   - **Build Command**: `pip install --upgrade pip && pip install -r requirements.txt`
+   - **Start Command**: `cd src && python -m app.jobs.silence_detection`
+3. Add environment variables: `DATABASE_URL`, `SUPABASE_URL`, `GOOGLE_API_KEY`, `RESEND_API_KEY`, `RESEND_FROM_EMAIL`, `WEB_APP_URL`
+
 ## Post-Deployment Checklist
 
 ### 1. Run Database Migrations

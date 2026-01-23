@@ -188,6 +188,9 @@ class UserUpdate(BaseModel):
     companion_name: Optional[str] = None
     support_style: Optional[str] = None
     preferred_message_time: Optional[str] = None
+    # Silence detection settings (Phase 2)
+    allow_silence_checkins: Optional[bool] = None
+    silence_threshold_days: Optional[int] = None
 
 
 class OnboardingData(BaseModel):
@@ -230,6 +233,13 @@ class User(BaseModel):
     quiz_answers: Dict[str, Any] = Field(default_factory=dict)  # Raw quiz answers
     onboarding_path: Optional[str] = None  # 'quiz', 'chat', 'quiz_then_chat'
     onboarding_completed_at: Optional[datetime] = None
+
+    # Silence Detection settings (Phase 2 - Companion Outreach System)
+    allow_silence_checkins: bool = True  # Enable "checking in when quiet"
+    silence_threshold_days: int = 3  # Days before silence check-in
+    last_user_message_at: Optional[datetime] = None  # Tracked by trigger
+    messages_received_count: int = 0  # For user maturity tracking
+    first_message_at: Optional[datetime] = None  # For user maturity tracking
 
     @field_validator("preferred_message_time", mode="before")
     @classmethod
