@@ -109,8 +109,9 @@ Example: `companion!!@@##$$` → `companion%21%21%40%40%23%23%24%24`
 - Use the URL-encoded password directly in the connection string instead
 
 ### "Tenant or user not found"
-- Verify the region is correct (`aws-1` for CLI access from local machine)
-- For Render deployment, try `aws-0` if `aws-1` doesn't work
+- Verify the region is correct (`aws-1` works for both local and Render)
+- This error usually means the password wasn't URL-encoded properly
+- Double-check all special characters are encoded: `!` → `%21`, `@` → `%40`, etc.
 
 ### "Network is unreachable"
 - Use pooler connection, not direct connection

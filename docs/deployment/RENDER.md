@@ -5,8 +5,9 @@
 ## Overview
 
 Render hosts:
-- **API** (FastAPI Web Service)
-- **Scheduler** (Cron Job for daily messages)
+- **chat-companion-api** (FastAPI Web Service)
+- **message-scheduler** (Cron Job - every minute, sends daily messages)
+- **pattern-computation** (Cron Job - daily at 2am UTC, analyzes behavior patterns)
 
 ## API Deployment
 
@@ -45,6 +46,11 @@ ANTHROPIC_API_KEY=your-anthropic-api-key
 TELEGRAM_BOT_TOKEN=your-bot-token
 TELEGRAM_WEBHOOK_SECRET=your-webhook-secret
 
+# Email (Resend - for web user daily check-ins)
+RESEND_API_KEY=your-resend-api-key
+RESEND_FROM_EMAIL=companion@yourdomain.com
+WEB_APP_URL=https://your-app.vercel.app
+
 # CORS
 CORS_ORIGINS=http://localhost:3000,https://your-app.vercel.app
 
@@ -55,7 +61,9 @@ LEMONSQUEEZY_VARIANT_ID=your-variant-id
 LEMONSQUEEZY_WEBHOOK_SECRET=your-webhook-secret
 ```
 
-### 3. Create Cron Job (Scheduler)
+### 3. Create Cron Jobs
+
+#### message-scheduler (Daily Messages)
 
 1. Create a new **Cron Job** in Render
 2. Configure:
@@ -64,7 +72,18 @@ LEMONSQUEEZY_WEBHOOK_SECRET=your-webhook-secret
    - **Schedule**: `* * * * *` (every minute)
    - **Build Command**: `pip install --upgrade pip && pip install -r requirements.txt`
    - **Start Command**: `cd src && python -m app.jobs.scheduler`
-3. Add the same environment variables as the web service
+3. Add environment variables: `DATABASE_URL`, `SUPABASE_URL`, `GOOGLE_API_KEY`, `OPENWEATHER_API_KEY`, `RESEND_API_KEY`, `RESEND_FROM_EMAIL`, `WEB_APP_URL`
+
+#### pattern-computation (Behavior Analysis)
+
+1. Create a new **Cron Job** in Render
+2. Configure:
+   - **Name**: `pattern-computation`
+   - **Root Directory**: `api/api`
+   - **Schedule**: `0 2 * * *` (daily at 2am UTC)
+   - **Build Command**: `pip install --upgrade pip && pip install -r requirements.txt`
+   - **Start Command**: `cd src && python -m app.jobs.patterns`
+3. Add environment variables: `DATABASE_URL`, `SUPABASE_URL`, `GOOGLE_API_KEY`
 
 ## Post-Deployment Checklist
 
