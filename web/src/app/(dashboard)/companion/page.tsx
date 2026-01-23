@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   AlertDialog,
@@ -43,6 +44,7 @@ import {
   MessageCircle,
   Loader2,
   CheckCircle2,
+  Bell,
 } from "lucide-react";
 
 // Timezone options
@@ -93,9 +95,13 @@ export default function CompanionPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
 
+  // Silence detection settings
+  const [allowSilenceCheckins, setAllowSilenceCheckins] = useState(true);
+  const [silenceThresholdDays, setSilenceThresholdDays] = useState(3);
+
   // Tab management
   const urlTab = searchParams.get("tab");
-  const initialTab = urlTab || "memory";
+  const initialTab = urlTab || "personality";
   const [activeTab, setActiveTab] = useState(initialTab);
 
   useEffect(() => {
@@ -133,6 +139,8 @@ export default function CompanionPage() {
       setTimezone(user.timezone || "America/New_York");
       setPreferredTime(user.preferred_message_time || "09:00");
       setSupportStyle(user.support_style || "friendly_checkin");
+      setAllowSilenceCheckins(user.allow_silence_checkins ?? true);
+      setSilenceThresholdDays(user.silence_threshold_days ?? 3);
     }
   }, [user]);
 
@@ -176,6 +184,8 @@ export default function CompanionPage() {
         timezone,
         preferred_message_time: preferredTime,
         support_style: supportStyle,
+        allow_silence_checkins: allowSilenceCheckins,
+        silence_threshold_days: silenceThresholdDays,
       });
       setSaveSuccess(true);
       setTimeout(() => setSaveSuccess(false), 3000);
@@ -207,13 +217,13 @@ export default function CompanionPage() {
 
       <Tabs value={activeTab} onValueChange={handleTabChange}>
         <TabsList className="grid w-full grid-cols-2 max-w-xs">
-          <TabsTrigger value="memory" className="gap-2">
-            <Brain className="h-4 w-4" />
-            Memory
-          </TabsTrigger>
           <TabsTrigger value="personality" className="gap-2">
             <Sparkles className="h-4 w-4" />
             Personality
+          </TabsTrigger>
+          <TabsTrigger value="memory" className="gap-2">
+            <Brain className="h-4 w-4" />
+            Memory
           </TabsTrigger>
         </TabsList>
 
@@ -484,6 +494,56 @@ export default function CompanionPage() {
                   </label>
                 </div>
               </div>
+
+            </CardContent>
+          </Card>
+
+          {/* When to Reach Out */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Bell className="h-5 w-5 text-muted-foreground" />
+                When to Reach Out
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <Label htmlFor="silenceCheckins">Check in when I've been quiet</Label>
+                  <p className="text-xs text-muted-foreground">
+                    {companionDisplayName} will reach out if you haven't messaged in a while
+                  </p>
+                </div>
+                <Switch
+                  id="silenceCheckins"
+                  checked={allowSilenceCheckins}
+                  onCheckedChange={setAllowSilenceCheckins}
+                />
+              </div>
+
+              {allowSilenceCheckins && (
+                <div className="space-y-2 pl-0 pt-2 border-t">
+                  <Label htmlFor="silenceThreshold">After how many days?</Label>
+                  <Select
+                    value={silenceThresholdDays.toString()}
+                    onValueChange={(v) => setSilenceThresholdDays(parseInt(v))}
+                  >
+                    <SelectTrigger id="silenceThreshold" className="w-48">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="2">2 days</SelectItem>
+                      <SelectItem value="3">3 days</SelectItem>
+                      <SelectItem value="5">5 days</SelectItem>
+                      <SelectItem value="7">1 week</SelectItem>
+                      <SelectItem value="14">2 weeks</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground">
+                    A gentle check-in, no pressure to respond
+                  </p>
+                </div>
+              )}
 
               <div className="flex items-center gap-3 pt-2">
                 <Button onClick={handleSavePersonality} disabled={isSaving}>

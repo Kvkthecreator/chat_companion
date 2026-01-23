@@ -100,6 +100,9 @@ export interface User {
   whatsapp_linked_at?: string;
   onboarding_completed_at?: string;
   location?: string;
+  // Silence detection settings (Phase 2 - Companion Outreach System)
+  allow_silence_checkins?: boolean;
+  silence_threshold_days?: number;
   created_at: string;
   updated_at: string;
 }

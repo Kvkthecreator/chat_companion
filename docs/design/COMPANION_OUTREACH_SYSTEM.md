@@ -13,7 +13,7 @@
 
 ### Changelog
 
-**2026-01-23**: Phase 2 - Silence Detection
+**2026-01-23**: Phase 2 - Silence Detection (UI Complete)
 - Added `last_user_message_at`, `silence_threshold_days`, `allow_silence_checkins` to users table
 - Added `messages_received_count`, `first_message_at` for user maturity tracking
 - Added `trigger_type` column to `scheduled_messages`
@@ -21,7 +21,9 @@
 - Implemented `SilenceDetectionService` in `scheduler.py`
 - Created `app/jobs/silence_detection.py` job entry point
 - Added user settings to API (`allow_silence_checkins`, `silence_threshold_days`)
-- Cron schedule: Recommended every 6 hours (`0 */6 * * *`)
+- Created `silence-detection` cron job in Render (every 6 hours)
+- Added UI controls in Companion page → Personality tab → "When to Reach Out" card
+- Reordered Companion page tabs: Personality first, Memory second
 
 **2026-01-22**: Phase 1 - Foundation
 - Daily scheduler with priority-based message generation
@@ -311,6 +313,10 @@ WHERE trigger_type = 'silence_detection'
 ### Phase 2 Settings
 - `allow_silence_checkins` - Enable "checking in when quiet" (default: true)
 - `silence_threshold_days` - Days before silence check-in (default: 3)
+
+**Web UI Location**: `/companion` page → Personality tab → "When to Reach Out" card
+- Toggle: "Check in when I've been quiet" (maps to `allow_silence_checkins`)
+- Dropdown: "After how many days?" with options: 2, 3, 5, 7, 14 days (maps to `silence_threshold_days`)
 
 ### Future Settings
 - `message_frequency` - daily, few_times_week, adaptive
