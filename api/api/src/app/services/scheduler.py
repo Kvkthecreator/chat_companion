@@ -351,7 +351,7 @@ class SchedulerService:
             # Store message
             await db.execute(
                 """
-                INSERT INTO companion_messages (conversation_id, role, content)
+                INSERT INTO messages (conversation_id, role, content)
                 VALUES (:conversation_id, 'assistant', :content)
                 """,
                 {"conversation_id": conversation_id, "content": message},
@@ -391,20 +391,21 @@ class SchedulerService:
         except Exception as e:
             log.error(f"Failed to send scheduled message to user {user_id}: {e}", exc_info=True)
 
-            # Record failure
-            await db.execute(
-                """
-                INSERT INTO scheduled_messages (user_id, scheduled_for, status, failure_reason, channel)
-                VALUES (:user_id, NOW(), 'failed', :failure_reason, :channel)
-                ON CONFLICT (user_id, scheduled_for)
-                DO UPDATE SET status = 'failed', failure_reason = :failure_reason
-                """,
-                {
-                    "user_id": user_id,
-                    "failure_reason": str(e)[:500],
-                    "channel": delivery_channel,
-                },
-            )
+            # Record failure - simple insert, no conflict handling needed
+            try:
+                await db.execute(
+                    """
+                    INSERT INTO scheduled_messages (user_id, scheduled_for, status, failure_reason, channel)
+                    VALUES (:user_id, NOW(), 'failed', :failure_reason, :channel)
+                    """,
+                    {
+                        "user_id": user_id,
+                        "failure_reason": str(e)[:500],
+                        "channel": delivery_channel,
+                    },
+                )
+            except Exception as insert_error:
+                log.error(f"Failed to record failure for user {user_id}: {insert_error}")
             return False
 
     @classmethod
