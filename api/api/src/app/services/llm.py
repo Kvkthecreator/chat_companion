@@ -716,15 +716,19 @@ class LLMService:
 Always respond with valid JSON matching this schema:
 {schema_description}
 
-IMPORTANT: Ensure all string values are properly escaped. Use \\n for newlines, \\" for quotes inside strings.
-Respond ONLY with the JSON, no additional text.""",
+CRITICAL RULES:
+1. Keep ALL string values SHORT (under 100 characters each)
+2. Ensure all strings are properly escaped (use \\n for newlines, \\" for quotes)
+3. Complete the ENTIRE JSON structure - do not truncate
+4. Respond ONLY with the JSON, no additional text or markdown""",
             },
             {"role": "user", "content": prompt},
         ]
 
         last_error = None
         for attempt in range(max_retries + 1):
-            response = await self.generate(messages, temperature=0.3)
+            # Use higher max_tokens for JSON extraction to avoid truncation
+            response = await self.generate(messages, temperature=0.3, max_tokens=2048)
 
             # Try to parse JSON from response
             content = response.content.strip()
