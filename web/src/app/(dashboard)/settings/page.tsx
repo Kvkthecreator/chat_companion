@@ -42,6 +42,10 @@ export default function SettingsPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
 
+  // Email notification state
+  const [emailNotificationsEnabled, setEmailNotificationsEnabled] = useState(true);
+  const [isSavingEmail, setIsSavingEmail] = useState(false);
+
   // Delete account state
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deleteConfirmation, setDeleteConfirmation] = useState("");
@@ -63,8 +67,30 @@ export default function SettingsPage() {
   useEffect(() => {
     if (user) {
       setDisplayName(user.display_name || "");
+      // Default to true if not explicitly set to false
+      const emailPref = user.preferences?.email_notifications_enabled;
+      setEmailNotificationsEnabled(emailPref !== false);
     }
   }, [user]);
+
+  const handleToggleEmailNotifications = async (enabled: boolean) => {
+    setEmailNotificationsEnabled(enabled);
+    setIsSavingEmail(true);
+    try {
+      await api.users.update({
+        preferences: {
+          ...user?.preferences,
+          email_notifications_enabled: enabled,
+        },
+      });
+    } catch (err) {
+      console.error("Failed to save email preference:", err);
+      // Revert on error
+      setEmailNotificationsEnabled(!enabled);
+    } finally {
+      setIsSavingEmail(false);
+    }
+  };
 
   const handleSaveProfile = async () => {
     setIsSaving(true);
@@ -177,7 +203,7 @@ export default function SettingsPage() {
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <Bell className="h-5 w-5 text-muted-foreground" />
+                <MessageCircle className="h-5 w-5 text-muted-foreground" />
                 Chat Access
               </CardTitle>
               <CardDescription>
@@ -217,10 +243,60 @@ export default function SettingsPage() {
                   Coming Soon
                 </span>
               </div>
+            </CardContent>
+          </Card>
 
-              <p className="text-sm text-muted-foreground pt-2">
-                Your companion is always available here on the web. Daily check-in notifications will be available through the mobile app.
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Mail className="h-5 w-5 text-muted-foreground" />
+                Daily Check-in Emails
+              </CardTitle>
+              <CardDescription>
+                Receive your daily check-in message via email
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {/* Email Notifications */}
+              <div className="flex items-center justify-between p-4 rounded-lg border">
+                <div className="flex items-center gap-3">
+                  <div className={`h-10 w-10 rounded-full flex items-center justify-center ${emailNotificationsEnabled ? 'bg-primary' : 'bg-muted'}`}>
+                    <Mail className={`h-5 w-5 ${emailNotificationsEnabled ? 'text-primary-foreground' : 'text-muted-foreground'}`} />
+                  </div>
+                  <div>
+                    <p className="font-medium">Email Notifications</p>
+                    <p className="text-sm text-muted-foreground">
+                      {email ? `Sent to ${email}` : 'Get daily messages in your inbox'}
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => handleToggleEmailNotifications(!emailNotificationsEnabled)}
+                  disabled={isSavingEmail}
+                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 ${
+                    emailNotificationsEnabled ? 'bg-primary' : 'bg-muted'
+                  } ${isSavingEmail ? 'opacity-50 cursor-not-allowed' : ''}`}
+                >
+                  <span
+                    className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                      emailNotificationsEnabled ? 'translate-x-6' : 'translate-x-1'
+                    }`}
+                  />
+                </button>
+              </div>
+
+              <p className="text-sm text-muted-foreground">
+                {emailNotificationsEnabled
+                  ? `${user?.companion_name || 'Your companion'} will send you a personalized check-in email at ${user?.preferred_message_time || '9:00 AM'} each day.`
+                  : 'Enable to receive daily check-in messages via email.'}
               </p>
+
+              {emailNotificationsEnabled && (
+                <p className="text-xs text-muted-foreground">
+                  You can manage your check-in time on the{' '}
+                  <a href="/companion" className="text-primary hover:underline">Companion page</a>.
+                </p>
+              )}
             </CardContent>
           </Card>
         </TabsContent>

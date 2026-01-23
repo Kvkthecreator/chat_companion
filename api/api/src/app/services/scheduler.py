@@ -4,7 +4,7 @@ Scheduler Service - Handles scheduled message delivery.
 Handles:
 - Finding users who should receive messages at current time
 - Generating personalized daily messages using priority stack
-- Sending messages via appropriate channel
+- Sending messages via appropriate channel (push notifications, email)
 - Tracking message delivery and priority metrics
 
 Priority Stack (from MEMORY_SYSTEM.md):
@@ -13,11 +13,16 @@ Priority Stack (from MEMORY_SYSTEM.md):
 3. PATTERN - Acknowledge mood/engagement pattern
 4. TEXTURE - Personal check-in with weather/context
 5. GENERIC - Warm fallback (FAILURE STATE - should track)
+
+Channels:
+- PUSH: Mobile app users with active push tokens
+- EMAIL: Web users without push tokens (or with email preference enabled)
 """
 
 import logging
 import os
 from datetime import datetime
+from enum import Enum
 from typing import Optional
 from uuid import UUID
 
@@ -31,11 +36,18 @@ from app.services.companion import (
     UserProfile,
     get_companion_service,
 )
+from app.services.email import get_email_service
 from app.services.llm import LLMService
 from app.services.push import ExpoPushService
 from app.services.threads import ThreadService, MessagePriority
 
 log = logging.getLogger(__name__)
+
+
+class DeliveryChannel(str, Enum):
+    """Delivery channel for scheduled messages."""
+    PUSH = "push"
+    EMAIL = "email"
 
 
 # =============================================================================
@@ -85,6 +97,9 @@ async def get_weather(location: Optional[str]) -> Optional[str]:
 class SchedulerService:
     """Service for managing scheduled message delivery."""
 
+    # Web app base URL for email links
+    WEB_APP_URL = os.getenv("WEB_APP_URL", "https://chat-companion.vercel.app")
+
     @staticmethod
     async def get_users_for_scheduled_message() -> list[dict]:
         """
@@ -92,10 +107,12 @@ class SchedulerService:
 
         Returns users where:
         - Onboarding is complete
-        - Has an active push token (mobile device registered)
+        - Has a delivery channel (push token OR email enabled)
         - Current time matches their preferred time (within 2 minute window)
         - Haven't received a message today
         - Daily messages not paused
+
+        Each user includes their preferred delivery channel.
         """
         db = await get_db()
 
@@ -103,22 +120,29 @@ class SchedulerService:
             """
             SELECT
                 u.id as user_id,
+                u.email,
                 u.display_name,
                 u.companion_name,
                 u.support_style,
                 u.timezone,
-                u.location
+                u.location,
+                -- Determine delivery channel
+                CASE
+                    WHEN EXISTS (
+                        SELECT 1 FROM user_devices ud
+                        WHERE ud.user_id = u.id
+                        AND ud.is_active = true
+                        AND ud.push_token IS NOT NULL
+                    ) THEN 'push'
+                    WHEN COALESCE((u.preferences->>'email_notifications_enabled')::boolean, true) = true
+                         AND u.email IS NOT NULL
+                    THEN 'email'
+                    ELSE NULL
+                END as delivery_channel
             FROM users u
             WHERE
                 -- User has completed onboarding
                 u.onboarding_completed_at IS NOT NULL
-                -- User has an active push token
-                AND EXISTS (
-                    SELECT 1 FROM user_devices ud
-                    WHERE ud.user_id = u.id
-                    AND ud.is_active = true
-                    AND ud.push_token IS NOT NULL
-                )
                 -- Daily messages not paused
                 AND COALESCE((u.preferences->>'daily_messages_paused')::boolean, false) = false
                 -- Current time matches their preferred time (within 2 minute window)
@@ -132,6 +156,21 @@ class SchedulerService:
                     AND sm.status = 'sent'
                     AND (sm.sent_at AT TIME ZONE COALESCE(u.timezone, 'UTC'))::date
                         = (NOW() AT TIME ZONE COALESCE(u.timezone, 'UTC'))::date
+                )
+                -- Has at least one delivery method
+                AND (
+                    -- Has push token
+                    EXISTS (
+                        SELECT 1 FROM user_devices ud
+                        WHERE ud.user_id = u.id
+                        AND ud.is_active = true
+                        AND ud.push_token IS NOT NULL
+                    )
+                    -- OR has email enabled (default true for web users)
+                    OR (
+                        COALESCE((u.preferences->>'email_notifications_enabled')::boolean, true) = true
+                        AND u.email IS NOT NULL
+                    )
                 )
             """
         )
@@ -223,7 +262,7 @@ class SchedulerService:
     @classmethod
     async def send_scheduled_message(cls, user: dict) -> bool:
         """
-        Send a scheduled message to a user.
+        Send a scheduled message to a user via their preferred channel.
 
         Uses priority-based message generation:
         1. Follow-ups from recent conversations
@@ -236,6 +275,11 @@ class SchedulerService:
         """
         db = await get_db()
         user_id = user["user_id"]
+        delivery_channel = user.get("delivery_channel")
+
+        if not delivery_channel:
+            log.warning(f"No delivery channel for user {user_id}, skipping")
+            return False
 
         try:
             # Get user context
@@ -251,7 +295,7 @@ class SchedulerService:
             # Log priority level for metrics
             log.info(
                 f"Message priority for user {user_id}: {message_context.priority.name} "
-                f"(has_personal={message_context.has_personal_content})"
+                f"(has_personal={message_context.has_personal_content}, channel={delivery_channel})"
             )
 
             # Build profile
@@ -269,16 +313,17 @@ class SchedulerService:
                 profile, user_context, weather_info, message_context
             )
 
-            # Create scheduled message record with priority tracking
+            # Create scheduled message record with priority and channel tracking
             scheduled_msg = await db.fetchrow(
                 """
-                INSERT INTO scheduled_messages (user_id, scheduled_for, content, status, priority_level)
-                VALUES ($1, NOW(), $2, 'pending', $3)
+                INSERT INTO scheduled_messages (user_id, scheduled_for, content, status, priority_level, channel)
+                VALUES ($1, NOW(), $2, 'pending', $3, $4)
                 RETURNING id
                 """,
                 user_id,
                 message,
                 priority.name,
+                delivery_channel,
             )
             scheduled_id = scheduled_msg["id"]
 
@@ -289,14 +334,16 @@ class SchedulerService:
                     "This is a failure state that should be investigated."
                 )
 
-            # Create conversation record first (message will be visible when user opens app)
+            # Create conversation record (message will be visible when user opens app/clicks email)
+            channel_type = "web" if delivery_channel == "email" else "app"
             conv = await db.fetchrow(
                 """
                 INSERT INTO conversations (user_id, channel, initiated_by)
-                VALUES ($1, 'app', 'companion')
+                VALUES ($1, $2, 'companion')
                 RETURNING id
                 """,
                 user_id,
+                channel_type,
             )
             conversation_id = conv["id"]
 
@@ -310,26 +357,21 @@ class SchedulerService:
                 message,
             )
 
-            # Send push notification to most recently active device
-            push_service = ExpoPushService(db)
-            push_results = await push_service.send_notification(
-                user_id=UUID(str(user_id)),
-                title=f"{profile.companion_name} is here",
-                body=message[:100] + "..." if len(message) > 100 else message,
-                data={
-                    "type": "daily-checkin",
-                    "conversation_id": str(conversation_id),
-                    "scheduled_message_id": str(scheduled_id),
-                },
-                scheduled_message_id=scheduled_id,
-                channel_id="daily-checkin",
-                single_device=True,  # Only send to most recent device
-            )
+            # Send via appropriate channel
+            delivery_success = False
 
-            # Check if push was sent successfully
-            push_sent = any(r.success for r in push_results) if push_results else False
+            if delivery_channel == DeliveryChannel.PUSH.value:
+                # Send push notification
+                delivery_success = await cls._send_via_push(
+                    db, user_id, profile, message, conversation_id, scheduled_id
+                )
+            elif delivery_channel == DeliveryChannel.EMAIL.value:
+                # Send email
+                delivery_success = await cls._send_via_email(
+                    user, profile, message, conversation_id
+                )
 
-            # Mark scheduled message as sent (even if push failed - message is in app)
+            # Mark scheduled message as sent
             await db.execute(
                 """
                 UPDATE scheduled_messages
@@ -340,10 +382,10 @@ class SchedulerService:
                 conversation_id,
             )
 
-            if push_sent:
-                log.info(f"Sent scheduled message to user {user_id} with push notification")
+            if delivery_success:
+                log.info(f"Sent scheduled message to user {user_id} via {delivery_channel}")
             else:
-                log.info(f"Sent scheduled message to user {user_id} (no push - message waiting in app)")
+                log.info(f"Sent scheduled message to user {user_id} (delivery attempted via {delivery_channel})")
 
             return True
 
@@ -353,15 +395,76 @@ class SchedulerService:
             # Record failure
             await db.execute(
                 """
-                INSERT INTO scheduled_messages (user_id, scheduled_for, status, failure_reason)
-                VALUES ($1, NOW(), 'failed', $2)
+                INSERT INTO scheduled_messages (user_id, scheduled_for, status, failure_reason, channel)
+                VALUES ($1, NOW(), 'failed', $2, $3)
                 ON CONFLICT (user_id, scheduled_for)
                 DO UPDATE SET status = 'failed', failure_reason = $2
                 """,
                 user_id,
                 str(e)[:500],
+                delivery_channel,
             )
             return False
+
+    @classmethod
+    async def _send_via_push(
+        cls,
+        db,
+        user_id: UUID,
+        profile: UserProfile,
+        message: str,
+        conversation_id: UUID,
+        scheduled_id: UUID,
+    ) -> bool:
+        """Send message via push notification."""
+        push_service = ExpoPushService(db)
+        push_results = await push_service.send_notification(
+            user_id=UUID(str(user_id)),
+            title=f"{profile.companion_name} is here",
+            body=message[:100] + "..." if len(message) > 100 else message,
+            data={
+                "type": "daily-checkin",
+                "conversation_id": str(conversation_id),
+                "scheduled_message_id": str(scheduled_id),
+            },
+            scheduled_message_id=scheduled_id,
+            channel_id="daily-checkin",
+            single_device=True,
+        )
+        return any(r.success for r in push_results) if push_results else False
+
+    @classmethod
+    async def _send_via_email(
+        cls,
+        user: dict,
+        profile: UserProfile,
+        message: str,
+        conversation_id: UUID,
+    ) -> bool:
+        """Send message via email."""
+        email_service = get_email_service()
+
+        if not email_service.is_configured:
+            log.warning("Email service not configured, skipping email delivery")
+            return False
+
+        user_email = user.get("email")
+        if not user_email:
+            log.warning(f"No email for user {user['user_id']}, skipping email delivery")
+            return False
+
+        # Build conversation URL
+        conversation_url = f"{cls.WEB_APP_URL}/chat/{conversation_id}"
+
+        result = await email_service.send_daily_checkin(
+            to_email=user_email,
+            user_name=profile.display_name or "there",
+            companion_name=profile.companion_name or "Your companion",
+            message=message,
+            conversation_url=conversation_url,
+        )
+
+        return result.success
 
     @classmethod
     async def run_scheduler(cls):
@@ -374,6 +477,11 @@ class SchedulerService:
 
         users = await cls.get_users_for_scheduled_message()
         log.info(f"Found {len(users)} users to message")
+
+        # Count by channel for metrics
+        push_users = sum(1 for u in users if u.get("delivery_channel") == "push")
+        email_users = sum(1 for u in users if u.get("delivery_channel") == "email")
+        log.info(f"Channels: {push_users} push, {email_users} email")
 
         success_count = 0
         for user in users:

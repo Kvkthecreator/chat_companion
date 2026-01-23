@@ -40,6 +40,14 @@ services:
       # Weather API
       - key: OPENWEATHER_API_KEY
         sync: false
+      # Email (Resend)
+      - key: RESEND_API_KEY
+        sync: false
+      - key: RESEND_FROM_EMAIL
+        sync: false
+      # Web App URL (for email links)
+      - key: WEB_APP_URL
+        sync: false
       # LemonSqueezy
       - key: LEMONSQUEEZY_API_KEY
         sync: false
@@ -72,4 +80,12 @@ services:
       - key: GOOGLE_API_KEY
         sync: false
       - key: OPENWEATHER_API_KEY
+        sync: false
+      # Email (Resend)
+      - key: RESEND_API_KEY
+        sync: false
+      - key: RESEND_FROM_EMAIL
+        sync: false
+      # Web App URL (for email links)
+      - key: WEB_APP_URL
         sync: false

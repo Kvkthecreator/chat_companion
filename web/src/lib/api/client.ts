@@ -68,6 +68,19 @@ async function request<T>(
 }
 
 // Types for the companion app
+export interface UserPreferences {
+  daily_messages_paused?: boolean;
+  email_notifications_enabled?: boolean;
+  support?: {
+    style?: string;
+    feedback_type?: string;
+    questions?: string;
+  };
+  communication?: {
+    message_tone?: string;
+  };
+}
+
 export interface User {
   id: string;
   email: string;
@@ -79,6 +92,7 @@ export interface User {
   message_time_window?: "morning" | "midday" | "evening" | "night";
   support_style?: string;
   preferred_channel?: "push" | "telegram" | "whatsapp" | "none";
+  preferences?: UserPreferences;
   telegram_user_id?: number;
   telegram_username?: string;
   telegram_linked_at?: string;
