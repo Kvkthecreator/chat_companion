@@ -9,7 +9,7 @@ Handles:
 
 import logging
 from datetime import datetime
-from typing import Optional
+from typing import Any, Optional
 from zoneinfo import ZoneInfo
 
 from pydantic import BaseModel
@@ -92,6 +92,8 @@ class ConversationContext(BaseModel):
     day_of_week: Optional[str] = None
     local_time: Optional[str] = None
     is_daily_message: bool = False
+    # Message context for priority-based daily messages (from ThreadService)
+    message_context: Optional[Any] = None
 
 
 # =============================================================================

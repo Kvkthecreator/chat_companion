@@ -30,6 +30,7 @@ import {
   Trash2,
   Bell,
   MessageCircle,
+  LogOut,
 } from "lucide-react";
 
 export default function SettingsPage() {
@@ -52,6 +53,9 @@ export default function SettingsPage() {
   const [deleteReason, setDeleteReason] = useState("");
   const [isDeleting, setIsDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+
+  // Sign out state
+  const [isSigningOut, setIsSigningOut] = useState(false);
 
   // Get email from Supabase auth
   useEffect(() => {
@@ -126,6 +130,18 @@ export default function SettingsPage() {
       console.error("Failed to delete account:", err);
       setDeleteError("Failed to delete account. Please try again or contact support.");
       setIsDeleting(false);
+    }
+  };
+
+  const handleSignOut = async () => {
+    setIsSigningOut(true);
+    try {
+      const supabase = createClient();
+      await supabase.auth.signOut();
+      router.push("/");
+    } catch (err) {
+      console.error("Failed to sign out:", err);
+      setIsSigningOut(false);
     }
   };
 
@@ -367,6 +383,34 @@ export default function SettingsPage() {
                   </span>
                 )}
               </div>
+            </CardContent>
+          </Card>
+
+          {/* Sign Out */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <LogOut className="h-5 w-5 text-muted-foreground" />
+                Sign Out
+              </CardTitle>
+              <CardDescription>
+                Sign out of your account on this device
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Button
+                variant="outline"
+                onClick={handleSignOut}
+                disabled={isSigningOut}
+                className="w-full sm:w-auto"
+              >
+                {isSigningOut ? (
+                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                ) : (
+                  <LogOut className="h-4 w-4 mr-2" />
+                )}
+                Sign Out
+              </Button>
             </CardContent>
           </Card>
 
