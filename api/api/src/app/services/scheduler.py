@@ -116,7 +116,7 @@ class SchedulerService:
         """
         db = await get_db()
 
-        users = await db.fetch(
+        users = await db.fetch_all(
             """
             SELECT
                 u.id as user_id,
@@ -182,16 +182,16 @@ class SchedulerService:
         """Get context items for a user."""
         db = await get_db()
 
-        rows = await db.fetch(
+        rows = await db.fetch_all(
             """
             SELECT category, key, value, importance_score
             FROM user_context
-            WHERE user_id = $1
+            WHERE user_id = :user_id
             AND (expires_at IS NULL OR expires_at > NOW())
             ORDER BY importance_score DESC, last_referenced_at DESC NULLS LAST
             LIMIT 20
             """,
-            user_id,
+            {"user_id": user_id},
         )
 
         return [
@@ -314,16 +314,18 @@ class SchedulerService:
             )
 
             # Create scheduled message record with priority and channel tracking
-            scheduled_msg = await db.fetchrow(
+            scheduled_msg = await db.fetch_one(
                 """
                 INSERT INTO scheduled_messages (user_id, scheduled_for, content, status, priority_level, channel)
-                VALUES ($1, NOW(), $2, 'pending', $3, $4)
+                VALUES (:user_id, NOW(), :content, 'pending', :priority_level, :channel)
                 RETURNING id
                 """,
-                user_id,
-                message,
-                priority.name,
-                delivery_channel,
+                {
+                    "user_id": user_id,
+                    "content": message,
+                    "priority_level": priority.name,
+                    "channel": delivery_channel,
+                },
             )
             scheduled_id = scheduled_msg["id"]
 
@@ -336,14 +338,13 @@ class SchedulerService:
 
             # Create conversation record (message will be visible when user opens app/clicks email)
             channel_type = "web" if delivery_channel == "email" else "app"
-            conv = await db.fetchrow(
+            conv = await db.fetch_one(
                 """
                 INSERT INTO conversations (user_id, channel, initiated_by)
-                VALUES ($1, $2, 'companion')
+                VALUES (:user_id, :channel, 'companion')
                 RETURNING id
                 """,
-                user_id,
-                channel_type,
+                {"user_id": user_id, "channel": channel_type},
             )
             conversation_id = conv["id"]
 
@@ -351,10 +352,9 @@ class SchedulerService:
             await db.execute(
                 """
                 INSERT INTO companion_messages (conversation_id, role, content)
-                VALUES ($1, 'assistant', $2)
+                VALUES (:conversation_id, 'assistant', :content)
                 """,
-                conversation_id,
-                message,
+                {"conversation_id": conversation_id, "content": message},
             )
 
             # Send via appropriate channel
@@ -375,11 +375,10 @@ class SchedulerService:
             await db.execute(
                 """
                 UPDATE scheduled_messages
-                SET status = 'sent', sent_at = NOW(), conversation_id = $2
-                WHERE id = $1
+                SET status = 'sent', sent_at = NOW(), conversation_id = :conversation_id
+                WHERE id = :id
                 """,
-                scheduled_id,
-                conversation_id,
+                {"id": scheduled_id, "conversation_id": conversation_id},
             )
 
             if delivery_success:
@@ -396,13 +395,15 @@ class SchedulerService:
             await db.execute(
                 """
                 INSERT INTO scheduled_messages (user_id, scheduled_for, status, failure_reason, channel)
-                VALUES ($1, NOW(), 'failed', $2, $3)
+                VALUES (:user_id, NOW(), 'failed', :failure_reason, :channel)
                 ON CONFLICT (user_id, scheduled_for)
-                DO UPDATE SET status = 'failed', failure_reason = $2
+                DO UPDATE SET status = 'failed', failure_reason = :failure_reason
                 """,
-                user_id,
-                str(e)[:500],
-                delivery_channel,
+                {
+                    "user_id": user_id,
+                    "failure_reason": str(e)[:500],
+                    "channel": delivery_channel,
+                },
             )
             return False
 
