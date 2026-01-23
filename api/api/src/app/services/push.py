@@ -70,8 +70,9 @@ class ExpoPushService:
         data: Optional[Dict[str, Any]] = None,
         scheduled_message_id: Optional[UUID] = None,
         channel_id: str = "daily-checkin",
+        single_device: bool = True,
     ) -> List[PushResult]:
-        """Send push notification to all user's active devices.
+        """Send push notification to user's device(s).
 
         Args:
             user_id: The user to send to
@@ -80,15 +81,33 @@ class ExpoPushService:
             data: Optional data payload (for deep linking)
             scheduled_message_id: Optional link to scheduled message
             channel_id: Android notification channel ID
+            single_device: If True, send only to most recently active device (default).
+                          If False, send to all active devices.
 
         Returns:
             List of PushResult for each device
         """
-        # Get all active push tokens for user
-        tokens = await self.db.fetch_all(
-            "SELECT * FROM get_user_push_tokens(:user_id)",
-            {"user_id": str(user_id)}
-        )
+        # Get push tokens - either single most recent or all active
+        if single_device:
+            # Get most recently active device only
+            tokens = await self.db.fetch_all(
+                """
+                SELECT ud.id as device_id, ud.push_token, ud.platform
+                FROM user_devices ud
+                WHERE ud.user_id = :user_id
+                  AND ud.is_active = true
+                  AND ud.push_token IS NOT NULL
+                ORDER BY ud.last_active_at DESC NULLS LAST
+                LIMIT 1
+                """,
+                {"user_id": str(user_id)}
+            )
+        else:
+            # Get all active push tokens for user
+            tokens = await self.db.fetch_all(
+                "SELECT * FROM get_user_push_tokens(:user_id)",
+                {"user_id": str(user_id)}
+            )
 
         if not tokens:
             logger.info(f"No push tokens found for user {user_id}")

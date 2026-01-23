@@ -79,7 +79,6 @@ export interface User {
   message_time_flexibility?: "exact" | "around" | "window";
   message_time_window?: "morning" | "midday" | "evening" | "night";
   support_style?: string;
-  preferred_channel?: "push" | "telegram" | "whatsapp" | "none";
   telegram_user_id?: number;
   telegram_username?: string;
   telegram_linked_at?: string;

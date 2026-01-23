@@ -18,7 +18,6 @@ const STEPS = [
   "timezone",
   "time",
   "style",
-  "channel",
   "complete",
 ] as const;
 
@@ -99,8 +98,6 @@ export default function OnboardingPage() {
   const [timezone, setTimezone] = useState("America/New_York");
   const [messageTime, setMessageTime] = useState("09:00");
   const [supportStyle, setSupportStyle] = useState("friendly_checkin");
-  const [telegramLinked, setTelegramLinked] = useState(false);
-  const [telegramDeepLink, setTelegramDeepLink] = useState<string | null>(null);
 
   // Check auth and load existing onboarding state
   useEffect(() => {
@@ -223,16 +220,6 @@ export default function OnboardingPage() {
       console.error("Failed to complete onboarding:", err);
       setError("Failed to complete setup. Please try again.");
       setIsSaving(false);
-    }
-  };
-
-  // Get Telegram deep link
-  const getTelegramDeepLink = async () => {
-    try {
-      const result = await api.telegram.getDeepLink();
-      setTelegramDeepLink(result.deep_link_url);
-    } catch (err) {
-      console.error("Failed to get Telegram link:", err);
     }
   };
 
@@ -485,78 +472,6 @@ export default function OnboardingPage() {
                       }}
                       className="flex-1"
                     >
-                      Continue
-                    </Button>
-                  </div>
-                </div>
-              )}
-
-              {/* Channel Selection */}
-              {currentStep === "channel" && (
-                <div className="space-y-6">
-                  <div className="text-center">
-                    <h2 className="text-xl font-semibold">How do you want to chat?</h2>
-                    <p className="mt-1 text-sm text-muted-foreground">
-                      Connect Telegram for messages, or use web chat.
-                    </p>
-                  </div>
-
-                  {/* Telegram Option */}
-                  <div className="rounded-lg border border-border p-4">
-                    <div className="flex items-center gap-3">
-                      <span className="text-2xl">📱</span>
-                      <div className="flex-1">
-                        <div className="font-medium">Telegram</div>
-                        <div className="text-sm text-muted-foreground">
-                          Get messages directly in Telegram
-                        </div>
-                      </div>
-                      {telegramLinked ? (
-                        <span className="text-sm text-green-600">Connected</span>
-                      ) : telegramDeepLink ? (
-                        <a
-                          href={telegramDeepLink}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="rounded-lg bg-[#0088cc] px-4 py-2 text-sm font-medium text-white hover:bg-[#0088cc]/90"
-                        >
-                          Connect
-                        </a>
-                      ) : (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={getTelegramDeepLink}
-                        >
-                          Get Link
-                        </Button>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Web Chat Option */}
-                  <div className="rounded-lg border border-border p-4">
-                    <div className="flex items-center gap-3">
-                      <span className="text-2xl">💬</span>
-                      <div className="flex-1">
-                        <div className="font-medium">Web Chat</div>
-                        <div className="text-sm text-muted-foreground">
-                          Chat right here on the website
-                        </div>
-                      </div>
-                      <span className="text-sm text-green-600">Always available</span>
-                    </div>
-                  </div>
-
-                  <p className="text-center text-xs text-muted-foreground">
-                    You can connect more channels later in settings.
-                  </p>
-
-                  <div className="flex gap-3">
-                    <Button variant="outline" onClick={prevStep} className="flex-1">
-                      Back
-                    </Button>
-                    <Button onClick={nextStep} className="flex-1">
                       Continue
                     </Button>
                   </div>

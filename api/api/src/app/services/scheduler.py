@@ -32,7 +32,7 @@ from app.services.companion import (
     get_companion_service,
 )
 from app.services.llm import LLMService
-from app.services.telegram import TelegramService, get_telegram_service
+from app.services.push import ExpoPushService
 from app.services.threads import ThreadService, MessagePriority
 
 log = logging.getLogger(__name__)
@@ -92,7 +92,7 @@ class SchedulerService:
 
         Returns users where:
         - Onboarding is complete
-        - Has a connected channel (Telegram/WhatsApp)
+        - Has an active push token (mobile device registered)
         - Current time matches their preferred time (within 2 minute window)
         - Haven't received a message today
         - Daily messages not paused
@@ -107,15 +107,18 @@ class SchedulerService:
                 u.companion_name,
                 u.support_style,
                 u.timezone,
-                u.telegram_user_id,
-                u.whatsapp_number,
                 u.location
             FROM users u
             WHERE
                 -- User has completed onboarding
                 u.onboarding_completed_at IS NOT NULL
-                -- User has a connected channel
-                AND (u.telegram_user_id IS NOT NULL OR u.whatsapp_number IS NOT NULL)
+                -- User has an active push token
+                AND EXISTS (
+                    SELECT 1 FROM user_devices ud
+                    WHERE ud.user_id = u.id
+                    AND ud.is_active = true
+                    AND ud.push_token IS NOT NULL
+                )
                 -- Daily messages not paused
                 AND COALESCE((u.preferences->>'daily_messages_paused')::boolean, false) = false
                 -- Current time matches their preferred time (within 2 minute window)
@@ -286,63 +289,63 @@ class SchedulerService:
                     "This is a failure state that should be investigated."
                 )
 
-            # Send via appropriate channel
-            sent = False
-            conversation_id = None
+            # Create conversation record first (message will be visible when user opens app)
+            conv = await db.fetchrow(
+                """
+                INSERT INTO conversations (user_id, channel, initiated_by)
+                VALUES ($1, 'app', 'companion')
+                RETURNING id
+                """,
+                user_id,
+            )
+            conversation_id = conv["id"]
 
-            if user.get("telegram_user_id"):
-                telegram_service = get_telegram_service()
-                await telegram_service.send_message(user["telegram_user_id"], message)
-                sent = True
+            # Store message
+            await db.execute(
+                """
+                INSERT INTO companion_messages (conversation_id, role, content)
+                VALUES ($1, 'assistant', $2)
+                """,
+                conversation_id,
+                message,
+            )
 
-                # Create conversation record
-                conv = await db.fetchrow(
-                    """
-                    INSERT INTO conversations (user_id, channel, initiated_by)
-                    VALUES ($1, 'telegram', 'companion')
-                    RETURNING id
-                    """,
-                    user_id,
-                )
-                conversation_id = conv["id"]
+            # Send push notification to most recently active device
+            push_service = ExpoPushService(db)
+            push_results = await push_service.send_notification(
+                user_id=UUID(str(user_id)),
+                title=f"{profile.companion_name} is here",
+                body=message[:100] + "..." if len(message) > 100 else message,
+                data={
+                    "type": "daily-checkin",
+                    "conversation_id": str(conversation_id),
+                    "scheduled_message_id": str(scheduled_id),
+                },
+                scheduled_message_id=scheduled_id,
+                channel_id="daily-checkin",
+                single_device=True,  # Only send to most recent device
+            )
 
-                # Store message
-                await db.execute(
-                    """
-                    INSERT INTO companion_messages (conversation_id, role, content)
-                    VALUES ($1, 'assistant', $2)
-                    """,
-                    conversation_id,
-                    message,
-                )
+            # Check if push was sent successfully
+            push_sent = any(r.success for r in push_results) if push_results else False
 
-            # TODO: Add WhatsApp support here
+            # Mark scheduled message as sent (even if push failed - message is in app)
+            await db.execute(
+                """
+                UPDATE scheduled_messages
+                SET status = 'sent', sent_at = NOW(), conversation_id = $2
+                WHERE id = $1
+                """,
+                scheduled_id,
+                conversation_id,
+            )
 
-            if sent:
-                # Mark as sent
-                await db.execute(
-                    """
-                    UPDATE scheduled_messages
-                    SET status = 'sent', sent_at = NOW(), conversation_id = $2
-                    WHERE id = $1
-                    """,
-                    scheduled_id,
-                    conversation_id,
-                )
-                log.info(f"Sent scheduled message to user {user_id}")
-                return True
+            if push_sent:
+                log.info(f"Sent scheduled message to user {user_id} with push notification")
             else:
-                # No channel available
-                await db.execute(
-                    """
-                    UPDATE scheduled_messages
-                    SET status = 'failed', failure_reason = 'No channel available'
-                    WHERE id = $1
-                    """,
-                    scheduled_id,
-                )
-                log.warning(f"No channel available for user {user_id}")
-                return False
+                log.info(f"Sent scheduled message to user {user_id} (no push - message waiting in app)")
+
+            return True
 
         except Exception as e:
             log.error(f"Failed to send scheduled message to user {user_id}: {e}", exc_info=True)

@@ -163,66 +163,30 @@ export default function SettingsScreen() {
   const renderChannelsTab = () => (
     <ScrollView style={styles.tabContent} showsVerticalScrollIndicator={false}>
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Message Channels</Text>
+        <Text style={styles.sectionTitle}>Notifications</Text>
         <Text style={styles.sectionDescription}>
-          How do you want to receive messages from your companion?
+          Your companion will send you daily check-ins via push notifications.
         </Text>
 
         <View style={styles.card}>
           {/* Mobile Push */}
-          <View style={styles.channelRow}>
+          <View style={[styles.channelRow, { borderBottomWidth: 0 }]}>
             <View style={[styles.channelIcon, { backgroundColor: "#FF6B6B" }]}>
               <Text style={styles.channelIconText}>📱</Text>
             </View>
             <View style={styles.channelInfo}>
-              <Text style={styles.channelName}>Mobile Push</Text>
-              <Text style={styles.channelDescription}>Notifications on this device</Text>
+              <Text style={styles.channelName}>Push Notifications</Text>
+              <Text style={styles.channelDescription}>Daily check-ins on this device</Text>
             </View>
             <View style={styles.channelStatus}>
               <Text style={styles.channelStatusActive}>✓ Active</Text>
             </View>
           </View>
-
-          {/* Telegram */}
-          <View style={styles.channelRow}>
-            <View style={[styles.channelIcon, { backgroundColor: "#0088cc" }]}>
-              <Text style={styles.channelIconText}>✈️</Text>
-            </View>
-            <View style={styles.channelInfo}>
-              <Text style={styles.channelName}>Telegram</Text>
-              <Text style={styles.channelDescription}>Primary messaging channel</Text>
-            </View>
-            <TouchableOpacity style={styles.channelConnectButton}>
-              <Text style={styles.channelConnectText}>Connect</Text>
-            </TouchableOpacity>
-          </View>
-
-          {/* Web Chat */}
-          <View style={styles.channelRow}>
-            <View style={[styles.channelIcon, { backgroundColor: "#FF6B6B" }]}>
-              <Text style={styles.channelIconText}>💬</Text>
-            </View>
-            <View style={styles.channelInfo}>
-              <Text style={styles.channelName}>Web Chat</Text>
-              <Text style={styles.channelDescription}>Chat directly on the website</Text>
-            </View>
-            <View style={styles.channelStatus}>
-              <Text style={styles.channelStatusAvailable}>Available</Text>
-            </View>
-          </View>
-
-          {/* WhatsApp */}
-          <View style={[styles.channelRow, styles.channelDisabled]}>
-            <View style={[styles.channelIcon, { backgroundColor: "#25D366" }]}>
-              <Text style={styles.channelIconText}>📞</Text>
-            </View>
-            <View style={styles.channelInfo}>
-              <Text style={styles.channelName}>WhatsApp</Text>
-              <Text style={styles.channelDescription}>Coming soon</Text>
-            </View>
-            <Text style={styles.channelComingSoon}>Coming Soon</Text>
-          </View>
         </View>
+
+        <Text style={styles.channelHelpText}>
+          You can also chat with your companion anytime by opening the app. Push notifications are just a gentle reminder for your daily check-in.
+        </Text>
       </View>
     </ScrollView>
   );
@@ -623,6 +587,12 @@ const styles = StyleSheet.create({
   channelComingSoon: {
     fontSize: 12,
     color: "#999",
+  },
+  channelHelpText: {
+    fontSize: 13,
+    color: "#666",
+    lineHeight: 18,
+    paddingHorizontal: 4,
   },
   // Billing
   subscriptionInfo: {
