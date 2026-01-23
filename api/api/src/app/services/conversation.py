@@ -11,6 +11,7 @@ from uuid import UUID
 
 from app.services.llm import LLMService
 from app.services.context import ContextService
+from app.services.threads import ThreadService
 
 log = logging.getLogger(__name__)
 
@@ -79,6 +80,15 @@ class ConversationService:
                 await self.context_service.save_context(user_id, context_items)
         except Exception as e:
             log.warning(f"Context extraction failed: {e}")
+
+        # Extract threads for follow-ups and ongoing situation tracking
+        try:
+            thread_service = ThreadService(self.db)
+            await thread_service.extract_from_conversation(
+                user_id, conversation_id, recent_messages
+            )
+        except Exception as e:
+            log.warning(f"Thread extraction failed: {e}")
 
         return {
             "id": str(assistant_message["id"]),
@@ -155,6 +165,15 @@ class ConversationService:
                 await self.context_service.save_context(user_id, context_items)
         except Exception as e:
             log.warning(f"Context extraction failed: {e}")
+
+        # Extract threads for follow-ups and ongoing situation tracking
+        try:
+            thread_service = ThreadService(self.db)
+            await thread_service.extract_from_conversation(
+                user_id, conversation_id, recent_messages
+            )
+        except Exception as e:
+            log.warning(f"Thread extraction failed: {e}")
 
     async def get_or_create_conversation(
         self,
