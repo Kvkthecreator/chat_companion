@@ -18,6 +18,7 @@ const STEPS = [
   "timezone",
   "time",
   "style",
+  "situation",
   "complete",
 ] as const;
 
@@ -98,6 +99,7 @@ export default function OnboardingPage() {
   const [timezone, setTimezone] = useState("America/New_York");
   const [messageTime, setMessageTime] = useState("09:00");
   const [supportStyle, setSupportStyle] = useState("friendly_checkin");
+  const [situation, setSituation] = useState("");
 
   // Check auth and load existing onboarding state
   useEffect(() => {
@@ -142,6 +144,7 @@ export default function OnboardingPage() {
             if (onboardingState.data.timezone) setTimezone(onboardingState.data.timezone as string);
             if (onboardingState.data.message_time) setMessageTime(onboardingState.data.message_time as string);
             if (onboardingState.data.support_style) setSupportStyle(onboardingState.data.support_style as string);
+            if (onboardingState.data.situation) setSituation(onboardingState.data.situation as string);
           }
         } catch {
           // No existing onboarding state, that's fine
@@ -211,8 +214,8 @@ export default function OnboardingPage() {
         support_style: supportStyle,
       });
 
-      // Mark onboarding as complete
-      await api.onboarding.complete();
+      // Mark onboarding as complete (includes situation for thread creation)
+      await api.onboarding.complete({ situation: situation.trim() || undefined });
 
       // Redirect to dashboard
       router.push("/dashboard");
@@ -475,6 +478,47 @@ export default function OnboardingPage() {
                       Continue
                     </Button>
                   </div>
+                </div>
+              )}
+
+              {/* Situation */}
+              {currentStep === "situation" && (
+                <div className="space-y-6">
+                  <div className="text-center">
+                    <h2 className="text-xl font-semibold">What's going on in your life?</h2>
+                    <p className="mt-1 text-sm text-muted-foreground">
+                      New job, moving, relationship stuff, a project you're working on - whatever's on your mind.
+                      This helps {companionName || "your companion"} check in about things that matter to you.
+                    </p>
+                  </div>
+                  <textarea
+                    value={situation}
+                    onChange={(e) => setSituation(e.target.value)}
+                    placeholder="e.g., Starting a new job next week and feeling nervous about it..."
+                    className="w-full rounded-lg border border-border bg-background px-4 py-3 text-foreground min-h-[120px] resize-none"
+                    rows={4}
+                  />
+                  <div className="flex gap-3">
+                    <Button variant="outline" onClick={prevStep} className="flex-1">
+                      Back
+                    </Button>
+                    <Button
+                      onClick={() => {
+                        saveStepData({ situation });
+                        nextStep();
+                      }}
+                      disabled={!situation.trim()}
+                      className="flex-1"
+                    >
+                      Continue
+                    </Button>
+                  </div>
+                  <button
+                    onClick={nextStep}
+                    className="w-full text-sm text-muted-foreground hover:text-foreground transition-colors"
+                  >
+                    Skip for now
+                  </button>
                 </div>
               )}
 

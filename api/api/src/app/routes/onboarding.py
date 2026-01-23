@@ -71,6 +71,12 @@ class ChatResponseResult(BaseModel):
     retry_message: Optional[str] = None
 
 
+class OnboardingCompleteRequest(BaseModel):
+    """Request body for completing form onboarding."""
+
+    situation: Optional[str] = None  # Current life situation to create initial thread
+
+
 @router.get("", response_model=OnboardingState)
 async def get_onboarding(
     user_id: UUID = Depends(get_current_user_id),
@@ -185,10 +191,30 @@ async def update_onboarding(
 
 @router.post("/complete", response_model=OnboardingState)
 async def complete_onboarding(
+    request: Optional[OnboardingCompleteRequest] = None,
     user_id: UUID = Depends(get_current_user_id),
     db=Depends(get_db),
 ):
-    """Mark onboarding as complete."""
+    """Mark onboarding as complete.
+
+    Optionally accepts a situation to create the user's first thread,
+    preventing the cold start problem where Day 1 messages are generic.
+    """
+    # If situation provided, save it as a thread in user_context
+    if request and request.situation and request.situation.strip():
+        await db.execute(
+            """
+            INSERT INTO user_context (user_id, category, key, value, tier, source, importance_score)
+            VALUES (:user_id, 'situation', 'current_situation', :value, 'thread', 'onboarding', 0.9)
+            ON CONFLICT (user_id, category, key)
+            DO UPDATE SET value = EXCLUDED.value, tier = EXCLUDED.tier, updated_at = NOW()
+            """,
+            {
+                "user_id": str(user_id),
+                "value": request.situation.strip(),
+            },
+        )
+
     # Update onboarding record
     await db.execute(
         """
@@ -199,11 +225,11 @@ async def complete_onboarding(
         {"user_id": str(user_id)},
     )
 
-    # Update user record
+    # Update user record (mark onboarding_path as 'form' to distinguish from chat path)
     await db.execute(
         """
         UPDATE users
-        SET onboarding_completed_at = NOW(), updated_at = NOW()
+        SET onboarding_completed_at = NOW(), onboarding_path = 'form', updated_at = NOW()
         WHERE id = :user_id
         """,
         {"user_id": str(user_id)},

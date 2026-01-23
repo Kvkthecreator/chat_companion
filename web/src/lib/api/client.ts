@@ -247,9 +247,10 @@ export const api = {
         method: "PATCH",
         body: JSON.stringify(data),
       }),
-    complete: () =>
+    complete: (data?: { situation?: string }) =>
       request<OnboardingState>("/onboarding/complete", {
         method: "POST",
+        body: data ? JSON.stringify(data) : undefined,
       }),
     // Chat-based onboarding (ADR-003)
     chat: {
