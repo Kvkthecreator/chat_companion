@@ -315,14 +315,22 @@ async def load_context_for_daily_message(user_id: UUID) -> MessageContext:
 
 ## Implementation Status
 
+**Updated:** 2026-01-23
+
 - [x] Basic `user_context` table
 - [x] Context extraction from conversations
 - [x] Tiered memory columns (tier, thread_id, confidence)
-- [ ] Thread detection and tracking
-- [ ] Follow-up generation from threads
-- [ ] Pattern detection (mood trends, engagement)
-- [ ] Memory management UI
+- [x] Thread detection and tracking *(fixed Jan 23)*
+- [x] Follow-up generation from threads *(fixed Jan 23)*
+- [x] Pattern detection (mood trends, engagement)
+- [x] Memory management UI (`/companion` page)
 - [ ] Semantic deduplication
+- [ ] Memory versioning (tracking changes over time)
+- [ ] Manual memory creation from UI
+- [ ] Reference tracking (when memory is used in conversation)
+- [ ] Thread-to-fact promotion on resolution
+
+**See:** [MEMORY_AND_MESSAGING_STATUS.md](../implementation/MEMORY_AND_MESSAGING_STATUS.md) for detailed status and next steps.
 
 ---
 
