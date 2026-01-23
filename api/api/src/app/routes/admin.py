@@ -647,3 +647,152 @@ async def get_activation_funnel(
         cohort_retention=cohort_retention,
         insights=insights,
     )
+
+
+# =============================================================================
+# Message Priority Metrics (Memory System Health)
+# =============================================================================
+
+
+class PriorityDistribution(BaseModel):
+    priority: str
+    count: int
+    percentage: float
+
+
+class DailyPriorityStats(BaseModel):
+    date: str
+    total: int
+    priority_1: int  # FOLLOW_UP
+    priority_2: int  # THREAD
+    priority_3: int  # PATTERN
+    priority_4: int  # TEXTURE
+    priority_5: int  # GENERIC (failure state)
+    generic_rate: float  # Priority 5 rate
+
+
+class MessagePriorityMetrics(BaseModel):
+    """Tracks how personalized our daily messages are."""
+    total_messages: int
+    distribution: List[PriorityDistribution]
+    generic_rate: float  # % of messages that were Priority 5 (failure)
+    personal_rate: float  # % of messages that were Priority 1-3
+    daily_stats: List[DailyPriorityStats]
+    insights: List[str]
+
+
+@router.get("/message-priority", response_model=MessagePriorityMetrics)
+async def get_message_priority_metrics(
+    request: Request,
+    days: int = 30,
+    user_id: UUID = Depends(get_current_user_id),
+    db=Depends(get_db),
+):
+    """Get message priority distribution to track memory system health.
+
+    Priority 5 (GENERIC) is a failure state - it means we had nothing
+    personal to say. Goal is <40% Priority 5, >60% Priority 1-3.
+    """
+    await verify_admin_access(request, user_id, db)
+
+    lookback = datetime.utcnow() - timedelta(days=days)
+
+    # Overall distribution
+    distribution_query = """
+    SELECT
+        COALESCE(priority_level, 'UNKNOWN') as priority,
+        COUNT(*) as count
+    FROM scheduled_messages
+    WHERE sent_at > :lookback
+      AND status = 'sent'
+    GROUP BY priority_level
+    ORDER BY count DESC
+    """
+    dist_rows = await db.fetch_all(distribution_query, {"lookback": lookback})
+
+    total = sum(row["count"] for row in dist_rows) or 1
+    distribution = [
+        PriorityDistribution(
+            priority=row["priority"],
+            count=row["count"],
+            percentage=round(row["count"] / total * 100, 1)
+        )
+        for row in dist_rows
+    ]
+
+    # Calculate key rates
+    priority_counts = {row["priority"]: row["count"] for row in dist_rows}
+    generic_count = priority_counts.get("GENERIC", 0)
+    personal_count = (
+        priority_counts.get("FOLLOW_UP", 0) +
+        priority_counts.get("THREAD", 0) +
+        priority_counts.get("PATTERN", 0)
+    )
+
+    generic_rate = round(generic_count / total * 100, 1) if total > 0 else 0
+    personal_rate = round(personal_count / total * 100, 1) if total > 0 else 0
+
+    # Daily breakdown
+    daily_query = """
+    SELECT
+        DATE(sent_at AT TIME ZONE 'UTC') as date,
+        COUNT(*) as total,
+        COUNT(*) FILTER (WHERE priority_level = 'FOLLOW_UP') as priority_1,
+        COUNT(*) FILTER (WHERE priority_level = 'THREAD') as priority_2,
+        COUNT(*) FILTER (WHERE priority_level = 'PATTERN') as priority_3,
+        COUNT(*) FILTER (WHERE priority_level = 'TEXTURE') as priority_4,
+        COUNT(*) FILTER (WHERE priority_level = 'GENERIC') as priority_5
+    FROM scheduled_messages
+    WHERE sent_at > :lookback
+      AND status = 'sent'
+    GROUP BY DATE(sent_at AT TIME ZONE 'UTC')
+    ORDER BY date DESC
+    LIMIT 30
+    """
+    daily_rows = await db.fetch_all(daily_query, {"lookback": lookback})
+    daily_stats = [
+        DailyPriorityStats(
+            date=str(row["date"]),
+            total=row["total"],
+            priority_1=row["priority_1"],
+            priority_2=row["priority_2"],
+            priority_3=row["priority_3"],
+            priority_4=row["priority_4"],
+            priority_5=row["priority_5"],
+            generic_rate=round(row["priority_5"] / row["total"] * 100, 1) if row["total"] > 0 else 0
+        )
+        for row in daily_rows
+    ]
+
+    # Generate insights
+    insights = []
+
+    if total == 0:
+        insights.append("📭 No messages sent yet - scheduler may not be running or no users matched")
+    elif generic_rate > 40:
+        insights.append(f"🚨 CRITICAL: {generic_rate}% of messages are generic (Priority 5). Memory system is failing.")
+        insights.append("→ Check: Are threads being extracted from conversations?")
+        insights.append("→ Check: Is onboarding collecting situation?")
+    elif generic_rate > 20:
+        insights.append(f"⚠️ WARNING: {generic_rate}% of messages are generic. Room for improvement.")
+    else:
+        insights.append(f"✅ Memory system healthy: Only {generic_rate}% generic messages")
+
+    if personal_rate < 60 and total > 0:
+        insights.append(f"📉 Personal message rate is {personal_rate}% (goal: >60%)")
+    elif personal_rate >= 60:
+        insights.append(f"✅ {personal_rate}% of messages reference something personal (Priority 1-3)")
+
+    # Check if Priority 3 (PATTERN) is being used
+    pattern_count = priority_counts.get("PATTERN", 0)
+    if pattern_count == 0 and total > 10:
+        insights.append("⚠️ No Pattern-based messages - is pattern computation job running?")
+
+    return MessagePriorityMetrics(
+        total_messages=total if total != 1 else 0,  # Reset the fake 1 we used for division
+        distribution=distribution,
+        generic_rate=generic_rate,
+        personal_rate=personal_rate,
+        daily_stats=daily_stats,
+        insights=insights,
+    )

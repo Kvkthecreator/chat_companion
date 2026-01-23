@@ -81,11 +81,27 @@ services:
         sync: false
       - key: OPENWEATHER_API_KEY
         sync: false
-      # Email (Resend)
       - key: RESEND_API_KEY
         sync: false
       - key: RESEND_FROM_EMAIL
         sync: false
-      # Web App URL (for email links)
       - key: WEB_APP_URL
+        sync: false
+
+  # Pattern Computation - Daily behavior pattern analysis
+  - type: cron
+    name: pattern-computation
+    runtime: python
+    schedule: "0 2 * * *"  # Daily at 2am UTC
+    buildCommand: pip install --upgrade pip && pip install -r requirements.txt
+    startCommand: cd src && python -m app.jobs.patterns
+    rootDir: api/api
+    envVars:
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: DATABASE_URL
+        sync: false
+      - key: GOOGLE_API_KEY
         sync: false
