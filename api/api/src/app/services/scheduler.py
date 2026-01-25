@@ -313,11 +313,22 @@ class SchedulerService:
                 profile, user_context, weather_info, message_context
             )
 
-            # Create scheduled message record with priority and channel tracking
+            # Determine message_type for tracking (different from priority)
+            message_type = priority.name
+            if message_context.force_presence:
+                message_type = "PRESENCE"
+
+            # Create scheduled message record with priority, topic, and channel tracking
             scheduled_msg = await db.fetch_one(
                 """
-                INSERT INTO scheduled_messages (user_id, scheduled_for, content, status, priority_level, channel)
-                VALUES (:user_id, NOW(), :content, 'pending', :priority_level, :channel)
+                INSERT INTO scheduled_messages (
+                    user_id, scheduled_for, content, status, priority_level,
+                    channel, topic_key, message_type
+                )
+                VALUES (
+                    :user_id, NOW(), :content, 'pending', :priority_level,
+                    :channel, :topic_key, :message_type
+                )
                 RETURNING id
                 """,
                 {
@@ -325,11 +336,19 @@ class SchedulerService:
                     "content": message,
                     "priority_level": priority.name,
                     "channel": delivery_channel,
+                    "topic_key": message_context.topic_key,
+                    "message_type": message_type,
                 },
             )
             scheduled_id = scheduled_msg["id"]
 
-            # Track generic fallback as failure metric
+            # Log message type for metrics
+            log.info(
+                f"Generated {message_type} message for user {user_id} "
+                f"(topic_key={message_context.topic_key}, responded_since_last={message_context.user_responded_since_last})"
+            )
+
+            # Track generic fallback as failure metric (PRESENCE is NOT a failure)
             if priority == MessagePriority.GENERIC:
                 log.warning(
                     f"GENERIC FALLBACK for user {user_id} - no personal content available. "

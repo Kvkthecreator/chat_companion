@@ -41,12 +41,14 @@ class MessagePriority(int, Enum):
     """Message generation priority levels.
 
     Lower number = higher priority.
+    PRESENCE is not a priority - it's an intentional choice for variety.
     """
     FOLLOW_UP = 1       # Specific follow-up from recent conversation
     THREAD = 2          # Reference ongoing life thread
     PATTERN = 3         # Acknowledge mood/engagement pattern
     TEXTURE = 4         # Personal check-in with contextual texture
     GENERIC = 5         # Fallback - no personal content (FAILURE STATE)
+    PRESENCE = 6        # Intentional light touch - no question asked (NOT a failure)
 
 
 @dataclass
@@ -58,6 +60,10 @@ class MessageContext:
     patterns: List[Dict[str, Any]]      # Priority 3 (mood trends, etc.)
     core_facts: List[Dict[str, Any]]    # Priority 4 texture
     has_personal_content: bool
+    # Variety/state tracking
+    topic_key: Optional[str] = None     # Key for deduplication
+    user_responded_since_last: bool = True  # Did user respond to last outreach?
+    force_presence: bool = False        # Force PRESENCE type for variety
 
     @property
     def is_generic_fallback(self) -> bool:
@@ -585,19 +591,46 @@ class ThreadService:
     ) -> MessageContext:
         """Get prioritized context for daily message generation.
 
-        Implements the priority stack from MEMORY_SYSTEM.md:
-        1. Follow-ups from recent conversations
-        2. Active life threads
+        Implements the priority stack from MEMORY_SYSTEM.md with variety improvements:
+        1. Follow-ups from recent conversations (filtered for recently-used)
+        2. Active life threads (filtered for recently-used)
         3. Patterns (mood trends, engagement)
         4. Core facts for texture
         5. Generic fallback (FAILURE STATE)
-        """
-        # Priority 1: Pending follow-ups
-        follow_ups = await self.get_pending_follow_ups(user_id)
+        6. PRESENCE - intentional light touch (NOT a failure, chosen for variety)
 
-        # Priority 2: Active threads (especially those needing follow-up)
-        threads = await self.get_active_threads(user_id, limit=5)
+        Variety features:
+        - Filters out topics used in last 7 days
+        - ~20% chance of PRESENCE even when data available
+        - Backs off to PRESENCE if user didn't respond to last outreach
+        """
+        import random
+
+        # Get recently used topic keys (last 7 days) to avoid repetition
+        recent_topics = await self._get_recently_used_topics(user_id, days=7)
+        log.debug(f"Recently used topics for {user_id}: {recent_topics}")
+
+        # Check if user responded since last outreach
+        user_responded = await self._check_user_responded_since_last_outreach(user_id)
+
+        # Priority 1: Pending follow-ups (filtered)
+        all_follow_ups = await self.get_pending_follow_ups(user_id)
+        follow_ups = [
+            fu for fu in all_follow_ups
+            if f"followup_{fu.get('id', '')}" not in recent_topics
+        ]
+
+        # Priority 2: Active threads (filtered)
+        all_threads = await self.get_active_threads(user_id, limit=5)
+        threads = [
+            t for t in all_threads
+            if f"thread_{t.get('id', '')}" not in recent_topics
+        ]
         threads_needing_followup = await self.get_threads_needing_followup(user_id)
+        threads_needing_followup = [
+            t for t in threads_needing_followup
+            if f"thread_{t.get('id', '')}" not in recent_topics
+        ]
 
         # Priority 3: Patterns (mood trends, engagement changes)
         patterns: List[Dict[str, Any]] = []
@@ -622,13 +655,33 @@ class ThreadService:
         )
         core_facts = [dict(row) for row in core_facts_rows]
 
-        # Determine priority level
-        if follow_ups:
+        # Determine topic_key for the selected priority
+        topic_key: Optional[str] = None
+
+        # Determine priority level with variety logic
+        force_presence = False
+
+        # Back-off logic: if user didn't respond to last outreach, prefer PRESENCE
+        if not user_responded:
+            log.info(f"User {user_id} hasn't responded since last outreach, preferring PRESENCE")
+            force_presence = True
+
+        # Random variety: ~20% chance of PRESENCE even with data available
+        if not force_presence and random.random() < 0.20:
+            log.info(f"Randomly choosing PRESENCE for variety (user {user_id})")
+            force_presence = True
+
+        if force_presence:
+            priority = MessagePriority.PRESENCE
+        elif follow_ups:
             priority = MessagePriority.FOLLOW_UP
+            topic_key = f"followup_{follow_ups[0].get('id', '')}"
         elif threads_needing_followup:
             priority = MessagePriority.THREAD
+            topic_key = f"thread_{threads_needing_followup[0].get('id', '')}"
         elif threads:
             priority = MessagePriority.THREAD
+            topic_key = f"thread_{threads[0].get('id', '')}"
         elif patterns:
             priority = MessagePriority.PATTERN
         elif core_facts:
@@ -642,8 +695,69 @@ class ThreadService:
             threads=threads,
             patterns=patterns,
             core_facts=core_facts,
-            has_personal_content=priority != MessagePriority.GENERIC,
+            has_personal_content=priority not in (MessagePriority.GENERIC, MessagePriority.PRESENCE),
+            topic_key=topic_key,
+            user_responded_since_last=user_responded,
+            force_presence=force_presence,
         )
+
+    async def _get_recently_used_topics(
+        self,
+        user_id: UUID,
+        days: int = 7,
+    ) -> set:
+        """Get topic_keys used in recent scheduled messages."""
+        rows = await self.db.fetch_all(
+            """
+            SELECT DISTINCT topic_key
+            FROM scheduled_messages
+            WHERE user_id = :user_id
+                AND topic_key IS NOT NULL
+                AND sent_at > NOW() - INTERVAL ':days days'
+                AND status = 'sent'
+            """.replace(":days", str(days)),  # Interval doesn't support params
+            {"user_id": str(user_id)},
+        )
+        return {row["topic_key"] for row in rows}
+
+    async def _check_user_responded_since_last_outreach(
+        self,
+        user_id: UUID,
+    ) -> bool:
+        """Check if user has sent a message since our last scheduled outreach."""
+        # Get last scheduled message sent_at
+        last_outreach = await self.db.fetch_one(
+            """
+            SELECT sent_at
+            FROM scheduled_messages
+            WHERE user_id = :user_id AND status = 'sent'
+            ORDER BY sent_at DESC
+            LIMIT 1
+            """,
+            {"user_id": str(user_id)},
+        )
+
+        if not last_outreach or not last_outreach["sent_at"]:
+            # No previous outreach, assume they're engaged
+            return True
+
+        # Get last user message
+        last_user_msg = await self.db.fetch_one(
+            """
+            SELECT MAX(m.created_at) as last_msg
+            FROM messages m
+            JOIN conversations c ON m.conversation_id = c.id
+            WHERE c.user_id = :user_id AND m.role = 'user'
+            """,
+            {"user_id": str(user_id)},
+        )
+
+        if not last_user_msg or not last_user_msg["last_msg"]:
+            # User has never messaged (new user), give them benefit of doubt
+            return True
+
+        # User responded if their last message is after our last outreach
+        return last_user_msg["last_msg"] > last_outreach["sent_at"]
 
     # -------------------------------------------------------------------------
     # Helpers

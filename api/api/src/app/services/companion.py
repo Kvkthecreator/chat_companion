@@ -366,6 +366,23 @@ Use weather/day context to make the message feel grounded.
 Example: "Morning. Rain today - good excuse to stay in. How are you feeling about the week?"
 """
 
+        elif priority == MessagePriority.PRESENCE:
+            # PRESENCE - intentional light touch (NOT a failure)
+            priority_instruction = """PRIORITY: Simple presence message.
+
+This is an intentional choice for variety, not a failure.
+Just let them know you're thinking of them. Do NOT ask any questions.
+Keep it warm, brief, and low-pressure.
+
+Examples:
+- "Thinking of you today."
+- "Hope your week is going well."
+- "Just wanted to say hi."
+- "Sending good vibes your way."
+
+IMPORTANT: Do NOT ask any questions. This is a no-ask message.
+"""
+
         else:
             # Priority 5: Generic fallback (FAILURE STATE)
             priority_instruction = """PRIORITY: Generic warm check-in (FALLBACK MODE).
