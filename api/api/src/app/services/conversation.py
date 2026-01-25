@@ -7,6 +7,7 @@ Handles message storage, context retrieval, and conversation flow.
 import asyncio
 import json
 import logging
+import time
 from typing import AsyncIterator, Dict, List, Optional
 from uuid import UUID
 
@@ -155,31 +156,102 @@ class ConversationService:
         """Extract context and threads in background (fire-and-forget).
 
         This runs after the streaming response completes, decoupled from
-        the HTTP request lifecycle. Failures are logged but don't affect
-        the user experience.
+        the HTTP request lifecycle. Failures are logged to extraction_logs
+        table for observability.
         """
         try:
             recent_messages = await self._get_recent_messages(conversation_id, limit=10)
 
             # Extract context (memory)
-            try:
-                context_items, mood = await self.context_service.extract_context(
-                    user_id, conversation_id, recent_messages
-                )
-                if context_items:
-                    await self.context_service.save_context(user_id, context_items)
-            except Exception as e:
-                log.warning(f"Context extraction failed: {e}")
+            await self._extract_and_log(
+                user_id=user_id,
+                conversation_id=conversation_id,
+                extraction_type="context",
+                extract_fn=lambda: self._do_context_extraction(user_id, conversation_id, recent_messages),
+            )
 
             # Extract threads for follow-ups and ongoing situation tracking
-            try:
-                thread_service = ThreadService(self.db)
-                await thread_service.extract_from_conversation(user_id, recent_messages)
-            except Exception as e:
-                log.warning(f"Thread extraction failed: {e}")
+            await self._extract_and_log(
+                user_id=user_id,
+                conversation_id=conversation_id,
+                extraction_type="thread",
+                extract_fn=lambda: self._do_thread_extraction(user_id, recent_messages),
+            )
 
         except Exception as e:
             log.error(f"Background extraction failed: {e}")
+
+    async def _do_context_extraction(
+        self,
+        user_id: UUID,
+        conversation_id: UUID,
+        messages: List[Dict],
+    ) -> int:
+        """Execute context extraction and return item count."""
+        context_items, mood = await self.context_service.extract_context(
+            user_id, conversation_id, messages
+        )
+        if context_items:
+            await self.context_service.save_context(user_id, context_items)
+        return len(context_items) if context_items else 0
+
+    async def _do_thread_extraction(
+        self,
+        user_id: UUID,
+        messages: List[Dict],
+    ) -> int:
+        """Execute thread extraction and return item count."""
+        thread_service = ThreadService(self.db)
+        result = await thread_service.extract_from_conversation(user_id, messages)
+        # Result is a dict with counts: threads_created, threads_updated, follow_ups_created
+        if isinstance(result, dict):
+            return result.get("threads_created", 0) + result.get("threads_updated", 0)
+        return 0
+
+    async def _extract_and_log(
+        self,
+        user_id: UUID,
+        conversation_id: UUID,
+        extraction_type: str,
+        extract_fn,
+    ) -> None:
+        """Run extraction function and log result to extraction_logs table."""
+        start_time = time.time()
+        status = "success"
+        error_message = None
+        items_extracted = 0
+
+        try:
+            items_extracted = await extract_fn()
+        except Exception as e:
+            status = "failed"
+            error_message = str(e)[:500]  # Truncate long errors
+            log.warning(f"{extraction_type.title()} extraction failed: {e}")
+
+        duration_ms = int((time.time() - start_time) * 1000)
+
+        # Log to extraction_logs table
+        try:
+            await self.db.execute(
+                """
+                INSERT INTO extraction_logs
+                    (user_id, conversation_id, extraction_type, status, error_message, items_extracted, duration_ms)
+                VALUES
+                    (:user_id, :conversation_id, :extraction_type, :status, :error_message, :items_extracted, :duration_ms)
+                """,
+                {
+                    "user_id": str(user_id),
+                    "conversation_id": str(conversation_id),
+                    "extraction_type": extraction_type,
+                    "status": status,
+                    "error_message": error_message,
+                    "items_extracted": items_extracted,
+                    "duration_ms": duration_ms,
+                },
+            )
+        except Exception as e:
+            # Don't fail the extraction if logging fails
+            log.error(f"Failed to log extraction result: {e}")
 
     async def get_or_create_conversation(
         self,

@@ -439,6 +439,177 @@ export const api = {
         method: "POST",
       }),
   },
+
+  // Admin endpoints (restricted by email allowlist on backend)
+  admin: {
+    stats: () => request<AdminStatsResponse>("/admin/stats"),
+    funnel: (days: number = 30) => request<ActivationFunnelResponse>(`/admin/activation-funnel?days=${days}`),
+    messagePriority: (days: number = 30) => request<MessagePriorityMetrics>(`/admin/message-priority?days=${days}`),
+    extractionStats: () => request<ExtractionStatsResponse>("/admin/extraction-stats"),
+  },
 };
+
+// Admin types (matches backend response models)
+export interface AdminStatsResponse {
+  overview: {
+    total_users: number;
+    users_7d: number;
+    users_30d: number;
+    premium_users: number;
+    total_revenue_cents: number;
+    total_messages: number;
+    total_sessions: number;
+    guest_sessions_total: number;
+    guest_sessions_24h: number;
+    guest_sessions_converted: number;
+  };
+  signups_by_day: AdminSignupDay[];
+  users: AdminUserEngagement[];
+  purchases: AdminPurchase[];
+  guest_sessions: AdminGuestSession[];
+}
+
+export interface AdminSignupDay {
+  date: string;
+  count: number;
+}
+
+export interface AdminUserEngagement {
+  id: string;
+  display_name: string;
+  email?: string;
+  subscription_status: string;
+  spark_balance: number;
+  messages_sent_count: number;
+  flux_generations_used: number;
+  session_count: number;
+  engagement_count: number;
+  created_at: string;
+  last_active?: string;
+  signup_source?: string;
+  signup_campaign?: string;
+}
+
+export interface AdminPurchase {
+  id: string;
+  user_id: string;
+  user_name?: string;
+  pack_name: string;
+  sparks_amount: number;
+  price_cents: number;
+  status: string;
+  created_at: string;
+}
+
+export interface AdminGuestSession {
+  id: string;
+  guest_session_id: string;
+  character_name: string;
+  message_count: number;
+  ip_hash?: string;
+  converted: boolean;
+  created_at: string;
+}
+
+export interface ActivationFunnelResponse {
+  funnel: FunnelStep[];
+  message_distribution: MessageDistribution[];
+  dropoff_analysis: DropoffPoint[];
+  source_performance: SourcePerformance[];
+  cohort_retention: CohortRetention[];
+  insights: string[];
+}
+
+export interface FunnelStep {
+  step: string;
+  count: number;
+  percentage: number;
+}
+
+export interface MessageDistribution {
+  bucket: string;
+  count: number;
+  percentage: number;
+}
+
+export interface DropoffPoint {
+  description: string;
+  user_count: number;
+  example_users: string[];
+}
+
+export interface SourcePerformance {
+  source: string;
+  campaign?: string;
+  signups: number;
+  activation_rate: number;
+  engagement_rate: number;
+}
+
+export interface CohortRetention {
+  cohort_date: string;
+  cohort_size: number;
+  day_1: number;
+  day_7: number;
+  day_14: number;
+  day_30: number;
+}
+
+export interface MessagePriorityMetrics {
+  total_messages: number;
+  distribution: PriorityDistribution[];
+  generic_rate: number;
+  personal_rate: number;
+  daily_stats: DailyPriorityStats[];
+  insights: string[];
+}
+
+export interface PriorityDistribution {
+  priority: string;
+  count: number;
+  percentage: number;
+}
+
+export interface DailyPriorityStats {
+  date: string;
+  total: number;
+  priority_1: number;
+  priority_2: number;
+  priority_3: number;
+  priority_4: number;
+  priority_5: number;
+  generic_rate: number;
+}
+
+export interface ExtractionStatsResponse {
+  total_24h: number;
+  failed_24h: number;
+  failure_rate_24h: number;
+  total_7d: number;
+  failed_7d: number;
+  failure_rate_7d: number;
+  avg_duration_ms: number;
+  daily_stats: ExtractionDayStats[];
+  recent_failures: RecentFailure[];
+  insights: string[];
+}
+
+export interface ExtractionDayStats {
+  date: string;
+  total: number;
+  success: number;
+  failed: number;
+  failure_rate: number;
+  avg_duration_ms: number;
+  avg_items: number;
+}
+
+export interface RecentFailure {
+  created_at: string;
+  extraction_type: string;
+  error_message?: string;
+  duration_ms?: number;
+  user_display_name?: string;
+}
 
 export default api;

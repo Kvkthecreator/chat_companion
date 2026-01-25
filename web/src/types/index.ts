@@ -135,3 +135,24 @@ export interface TelegramDeepLink {
   deep_link_url: string;
   expires_in_minutes: number;
 }
+
+// Re-export admin types from API client
+export type {
+  AdminStatsResponse,
+  AdminSignupDay,
+  AdminUserEngagement,
+  AdminPurchase,
+  AdminGuestSession,
+  ActivationFunnelResponse,
+  FunnelStep,
+  MessageDistribution,
+  DropoffPoint,
+  SourcePerformance,
+  CohortRetention,
+  MessagePriorityMetrics,
+  PriorityDistribution,
+  DailyPriorityStats,
+  ExtractionStatsResponse,
+  ExtractionDayStats,
+  RecentFailure,
+} from "@/lib/api/client";

@@ -796,3 +796,172 @@ async def get_message_priority_metrics(
         daily_stats=daily_stats,
         insights=insights,
     )
+
+
+# =============================================================================
+# Extraction Observability (Memory/Thread Extraction Health)
+# =============================================================================
+
+
+class ExtractionDayStats(BaseModel):
+    date: str
+    total: int
+    success: int
+    failed: int
+    failure_rate: float
+    avg_duration_ms: float
+    avg_items: float
+
+
+class RecentFailure(BaseModel):
+    created_at: str
+    extraction_type: str
+    error_message: Optional[str]
+    duration_ms: Optional[int]
+    user_display_name: Optional[str]
+
+
+class ExtractionStatsResponse(BaseModel):
+    """Extraction observability metrics."""
+    total_24h: int
+    failed_24h: int
+    failure_rate_24h: float
+    total_7d: int
+    failed_7d: int
+    failure_rate_7d: float
+    avg_duration_ms: float
+    daily_stats: List[ExtractionDayStats]
+    recent_failures: List[RecentFailure]
+    insights: List[str]
+
+
+@router.get("/extraction-stats", response_model=ExtractionStatsResponse)
+async def get_extraction_stats(
+    request: Request,
+    user_id: UUID = Depends(get_current_user_id),
+    db=Depends(get_db),
+):
+    """Get extraction health metrics for observability dashboard.
+
+    Tracks success/failure rates of background memory and thread extraction.
+    High failure rates indicate issues with LLM extraction or data quality.
+    """
+    await verify_admin_access(request, user_id, db)
+
+    now = datetime.utcnow()
+    one_day_ago = now - timedelta(days=1)
+    seven_days_ago = now - timedelta(days=7)
+
+    # Overview stats
+    overview_query = """
+    SELECT
+        COUNT(*) FILTER (WHERE created_at > :one_day_ago) as total_24h,
+        COUNT(*) FILTER (WHERE created_at > :one_day_ago AND status = 'failed') as failed_24h,
+        COUNT(*) FILTER (WHERE created_at > :seven_days_ago) as total_7d,
+        COUNT(*) FILTER (WHERE created_at > :seven_days_ago AND status = 'failed') as failed_7d,
+        AVG(duration_ms) FILTER (WHERE created_at > :seven_days_ago) as avg_duration_ms
+    FROM extraction_logs
+    """
+    overview = await db.fetch_one(overview_query, {
+        "one_day_ago": one_day_ago,
+        "seven_days_ago": seven_days_ago,
+    })
+
+    total_24h = overview["total_24h"] or 0
+    failed_24h = overview["failed_24h"] or 0
+    total_7d = overview["total_7d"] or 0
+    failed_7d = overview["failed_7d"] or 0
+    avg_duration_ms = float(overview["avg_duration_ms"] or 0)
+
+    failure_rate_24h = round(failed_24h / total_24h * 100, 1) if total_24h > 0 else 0
+    failure_rate_7d = round(failed_7d / total_7d * 100, 1) if total_7d > 0 else 0
+
+    # Daily breakdown
+    daily_query = """
+    SELECT
+        DATE(created_at) as date,
+        COUNT(*) as total,
+        COUNT(*) FILTER (WHERE status = 'success') as success,
+        COUNT(*) FILTER (WHERE status = 'failed') as failed,
+        AVG(duration_ms) as avg_duration_ms,
+        AVG(items_extracted) FILTER (WHERE status = 'success') as avg_items
+    FROM extraction_logs
+    WHERE created_at > :seven_days_ago
+    GROUP BY DATE(created_at)
+    ORDER BY date DESC
+    """
+    daily_rows = await db.fetch_all(daily_query, {"seven_days_ago": seven_days_ago})
+    daily_stats = [
+        ExtractionDayStats(
+            date=str(row["date"]),
+            total=row["total"],
+            success=row["success"],
+            failed=row["failed"],
+            failure_rate=round(row["failed"] / row["total"] * 100, 1) if row["total"] > 0 else 0,
+            avg_duration_ms=round(float(row["avg_duration_ms"] or 0), 0),
+            avg_items=round(float(row["avg_items"] or 0), 1),
+        )
+        for row in daily_rows
+    ]
+
+    # Recent failures
+    failures_query = """
+    SELECT
+        el.created_at,
+        el.extraction_type,
+        el.error_message,
+        el.duration_ms,
+        u.display_name as user_display_name
+    FROM extraction_logs el
+    LEFT JOIN users u ON u.id = el.user_id
+    WHERE el.status = 'failed'
+    ORDER BY el.created_at DESC
+    LIMIT 20
+    """
+    failure_rows = await db.fetch_all(failures_query)
+    recent_failures = [
+        RecentFailure(
+            created_at=row["created_at"].isoformat() if row["created_at"] else "",
+            extraction_type=row["extraction_type"],
+            error_message=row["error_message"],
+            duration_ms=row["duration_ms"],
+            user_display_name=row["user_display_name"],
+        )
+        for row in failure_rows
+    ]
+
+    # Generate insights
+    insights = []
+
+    if total_7d == 0:
+        insights.append("📭 No extraction logs yet - extraction may not be running or table not migrated")
+    elif failure_rate_7d > 10:
+        insights.append(f"🚨 HIGH FAILURE RATE: {failure_rate_7d}% of extractions failing (7d)")
+        insights.append("→ Check recent failures for common error patterns")
+    elif failure_rate_7d > 5:
+        insights.append(f"⚠️ Elevated failure rate: {failure_rate_7d}% (7d) - monitor closely")
+    else:
+        insights.append(f"✅ Extraction healthy: {failure_rate_7d}% failure rate (7d)")
+
+    if avg_duration_ms > 5000:
+        insights.append(f"⚠️ Slow extractions: {avg_duration_ms:.0f}ms average - may indicate LLM latency issues")
+
+    # Check for recent spike
+    if len(daily_stats) >= 2:
+        today_rate = daily_stats[0].failure_rate if daily_stats else 0
+        yesterday_rate = daily_stats[1].failure_rate if len(daily_stats) > 1 else 0
+        if today_rate > yesterday_rate + 10:
+            insights.append(f"📈 Failure rate spiked: {yesterday_rate}% → {today_rate}% in last day")
+
+    return ExtractionStatsResponse(
+        total_24h=total_24h,
+        failed_24h=failed_24h,
+        failure_rate_24h=failure_rate_24h,
+        total_7d=total_7d,
+        failed_7d=failed_7d,
+        failure_rate_7d=failure_rate_7d,
+        avg_duration_ms=round(avg_duration_ms, 0),
+        daily_stats=daily_stats,
+        recent_failures=recent_failures,
+        insights=insights,
+    )
