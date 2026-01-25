@@ -4,6 +4,7 @@ Simple conversation management for the push-based AI companion.
 Handles message storage, context retrieval, and conversation flow.
 """
 
+import asyncio
 import json
 import logging
 from typing import AsyncIterator, Dict, List, Optional
@@ -70,23 +71,10 @@ class ConversationService:
             {"conversation_id": str(conversation_id)},
         )
 
-        # Extract context in background (don't block response)
-        try:
-            recent_messages = await self._get_recent_messages(conversation_id, limit=10)
-            context_items, mood = await self.context_service.extract_context(
-                user_id, conversation_id, recent_messages
-            )
-            if context_items:
-                await self.context_service.save_context(user_id, context_items)
-        except Exception as e:
-            log.warning(f"Context extraction failed: {e}")
-
-        # Extract threads for follow-ups and ongoing situation tracking
-        try:
-            thread_service = ThreadService(self.db)
-            await thread_service.extract_from_conversation(user_id, recent_messages)
-        except Exception as e:
-            log.warning(f"Thread extraction failed: {e}")
+        # Fire-and-forget: Extract context and threads in background
+        asyncio.create_task(
+            self._background_extraction(user_id, conversation_id)
+        )
 
         return {
             "id": str(assistant_message["id"]),
@@ -153,23 +141,45 @@ class ConversationService:
             "message_id": str(assistant_message["id"]),
         })
 
-        # Extract context in background
+        # Fire-and-forget: Extract context and threads in background
+        # This allows the SSE connection to close immediately after "done"
+        asyncio.create_task(
+            self._background_extraction(user_id, conversation_id)
+        )
+
+    async def _background_extraction(
+        self,
+        user_id: UUID,
+        conversation_id: UUID,
+    ) -> None:
+        """Extract context and threads in background (fire-and-forget).
+
+        This runs after the streaming response completes, decoupled from
+        the HTTP request lifecycle. Failures are logged but don't affect
+        the user experience.
+        """
         try:
             recent_messages = await self._get_recent_messages(conversation_id, limit=10)
-            context_items, mood = await self.context_service.extract_context(
-                user_id, conversation_id, recent_messages
-            )
-            if context_items:
-                await self.context_service.save_context(user_id, context_items)
-        except Exception as e:
-            log.warning(f"Context extraction failed: {e}")
 
-        # Extract threads for follow-ups and ongoing situation tracking
-        try:
-            thread_service = ThreadService(self.db)
-            await thread_service.extract_from_conversation(user_id, recent_messages)
+            # Extract context (memory)
+            try:
+                context_items, mood = await self.context_service.extract_context(
+                    user_id, conversation_id, recent_messages
+                )
+                if context_items:
+                    await self.context_service.save_context(user_id, context_items)
+            except Exception as e:
+                log.warning(f"Context extraction failed: {e}")
+
+            # Extract threads for follow-ups and ongoing situation tracking
+            try:
+                thread_service = ThreadService(self.db)
+                await thread_service.extract_from_conversation(user_id, recent_messages)
+            except Exception as e:
+                log.warning(f"Thread extraction failed: {e}")
+
         except Exception as e:
-            log.warning(f"Thread extraction failed: {e}")
+            log.error(f"Background extraction failed: {e}")
 
     async def get_or_create_conversation(
         self,
