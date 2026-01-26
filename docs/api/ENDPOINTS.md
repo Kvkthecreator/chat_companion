@@ -256,7 +256,92 @@ Update onboarding state.
 
 ### POST /onboarding/complete
 
-Mark onboarding as complete.
+Mark onboarding as complete (form path).
+
+### POST /onboarding/complete-v2
+
+Complete domain-first onboarding with typed threads and immediate acknowledgment.
+
+**Body**:
+```json
+{
+  "domain_selections": [
+    {
+      "template_key": "job_search",
+      "details": "I have an interview at Google on Friday",
+      "is_primary": true
+    },
+    {
+      "template_key": "new_city",
+      "details": "Just moved to Austin last month"
+    }
+  ],
+  "preferences": {
+    "display_name": "Alex",
+    "companion_name": "Aria",
+    "preferred_message_time": "09:00",
+    "timezone": "America/Chicago"
+  }
+}
+```
+
+**Response**:
+```json
+{
+  "success": true,
+  "acknowledgment_message": "Hey Alex! I hear you...",
+  "conversation_id": "uuid",
+  "threads_created": ["uuid1", "uuid2"]
+}
+```
+
+---
+
+## Templates
+
+### GET /templates
+
+List all active templates for onboarding selection.
+
+**Response**:
+```json
+[
+  {
+    "template_key": "job_search",
+    "display_name": "Looking for a job",
+    "domain": "career",
+    "icon": "💼",
+    "has_phases": true
+  }
+]
+```
+
+### GET /templates/{key}
+
+Get full template details.
+
+### POST /templates/classify
+
+Classify free-text situation into domain/template.
+
+**Body**:
+```json
+{
+  "text": "I just started a new job at a startup"
+}
+```
+
+**Response**:
+```json
+{
+  "template_key": "new_job",
+  "domain": "career",
+  "confidence": 0.92,
+  "summary": "Started new job at a startup",
+  "key_entities": ["startup"],
+  "phase_hint": "first_week"
+}
+```
 
 ---
 
