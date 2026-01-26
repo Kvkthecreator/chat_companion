@@ -11,6 +11,7 @@ from app.routes import (
     telegram,
     onboarding,
     templates,
+    artifacts,
 )
 
 __all__ = [
@@ -24,4 +25,5 @@ __all__ = [
     "telegram",
     "onboarding",
     "templates",
+    "artifacts",
 ]

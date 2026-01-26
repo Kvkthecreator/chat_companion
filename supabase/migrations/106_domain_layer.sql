@@ -260,7 +260,7 @@ INSERT INTO thread_templates (domain, template_key, display_name, trigger_phrase
  'months', 7, 17),
 
 ('personal', 'open', 'Something else',
- ARRAY[],
+ ARRAY[]::TEXT[],
  'Catch-all for situations that don''t match other templates',
  FALSE, NULL,
  '{"initial": "Tell me more about what''s going on.", "check_in": "How are things going?"}'::jsonb,

@@ -8,6 +8,7 @@ from app.services.context import ContextService
 from app.services.companion import CompanionService
 from app.services.telegram import TelegramService
 from app.services.scheduler import SchedulerService
+from app.services.artifacts import ArtifactService, ArtifactType, Artifact
 
 __all__ = [
     "LLMService",
@@ -19,4 +20,7 @@ __all__ = [
     "CompanionService",
     "TelegramService",
     "SchedulerService",
+    "ArtifactService",
+    "ArtifactType",
+    "Artifact",
 ]

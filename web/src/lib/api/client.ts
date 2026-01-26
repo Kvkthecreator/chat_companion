@@ -302,6 +302,67 @@ export interface FullMemory {
   patterns: PatternItem[];
 }
 
+// Artifact types
+export type ArtifactType = "thread_journey" | "domain_health" | "communication" | "relationship";
+
+export interface ArtifactSection {
+  type: string;
+  content: unknown;
+}
+
+export interface Artifact {
+  id?: string;
+  artifact_type: ArtifactType;
+  title: string;
+  sections: ArtifactSection[];
+  companion_voice?: string;
+  data_sources: string[];
+  is_meaningful: boolean;
+  min_data_reason?: string;
+  thread_id?: string;
+  domain?: string;
+  generated_at?: string;
+}
+
+export interface ArtifactListItem {
+  id: string;
+  artifact_type: ArtifactType;
+  title: string;
+  is_meaningful: boolean;
+  thread_id?: string;
+  domain?: string;
+  generated_at: string;
+}
+
+export interface ArtifactAvailability {
+  thread_journey: {
+    available: boolean;
+    threads?: Array<{
+      thread_id: string;
+      topic: string;
+      domain?: string;
+      days_active: number;
+    }>;
+  };
+  domain_health: {
+    available: boolean;
+    domains?: Array<{
+      domain: string;
+      thread_count: number;
+    }>;
+  };
+  communication: {
+    available: boolean;
+    message_count?: number;
+    conversation_count?: number;
+  };
+  relationship: {
+    available: boolean;
+    days_together?: number;
+    conversation_count?: number;
+  };
+}
+
 export const api = {
   // User endpoints
   users: {
@@ -369,6 +430,55 @@ export const api = {
         `/templates/${key}/follow-up?${params.toString()}`
       );
     },
+  },
+
+  // Artifact endpoints
+  artifacts: {
+    // Check which artifacts are available
+    checkAvailability: () => request<ArtifactAvailability>("/artifacts/available"),
+
+    // List all stored artifacts
+    list: (meaningfulOnly: boolean = true) => {
+      const params = new URLSearchParams();
+      params.set("meaningful_only", String(meaningfulOnly));
+      return request<ArtifactListItem[]>(`/artifacts?${params.toString()}`);
+    },
+
+    // Get Thread Journey artifact
+    getThreadJourney: (threadId: string, regenerate: boolean = false) => {
+      const params = regenerate ? "?regenerate=true" : "";
+      return request<Artifact>(`/artifacts/thread-journey/${threadId}${params}`);
+    },
+
+    // Get Domain Health artifact
+    getDomainHealth: (domain: string, regenerate: boolean = false) => {
+      const params = regenerate ? "?regenerate=true" : "";
+      return request<Artifact>(`/artifacts/domain-health/${domain}${params}`);
+    },
+
+    // Get Communication Profile artifact
+    getCommunicationProfile: (regenerate: boolean = false) => {
+      const params = regenerate ? "?regenerate=true" : "";
+      return request<Artifact>(`/artifacts/communication-profile${params}`);
+    },
+
+    // Get Relationship Summary artifact
+    getRelationshipSummary: (regenerate: boolean = false) => {
+      const params = regenerate ? "?regenerate=true" : "";
+      return request<Artifact>(`/artifacts/relationship-summary${params}`);
+    },
+
+    // Log a thread event (for timeline building)
+    logEvent: (data: {
+      thread_id: string;
+      event_type: string;
+      description: string;
+      event_date?: string;
+    }) =>
+      request<{ success: boolean; event_id: string; thread_id: string }>("/artifacts/events", {
+        method: "POST",
+        body: JSON.stringify(data),
+      }),
   },
 
   // Conversation endpoints
