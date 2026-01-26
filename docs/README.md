@@ -45,6 +45,11 @@ AI companion for people in transition — follows up on the things that matter.
 - [Pattern Detection](design/PATTERN_DETECTION_AND_MEMORY_TRANSPARENCY.md) - Behavioral patterns and transparency
 - [Notification Channel Philosophy](design/NOTIFICATION_CHANNEL_PHILOSOPHY.md) - Dedicated app model decision
 
+### Implementation Plans
+- [Domain Layer Implementation](implementation/DOMAIN_LAYER_IMPLEMENTATION.md) - **ACTIVE** - Thread templates, onboarding redesign, frontend surfacing
+- [Memory Features Plan](implementation/MEMORY_FEATURES_IMPLEMENTATION_PLAN.md) - Memory system enhancements
+- [Extraction Observability](implementation/EXTRACTION_OBSERVABILITY.md) - Background job monitoring
+
 ### Architecture Decisions
 - [ADR Index](adr/README.md) - Architecture Decision Records
 
