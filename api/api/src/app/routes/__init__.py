@@ -10,6 +10,7 @@ from app.routes import (
     webhooks,
     telegram,
     onboarding,
+    templates,
 )
 
 __all__ = [
@@ -22,4 +23,5 @@ __all__ = [
     "webhooks",
     "telegram",
     "onboarding",
+    "templates",
 ]

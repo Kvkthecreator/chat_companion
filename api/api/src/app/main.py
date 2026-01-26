@@ -29,6 +29,7 @@ from app.routes import (
     onboarding,
     devices,
     push,
+    templates,
 )
 
 log = logging.getLogger("uvicorn.error")
@@ -162,6 +163,7 @@ app.include_router(telegram.router, tags=["Telegram"])
 app.include_router(onboarding.router, tags=["Onboarding"])
 app.include_router(devices.router, tags=["Devices"])
 app.include_router(push.router, tags=["Push Notifications"])
+app.include_router(templates.router, tags=["Templates"])
 
 
 @app.get("/")
