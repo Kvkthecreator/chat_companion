@@ -3,10 +3,11 @@
 import { useState, useEffect, useRef } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
-import { api, User, Message } from "@/lib/api/client";
+import { api, User, Message, ThreadSummary } from "@/lib/api/client";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
+import { ThreadContextHeader } from "@/components/chat/ThreadContextHeader";
 
 export default function ChatPage() {
   const params = useParams();
@@ -14,6 +15,7 @@ export default function ChatPage() {
 
   const [user, setUser] = useState<User | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
+  const [threads, setThreads] = useState<ThreadSummary[]>([]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [isSending, setIsSending] = useState(false);
@@ -21,15 +23,18 @@ export default function ChatPage() {
   const [error, setError] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // Load user and conversation messages
+  // Load user, threads, and conversation messages
   useEffect(() => {
     const init = async () => {
       try {
-        const userData = await api.users.me();
-        setUser(userData);
+        const [userData, memoryData, msgs] = await Promise.all([
+          api.users.me(),
+          api.memory.getSummary(),
+          api.conversations.getMessages(conversationId, { limit: 50 }),
+        ]);
 
-        // Load messages for this specific conversation
-        const msgs = await api.conversations.getMessages(conversationId, { limit: 50 });
+        setUser(userData);
+        setThreads(memoryData.active_threads || []);
         setMessages(msgs.reverse()); // API returns newest first
       } catch (err) {
         console.error("Failed to load conversation:", err);
@@ -156,6 +161,18 @@ export default function ChatPage() {
           </Button>
         </Link>
       </div>
+
+      {/* Thread Context Header */}
+      {threads.length > 0 && (
+        <ThreadContextHeader
+          threads={threads}
+          maxVisible={3}
+          onThreadClick={(threadId) => {
+            // Could navigate to memory page or show thread details
+            console.log("Thread clicked:", threadId);
+          }}
+        />
+      )}
 
       {/* Messages */}
       <div className="flex-1 overflow-y-auto p-6">

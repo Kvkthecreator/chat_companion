@@ -196,9 +196,71 @@ export interface ThreadSummary {
   topic: string;
   summary: string;
   status: string;
+  domain?: string;
+  phase?: string;
+  priority_weight?: number;
   follow_up_date?: string;
   key_details: string[];
   updated_at?: string;
+}
+
+// Template types for domain layer
+export interface TemplateListItem {
+  template_key: string;
+  display_name: string;
+  domain: string;
+  icon: string;
+  has_phases: boolean;
+}
+
+export interface TemplateDetail {
+  id: string;
+  template_key: string;
+  display_name: string;
+  domain: string;
+  description?: string;
+  trigger_phrases: string[];
+  has_phases: boolean;
+  phases?: string[];
+  follow_up_prompts: {
+    initial: string;
+    check_in: string;
+    phase_specific?: Record<string, string>;
+  };
+  typical_duration?: string;
+  default_follow_up_days: number;
+}
+
+export interface ClassifyResponse {
+  template_key?: string;
+  domain: string;
+  confidence: number;
+  summary: string;
+  key_entities: string[];
+  phase_hint?: string;
+}
+
+export interface DomainSelection {
+  template_key: string;
+  details: string;
+  is_primary?: boolean;
+}
+
+export interface OnboardingV2Request {
+  domain_selections: DomainSelection[];
+  preferences: {
+    display_name: string;
+    companion_name?: string;
+    preferred_message_time?: string;
+    timezone?: string;
+  };
+}
+
+export interface OnboardingV2Response {
+  success: boolean;
+  acknowledgment_message: string;
+  conversation_id: string;
+  threads_created: string[];
 }
 
 export interface FollowUpSummary {
@@ -281,6 +343,31 @@ export const api = {
         request<ChatOnboardingState>("/onboarding/chat/reset", {
           method: "POST",
         }),
+    },
+    // Domain-first onboarding v2
+    completeV2: (data: OnboardingV2Request) =>
+      request<OnboardingV2Response>("/onboarding/complete-v2", {
+        method: "POST",
+        body: JSON.stringify(data),
+      }),
+  },
+
+  // Template endpoints for domain layer
+  templates: {
+    list: () => request<TemplateListItem[]>("/templates"),
+    get: (key: string) => request<TemplateDetail>(`/templates/${key}`),
+    classify: (text: string) =>
+      request<ClassifyResponse>("/templates/classify", {
+        method: "POST",
+        body: JSON.stringify({ text }),
+      }),
+    getFollowUpPrompt: (key: string, phase?: string, promptType: string = "check_in") => {
+      const params = new URLSearchParams();
+      if (phase) params.set("phase", phase);
+      params.set("prompt_type", promptType);
+      return request<{ prompt: string; template_key: string; phase?: string }>(
+        `/templates/${key}/follow-up?${params.toString()}`
+      );
     },
   },
 
