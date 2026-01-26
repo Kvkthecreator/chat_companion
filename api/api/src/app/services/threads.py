@@ -64,6 +64,8 @@ class MessageContext:
     topic_key: Optional[str] = None     # Key for deduplication
     user_responded_since_last: bool = True  # Did user respond to last outreach?
     force_presence: bool = False        # Force PRESENCE type for variety
+    # Domain-specific follow-up prompt (from thread template)
+    domain_follow_up_prompt: Optional[str] = None
 
     @property
     def is_generic_fallback(self) -> bool:
@@ -294,16 +296,26 @@ class ThreadService:
         user_id: UUID,
         limit: int = 5,
     ) -> List[Dict]:
-        """Get active threads for a user."""
+        """Get active threads for a user.
+
+        Returns thread data including domain layer fields:
+        - domain: The life domain (career, location, etc.)
+        - template_id: Reference to thread_templates
+        - phase: Current phase within the template
+        - priority_weight: How important this thread is (1.5 = primary)
+        """
         rows = await self.db.fetch_all(
             """
-            SELECT id, key as topic, value, updated_at, expires_at
+            SELECT id, key as topic, value, updated_at, expires_at,
+                   domain, template_id, phase, priority_weight
             FROM user_context
             WHERE user_id = :user_id
                 AND category = 'thread'
                 AND tier = 'thread'
                 AND (expires_at IS NULL OR expires_at > NOW())
-            ORDER BY updated_at DESC
+            ORDER BY
+                COALESCE(priority_weight, 1.0) DESC,
+                updated_at DESC
             LIMIT :limit
             """,
             {"user_id": str(user_id), "limit": limit},
@@ -321,11 +333,61 @@ class ThreadService:
                     "follow_up_date": data.get("follow_up_date"),
                     "key_details": data.get("key_details", []),
                     "updated_at": row["updated_at"],
+                    # Domain layer fields
+                    "domain": row["domain"],
+                    "template_id": row["template_id"],
+                    "phase": row["phase"],
+                    "priority_weight": float(row["priority_weight"]) if row["priority_weight"] else 1.0,
                 })
             except:
                 continue
 
         return threads
+
+    async def get_template_follow_up_prompt(
+        self,
+        template_id: UUID,
+        phase: Optional[str] = None,
+    ) -> Optional[str]:
+        """Get the follow-up prompt for a thread's template.
+
+        Uses phase-specific prompt if available, otherwise the general check_in prompt.
+
+        Args:
+            template_id: The thread's template UUID
+            phase: Current phase (if applicable)
+
+        Returns:
+            The follow-up prompt string, or None if no template found
+        """
+        if not template_id:
+            return None
+
+        row = await self.db.fetch_one(
+            "SELECT follow_up_prompts, phases FROM thread_templates WHERE id = :id",
+            {"id": str(template_id)},
+        )
+
+        if not row:
+            return None
+
+        try:
+            prompts_data = row["follow_up_prompts"]
+            if isinstance(prompts_data, str):
+                prompts_data = json.loads(prompts_data)
+
+            # Check for phase-specific prompt first
+            if phase and prompts_data.get("phase_specific"):
+                phase_prompts = prompts_data["phase_specific"]
+                if phase in phase_prompts:
+                    return phase_prompts[phase]
+
+            # Fall back to general check_in prompt
+            return prompts_data.get("check_in", prompts_data.get("initial"))
+
+        except Exception as e:
+            log.warning(f"Failed to get template follow-up prompt: {e}")
+            return None
 
     async def get_threads_needing_followup(
         self,
@@ -671,6 +733,9 @@ class ThreadService:
             log.info(f"Randomly choosing PRESENCE for variety (user {user_id})")
             force_presence = True
 
+        # Track domain-specific prompt for thread-based messages
+        domain_follow_up_prompt: Optional[str] = None
+
         if force_presence:
             priority = MessagePriority.PRESENCE
         elif follow_ups:
@@ -679,9 +744,23 @@ class ThreadService:
         elif threads_needing_followup:
             priority = MessagePriority.THREAD
             topic_key = f"thread_{threads_needing_followup[0].get('id', '')}"
+            # Get domain-specific prompt if thread has a template
+            selected_thread = threads_needing_followup[0]
+            if selected_thread.get("template_id"):
+                domain_follow_up_prompt = await self.get_template_follow_up_prompt(
+                    UUID(str(selected_thread["template_id"])),
+                    selected_thread.get("phase"),
+                )
         elif threads:
             priority = MessagePriority.THREAD
             topic_key = f"thread_{threads[0].get('id', '')}"
+            # Get domain-specific prompt if thread has a template
+            selected_thread = threads[0]
+            if selected_thread.get("template_id"):
+                domain_follow_up_prompt = await self.get_template_follow_up_prompt(
+                    UUID(str(selected_thread["template_id"])),
+                    selected_thread.get("phase"),
+                )
         elif patterns:
             priority = MessagePriority.PATTERN
         elif core_facts:
@@ -699,6 +778,7 @@ class ThreadService:
             topic_key=topic_key,
             user_responded_since_last=user_responded,
             force_presence=force_presence,
+            domain_follow_up_prompt=domain_follow_up_prompt,
         )
 
     async def _get_recently_used_topics(

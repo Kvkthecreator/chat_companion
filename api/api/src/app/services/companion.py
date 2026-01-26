@@ -328,7 +328,22 @@ Example: "Hey! How did that interview go yesterday?"
                 f"- {t['topic']}: {t['summary']} (details: {', '.join(t.get('key_details', [])[:2])})"
                 for t in threads
             )
-            priority_instruction = f"""PRIORITY: Reference an ongoing situation in their life.
+
+            # Check for domain-specific follow-up prompt
+            domain_prompt = getattr(message_context, 'domain_follow_up_prompt', None)
+            if domain_prompt:
+                priority_instruction = f"""PRIORITY: Reference an ongoing situation in their life.
+
+Active threads:
+{thread_text}
+
+Use this domain-specific question as inspiration (adapt naturally to their details):
+"{domain_prompt}"
+
+Your message should feel natural and caring, not template-y.
+"""
+            else:
+                priority_instruction = f"""PRIORITY: Reference an ongoing situation in their life.
 
 Active threads to potentially reference:
 {thread_text}
