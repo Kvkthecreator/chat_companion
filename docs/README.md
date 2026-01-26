@@ -1,12 +1,20 @@
 # Chat Companion Documentation
 
-Push-based AI companion that reaches out daily via Telegram, WhatsApp, or Web.
+AI companion for people in transition — follows up on the things that matter.
 
 ## Documentation Index
+
+### Strategic Analysis
+- [Domain Layer Architecture](analysis/DOMAIN_LAYER_ARCHITECTURE.md) - **START HERE** - Infrastructure vs. consumer gap analysis
+- [First Principles Framework](analysis/FIRST_PRINCIPLES_FRAMEWORK.md) - Axiomatic foundation
+- [Product Wedge Analysis](analysis/PRODUCT_WEDGE_ANALYSIS.md) - Positioning exploration log
+- [Founder Journey Synthesis](analysis/FOUNDER_JOURNEY_SYNTHESIS.md) - Product evolution history
+- [Daisy Strategic Brief](analysis/DAISY_STRATEGIC_BRIEF_ANALYSIS.md) - Cross-analysis with strategic brief
 
 ### Development
 - [Local Setup](development/SETUP.md) - Getting started with local development
 - [Architecture](development/ARCHITECTURE.md) - System design and data flow
+- [Frontend Assessment](development/FRONTEND_ARCHITECTURE_ASSESSMENT.md) - Frontend alignment with product vision
 
 ### API
 - [Endpoints](api/ENDPOINTS.md) - Complete API reference
@@ -30,13 +38,19 @@ Push-based AI companion that reaches out daily via Telegram, WhatsApp, or Web.
 - [Personalization](features/PERSONALIZATION.md) - User preferences and adaptation
 - [Scheduler](features/SCHEDULER.md) - Daily message scheduling
 - [Telegram Integration](features/TELEGRAM.md) - Bot setup and webhook
+- [Internationalization](features/INTERNATIONALIZATION.md) - Multi-language support (parked)
 
 ### Design
 - [Companion Outreach System](design/COMPANION_OUTREACH_SYSTEM.md) - Multi-trigger messaging architecture
 - [Pattern Detection](design/PATTERN_DETECTION_AND_MEMORY_TRANSPARENCY.md) - Behavioral patterns and transparency
+- [Notification Channel Philosophy](design/NOTIFICATION_CHANNEL_PHILOSOPHY.md) - Dedicated app model decision
 
 ### Architecture Decisions
 - [ADR Index](adr/README.md) - Architecture Decision Records
+
+### Archive
+- [Channel Simplification](archive/CHANNEL_SIMPLIFICATION_IMPLEMENTATION.md) - Implemented
+- [Product Vision Gap Analysis](archive/PRODUCT_VISION_GAP_ANALYSIS.md) - Gap was fixed
 
 ---
 

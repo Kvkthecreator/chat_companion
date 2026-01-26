@@ -1,10 +1,10 @@
 # Product Wedge Exploration
 
-> Working log of positioning exploration. No conclusions reached.
+> Working log of positioning exploration. Hypothesis formed, not yet validated.
 
 **Created:** 2026-01-23
 **Updated:** 2026-01-26
-**Status:** EXPLORATION IN PROGRESS — Nothing validated
+**Status:** HYPOTHESIS FORMED — See [DOMAIN_LAYER_ARCHITECTURE.md](./DOMAIN_LAYER_ARCHITECTURE.md)
 
 ---
 
@@ -179,14 +179,61 @@ Neither the wedge frameworks nor the alternative paths produced a clear answer. 
 - Removed false confidence from framing
 - See [CURRENT_STATE.md](../CURRENT_STATE.md) for what's actually true
 
+**2026-01-26 (breakthrough session):**
+- Identified that current product is **infrastructure wrapped in generic consumer shell**
+- The surface layer doesn't expose differentiation
+- Proposed **domain layer** between infrastructure and surface
+- Recommended **"people in transition"** as thread-first ICP
+- High-power threads cluster around life transitions (job changes, moves, launches, breakups)
+- New positioning: "Going through something? This AI actually follows up."
+- See [DOMAIN_LAYER_ARCHITECTURE.md](./DOMAIN_LAYER_ARCHITECTURE.md) for full analysis
+
 ---
 
-## Open Questions (Unanswered)
+## Open Questions (Partially Answered)
 
 1. Does anyone want this product?
-2. Is "thread follow-up" the differentiator, or just a feature?
-3. Who specifically would pay, and why?
-4. What makes someone come back after Day 3?
-5. What do users actually say when they describe this to others?
+   → **Still unknown** — requires user validation
 
-These can only be answered with users.
+2. Is "thread follow-up" the differentiator, or just a feature?
+   → **Hypothesis**: It's the differentiator, but only for the right threads. Generic follow-up ≠ valuable follow-up. See domain layer analysis.
+
+3. Who specifically would pay, and why?
+   → **Hypothesis**: People in transition (new job, new city, launching something, breakup). High-stakes, uncertain, emotionally weighted threads make follow-up feel meaningful.
+
+4. What makes someone come back after Day 3?
+   → **Hypothesis**: The Day 3+ follow-up experience. "It asked how my interview went." This is the aha moment.
+
+5. What do users actually say when they describe this to others?
+   → **Still unknown** — key validation question
+
+---
+
+## Current Hypothesis (Jan 26)
+
+### The Wedge
+> "Going through something? New job, new city, big change? This is the AI that actually follows up. You tell it once. It checks back in."
+
+### The ICP
+People in transition — not a demographic, but a life state.
+
+### The Differentiator
+Transition-aware follow-through. Not memory (ChatGPT has that). Not proactive messaging (Replika does that). The specific behavior of following up on high-stakes, uncertain situations.
+
+### What Needs to Happen
+1. Update onboarding to be transition-focused
+2. Add thread classification to extraction
+3. Update landing page copy
+4. Find 10 people in transition and validate
+
+See [DOMAIN_LAYER_ARCHITECTURE.md](./DOMAIN_LAYER_ARCHITECTURE.md) for implementation details.
+
+---
+
+## Remaining Questions (For User Validation)
+
+These can only be answered with users:
+1. Does "transition-focused" resonate, or is it too narrow?
+2. How do users describe the follow-up experience?
+3. What threads do they actually care about most?
+4. Does the Day 3+ aha moment happen as predicted?
