@@ -1,17 +1,25 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useEffect, useRef, useMemo } from "react";
 import Link from "next/link";
-import { api, User, Message } from "@/lib/api/client";
+import { api, User, UnifiedHistoryMessage } from "@/lib/api/client";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
+import { format, isToday, isYesterday, differenceInHours, parseISO } from "date-fns";
+
+// Gap threshold in hours - show divider if messages are more than 4 hours apart
+const GAP_THRESHOLD_HOURS = 4;
+
+interface MessageWithDivider extends UnifiedHistoryMessage {
+  showDateDivider?: boolean;
+  showTimeDivider?: boolean;
+  dividerText?: string;
+}
 
 export default function ChatPage() {
-  const router = useRouter();
   const [user, setUser] = useState<User | null>(null);
-  const [messages, setMessages] = useState<Message[]>([]);
+  const [messages, setMessages] = useState<UnifiedHistoryMessage[]>([]);
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(true);
@@ -19,29 +27,21 @@ export default function ChatPage() {
   const [streamingContent, setStreamingContent] = useState("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // Load user and start/resume conversation
+  // Load user and unified history
   useEffect(() => {
     const init = async () => {
       try {
         const userData = await api.users.me();
         setUser(userData);
 
-        // Try to get recent conversations
-        const conversations = await api.conversations.list({ limit: 1 });
+        // Load unified history (7 days, max 50 messages)
+        const history = await api.conversations.getUnifiedHistory({
+          days: 7,
+          max_messages: 50,
+        });
 
-        if (conversations.length > 0) {
-          // Resume most recent conversation
-          const conv = conversations[0];
-          setConversationId(conv.id);
-
-          // Load messages
-          const msgs = await api.conversations.getMessages(conv.id, { limit: 50 });
-          setMessages(msgs.reverse()); // API returns newest first
-        } else {
-          // Create new conversation
-          const newConv = await api.conversations.create("web");
-          setConversationId(newConv.id);
-        }
+        setMessages(history.messages);
+        setConversationId(history.current_conversation_id);
       } catch (err) {
         console.error("Failed to init chat:", err);
       }
@@ -50,6 +50,40 @@ export default function ChatPage() {
 
     init();
   }, []);
+
+  // Process messages to add dividers
+  const messagesWithDividers = useMemo((): MessageWithDivider[] => {
+    if (messages.length === 0) return [];
+
+    const result: MessageWithDivider[] = [];
+    let lastDate: Date | null = null;
+    let lastMessageTime: Date | null = null;
+
+    for (let i = 0; i < messages.length; i++) {
+      const message = messages[i];
+      const messageTime = parseISO(message.created_at);
+      const messageDate = new Date(messageTime.getFullYear(), messageTime.getMonth(), messageTime.getDate());
+
+      const enrichedMessage: MessageWithDivider = { ...message };
+
+      // Check if we need a date divider (different day)
+      if (!lastDate || messageDate.getTime() !== lastDate.getTime()) {
+        enrichedMessage.showDateDivider = true;
+        enrichedMessage.dividerText = formatDateDivider(messageTime);
+        lastDate = messageDate;
+      }
+      // Check if we need a time gap divider (same day, >4 hours apart)
+      else if (lastMessageTime && differenceInHours(messageTime, lastMessageTime) >= GAP_THRESHOLD_HOURS) {
+        enrichedMessage.showTimeDivider = true;
+        enrichedMessage.dividerText = format(messageTime, "h:mm a");
+      }
+
+      result.push(enrichedMessage);
+      lastMessageTime = messageTime;
+    }
+
+    return result;
+  }, [messages]);
 
   // Scroll to bottom on new messages
   useEffect(() => {
@@ -64,12 +98,11 @@ export default function ChatPage() {
     setIsSending(true);
 
     // Add user message optimistically
-    const tempUserMsg: Message = {
+    const tempUserMsg: UnifiedHistoryMessage = {
       id: `temp-${Date.now()}`,
       conversation_id: conversationId,
       role: "user",
       content,
-      metadata: {},
       created_at: new Date().toISOString(),
     };
     setMessages((prev) => [...prev, tempUserMsg]);
@@ -89,12 +122,11 @@ export default function ChatPage() {
       }
 
       // Add assistant message
-      const assistantMsg: Message = {
+      const assistantMsg: UnifiedHistoryMessage = {
         id: `assistant-${Date.now()}`,
         conversation_id: conversationId,
         role: "assistant",
         content: fullContent,
-        metadata: {},
         created_at: new Date().toISOString(),
       };
       setMessages((prev) => [...prev, assistantMsg]);
@@ -157,7 +189,7 @@ export default function ChatPage() {
       {/* Messages */}
       <div className="flex-1 overflow-y-auto p-6">
         <div className="mx-auto max-w-2xl space-y-4">
-          {messages.length === 0 && !streamingContent && (
+          {messagesWithDividers.length === 0 && !streamingContent && (
             <div className="py-12 text-center">
               <div className="text-4xl">💬</div>
               <p className="mt-4 text-lg font-medium">
@@ -169,13 +201,27 @@ export default function ChatPage() {
             </div>
           )}
 
-          {messages.map((message) => (
-            <MessageBubble
-              key={message.id}
-              role={message.role}
-              content={message.content}
-              timestamp={message.created_at}
-            />
+          {messagesWithDividers.map((message) => (
+            <div key={message.id}>
+              {/* Date/Time Divider */}
+              {(message.showDateDivider || message.showTimeDivider) && (
+                <div className="flex items-center justify-center py-4">
+                  <div className="flex items-center gap-3">
+                    <div className="h-px w-12 bg-border" />
+                    <span className="text-xs font-medium text-muted-foreground">
+                      {message.dividerText}
+                    </span>
+                    <div className="h-px w-12 bg-border" />
+                  </div>
+                </div>
+              )}
+
+              <MessageBubble
+                role={message.role}
+                content={message.content}
+                timestamp={message.created_at}
+              />
+            </div>
           ))}
 
           {streamingContent && (
@@ -263,6 +309,17 @@ function formatTime(dateString: string): string {
     minute: "2-digit",
     hour12: true,
   });
+}
+
+function formatDateDivider(date: Date): string {
+  if (isToday(date)) {
+    return "Today";
+  }
+  if (isYesterday(date)) {
+    return "Yesterday";
+  }
+  // For older dates, show "Monday, Jan 15"
+  return format(date, "EEEE, MMM d");
 }
 
 function BackIcon({ className }: { className?: string }) {

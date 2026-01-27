@@ -504,3 +504,84 @@ You're not a therapist or life coach - you're a caring friend who checks in regu
             "limit": limit,
         })
         return [dict(row) for row in reversed(rows)]
+
+    async def get_unified_history(
+        self,
+        user_id: UUID,
+        days: int = 7,
+        max_messages: int = 50,
+    ) -> Dict:
+        """Get message history across multiple conversations.
+
+        Returns messages from the last N days, up to max_messages,
+        along with metadata for rendering date dividers.
+
+        Args:
+            user_id: User UUID
+            days: Number of days of history to include (default 7)
+            max_messages: Maximum messages to return (default 50)
+
+        Returns:
+            Dict with messages list and metadata for rendering
+        """
+        query = """
+            SELECT
+                m.id,
+                m.role,
+                m.content,
+                m.created_at,
+                m.conversation_id,
+                c.started_at as conversation_started_at
+            FROM messages m
+            JOIN conversations c ON m.conversation_id = c.id
+            WHERE c.user_id = :user_id
+            AND m.created_at > NOW() - INTERVAL ':days days'
+            ORDER BY m.created_at DESC
+            LIMIT :max_messages
+        """
+        # Note: We can't use parameter substitution for INTERVAL in most drivers
+        # So we'll construct it differently
+        query = f"""
+            SELECT
+                m.id,
+                m.role,
+                m.content,
+                m.created_at,
+                m.conversation_id,
+                c.started_at as conversation_started_at
+            FROM messages m
+            JOIN conversations c ON m.conversation_id = c.id
+            WHERE c.user_id = :user_id
+            AND m.created_at > NOW() - INTERVAL '{days} days'
+            ORDER BY m.created_at DESC
+            LIMIT :max_messages
+        """
+        rows = await self.db.fetch_all(query, {
+            "user_id": str(user_id),
+            "max_messages": max_messages,
+        })
+
+        # Reverse to get chronological order
+        messages = []
+        for row in reversed(rows):
+            messages.append({
+                "id": str(row["id"]),
+                "role": row["role"],
+                "content": row["content"],
+                "created_at": row["created_at"].isoformat(),
+                "conversation_id": str(row["conversation_id"]),
+            })
+
+        # Get today's conversation ID for context
+        today_conversation = await self.get_or_create_conversation(
+            user_id=user_id,
+            channel="web",
+            initiated_by="user",
+        )
+
+        return {
+            "messages": messages,
+            "current_conversation_id": str(today_conversation["id"]),
+            "days_included": days,
+            "total_messages": len(messages),
+        }

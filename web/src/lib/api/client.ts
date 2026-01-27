@@ -158,6 +158,21 @@ export interface Message {
   created_at: string;
 }
 
+export interface UnifiedHistoryMessage {
+  id: string;
+  role: "user" | "assistant";
+  content: string;
+  created_at: string;
+  conversation_id: string;
+}
+
+export interface UnifiedHistory {
+  messages: UnifiedHistoryMessage[];
+  current_conversation_id: string;
+  days_included: number;
+  total_messages: number;
+}
+
 export interface UserContext {
   id: string;
   user_id: string;
@@ -498,6 +513,16 @@ export const api = {
         method: "POST",
         body: JSON.stringify({ channel }),
       }),
+    // Get unified history across multiple conversations (for continuous chat UX)
+    getUnifiedHistory: (params?: { days?: number; max_messages?: number }) => {
+      const searchParams = new URLSearchParams();
+      if (params?.days) searchParams.set("days", String(params.days));
+      if (params?.max_messages) searchParams.set("max_messages", String(params.max_messages));
+      const query = searchParams.toString();
+      return request<UnifiedHistory>(
+        `/conversations/history${query ? `?${query}` : ""}`
+      );
+    },
     getMessages: (id: string, params?: { limit?: number; before_id?: string }) => {
       const searchParams = new URLSearchParams();
       if (params?.limit) searchParams.set("limit", String(params.limit));

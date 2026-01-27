@@ -267,6 +267,60 @@ async def get_current_conversation(
     )
 
 
+class UnifiedHistoryMessage(BaseModel):
+    """A message in unified history."""
+    id: str
+    role: str
+    content: str
+    created_at: str
+    conversation_id: str
+
+
+class UnifiedHistoryResponse(BaseModel):
+    """Response for unified chat history."""
+    messages: list[UnifiedHistoryMessage]
+    current_conversation_id: str
+    days_included: int
+    total_messages: int
+
+
+@router.get("/history", response_model=UnifiedHistoryResponse)
+async def get_unified_history(
+    days: int = 7,
+    max_messages: int = 50,
+    user_id: UUID = Depends(get_current_user_id),
+    db=Depends(get_db),
+):
+    """Get unified chat history across multiple conversations.
+
+    Returns messages from the last N days as a continuous stream,
+    suitable for rendering as a single chat thread with date dividers.
+
+    Query params:
+        days: Number of days of history (default 7, max 30)
+        max_messages: Maximum messages to return (default 50, max 100)
+    """
+    from app.services.conversation import ConversationService
+
+    # Clamp values to reasonable limits
+    days = min(max(days, 1), 30)
+    max_messages = min(max(max_messages, 1), 100)
+
+    service = ConversationService(db)
+    result = await service.get_unified_history(
+        user_id=user_id,
+        days=days,
+        max_messages=max_messages,
+    )
+
+    return UnifiedHistoryResponse(
+        messages=[UnifiedHistoryMessage(**m) for m in result["messages"]],
+        current_conversation_id=result["current_conversation_id"],
+        days_included=result["days_included"],
+        total_messages=result["total_messages"],
+    )
+
+
 @router.get("/{conversation_id}/messages")
 async def get_conversation_messages(
     conversation_id: UUID,
