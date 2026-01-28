@@ -13,23 +13,17 @@ ALTER TABLE messages ADD COLUMN IF NOT EXISTS conversation_id UUID REFERENCES co
 CREATE INDEX IF NOT EXISTS idx_messages_conversation ON messages(conversation_id, created_at)
 WHERE conversation_id IS NOT NULL;
 
--- Update trigger to handle both episode and conversation message counts
+-- Update trigger to handle conversation message counts
+-- Note: episode_id column doesn't exist in production schema, so we only handle conversation_id
 CREATE OR REPLACE FUNCTION update_message_counts()
 RETURNS TRIGGER AS $$
 BEGIN
     IF TG_OP = 'INSERT' THEN
-        -- Update episode count if episode_id exists
-        IF NEW.episode_id IS NOT NULL THEN
-            UPDATE episodes SET message_count = message_count + 1 WHERE id = NEW.episode_id;
-        END IF;
         -- Update conversation count if conversation_id exists
         IF NEW.conversation_id IS NOT NULL THEN
             UPDATE conversations SET message_count = message_count + 1 WHERE id = NEW.conversation_id;
         END IF;
     ELSIF TG_OP = 'DELETE' THEN
-        IF OLD.episode_id IS NOT NULL THEN
-            UPDATE episodes SET message_count = message_count - 1 WHERE id = OLD.episode_id;
-        END IF;
         IF OLD.conversation_id IS NOT NULL THEN
             UPDATE conversations SET message_count = message_count - 1 WHERE id = OLD.conversation_id;
         END IF;
