@@ -40,10 +40,13 @@ export default function ChatPage() {
           max_messages: 50,
         });
 
-        setMessages(history.messages);
-        setConversationId(history.current_conversation_id);
+        // Defensive: ensure messages is always an array
+        setMessages(history?.messages || []);
+        setConversationId(history?.current_conversation_id || null);
       } catch (err) {
         console.error("Failed to init chat:", err);
+        // Ensure we have empty state on error
+        setMessages([]);
       }
       setIsLoading(false);
     };
