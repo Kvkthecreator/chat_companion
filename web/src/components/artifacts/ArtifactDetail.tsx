@@ -191,12 +191,12 @@ export function ArtifactDetail({
       </Card>
 
       {/* Sections */}
-      {artifact.sections.map((section, index) => (
+      {artifact.sections?.map((section, index) => (
         <SectionRenderer key={index} section={section} />
       ))}
 
       {/* Data Sources Footer */}
-      {artifact.data_sources.length > 0 && (
+      {artifact.data_sources && artifact.data_sources.length > 0 && (
         <div className="text-xs text-muted-foreground pt-4 border-t">
           <span className="font-medium">Sources: </span>
           {artifact.data_sources.join(", ")}

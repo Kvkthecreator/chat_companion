@@ -872,12 +872,22 @@ class ArtifactService:
         """Generate companion-voiced text using LLM."""
         try:
             prompt = prompt_template.format(**kwargs)
+            messages = [
+                {
+                    "role": "system",
+                    "content": "You are a warm, supportive companion reflecting on someone you care about. Be genuine and personal, not analytical.",
+                },
+                {
+                    "role": "user",
+                    "content": prompt,
+                },
+            ]
             response = await self.llm.generate(
-                prompt=prompt,
-                system_prompt="You are a warm, supportive companion reflecting on someone you care about. Be genuine and personal, not analytical.",
+                messages=messages,
                 max_tokens=300,
             )
-            return response.strip().strip('"')
+            # response is LLMResponse with .content attribute
+            return response.content.strip().strip('"')
         except Exception as e:
             log.warning(f"Failed to generate companion voice: {e}")
             return ""
