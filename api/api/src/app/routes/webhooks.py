@@ -18,6 +18,7 @@ router = APIRouter(prefix="/webhooks", tags=["Webhooks"])
 # Webhook secrets
 SUPABASE_WEBHOOK_SECRET = os.getenv("SUPABASE_WEBHOOK_SECRET")
 SLACK_WEBHOOK_URL = os.getenv("SLACK_SIGNUP_WEBHOOK_URL")
+PLATFORM_NAME = os.getenv("PLATFORM_NAME", "fantazy")
 
 
 def verify_supabase_webhook(payload: bytes, signature: str) -> bool:
@@ -123,7 +124,7 @@ async def handle_user_signup_webhook(request: Request):
             "type": "header",
             "text": {
                 "type": "plain_text",
-                "text": "New User Signup!",
+                "text": f"🎉 New User Signup on {PLATFORM_NAME}!",
                 "emoji": True,
             }
         },
@@ -132,15 +133,15 @@ async def handle_user_signup_webhook(request: Request):
             "fields": [
                 {
                     "type": "mrkdwn",
+                    "text": f"*Platform:*\n{PLATFORM_NAME}"
+                },
+                {
+                    "type": "mrkdwn",
                     "text": f"*Email:*\n{email}"
                 },
                 {
                     "type": "mrkdwn",
                     "text": f"*Provider:*\n{provider.title()}"
-                },
-                {
-                    "type": "mrkdwn",
-                    "text": f"*User ID:*\n`{user_id[:8]}...`"
                 },
                 {
                     "type": "mrkdwn",
@@ -153,14 +154,14 @@ async def handle_user_signup_webhook(request: Request):
             "elements": [
                 {
                     "type": "mrkdwn",
-                    "text": "Fantazy - New user notification"
+                    "text": f"{PLATFORM_NAME} • User ID: `{user_id[:8]}...`"
                 }
             ]
         }
     ]
 
     await send_slack_notification(
-        f"New user signup: {email} via {provider}",
+        f"[{PLATFORM_NAME}] New user signup: {email} via {provider}",
         blocks=blocks,
     )
 
